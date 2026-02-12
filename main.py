@@ -2,8 +2,7 @@ import time
 import logging
 
 from website_crawler.crawl4ai_crawler import WebsiteCrawler
-from webpage_cleaner import WebpageCleaner
-
+from webpage_content_extracter.webpage_cleaner import WebpageCleaner
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")

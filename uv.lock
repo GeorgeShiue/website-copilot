@@ -2396,7 +2396,9 @@ dependencies = [
     { name = "black" },
     { name = "crawl4ai" },
     { name = "langchain-community" },
+    { name = "litellm" },
     { name = "playwright" },
+    { name = "python-dotenv" },
 ]
 
 [package.metadata]
@@ -2405,7 +2407,9 @@ requires-dist = [
     { name = "black", specifier = ">=26.1.0" },
     { name = "crawl4ai", specifier = ">=0.8.0" },
     { name = "langchain-community", specifier = ">=0.4.1" },
+    { name = "litellm", specifier = ">=1.0.0" },
     { name = "playwright", specifier = ">=1.58.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 
 [[package]]

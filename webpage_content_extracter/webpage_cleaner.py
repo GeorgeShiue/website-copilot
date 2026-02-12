@@ -1,7 +1,4 @@
 import re
-import shutil
-from pathlib import Path
-from urllib.parse import urlparse
 
 from crawl4ai import CrawlResult
 
@@ -16,7 +13,15 @@ class WebpageCleanerConstants:
         "Search this site",
         "Embedded Files",
     )
-    TRAILING_FOOTER_LINES = frozenset({"Google Sites", "Report abuse", ""})
+    TRAILING_FOOTER_LINES = frozenset(
+        {
+            "Google Sites", 
+            "Report abuse", 
+            "Google 協作平台",
+            "檢舉濫用情形",
+            "",
+        }
+    )
     ERROR_STATUS_CODES = frozenset({404, 500, 502, 503})
     CONTENT_404_PATTERN = re.compile(
         r"#\s*404|page you have entered does not exist|does not exist", re.I
@@ -32,37 +37,6 @@ class WebpageCleaner:
         if md is None:
             return ""
         return md if isinstance(md, str) else getattr(md, "raw_markdown", str(md))
-
-    # ----- 檔名：安全 basename -----
-    @staticmethod
-    def _safe_suffix(s: str, index: int, max_length: int = 80) -> str:
-        """將字串截斷並加上編號前綴，作為檔名後半段。"""
-        s = (s[:max_length].rstrip("_") if len(s) > max_length else s) or "page"
-        return f"{index:03d}_{s}"
-
-    @classmethod
-    def _title_to_safe_basename(cls, raw: str, index: int, max_length: int = 80) -> str:
-        """將標題轉成可作為檔名的安全字串。"""
-        s = (raw or "").strip()
-        s = re.sub(r"[^\w\s\-.]", "", s)
-        s = re.sub(r"_+", "_", re.sub(r"\s+", "_", s).strip("_"))
-        return cls._safe_suffix(s, index, max_length)
-
-    @classmethod
-    def _url_to_safe_basename(cls, url: str, index: int, max_length: int = 80) -> str:
-        """從 URL path 產生可作為檔名的安全字串。"""
-        path = (urlparse(url).path or "/").strip("/") or "index"
-        path = re.sub(r"_+", "_", re.sub(r"[^\w\-.]", "_", path)).strip("_")
-        return cls._safe_suffix(path, index, max_length)
-
-    @classmethod
-    def _first_heading_from_md(cls, content: str) -> str | None:
-        """從 markdown 內容取第一個 ATX 標題（# 開頭）文字，無則回傳 None。"""
-        for line in content.split("\n"):
-            s = line.strip()
-            if s.startswith("#"):
-                return re.sub(r"^#+\s*", "", s).strip() or None
-        return None
 
     # ----- 錯誤頁與內容清理（內部用） -----
     @classmethod
@@ -114,34 +88,6 @@ class WebpageCleaner:
 
     # ----- 對外 API -----
     @classmethod
-    def save_md_files(
-        cls,
-        cleaned_markdown_contents: list[str] | None = None,
-        directory: str = "./website_crawler/webpage_markdown",
-        *,
-        filename_prefix: str = "",
-    ) -> list[Path]:
-        """將清理後的 markdown 字串列表存成 .md；檔名由各則內容的首個標題或索引產生。"""
-        md_file_paths: list[Path] = []
-        if not cleaned_markdown_contents:
-            return md_file_paths
-        out_dir = Path(directory)
-        if out_dir.exists():
-            shutil.rmtree(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        for i, content in enumerate(cleaned_markdown_contents):
-            title = cls._first_heading_from_md(content)
-            basename = (
-                cls._title_to_safe_basename(title, i)
-                if title
-                else cls._safe_suffix("page", i)
-            )
-            path = (out_dir / f"{filename_prefix}{basename}").with_suffix(".md")
-            path.write_text(content, encoding="utf-8")
-            md_file_paths.append(path)
-        return md_file_paths
-
-    @classmethod
     def clean_webpage_markdown(
         cls,
         results: list[CrawlResult],
@@ -166,6 +112,7 @@ if __name__ == "__main__":
     import time
 
     from website_crawler.crawl4ai_crawler import WebsiteCrawler
+    from webpage_content_extracter.md_file_manager import MdFileManager
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     log = logging.getLogger(__name__)
@@ -197,8 +144,9 @@ if __name__ == "__main__":
         t2 - t1,
     )
 
-    md_file_paths = WebpageCleaner.save_md_files(
-        cleaned_webpage_markdowns,
+    md_file_paths = MdFileManager.save_md_files(
+        directory="./data/webpage_markdown",
+        markdown_contents=cleaned_webpage_markdowns,
     )
     t3 = time.perf_counter()
     log.info("已存成 %s 個 .md 檔, 耗時 %.3f 秒", len(md_file_paths), t3 - t2)
