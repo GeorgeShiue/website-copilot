@@ -1,5 +1,4 @@
 import re
-
 from crawl4ai import CrawlResult
 
 
@@ -15,8 +14,8 @@ class WebpageCleanerConstants:
     )
     TRAILING_FOOTER_LINES = frozenset(
         {
-            "Google Sites", 
-            "Report abuse", 
+            "Google Sites",
+            "Report abuse",
             "Google 協作平台",
             "檢舉濫用情形",
             "",
@@ -29,6 +28,8 @@ class WebpageCleanerConstants:
 
 
 class WebpageCleaner:
+    Constants = WebpageCleanerConstants
+
     # ----- 內容取得 -----
     @staticmethod
     def _get_page_content(result: CrawlResult) -> str:
@@ -45,10 +46,9 @@ class WebpageCleaner:
         if not getattr(result, "success", True):
             return True
         status = getattr(result, "status_code", None)
-        C = WebpageCleanerConstants
-        if status is not None and status in C.ERROR_STATUS_CODES:
+        if status is not None and status in cls.Constants.ERROR_STATUS_CODES:
             return True
-        if content and C.CONTENT_404_PATTERN.search(content):
+        if content and cls.Constants.CONTENT_404_PATTERN.search(content):
             return True
         return False
 
@@ -57,7 +57,6 @@ class WebpageCleaner:
         """單一 markdown 字串清理：保留 frontmatter，切除導航與功能性連結。"""
         if not content or not content.strip():
             return content
-        C = WebpageCleanerConstants
         frontmatter = ""
         body = content
         if content.lstrip().startswith("---"):
@@ -67,17 +66,17 @@ class WebpageCleaner:
                 fm_end = idx + len("\n---")
                 frontmatter = content[:fm_end]
                 body = content[fm_end:].lstrip()
-        m = C.MAIN_CONTENT_HEADING.search(body)
+        m = cls.Constants.MAIN_CONTENT_HEADING.search(body)
         if m is not None:
             body = body[m.start() :]
-        skip_set = frozenset(C.SKIP_LINE_PHRASES)
+        skip_set = frozenset(cls.Constants.SKIP_LINE_PHRASES)
         body = "\n".join(
             line for line in body.split("\n") if line.strip() not in skip_set
         )
         tail_lines = body.split("\n")
         strip_count = 0
         for i in range(len(tail_lines) - 1, -1, -1):
-            if tail_lines[i].strip() in C.TRAILING_FOOTER_LINES:
+            if tail_lines[i].strip() in cls.Constants.TRAILING_FOOTER_LINES:
                 strip_count += 1
             else:
                 break
@@ -116,8 +115,8 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     log = logging.getLogger(__name__)
-
     t0 = time.perf_counter()
+
     start_url = "https://sites.google.com/site/nculab/labintro"
     webpage_markdowns = WebsiteCrawler.crawl_website(
         url=start_url,
@@ -130,9 +129,9 @@ if __name__ == "__main__":
         light_mode=True,
         verbose=True,
     )
-
     t1 = time.perf_counter()
     log.info("爬取 %s 個網頁, 耗時 %.3f 秒", len(webpage_markdowns), t1 - t0)
+    log.info("-" * 100)
 
     cleaned_webpage_markdowns = WebpageCleaner.clean_webpage_markdown(
         webpage_markdowns, include_frontmatter=True
@@ -143,6 +142,7 @@ if __name__ == "__main__":
         len(cleaned_webpage_markdowns),
         t2 - t1,
     )
+    log.info("-" * 100)
 
     md_file_paths = MdFileManager.save_md_files(
         directory="./data/webpage_markdown",
@@ -150,5 +150,6 @@ if __name__ == "__main__":
     )
     t3 = time.perf_counter()
     log.info("已存成 %s 個 .md 檔, 耗時 %.3f 秒", len(md_file_paths), t3 - t2)
+    log.info("-" * 100)
 
     log.info("總耗時 %.3f 秒", t3 - t0)
