@@ -9,12 +9,11 @@ import urllib.request
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import Any
 from dotenv import load_dotenv
 from litellm import completion
-from typing import Any
 
-
-os.environ.setdefault("LITELLM_LOG", "ERROR")
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 load_dotenv()
 
 
@@ -100,6 +99,7 @@ class WebpageImageSummarizer:
         referer: str | None = None,
     ) -> str | None:
         """從 URL 下載圖片並轉成 data URL，供 VLM 使用。若下載失敗回傳 None。"""
+        log = logging.getLogger(__name__)
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -304,7 +304,7 @@ class WebpageImageSummarizer:
         )
         log = logging.getLogger(__name__)
         result = self._one_pass_summarize(
-            markdown_contents, caption_cache, params, skip_pages_without_images
+            markdown_contents, skip_pages_without_images, caption_cache, params
         )
         self.retry_count = 0
         min_success_rate = self.Constants.MIN_SUCCESS_RATE_THRESHOLD
@@ -331,7 +331,7 @@ class WebpageImageSummarizer:
             time.sleep(wait_sec)
             self.download_stats = {"success": 0, "failure": 0, "cache_reuse": 0}
             result = self._one_pass_summarize(
-                markdown_contents, caption_cache, params, skip_pages_without_images
+                markdown_contents, skip_pages_without_images, caption_cache, params
             )
             self.retry_count += 1
         return result, self.retry_count, self.download_stats
