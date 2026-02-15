@@ -1,11 +1,11 @@
 import asyncio
-from collections.abc import AsyncIterator
-from typing import Any
-from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunparse
 
+from collections.abc import AsyncIterator
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlResult, CrawlerRunConfig
 from crawl4ai.content_scraping_strategy import LXMLWebScrapingStrategy
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy, FilterChain, URLPatternFilter
+from typing import Any
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunparse
 
 
 class WebsiteCrawler:

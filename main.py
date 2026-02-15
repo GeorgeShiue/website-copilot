@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 
 from website_crawler.crawl4ai_crawler import WebsiteCrawler
 from webpage_content_extracter.webpage_cleaner import WebpageCleaner

@@ -1,17 +1,17 @@
-import os
-import re
-import time
 import base64
-import random
 import logging
+import os
+import random
+import re
 import threading
+import time
 import urllib.request
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
-
 from dotenv import load_dotenv
 from litellm import completion
+from typing import Any
 
 
 os.environ.setdefault("LITELLM_LOG", "ERROR")
@@ -19,8 +19,8 @@ load_dotenv()
 
 
 @dataclass(frozen=True)
-class _SummarizeOptions:
-    """VLM 圖片摘要用選項，供內部方法共用"""
+class _ImageSummarizeParameters:
+    """VLM 圖片摘要用參數，供內部方法共用"""
 
     model: str
     prompt: str | None
@@ -33,26 +33,22 @@ class _SummarizeOptions:
 class WebpageImageSummarizerConstants:
     """VLM 圖片摘要用常數：圖片 URL 正則、預設提示詞、支援的模型對照。"""
 
-    # 匹配 ![alt](url) 或 [![alt](url)](...) 中的圖片 URL
-    IMAGE_URL_PATTERN = re.compile(
-        r"!\[[^\]]*\]\s*\(\s*(https?://[^)\s]+)\s*\)",
-        re.IGNORECASE,
-    )
-
-    IMAGE_CAPTION_PROMPT = (
-        "請描述這張圖片中的文字與版面內容。"
-        "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
-    )
-
-    CAPTION_HEADING = "**圖片說明：**"
-
     VLM_MODELS: dict[str, tuple[str, str]] = {
         "openai": ("gpt-4.1-mini", "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY"),
         "gemini": ("gemini-2.5-flash", "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY"),
     }
     DEFAULT_VLM_MODEL: str = "openai"
-
     DEFAULT_VLM_MAX_WORKERS: int = 10
+
+    IMAGE_URL_PATTERN = re.compile(
+        r"!\[[^\]]*\]\s*\(\s*(https?://[^)\s]+)\s*\)",
+        re.IGNORECASE,
+    )
+    IMAGE_CAPTION_PROMPT = (
+        "請描述這張圖片中的文字與版面內容。"
+        "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
+    )
+    CAPTION_HEADING = "**圖片說明：**"
 
     # 成功率低於此比例時觸發指數退避重試（視為可能被擋）
     MIN_SUCCESS_RATE_THRESHOLD: float = 0.8
@@ -69,14 +65,14 @@ class WebpageImageSummarizer:
     """可初始化的網頁 Markdown 圖片摘要器，統計資訊封裝於實例內。"""
 
     def __init__(self) -> None:
+        self.Constants = WebpageImageSummarizerConstants
+        self._lock = threading.Lock()
         self.retry_count = 0
         self.download_stats: dict[str, int] = {
             "success": 0,
             "failure": 0,
             "cache_reuse": 0,
         }
-        self.Constants = WebpageImageSummarizerConstants
-        self._lock = threading.Lock()
 
     def _backoff_seconds(self, retry_index: int) -> float:
         """依重試次數回傳等待秒數（含 jitter），不超過 BACKOFF_CAP_SECONDS。"""
@@ -138,21 +134,25 @@ class WebpageImageSummarizer:
         return out
 
     # ----- VLM 呼叫（LiteLLM） -----
-    def _get_image_caption(self, image_url: str, opts: _SummarizeOptions) -> str:
+    def _get_image_caption(
+        self, image_url: str, params: _ImageSummarizeParameters
+    ) -> str:
         """呼叫支援視覺的模型取得圖片描述，失敗時回傳空字串。"""
         try:
             provider_config = self.Constants.VLM_MODELS.get(
-                opts.model
+                params.model
             ) or self.Constants.VLM_MODELS.get(self.Constants.DEFAULT_VLM_MODEL)
             model_name, api_key_name = provider_config
             effective_api_key = (
-                opts.api_key if opts.api_key is not None else os.getenv(api_key_name)
+                params.api_key
+                if params.api_key is not None
+                else os.getenv(api_key_name)
             )
         except Exception as e:
             logging.getLogger(__name__).warning("VLM 模型配置錯誤: %s", e)
             return ""
 
-        prompt = opts.prompt or self.Constants.IMAGE_CAPTION_PROMPT
+        prompt = params.prompt or self.Constants.IMAGE_CAPTION_PROMPT
         image_input_url = self._download_image_as_base64_data_url(image_url)
         if not image_input_url:
             return ""
@@ -174,7 +174,7 @@ class WebpageImageSummarizer:
             options: dict[str, Any] = {}
             if effective_api_key:
                 options["api_key"] = effective_api_key
-            options.update(opts.litellm_kwargs)
+            options.update(params.litellm_kwargs)
             response = completion(model=model_name, messages=messages, **options)
             content = response.choices[0].message.content
             return (content or "").strip()
@@ -186,7 +186,7 @@ class WebpageImageSummarizer:
         self,
         urls: list[str],
         caption_cache: dict[str, str],
-        opts: _SummarizeOptions,
+        params: _ImageSummarizeParameters,
     ) -> dict[str, str]:
         """對一組 URL 並行取得說明（ThreadPoolExecutor）；已存在 caption_cache 的 URL 直接重用。"""
         url_to_caption: dict[str, str] = {}
@@ -200,13 +200,13 @@ class WebpageImageSummarizer:
             return url_to_caption
 
         max_workers = (
-            opts.vlm_max_workers
-            if opts.vlm_max_workers is not None
+            params.vlm_max_workers
+            if params.vlm_max_workers is not None
             else self.Constants.DEFAULT_VLM_MAX_WORKERS
         )
 
         def fetch_caption(url: str) -> tuple[str, str]:
-            return (url, self._get_image_caption(url, opts))
+            return (url, self._get_image_caption(url, params))
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(fetch_caption, url) for url in uncached]
@@ -223,14 +223,14 @@ class WebpageImageSummarizer:
         content: str,
         caption_cache: dict[str, str],
         matches: list[tuple[int, int, str]],
-        opts: _SummarizeOptions,
+        params: _ImageSummarizeParameters,
     ) -> str:
         """對單一 Markdown 字串：並行呼叫 VLM、在每張圖後插入補充文本；共用 caption_cache 避免跨頁重複。"""
         unique_urls = list(dict.fromkeys(m[2] for m in matches))
         url_to_caption = self._get_captions_for_urls(
-            unique_urls, caption_cache=caption_cache, opts=opts
+            unique_urls, caption_cache=caption_cache, params=params
         )
-        heading = opts.caption_heading or self.Constants.CAPTION_HEADING
+        heading = params.caption_heading or self.Constants.CAPTION_HEADING
 
         parts: list[str] = []
         last_end = 0
@@ -249,9 +249,9 @@ class WebpageImageSummarizer:
     def _one_pass_summarize(
         self,
         markdown_contents: list[str],
-        caption_cache: dict[str, str],
-        opts: _SummarizeOptions,
         skip_pages_without_images: bool,
+        caption_cache: dict[str, str],
+        params: _ImageSummarizeParameters,
     ) -> list[str]:
         """執行一輪多頁 Markdown 圖片摘要，回傳摘要後的列表。"""
         result: list[str] = []
@@ -261,7 +261,7 @@ class WebpageImageSummarizer:
                 result.append(content)
                 continue
             summarized = self._summarize_markdown_with_captions(
-                content, caption_cache=caption_cache, matches=matches, opts=opts
+                content, caption_cache=caption_cache, matches=matches, params=params
             )
             result.append(summarized)
         return result
@@ -294,7 +294,7 @@ class WebpageImageSummarizer:
         """
         self.download_stats = {"success": 0, "failure": 0, "cache_reuse": 0}
         caption_cache = caption_cache if caption_cache is not None else {}
-        opts = _SummarizeOptions(
+        params = _ImageSummarizeParameters(
             model=model,
             prompt=prompt,
             api_key=api_key,
@@ -304,7 +304,7 @@ class WebpageImageSummarizer:
         )
         log = logging.getLogger(__name__)
         result = self._one_pass_summarize(
-            markdown_contents, caption_cache, opts, skip_pages_without_images
+            markdown_contents, caption_cache, params, skip_pages_without_images
         )
         self.retry_count = 0
         min_success_rate = self.Constants.MIN_SUCCESS_RATE_THRESHOLD
@@ -331,7 +331,7 @@ class WebpageImageSummarizer:
             time.sleep(wait_sec)
             self.download_stats = {"success": 0, "failure": 0, "cache_reuse": 0}
             result = self._one_pass_summarize(
-                markdown_contents, caption_cache, opts, skip_pages_without_images
+                markdown_contents, caption_cache, params, skip_pages_without_images
             )
             self.retry_count += 1
         return result, self.retry_count, self.download_stats

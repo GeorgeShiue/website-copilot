@@ -1,8 +1,9 @@
-import shutil
-import re
 import os
-from urllib.parse import urlparse
+import re
+import shutil
+
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class MdFileManager:
@@ -36,6 +37,22 @@ class MdFileManager:
         s = re.sub(r"_+", "_", re.sub(r"\s+", "_", s).strip("_"))
         return cls._safe_suffix(s, index, max_length)
 
+    # ----- 對外 API -----
+    @staticmethod
+    def load_md_files(
+        directory: str,
+        limit: int | None = None,
+    ) -> list[str]:
+        """從指定目錄讀取 markdown 檔案內容，可選限制數量。"""
+        markdown_files = sorted(os.listdir(directory))
+        if limit is not None:
+            markdown_files = markdown_files[:limit]
+        markdown_contents = []
+        for markdown_file in markdown_files:
+            with open(f"{directory}/{markdown_file}", "r") as f:
+                markdown_contents.append(f.read())
+        return markdown_contents
+
     @classmethod
     def save_md_files(
         cls,
@@ -44,10 +61,7 @@ class MdFileManager:
         *,
         filename_prefix: str = "",
     ) -> list[Path]:
-        """將 enrich_webpage_markdown 處理後的 markdown 列表存成 .md 至本地指定目錄。
-
-        檔名由各則內容的首個標題或索引產生，邏輯與 WebpageCleaner.save_md_files 一致。
-        """
+        """將 markdown 內容存成 .md 至本地指定目錄。"""
         md_file_paths: list[Path] = []
         if not markdown_contents:
             return md_file_paths
@@ -66,18 +80,3 @@ class MdFileManager:
             path.write_text(content, encoding="utf-8")
             md_file_paths.append(path)
         return md_file_paths
-
-    @staticmethod
-    def load_md_files(
-        directory: str,
-        limit: int | None = None,
-    ) -> list[str]:
-        """從指定目錄讀取 markdown 檔案內容，可選限制數量。"""
-        markdown_files = sorted(os.listdir(directory))
-        if limit is not None:
-            markdown_files = markdown_files[:limit]
-        markdown_contents = []
-        for markdown_file in markdown_files:
-            with open(f"{directory}/{markdown_file}", "r") as f:
-                markdown_contents.append(f.read())
-        return markdown_contents

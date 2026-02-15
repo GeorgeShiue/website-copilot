@@ -1,4 +1,5 @@
 import re
+
 from crawl4ai import CrawlResult
 
 
@@ -30,7 +31,6 @@ class WebpageCleanerConstants:
 class WebpageCleaner:
     Constants = WebpageCleanerConstants
 
-    # ----- 內容取得 -----
     @staticmethod
     def _get_page_content(result: CrawlResult) -> str:
         """從 CrawlResult 取 Markdown 文字。"""
@@ -39,7 +39,7 @@ class WebpageCleaner:
             return ""
         return md if isinstance(md, str) else getattr(md, "raw_markdown", str(md))
 
-    # ----- 錯誤頁與內容清理（內部用） -----
+    # ----- 錯誤頁與內容清理-----
     @classmethod
     def _is_error_page(cls, result: CrawlResult, content: str) -> bool:
         """是否為讀取錯誤頁（success=False、404/5xx 或內容含 404 字樣）。"""
