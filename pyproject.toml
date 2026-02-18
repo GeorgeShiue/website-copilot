@@ -6,7 +6,17 @@ readme = "README.md"
 requires-python = ">=3.13.12"
 dependencies = [
     "beautifulsoup4>=4.14.3",
+    "black>=26.1.0",
     "crawl4ai>=0.8.0",
     "langchain-community>=0.4.1",
+    "litellm>=1.0.0",
     "playwright>=1.58.0",
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "python-dotenv>=1.0.0",
+    "ruff>=0.15.1",
 ]
+[tool.pytest.ini_options]
+pythonpath = ["."]
+log_cli = true
+log_cli_level = "INFO"

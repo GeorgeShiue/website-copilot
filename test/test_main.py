@@ -7,7 +7,7 @@ from webpage_content_extracter.webpage_image_summarizer import WebpageImageSumma
 from webpage_content_extracter.md_file_manager import MdFileManager
 
 
-def main():
+def test_main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     log = logging.getLogger(__name__)
     t0 = time.perf_counter()
@@ -22,6 +22,7 @@ def main():
         text_mode=False,
         light_mode=True,
         verbose=True,
+        max_pages=10,  # test
     )
     t1 = time.perf_counter()
     log.info("爬取 %s 個網頁, 耗時 %.3f 秒", len(webpage_markdowns), t1 - t0)
@@ -62,7 +63,7 @@ def main():
     log.info("-" * 100)
 
     md_file_paths = MdFileManager.save_md_files(
-        directory="./data/webpage_markdown_with_image_summary",
+        directory="./data/webpage_markdown_with_image_summary_test",  # test
         markdown_contents=markdown_contents_with_image_summary,
     )
     t4 = time.perf_counter()
@@ -72,5 +73,5 @@ def main():
     log.info("總耗時 %.3f 秒", t4 - t0)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     test_website_crawling()

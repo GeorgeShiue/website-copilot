@@ -1,49 +1,67 @@
 import asyncio
 import re
-import shutil
-import time
-from pathlib import Path
-from urllib.parse import urlparse
+from collections.abc import AsyncIterator, Iterable
+from typing import Any, List, Union, cast
 
-from collections.abc import AsyncIterator
-from typing import Any
-
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlResult, CrawlerRunConfig
 from crawl4ai.content_scraping_strategy import LXMLWebScrapingStrategy
-from crawl4ai.deep_crawling import BFSDeepCrawlStrategy, FilterChain, URLPatternFilter
+from crawl4ai.deep_crawling import (
+    BFSDeepCrawlStrategy,
+    FilterChain,
+    URLFilter,
+    URLPatternFilter,
+)
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunparse
 
 
 class WebsiteCrawler:
-    """Crawl4AI BFS 網站爬蟲，提供 crawl_website / save_results_to_md 等類別方法。"""
+    """Crawl4AI BFS 網站爬蟲，提供 crawl_website 等類別方法。"""
 
-    @staticmethod
-    def _get_page_content(result: Any) -> str:
-        """從 CrawlResult 取 Markdown 文字。"""
-        md = getattr(result, "markdown", None)
-        if md is None:
-            return ""
-        return md if isinstance(md, str) else getattr(md, "raw_markdown", str(md))
+    _DROP_QUERY_PARAMS = frozenset(
+        {"authuser", "utm_source", "utm_medium", "utm_campaign", "ref", "fbclid"}
+    )
 
+    # ----- URL 正規化與過濾（內部用） -----
     @staticmethod
-    def _safe_suffix(s: str, index: int, max_length: int = 80) -> str:
-        s = (s[:max_length].rstrip("_") if len(s) > max_length else s) or "page"
-        return f"{index:03d}_{s}"
+    def _normalize_url(url: str) -> str:
+        """URL 正規化供去重用：scheme/host 統一、path 解碼再編碼、去掉無關 query、統一尾端斜線。"""
+        if not url or not url.strip():
+            return url
+        parsed = urlparse(url.strip())
+        scheme = "https" if parsed.scheme == "http" else (parsed.scheme or "https")
+        netloc = (parsed.netloc or "").lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        path = quote(unquote(parsed.path), safe="/~").rstrip("/") or "/"
+        query = parsed.query
+        if query:
+            params = parse_qs(query, keep_blank_values=False)
+            params = {
+                k: v
+                for k, v in params.items()
+                if k.lower() not in WebsiteCrawler._DROP_QUERY_PARAMS
+            }
+            query = urlencode(sorted(params.items()), doseq=True) if params else ""
+        return urlunparse((scheme, netloc, path, "", query, ""))
 
     @classmethod
-    def _title_to_safe_basename(cls, raw: str, index: int, max_length: int = 80) -> str:
-        s = (raw or "").strip()
-        s = re.sub(r"[^\w\s\-.]", "", s)
-        s = re.sub(r"_+", "_", re.sub(r"\s+", "_", s).strip("_"))
-        return cls._safe_suffix(s, index, max_length)
-
-    @classmethod
-    def _url_to_safe_basename(cls, url: str, index: int, max_length: int = 80) -> str:
-        path = (urlparse(url).path or "/").strip("/") or "index"
-        path = re.sub(r"_+", "_", re.sub(r"[^\w\-.]", "_", path)).strip("_")
-        return cls._safe_suffix(path, index, max_length)
+    def _dedupe_results_by_normalized_url(
+        cls, results: list[CrawlResult]
+    ) -> list[CrawlResult]:
+        """依正規化 URL 去重，同一正規化 URL 只保留第一筆。"""
+        seen: set[str] = set()
+        out: list[CrawlResult] = []
+        for r in results:
+            norm = cls._normalize_url(getattr(r, "url", "") or "")
+            if norm in seen:
+                continue
+            seen.add(norm)
+            out.append(r)
+        return out
 
     @staticmethod
     def _filter_chain(url_prefix: str | list[str] | None) -> FilterChain | None:
+        """依 url_prefix 建立 FilterChain，僅爬取符合前綴的網址。"""
         if url_prefix is None:
             return None
         prefixes = [url_prefix] if isinstance(url_prefix, str) else list(url_prefix)
@@ -52,39 +70,15 @@ class WebsiteCrawler:
             for p in prefixes
             if p and (p.startswith("http://") or p.startswith("https://"))
         ]
-        return FilterChain([URLPatternFilter(patterns=patterns, use_glob=True)]) if patterns else None
+        if not patterns:
+            return None
+        filter_instance: URLFilter = URLPatternFilter(
+            patterns=cast(List[Union[str, re.Pattern[Any]]], patterns),
+            use_glob=True,
+        )
+        return FilterChain(cast(List[URLFilter], [filter_instance]))
 
-    @classmethod
-    def save_results_to_md(
-        cls,
-        results: list[Any],
-        directory: str = "./website_crawler/webpage_markdown",
-        *,
-        include_frontmatter: bool = True,
-        filename_prefix: str = "",
-    ) -> list[Path]:
-        """將 CrawlResult 列表存成 .md 檔。"""
-        out_dir = Path(directory)
-        if out_dir.exists():
-            shutil.rmtree(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        written: list[Path] = []
-        for i, result in enumerate(results):
-            url = getattr(result, "url", "") or ""
-            meta = getattr(result, "metadata", None) or {}
-            depth = meta.get("depth", "")
-            title = meta.get("title") or getattr(result, "title", None)
-            content = cls._get_page_content(result)
-            if include_frontmatter:
-                content = f"---\nsource: {url}\ndepth: {depth}\n---\n\n{content}"
-            basename = cls._title_to_safe_basename(title, i) if title else cls._url_to_safe_basename(url, i)
-            path = (out_dir / f"{filename_prefix}{basename}").with_suffix(".md")
-            path.write_text(content, encoding="utf-8")
-            written.append(path)
-        
-        return written
-
+    # ----- 對外 API -----
     @classmethod
     async def crawl_website_async(
         cls,
@@ -100,7 +94,7 @@ class WebsiteCrawler:
         stream: bool = False,
         verbose: bool = False,
         page_timeout: int | None = None,
-    ) -> list[Any] | AsyncIterator[Any]:
+    ) -> list[CrawlResult] | AsyncIterator[CrawlResult]:
         """非同步 BFS 爬整站。stream=True 回傳 AsyncIterator，否則 list[CrawlResult]。"""
         strategy_kw: dict[str, Any] = {
             "max_depth": max_depth,
@@ -112,7 +106,7 @@ class WebsiteCrawler:
         filter_chain = cls._filter_chain(url_prefix)
         if filter_chain is not None:
             strategy_kw["filter_chain"] = filter_chain
-        
+
         run_config = CrawlerRunConfig(
             deep_crawl_strategy=BFSDeepCrawlStrategy(**strategy_kw),
             scraping_strategy=LXMLWebScrapingStrategy(),
@@ -122,7 +116,7 @@ class WebsiteCrawler:
         )
         if page_timeout is not None:
             run_config.page_timeout = page_timeout
-        
+
         browser_config = BrowserConfig(
             headless=True,
             text_mode=text_mode,
@@ -130,12 +124,15 @@ class WebsiteCrawler:
             java_script_enabled=not text_mode,
             verbose=verbose,
         )
-        
+
         async with AsyncWebCrawler(config=browser_config) as crawler:
             run_result = await crawler.arun(url, config=run_config)
             if stream:
-                return run_result
-            return list(run_result) if run_result else []
+                return cast(AsyncIterator[CrawlResult], run_result)
+            raw_list: list[CrawlResult] = (
+                list(cast(Iterable[CrawlResult], run_result)) if run_result else []
+            )
+            return cls._dedupe_results_by_normalized_url(raw_list)
 
     @classmethod
     def crawl_website(
@@ -151,9 +148,9 @@ class WebsiteCrawler:
         light_mode: bool = False,
         verbose: bool = False,
         page_timeout: int | None = None,
-    ) -> list[Any]:
+    ) -> list[CrawlResult]:
         """同步爬整站，回傳 list[CrawlResult]。"""
-        return asyncio.run(
+        result = asyncio.run(
             cls.crawl_website_async(
                 url,
                 max_depth=max_depth,
@@ -168,18 +165,28 @@ class WebsiteCrawler:
                 page_timeout=page_timeout,
             )
         )
+        return cast(list[CrawlResult], result)
 
 
 if __name__ == "__main__":
+    import logging
+    import time
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    log = logging.getLogger(__name__)
+
     t0 = time.perf_counter()
+    start_url = "https://sites.google.com/site/nculab/labintro"
     results = WebsiteCrawler.crawl_website(
-        "https://sites.google.com/site/nculab/labintro",
-        max_depth=1,
+        url=start_url,
+        max_depth=3,
         include_external=False,
         url_prefix="https://sites.google.com/site/nculab",
         concurrent_requests=15,
+        text_mode=False,
         light_mode=True,
         verbose=True,
     )
-    WebsiteCrawler.save_results_to_md(results, include_frontmatter=True)
-    print(f"爬取 {len(results)} 個網頁，耗時 {time.perf_counter() - t0:.1f} 秒")
+
+    t1 = time.perf_counter()
+    log.info("爬取 %s 個網頁，耗時 %.1f 秒", len(results), t1 - t0)
