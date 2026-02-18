@@ -1,10 +1,16 @@
 import asyncio
+import re
+from collections.abc import AsyncIterator, Iterable
+from typing import Any, List, Union, cast
 
-from collections.abc import AsyncIterator
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlResult, CrawlerRunConfig
 from crawl4ai.content_scraping_strategy import LXMLWebScrapingStrategy
-from crawl4ai.deep_crawling import BFSDeepCrawlStrategy, FilterChain, URLPatternFilter
-from typing import Any
+from crawl4ai.deep_crawling import (
+    BFSDeepCrawlStrategy,
+    FilterChain,
+    URLFilter,
+    URLPatternFilter,
+)
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunparse
 
 
@@ -64,11 +70,13 @@ class WebsiteCrawler:
             for p in prefixes
             if p and (p.startswith("http://") or p.startswith("https://"))
         ]
-        return (
-            FilterChain([URLPatternFilter(patterns=patterns, use_glob=True)])
-            if patterns
-            else None
+        if not patterns:
+            return None
+        filter_instance: URLFilter = URLPatternFilter(
+            patterns=cast(List[Union[str, re.Pattern[Any]]], patterns),
+            use_glob=True,
         )
+        return FilterChain(cast(List[URLFilter], [filter_instance]))
 
     # ----- 對外 API -----
     @classmethod
@@ -120,8 +128,10 @@ class WebsiteCrawler:
         async with AsyncWebCrawler(config=browser_config) as crawler:
             run_result = await crawler.arun(url, config=run_config)
             if stream:
-                return run_result
-            raw_list = list(run_result) if run_result else []
+                return cast(AsyncIterator[CrawlResult], run_result)
+            raw_list: list[CrawlResult] = (
+                list(cast(Iterable[CrawlResult], run_result)) if run_result else []
+            )
             return cls._dedupe_results_by_normalized_url(raw_list)
 
     @classmethod
@@ -140,7 +150,7 @@ class WebsiteCrawler:
         page_timeout: int | None = None,
     ) -> list[CrawlResult]:
         """同步爬整站，回傳 list[CrawlResult]。"""
-        return asyncio.run(
+        result = asyncio.run(
             cls.crawl_website_async(
                 url,
                 max_depth=max_depth,
@@ -155,6 +165,7 @@ class WebsiteCrawler:
                 page_timeout=page_timeout,
             )
         )
+        return cast(list[CrawlResult], result)
 
 
 if __name__ == "__main__":

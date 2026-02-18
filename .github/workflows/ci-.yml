@@ -1,8 +1,11 @@
-name: CI Test
+name: CI
 
 on:
   push:
-    branches: ["test-github-action"]
+    branches: ["dev"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   python-unit-test:

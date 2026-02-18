@@ -110,8 +110,6 @@ def crawl_website_lazy(
     yield from loader.lazy_load()
 
 
-
-
 if __name__ == "__main__":
     # 範例：從首頁遞迴爬取整個網站（可改成你要的 URL）
     url = "https://sites.google.com/site/nculab/labintro?authuser=0"

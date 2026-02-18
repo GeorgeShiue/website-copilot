@@ -9,7 +9,7 @@ import urllib.request
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from dotenv import load_dotenv
 from litellm import completion
 
@@ -21,7 +21,7 @@ load_dotenv()
 class _ImageSummarizeParameters:
     """VLM 圖片摘要用參數，供內部方法共用"""
 
-    model: str
+    model: str | None
     prompt: str | None
     api_key: str | None
     caption_heading: str | None
@@ -138,23 +138,9 @@ class WebpageImageSummarizer:
         self, image_url: str, params: _ImageSummarizeParameters
     ) -> str:
         """呼叫支援視覺的模型取得圖片描述，失敗時回傳空字串。"""
-        try:
-            provider_config = self.Constants.VLM_MODELS.get(
-                params.model
-            ) or self.Constants.VLM_MODELS.get(self.Constants.DEFAULT_VLM_MODEL)
-            model_name, api_key_name = provider_config
-            effective_api_key = (
-                params.api_key
-                if params.api_key is not None
-                else os.getenv(api_key_name)
-            )
-        except Exception as e:
-            logging.getLogger(__name__).warning("VLM 模型配置錯誤: %s", e)
-            return ""
-
         prompt = params.prompt or self.Constants.IMAGE_CAPTION_PROMPT
         image_input_url = self._download_image_as_base64_data_url(image_url)
-        if not image_input_url:
+        if image_input_url is None:
             return ""
 
         messages = [
@@ -170,16 +156,33 @@ class WebpageImageSummarizer:
             }
         ]
 
+        provider_config = self.Constants.VLM_MODELS.get(
+            params.model
+            if params.model is not None
+            else self.Constants.DEFAULT_VLM_MODEL
+        )
+        if provider_config is None:
+            raise ValueError(f"VLM 模型{params.model}名稱錯誤")
+        model_name, api_key_name = provider_config
+
+        effective_api_key = (
+            params.api_key if params.api_key is not None else os.getenv(api_key_name)
+        )
+        if effective_api_key is None:
+            raise ValueError(f"VLM 模型{model_name}API key錯誤")
+
+        options: dict[str, Any] = {}
+        options["api_key"] = effective_api_key
+        options.update(params.litellm_kwargs)
+
         try:
-            options: dict[str, Any] = {}
-            if effective_api_key:
-                options["api_key"] = effective_api_key
-            options.update(params.litellm_kwargs)
-            response = completion(model=model_name, messages=messages, **options)
-            content = response.choices[0].message.content
+            response = completion(
+                model=model_name, messages=messages, stream=False, **options
+            )
+            content = cast(Any, response).choices[0].message.content
             return (content or "").strip()
         except Exception as e:
-            logging.getLogger(__name__).warning("圖片描述 API 呼叫失敗: %s", e)
+            logging.getLogger(__name__).warning("VLM模型{model_name}呼叫失敗: %s", e)
             return ""
 
     def _get_captions_for_urls(
