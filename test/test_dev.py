@@ -7,7 +7,7 @@ from webpage_content_extracter.webpage_image_summarizer import WebpageImageSumma
 from webpage_content_extracter.md_file_manager import MdFileManager
 
 
-def main():
+def test_webpage_cleaner():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     log = logging.getLogger(__name__)
     t0 = time.perf_counter()
@@ -22,6 +22,7 @@ def main():
         text_mode=False,
         light_mode=True,
         verbose=True,
+        # max_pages=10, # test
     )
     t1 = time.perf_counter()
     log.info("爬取%s個網頁, 耗時%.3f秒", len(webpage_markdowns), t1 - t0)
@@ -37,6 +38,55 @@ def main():
         t2 - t1,
     )
     log.info("-" * 50)
+
+    md_file_paths = MdFileManager.save_md_files(
+        directory="./data/test/webpage_markdown",
+        markdown_contents=cleaned_webpage_markdowns,
+    )
+    t3 = time.perf_counter()
+    log.info("已存成%s個 .md 檔, 耗時%.3f秒", len(md_file_paths), t3 - t2)
+    log.info("-" * 50)
+
+    log.info("總耗時%.3f秒", t3 - t0)
+
+
+def test_webpage_image_summarizer():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    log = logging.getLogger(__name__)
+    t0 = time.perf_counter()
+
+    start_url = "https://sites.google.com/site/nculab/labintro"
+    webpage_markdowns = WebsiteCrawler.crawl_website(
+        url=start_url,
+        max_depth=3,
+        include_external=False,
+        url_prefix="https://sites.google.com/site/nculab",
+        concurrent_requests=15,
+        text_mode=False,
+        light_mode=True,
+        verbose=True,
+        # max_pages=10,  # test
+    )
+    t1 = time.perf_counter()
+    log.info("爬取%s個網頁, 耗時%.3f秒", len(webpage_markdowns), t1 - t0)
+    log.info("-" * 50)
+
+    cleaned_webpage_markdowns = WebpageCleaner.clean_webpage_markdown(
+        webpage_markdowns, include_frontmatter=True
+    )
+    t2 = time.perf_counter()
+    log.info(
+        "清理後剩餘%s個網頁, 耗時%.3f秒",
+        len(cleaned_webpage_markdowns),
+        t2 - t1,
+    )
+    log.info("-" * 50)
+
+    # cleaned_webpage_markdowns = MdFileManager.load_md_files(
+    #     directory="data/webpage_markdown",
+    #     limit=10,
+    # )
+    # log.info("已讀取 %s 個網頁", len(cleaned_webpage_markdowns))
 
     image_summarizer = WebpageImageSummarizer()
     markdown_contents_with_image_summary, retry_count, download_stats = (
@@ -62,7 +112,7 @@ def main():
     log.info("-" * 50)
 
     md_file_paths = MdFileManager.save_md_files(
-        directory="./data/webpage_markdown_with_image_summary",
+        directory="./data/test/webpage_markdown_with_image_summary",
         markdown_contents=markdown_contents_with_image_summary,
     )
     t4 = time.perf_counter()
@@ -70,7 +120,3 @@ def main():
     log.info("-" * 50)
 
     log.info("總耗時%.3f秒", t4 - t0)
-
-
-if __name__ == "__main__":
-    main()
