@@ -46,6 +46,7 @@ class WebpageImageSummarizerConstants:
     IMAGE_CAPTION_PROMPT = (
         "請描述這張圖片中的文字與版面內容。"
         "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
+        "若需要列點敘述，統一使用「*」作為 Markdown 列點符號。"
     )
     CAPTION_HEADING = "**圖片說明：**"
 
@@ -330,7 +331,7 @@ class WebpageImageSummarizer:
                 wait_sec,
                 self.retry_count + 1,
             )
-            log.info("-" * 100)
+            log.info("-" * 50)
             time.sleep(wait_sec)
             self.download_stats = {"success": 0, "failure": 0, "cache_reuse": 0}
             result = self._one_pass_summarize(
@@ -364,19 +365,19 @@ if __name__ == "__main__":
         verbose=True,
     )
     t1 = time.perf_counter()
-    log.info("爬取 %s 個網頁, 耗時 %.3f 秒", len(webpage_markdowns), t1 - t0)
-    log.info("-" * 100)
+    log.info("爬取%s個網頁, 耗時%.3f秒", len(webpage_markdowns), t1 - t0)
+    log.info("-" * 50)
 
     cleaned_webpage_markdowns = WebpageCleaner.clean_webpage_markdown(
         webpage_markdowns, include_frontmatter=True
     )
     t2 = time.perf_counter()
     log.info(
-        "清理後剩餘 %s 個網頁, 耗時 %.3f 秒",
+        "清理後剩餘%s個網頁, 耗時%.3f秒",
         len(cleaned_webpage_markdowns),
         t2 - t1,
     )
-    log.info("-" * 100)
+    log.info("-" * 50)
 
     # cleaned_webpage_markdowns = MdFileManager.load_md_files(
     #     directory="data/webpage_markdown",
@@ -394,25 +395,25 @@ if __name__ == "__main__":
     )
     t3 = time.perf_counter()
     log.info(
-        "加註 %s 個網頁的圖片, 重試 %s 次, 耗時 %.3f 秒",
+        "加註%s個網頁的圖片, 重試%s次, 耗時%.3f秒",
         len(markdown_contents_with_image_summary),
         retry_count,
         t3 - t2,
     )
     log.info(
-        "- 圖片下載資訊: 成功 %s 次, 失敗 %s 次, 跨頁重用快取 %s 次",
+        "- 圖片下載資訊: 成功%s次, 失敗%s次, 跨頁重用快取%s次",
         download_stats["success"],
         download_stats["failure"],
         download_stats["cache_reuse"],
     )
-    log.info("-" * 100)
+    log.info("-" * 50)
 
     md_file_paths = MdFileManager.save_md_files(
         directory="./data/webpage_markdown_with_image_summary",
         markdown_contents=markdown_contents_with_image_summary,
     )
     t4 = time.perf_counter()
-    log.info("已存成 %s 個 .md 檔, 耗時 %.3f 秒", len(md_file_paths), t4 - t3)
-    log.info("-" * 100)
+    log.info("已存成%s個 .md 檔, 耗時%.3f秒", len(md_file_paths), t4 - t3)
+    log.info("-" * 50)
 
-    log.info("總耗時 %.3f 秒", t4 - t0)
+    log.info("總耗時%.3f秒", t4 - t0)
