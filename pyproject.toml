@@ -23,6 +23,3 @@ dev = [
     "pytest>=9.0.2",
     "ruff>=0.15.4",
 ]
-firecrawl = [
-    "firecrawl-py>=4.18.0",
-]
