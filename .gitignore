@@ -1,5 +1,8 @@
+__pycache__/
+.vscode/
+
 .env
 
-.vscode/
-__pycache__/
+test_dev.py
+
 data/
