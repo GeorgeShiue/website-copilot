@@ -3,18 +3,22 @@ import logging
 import os
 import re
 import shutil
-from math import inf as infinity
-
+from typing import List, Pattern, Union
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
-    CrawlResult,
     CrawlerRunConfig,
     DefaultMarkdownGenerator,
     PruningContentFilter,
 )
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
-from crawl4ai.deep_crawling.filters import DomainFilter, FilterChain, URLPatternFilter
+from crawl4ai.deep_crawling.filters import (
+    DomainFilter,
+    FilterChain,
+    URLPatternFilter,
+    URLFilter,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +28,13 @@ class WebsiteCrawler:
 
     @classmethod
     def crawl_website(
-        self,
+        cls,
         url: str,
         max_depth: int,
-        url_patterns: list[str] | None = None,
-        allowed_domains: list[str] | None = None,
-        exclude_words: set[str] | None = None,
-        max_pages: int = infinity,
+        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
+        allowed_domains: Union[str, List[str]] | None = None,
+        exclude_words: tuple[str, ...] | None = None,
+        max_pages: int | None = None,
         content_threshold: float = 0.45,
         light_mode: bool = True,
         wait_for_images: bool = True,
@@ -50,11 +54,11 @@ class WebsiteCrawler:
             wait_for_images: 是否等待圖片加載，預設 True
         """
 
-        shutil.rmtree(self.MARKDOWN_PATH, ignore_errors=True)
-        os.makedirs(self.MARKDOWN_PATH, exist_ok=True)
+        shutil.rmtree(cls.MARKDOWN_PATH, ignore_errors=True)
+        os.makedirs(cls.MARKDOWN_PATH, exist_ok=True)
 
         crawl_results = asyncio.run(
-            self._crawl_website_async(
+            cls._crawl_website_async(
                 url=url,
                 max_depth=max_depth,
                 url_patterns=url_patterns,
@@ -66,7 +70,7 @@ class WebsiteCrawler:
             )
         )
 
-        self._filter_crawl_results(
+        cls._filter_crawl_results(
             crawl_results=crawl_results,
             exclude_words=exclude_words,
         )
@@ -75,13 +79,13 @@ class WebsiteCrawler:
     async def _crawl_website_async(
         url: str,
         max_depth: int,
-        url_patterns: list[str] | None = None,
-        allowed_domains: list[str] | None = None,
-        max_pages: int = infinity,
+        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
+        allowed_domains: Union[str, List[str]] | None = None,
+        max_pages: int | None = None,
         content_threshold: float = 0.45,
         light_mode: bool = True,
         wait_for_images: bool = True,
-    ) -> list[CrawlResult]:
+    ) -> list:
         """以指定爬蟲設定非同步抓取網站頁面並回傳原始爬取結果。"""
         browser_config = BrowserConfig(
             # headless=False, # 是否顯示瀏覽器
@@ -93,21 +97,29 @@ class WebsiteCrawler:
             # threshold_type="dynamic",
         )
 
-        filter_chain = FilterChain(
-            [
-                URLPatternFilter(patterns=url_patterns),
+        filters: list[URLFilter] = []
+        if url_patterns is not None:
+            filters.append(URLPatternFilter(patterns=url_patterns))
+        if allowed_domains is not None:
+            filters.append(
                 DomainFilter(
                     allowed_domains=allowed_domains,
-                    # blocked_domains=["old.docs.example.com"]
-                ),
-            ]
-        )
+                    # blocked_domains=["old.docs.example.com"],
+                )
+            )
+        filter_chain = FilterChain(filters)
 
-        bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
-            max_depth=max_depth,
-            filter_chain=filter_chain,
-            max_pages=max_pages,
-        )
+        if max_pages is not None:
+            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
+                max_depth=max_depth,
+                filter_chain=filter_chain,
+                max_pages=max_pages,
+            )
+        else:
+            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
+                max_depth=max_depth,
+                filter_chain=filter_chain,
+            )
 
         crawler_run_config = CrawlerRunConfig(
             markdown_generator=DefaultMarkdownGenerator(
@@ -122,16 +134,20 @@ class WebsiteCrawler:
         )
 
         async with AsyncWebCrawler(config=browser_config) as crawler:
-            results: list[CrawlResult] = await crawler.arun(
+            results = await crawler.arun(
                 url=url,
                 config=crawler_run_config,
             )
+        if not isinstance(results, list):
+            results = [results] if results else []
 
         return results
 
     @classmethod
     def _filter_crawl_results(
-        self, crawl_results: list[CrawlResult], exclude_words: set[str] | None = None
+        cls,
+        crawl_results: list,
+        exclude_words: tuple[str, ...] | None = None,
     ):
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
         filtered_results = []
@@ -152,14 +168,17 @@ class WebsiteCrawler:
                 continue
 
             # 過濾網頁多餘文字
-            original_lines = crawl_result.markdown.fit_markdown.splitlines(
-                keepends=True
-            )
-            filtered_lines = []
-            for line in original_lines:
-                if not any(word in line for word in exclude_words):
-                    filtered_lines.append(line)
-            fit_markdown = "".join(filtered_lines)
+            if exclude_words is not None:
+                original_lines = crawl_result.markdown.fit_markdown.splitlines(
+                    keepends=True
+                )
+                filtered_lines = []
+                for line in original_lines:
+                    if not any(word in line for word in exclude_words):
+                        filtered_lines.append(line)
+                fit_markdown = "".join(filtered_lines)
+            else:
+                fit_markdown = crawl_result.markdown.fit_markdown
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = re.search(r"^#+\s*(.+)", fit_markdown, flags=re.MULTILINE)
@@ -171,7 +190,7 @@ class WebsiteCrawler:
             else:
                 markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
 
-            markdown_file_path = os.path.join(self.MARKDOWN_PATH, markdown_file_name)
+            markdown_file_path = os.path.join(cls.MARKDOWN_PATH, markdown_file_name)
 
             # 避免存取相同網頁多次，若網頁已存在則跳過
             if os.path.exists(markdown_file_path):
@@ -195,7 +214,7 @@ class WebsiteCrawler:
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
-            self._save_crawl_results_as_md(filtered_result)
+            cls._save_crawl_results_as_md(filtered_result)
 
             logger.debug(f"URL: {crawl_result.url}")
             logger.debug(f"Depth: {crawl_result.metadata.get('depth', 0)}")

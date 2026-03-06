@@ -17,8 +17,16 @@ dependencies = [
 [tool.ruff]
 exclude = [
     "dev/**",
+    ".venv",
 ]
-
+[tool.pyright]
+exclude = [
+    "dev/**", 
+    "**/node_modules", 
+    "**/__pycache__", 
+    ".venv",
+    "**/.*", 
+]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 log_cli = true
