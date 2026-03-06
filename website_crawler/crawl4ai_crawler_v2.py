@@ -1,104 +1,184 @@
+import asyncio
+import logging
+import os
 import re
+import shutil
+from typing import List, Pattern, Union
 from crawl4ai import (
     AsyncWebCrawler,
-    CrawlResult,
+    BrowserConfig,
     CrawlerRunConfig,
-    PruningContentFilter,
     DefaultMarkdownGenerator,
+    PruningContentFilter,
 )
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
-
 from crawl4ai.deep_crawling.filters import (
+    DomainFilter,
     FilterChain,
     URLPatternFilter,
-    DomainFilter,
+    URLFilter,
 )
 
-MARKDOWN_PATH = "/home/george/website-copilot/data/test/webpage_markdown"
+
+logger = logging.getLogger(__name__)
 
 
-async def main():
-    # Create a chain of filters
-    filter_chain = FilterChain(
-        [
-            # Only follow URLs with specific patterns
-            URLPatternFilter(patterns=["*nculab*"]),
-            # Only crawl specific domains
-            DomainFilter(
-                allowed_domains=["sites.google.com"],
-                # blocked_domains=["old.docs.example.com"]
-            ),
-            # Only include specific content types
-            # ContentTypeFilter(allowed_types=["text/html"])
-            # Create an SEO filter that looks for specific keywords in page metadata
-            # seo_filter = SEOFilter(
-            #     threshold=0.5,  # Minimum score (0.0 to 1.0)
-            #     keywords=["tutorial", "guide", "documentation"]
-            # )
-            # Create a content relevance filter
-            # relevance_filter = ContentRelevanceFilter(
-            #     query="Web crawling and data extraction with Python",
-            #     threshold=0.7  # Minimum similarity score (0.0 to 1.0)
-            # )
-        ]
-    )
+class WebsiteCrawler:
+    MARKDOWN_PATH = "/home/george/website-copilot/data/test/webpage_markdown"
 
-    deep_crawl_strategy = BFSDeepCrawlStrategy(
-        max_depth=2,
-        filter_chain=filter_chain,
-        include_external=False,  # Stay within the same domain
-        # max_pages=10,
-        # score_threshold=0.3,       # Minimum score for URLs to be crawled (optional)
-    )
+    @classmethod
+    def crawl_website(
+        cls,
+        url: str,
+        max_depth: int,
+        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
+        allowed_domains: Union[str, List[str]] | None = None,
+        exclude_words: tuple[str, ...] | None = None,
+        max_pages: int | None = None,
+        content_threshold: float = 0.45,
+        light_mode: bool = True,
+        wait_for_images: bool = True,
+    ):
+        """
+        執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。
 
-    prune_content_filter = PruningContentFilter(
-        threshold=0.45,  # 0.45可以顯示所有標題，0.25以下才會出現網頁圖片
-        # threshold_type="dynamic",
-    )
+        Args:
+            url: 目標網站 URL
+            max_depth: 最大爬取深度
+            url_patterns: URL 匹配模式列表
+            allowed_domains: 允許爬取的域名列表
+            exclude_words: 過濾掉包含這些詞的行
+            max_pages: 最大頁面數限制，預設無限
+            content_threshold: 內容過濾閾值，0.45 可顯示所有標題，0.25可顯示所有圖片，預設 0.45
+            light_mode: 是否使用輕量化模式(關閉部分背景資源)，預設 True
+            wait_for_images: 是否等待圖片加載，預設 True
+        """
 
-    config = CrawlerRunConfig(
-        deep_crawl_strategy=deep_crawl_strategy,
-        # stream=True
-        # excluded_tags=["header"],
-        markdown_generator=DefaultMarkdownGenerator(
-            content_filter=prune_content_filter
-        ),
-    )
+        shutil.rmtree(cls.MARKDOWN_PATH, ignore_errors=True)
+        os.makedirs(cls.MARKDOWN_PATH, exist_ok=True)
 
-    async with AsyncWebCrawler() as crawler:
-        results: list[CrawlResult] = await crawler.arun(
-            "https://sites.google.com/site/nculab",
-            config=config,
+        crawl_results = asyncio.run(
+            cls._crawl_website_async(
+                url=url,
+                max_depth=max_depth,
+                url_patterns=url_patterns,
+                allowed_domains=allowed_domains,
+                max_pages=max_pages,
+                content_threshold=content_threshold,
+                light_mode=light_mode,
+                wait_for_images=wait_for_images,
+            )
         )
 
+        cls._filter_crawl_results(
+            crawl_results=crawl_results,
+            exclude_words=exclude_words,
+        )
+
+    @staticmethod
+    async def _crawl_website_async(
+        url: str,
+        max_depth: int,
+        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
+        allowed_domains: Union[str, List[str]] | None = None,
+        max_pages: int | None = None,
+        content_threshold: float = 0.45,
+        light_mode: bool = True,
+        wait_for_images: bool = True,
+    ) -> list:
+        """以指定爬蟲設定非同步抓取網站頁面並回傳原始爬取結果。"""
+        browser_config = BrowserConfig(
+            # headless=False, # 是否顯示瀏覽器
+            light_mode=light_mode,
+        )
+
+        pruning_content_filter = PruningContentFilter(
+            threshold=content_threshold,
+            # threshold_type="dynamic",
+        )
+
+        filters: list[URLFilter] = []
+        if url_patterns is not None:
+            filters.append(URLPatternFilter(patterns=url_patterns))
+        if allowed_domains is not None:
+            filters.append(
+                DomainFilter(
+                    allowed_domains=allowed_domains,
+                    # blocked_domains=["old.docs.example.com"],
+                )
+            )
+        filter_chain = FilterChain(filters)
+
+        if max_pages is not None:
+            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
+                max_depth=max_depth,
+                filter_chain=filter_chain,
+                max_pages=max_pages,
+            )
+        else:
+            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
+                max_depth=max_depth,
+                filter_chain=filter_chain,
+            )
+
+        crawler_run_config = CrawlerRunConfig(
+            markdown_generator=DefaultMarkdownGenerator(
+                content_filter=pruning_content_filter
+            ),
+            deep_crawl_strategy=bfs_deep_crawl_strategy,
+            wait_for_images=wait_for_images,
+            # process_iframes=True,
+            # cache_mode=CacheMode.ENABLED,
+            # stream=True
+            # excluded_tags=["header"],
+        )
+
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            results = await crawler.arun(
+                url=url,
+                config=crawler_run_config,
+            )
+        if not isinstance(results, list):
+            results = [results] if results else []
+
+        return results
+
+    @classmethod
+    def _filter_crawl_results(
+        cls,
+        crawl_results: list,
+        exclude_words: tuple[str, ...] | None = None,
+    ):
+        """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
+        filtered_results = []
         success_unique_count = 0
         error_count = 0
         repeat_count = 0
-        # Access individual results
-        for result in results:
+        image_count = 0
+
+        for crawl_result in crawl_results:
             # 排除 404 頁面
-            if result.status_code == 404:
+            if crawl_result.status_code == 404:
                 error_count += 1
                 # results.remove(result)
-                print(f"Webpage {result.url} status code is 404, skipping...")
-                print("-" * 50)
+                logger.debug(
+                    f"Webpage {crawl_result.url} status code is 404, skipping..."
+                )
+                logger.debug("-" * 50)
                 continue
 
-            # 刪除網頁多餘文字
-            exclude_words = (
-                "Search this site",
-                "Embedded Files",
-                "Skip to main content",
-                "Skip to navigation",
-                "Google Sites",
-                "Report abuse",
-            )
-            original_lines = result.markdown.fit_markdown.splitlines(keepends=True)
-            filtered_lines = []
-            for line in original_lines:
-                if not any(word in line for word in exclude_words):
-                    filtered_lines.append(line)
-            fit_markdown = "".join(filtered_lines)
+            # 過濾網頁多餘文字
+            if exclude_words is not None:
+                original_lines = crawl_result.markdown.fit_markdown.splitlines(
+                    keepends=True
+                )
+                filtered_lines = []
+                for line in original_lines:
+                    if not any(word in line for word in exclude_words):
+                        filtered_lines.append(line)
+                fit_markdown = "".join(filtered_lines)
+            else:
+                fit_markdown = crawl_result.markdown.fit_markdown
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = re.search(r"^#+\s*(.+)", fit_markdown, flags=re.MULTILINE)
@@ -108,53 +188,96 @@ async def main():
                 safe_title = re.sub(r"\s+", "_", safe_title)
                 markdown_file_name = f"{safe_title}.md"
             else:
-                markdown_file_name = f"{result.url.split('/')[-1]}.md"
+                markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
 
-            markdown_file_path = os.path.join(MARKDOWN_PATH, markdown_file_name)
+            markdown_file_path = os.path.join(cls.MARKDOWN_PATH, markdown_file_name)
 
             # 避免存取相同網頁多次，若網頁已存在則跳過
             if os.path.exists(markdown_file_path):
                 repeat_count += 1
-                print(f"Webpage {markdown_file_name} already exists, skipping...")
-                print("-" * 50)
+                logger.debug(
+                    f"Webpage {markdown_file_name} already exists, skipping..."
+                )
+                logger.debug("-" * 50)
                 continue
 
-            images = result.media.get("images", [])
-            
+            # 獲取網頁圖片
+            images = crawl_result.media.get("images", [])
+            image_count += len(images)
+
+            # 儲存為 Markdown 檔案
             success_unique_count += 1
-            with open(markdown_file_path, "w", encoding="utf-8") as f:
-                f.write("-" * 5 + "\n")
-                f.write(f"URL: {result.url}\n")
-                
-                f.write("-" * 5 + "\n")
-                f.write(fit_markdown)
-                
-                if images:
-                    f.write("\n" + "-" * 5 + "\n")
-                    f.write("Images: \n")
-                    for image in images:
-                        f.write(f"* {image['src']}\n")
-                    f.write("\n" + "-" * 5 + "\n")
+            filtered_result = {
+                "markdown_file_path": markdown_file_path,
+                "url": crawl_result.url,
+                "fit_markdown": fit_markdown,
+                "images": crawl_result.media.get("images", []),
+            }
+            filtered_results.append(filtered_result)
+            cls._save_crawl_results_as_md(filtered_result)
 
-            print(f"URL: {result.url}")
-            print(f"Depth: {result.metadata.get('depth', 0)}")
-            print("Images:")
+            logger.debug(f"URL: {crawl_result.url}")
+            logger.debug(f"Depth: {crawl_result.metadata.get('depth', 0)}")
+            logger.debug("Images:")
             for image in images:
-                print(image)
-            print("-" * 50)
+                logger.debug(image)
+            logger.debug("-" * 50)
 
-        print("Webpage crawling stats:")
-        print(f"  - Successful unique pages: {success_unique_count}")
-        print(f"  - Error pages: {error_count}")
-        print(f"  - Repeat pages: {repeat_count}")
+        logger.info("Website crawling stats:")
+        logger.info(f"  * Successful unique pages: {success_unique_count}")
+        logger.info(f"  * Error pages: {error_count}")
+        logger.info(f"  * Repeat pages: {repeat_count}")
+        logger.info(f"  * Total images: {image_count}")
+        logger.info("-" * 50)
+
+    @staticmethod
+    def _save_crawl_results_as_md(filtered_result: dict):
+        """將單筆過濾後的爬取結果寫入 Markdown 檔案。"""
+        markdown_file_path = filtered_result["markdown_file_path"]
+        url = filtered_result["url"]
+        fit_markdown = filtered_result["fit_markdown"]
+        images = filtered_result["images"]
+
+        with open(markdown_file_path, "w", encoding="utf-8") as f:
+            f.write("-" * 5 + "\n")
+            f.write(f"URL: {url}\n")
+
+            f.write("-" * 5 + "\n")
+            f.write(fit_markdown)
+
+            if images:
+                f.write("\n" + "-" * 5 + "\n")
+                f.write("Images:\n\n")
+                for image in images:
+                    f.write(f"![]({image['src']})\n")
+                f.write("\n" + "-" * 5 + "\n")
 
 
 if __name__ == "__main__":
-    import asyncio
-    import shutil
-    import os
+    import logging
+    import time
 
-    shutil.rmtree(MARKDOWN_PATH, ignore_errors=True)
-    os.makedirs(MARKDOWN_PATH, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+    logger.info("1. Website Crawling")
+    logger.info("-" * 50)
 
-    asyncio.run(main())
+    start_time = time.time()
+    WebsiteCrawler.crawl_website(
+        url="https://sites.google.com/site/nculab/labintro",
+        max_depth=2,
+        url_patterns=["*nculab*"],
+        allowed_domains=["sites.google.com"],
+        exclude_words=(
+            "Search this site",
+            "Embedded Files",
+            "Skip to main content",
+            "Skip to navigation",
+            "Google Sites",
+            "Report abuse",
+        ),
+        # max_pages=10, # test
+    )
+    end_time = time.time()
+
+    logger.info(f"Crawling completed in {end_time - start_time:.2f} seconds.")
+    logger.info("-" * 50)
