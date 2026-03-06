@@ -2,7 +2,7 @@ name: CI Test
 
 on:
   push:
-    branches: ["test-github-action"]
+    branches: ["github-action"]
 
 jobs:
   python-unit-test:
