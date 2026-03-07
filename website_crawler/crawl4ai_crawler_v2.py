@@ -3,7 +3,8 @@ import logging
 import os
 import re
 import shutil
-from typing import List, Pattern, Union
+from typing import Pattern
+
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
@@ -15,8 +16,8 @@ from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 from crawl4ai.deep_crawling.filters import (
     DomainFilter,
     FilterChain,
-    URLPatternFilter,
     URLFilter,
+    URLPatternFilter,
 )
 
 
@@ -24,18 +25,22 @@ logger = logging.getLogger(__name__)
 
 
 class WebsiteCrawler:
+    KEEP_TITLE_CONTENT_THRESHOLD = 0.45
+    KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
     MARKDOWN_PATH = "/home/george/website-copilot/data/test/webpage_markdown"
+    HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
+    SAFE_TITLE_PATTERN = re.compile(r"[\\/:\"\*\?<>\|]|\s+")
 
     @classmethod
     def crawl_website(
         cls,
         url: str,
         max_depth: int,
-        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
-        allowed_domains: Union[str, List[str]] | None = None,
+        url_patterns: str | Pattern | list[str | Pattern] | None = None,
+        allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = 0.45,
+        content_threshold: float = KEEP_TITLE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ):
@@ -57,32 +62,40 @@ class WebsiteCrawler:
         shutil.rmtree(cls.MARKDOWN_PATH, ignore_errors=True)
         os.makedirs(cls.MARKDOWN_PATH, exist_ok=True)
 
-        crawl_results = asyncio.run(
-            cls._crawl_website_async(
-                url=url,
-                max_depth=max_depth,
-                url_patterns=url_patterns,
-                allowed_domains=allowed_domains,
-                max_pages=max_pages,
-                content_threshold=content_threshold,
-                light_mode=light_mode,
-                wait_for_images=wait_for_images,
+        try:
+            crawl_results = asyncio.run(
+                cls._crawl_website_async(
+                    url=url,
+                    max_depth=max_depth,
+                    url_patterns=url_patterns,
+                    allowed_domains=allowed_domains,
+                    max_pages=max_pages,
+                    content_threshold=content_threshold,
+                    light_mode=light_mode,
+                    wait_for_images=wait_for_images,
+                )
             )
-        )
+        except Exception as e:
+            logger.error(f"Error during crawling: {e}")
+            return
 
-        cls._filter_crawl_results(
-            crawl_results=crawl_results,
-            exclude_words=exclude_words,
-        )
+        try:
+            cls._filter_and_save_crawl_results(
+                crawl_results=crawl_results,
+                exclude_words=exclude_words,
+            )
+        except Exception as e:
+            logger.error(f"Error during filtering or saving crawl results: {e}")
+            return
 
     @staticmethod
     async def _crawl_website_async(
         url: str,
         max_depth: int,
-        url_patterns: Union[str, Pattern, List[Union[str, Pattern]]] | None = None,
-        allowed_domains: Union[str, List[str]] | None = None,
+        url_patterns: str | Pattern | list[str | Pattern] | None = None,
+        allowed_domains: str | list[str] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = 0.45,
+        content_threshold: float = KEEP_TITLE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ) -> list:
@@ -144,7 +157,7 @@ class WebsiteCrawler:
         return results
 
     @classmethod
-    def _filter_crawl_results(
+    def _filter_and_save_crawl_results(
         cls,
         crawl_results: list,
         exclude_words: tuple[str, ...] | None = None,
@@ -169,14 +182,13 @@ class WebsiteCrawler:
 
             # 過濾網頁多餘文字
             if exclude_words is not None:
-                original_lines = crawl_result.markdown.fit_markdown.splitlines(
-                    keepends=True
+                fit_markdown = "".join(
+                    line
+                    for line in crawl_result.markdown.fit_markdown.splitlines(
+                        keepends=True
+                    )
+                    if not any(word in line for word in exclude_words)
                 )
-                filtered_lines = []
-                for line in original_lines:
-                    if not any(word in line for word in exclude_words):
-                        filtered_lines.append(line)
-                fit_markdown = "".join(filtered_lines)
             else:
                 fit_markdown = crawl_result.markdown.fit_markdown
 
@@ -184,8 +196,10 @@ class WebsiteCrawler:
             heading_match = re.search(r"^#+\s*(.+)", fit_markdown, flags=re.MULTILINE)
             if heading_match:
                 title = heading_match.group(1).strip()
-                safe_title = re.sub(r"[\\/:\"\*\?<>\|]", "", title)
-                safe_title = re.sub(r"\s+", "_", safe_title)
+                safe_title = cls.SAFE_TITLE_PATTERN.sub(
+                    lambda m: "_" if m.group().isspace() else "",
+                    title,
+                )
                 markdown_file_name = f"{safe_title}.md"
             else:
                 markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
