@@ -178,7 +178,7 @@ if __name__ == "__main__":
     )
     t1 = time.perf_counter()
     log.info("爬取%s個網頁, 耗時%.3f秒", len(webpage_markdowns), t1 - t0)
-    log.info("-" * 50)
+    log.info("-" * 30)
 
     cleaned_webpage_markdowns = WebpageCleaner.clean_webpage_markdown(
         webpage_markdowns, include_frontmatter=True
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         len(cleaned_webpage_markdowns),
         t2 - t1,
     )
-    log.info("-" * 50)
+    log.info("-" * 30)
 
     md_file_paths = MdFileManager.save_md_files(
         directory="./data/webpage_markdown",
@@ -197,6 +197,6 @@ if __name__ == "__main__":
     )
     t3 = time.perf_counter()
     log.info("已存成%s個 .md 檔, 耗時%.3f秒", len(md_file_paths), t3 - t2)
-    log.info("-" * 50)
+    log.info("-" * 30)
 
     log.info("總耗時%.3f秒", t3 - t0)

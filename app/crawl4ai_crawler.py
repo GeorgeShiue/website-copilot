@@ -20,7 +20,6 @@ from crawl4ai.deep_crawling.filters import (
     URLPatternFilter,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -177,7 +176,7 @@ class WebsiteCrawler:
                 logger.debug(
                     f"Webpage {crawl_result.url} status code is 404, skipping..."
                 )
-                logger.debug("-" * 50)
+                logger.debug("-" * 30)
                 continue
 
             # 過濾網頁多餘文字
@@ -212,7 +211,7 @@ class WebsiteCrawler:
                 logger.debug(
                     f"Webpage {markdown_file_name} already exists, skipping..."
                 )
-                logger.debug("-" * 50)
+                logger.debug("-" * 30)
                 continue
 
             # 獲取網頁圖片
@@ -235,14 +234,14 @@ class WebsiteCrawler:
             logger.debug("Images:")
             for image in images:
                 logger.debug(image)
-            logger.debug("-" * 50)
+            logger.debug("-" * 30)
 
         logger.info("Website crawling stats:")
         logger.info(f"  * Successful unique pages: {success_unique_count}")
         logger.info(f"  * Error pages: {error_count}")
         logger.info(f"  * Repeat pages: {repeat_count}")
         logger.info(f"  * Total images: {image_count}")
-        logger.info("-" * 50)
+        logger.info("-" * 30)
 
     @staticmethod
     def _save_crawl_results_as_md(filtered_result: dict):

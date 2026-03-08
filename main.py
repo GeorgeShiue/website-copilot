@@ -1,7 +1,8 @@
 import logging
 import time
 
-from website_crawler.crawl4ai_crawler import WebsiteCrawler
+from app.crawl4ai_crawler import WebsiteCrawler
+
 # from webpage_content_extracter.webpage_image_summarizer import WebpageImageSummarizer
 # from webpage_content_extracter.md_file_manager import MdFileManager
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     logger.info("1. Website Crawling")
-    logger.info("-" * 50)
+    logger.info("-" * 30)
 
     t0 = time.time()
     WebsiteCrawler.crawl_website(
@@ -33,7 +34,7 @@ def main():
     t1 = time.time()
 
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
-    logger.info("-" * 50)
+    logger.info("-" * 30)
 
 
 if __name__ == "__main__":

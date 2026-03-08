@@ -6,10 +6,10 @@ import re
 import threading
 import time
 import urllib.request
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, cast
+
 from dotenv import load_dotenv
 from litellm import completion
 
@@ -331,7 +331,7 @@ class WebpageImageSummarizer:
                 wait_sec,
                 self.retry_count + 1,
             )
-            log.info("-" * 50)
+            log.info("-" * 30)
             time.sleep(wait_sec)
             self.download_stats = {"success": 0, "failure": 0, "cache_reuse": 0}
             result = self._one_pass_summarize(
