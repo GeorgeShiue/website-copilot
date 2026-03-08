@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class WebsiteCrawler:
     KEEP_TITLE_CONTENT_THRESHOLD = 0.45
     KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
-    MARKDOWN_PATH = "/home/george/website-copilot/data/test/webpage_markdown"
+    MARKDOWN_FOLDER_PATH = "./data/test/webpage_markdown"
     HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
     SAFE_TITLE_PATTERN = re.compile(r"[\\/:\"\*\?<>\|]|\s+")
 
@@ -42,7 +42,7 @@ class WebsiteCrawler:
         content_threshold: float = KEEP_TITLE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
-    ):
+    ) -> list[dict] | None:
         """
         執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。
 
@@ -58,8 +58,8 @@ class WebsiteCrawler:
             wait_for_images: 是否等待圖片加載，預設 True
         """
 
-        shutil.rmtree(cls.MARKDOWN_PATH, ignore_errors=True)
-        os.makedirs(cls.MARKDOWN_PATH, exist_ok=True)
+        shutil.rmtree(cls.MARKDOWN_FOLDER_PATH, ignore_errors=True)
+        os.makedirs(cls.MARKDOWN_FOLDER_PATH, exist_ok=True)
 
         try:
             crawl_results = asyncio.run(
@@ -76,16 +76,24 @@ class WebsiteCrawler:
             )
         except Exception as e:
             logger.error(f"Error during crawling: {e}")
-            return
+            return None
 
         try:
-            cls._filter_and_save_crawl_results(
+            filtered_results = cls._filter_crawl_results(
                 crawl_results=crawl_results,
                 exclude_words=exclude_words,
             )
         except Exception as e:
-            logger.error(f"Error during filtering or saving crawl results: {e}")
-            return
+            logger.error(f"Error during filteringcrawl results: {e}")
+            return None
+
+        try:
+            cls._save_crawl_results_as_md(filtered_results)
+        except Exception as e:
+            logger.error(f"Error during saving crawl results as Markdown: {e}")
+            return None
+
+        return filtered_results
 
     @staticmethod
     async def _crawl_website_async(
@@ -156,13 +164,14 @@ class WebsiteCrawler:
         return results
 
     @classmethod
-    def _filter_and_save_crawl_results(
+    def _filter_crawl_results(
         cls,
         crawl_results: list,
         exclude_words: tuple[str, ...] | None = None,
-    ):
+    ) -> list[dict]:
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
         filtered_results = []
+        existed_markdown_file_names = set()
         success_unique_count = 0
         error_count = 0
         repeat_count = 0
@@ -192,27 +201,24 @@ class WebsiteCrawler:
                 fit_markdown = crawl_result.markdown.fit_markdown
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
-            heading_match = re.search(r"^#+\s*(.+)", fit_markdown, flags=re.MULTILINE)
+            heading_match = cls.HEADING_PATTERN.search(fit_markdown)
             if heading_match:
                 title = heading_match.group(1).strip()
-                safe_title = cls.SAFE_TITLE_PATTERN.sub(
-                    lambda m: "_" if m.group().isspace() else "",
-                    title,
-                )
+                safe_title = re.sub(r"[\\/:\"\*\?<>\|]", "", title)
+                safe_title = re.sub(r"\s+", "_", safe_title)
                 markdown_file_name = f"{safe_title}.md"
             else:
                 markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
 
-            markdown_file_path = os.path.join(cls.MARKDOWN_PATH, markdown_file_name)
-
             # 避免存取相同網頁多次，若網頁已存在則跳過
-            if os.path.exists(markdown_file_path):
+            if markdown_file_name in existed_markdown_file_names:
                 repeat_count += 1
                 logger.debug(
                     f"Webpage {markdown_file_name} already exists, skipping..."
                 )
                 logger.debug("-" * 30)
                 continue
+            existed_markdown_file_names.add(markdown_file_name)
 
             # 獲取網頁圖片
             images = crawl_result.media.get("images", [])
@@ -221,13 +227,15 @@ class WebsiteCrawler:
             # 儲存為 Markdown 檔案
             success_unique_count += 1
             filtered_result = {
-                "markdown_file_path": markdown_file_path,
+                "markdown_file_path": os.path.join(
+                    cls.MARKDOWN_FOLDER_PATH, markdown_file_name
+                ),
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
-            cls._save_crawl_results_as_md(filtered_result)
+            # cls._save_crawl_results_as_md(filtered_result)
 
             logger.debug(f"URL: {crawl_result.url}")
             logger.debug(f"Depth: {crawl_result.metadata.get('depth', 0)}")
@@ -243,24 +251,25 @@ class WebsiteCrawler:
         logger.info(f"  * Total images: {image_count}")
         logger.info("-" * 30)
 
+        return filtered_results
+
     @staticmethod
-    def _save_crawl_results_as_md(filtered_result: dict):
+    def _save_crawl_results_as_md(filtered_results: list[dict]):
         """將單筆過濾後的爬取結果寫入 Markdown 檔案。"""
-        markdown_file_path = filtered_result["markdown_file_path"]
-        url = filtered_result["url"]
-        fit_markdown = filtered_result["fit_markdown"]
-        images = filtered_result["images"]
+        for filtered_result in filtered_results:
+            markdown_file_path = filtered_result["markdown_file_path"]
+            url = filtered_result["url"]
+            fit_markdown = filtered_result["fit_markdown"]
+            images = filtered_result["images"]
 
-        with open(markdown_file_path, "w", encoding="utf-8") as f:
-            f.write("-" * 5 + "\n")
-            f.write(f"URL: {url}\n")
-
-            f.write("-" * 5 + "\n")
-            f.write(fit_markdown)
-
-            if images:
-                f.write("\n" + "-" * 5 + "\n")
-                f.write("Images:\n\n")
-                for image in images:
-                    f.write(f"![]({image['src']})\n")
-                f.write("\n" + "-" * 5 + "\n")
+            with open(markdown_file_path, "w", encoding="utf-8") as f:
+                f.write("-" * 5 + "\n")
+                f.write(f"URL: {url}\n")
+                f.write("-" * 5 + "\n")
+                f.write(fit_markdown)
+                if images:
+                    f.write("\n" + "-" * 5 + "\n")
+                    f.write("Images:\n\n")
+                    for image in images:
+                        f.write(f"![]({image['src']})\n")
+                    f.write("\n" + "-" * 5 + "\n")
