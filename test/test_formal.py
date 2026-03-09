@@ -2,10 +2,7 @@ import logging
 import time
 
 from app.crawl4ai_crawler import WebsiteCrawler
-
-# from webpage_content_extracter.webpage_image_summarizer import WebpageImageSummarizer
-# from webpage_content_extracter.md_file_manager import MdFileManager
-
+from app.md_file_manager import MdFileManager
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -16,7 +13,7 @@ def test_main():
     logger.info("-" * 30)
 
     t0 = time.time()
-    WebsiteCrawler.crawl_website(
+    crawl_results = WebsiteCrawler.crawl_website(
         url="https://sites.google.com/site/nculab/labintro",
         max_depth=2,
         url_patterns=["*nculab*"],
@@ -29,9 +26,14 @@ def test_main():
             "Google Sites",
             "Report abuse",
         ),
-        # max_pages=10, # test
+        max_pages=10,  # test
     )
     t1 = time.time()
 
+    if crawl_results is None:
+        logger.error("Crawling failed.")
+        return
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
     logger.info("-" * 30)
+
+    MdFileManager.save_crawl_results_as_md(crawl_results, "fit_markdown")
