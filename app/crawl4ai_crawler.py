@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import os
 import re
-import shutil
 from typing import Pattern
 
 from crawl4ai import (
@@ -26,7 +24,6 @@ logger = logging.getLogger(__name__)
 class WebsiteCrawler:
     KEEP_TITLE_CONTENT_THRESHOLD = 0.45
     KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
-    MARKDOWN_FOLDER_PATH = "./data/test/webpage_markdown"
     HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
     SAFE_TITLE_PATTERN = re.compile(r"[\\/:\"\*\?<>\|]|\s+")
 
@@ -57,10 +54,6 @@ class WebsiteCrawler:
             light_mode: 是否使用輕量化模式(關閉部分背景資源)，預設 True
             wait_for_images: 是否等待圖片加載，預設 True
         """
-
-        shutil.rmtree(cls.MARKDOWN_FOLDER_PATH, ignore_errors=True)
-        os.makedirs(cls.MARKDOWN_FOLDER_PATH, exist_ok=True)
-
         try:
             crawl_results = asyncio.run(
                 cls._crawl_website_async(
@@ -85,12 +78,6 @@ class WebsiteCrawler:
             )
         except Exception as e:
             logger.error(f"Error during filteringcrawl results: {e}")
-            return None
-
-        try:
-            cls._save_crawl_results_as_md(filtered_results)
-        except Exception as e:
-            logger.error(f"Error during saving crawl results as Markdown: {e}")
             return None
 
         return filtered_results
@@ -227,15 +214,12 @@ class WebsiteCrawler:
             # 儲存為 Markdown 檔案
             success_unique_count += 1
             filtered_result = {
-                "markdown_file_path": os.path.join(
-                    cls.MARKDOWN_FOLDER_PATH, markdown_file_name
-                ),
+                "markdown_file_name": markdown_file_name,
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
-            # cls._save_crawl_results_as_md(filtered_result)
 
             logger.debug(f"URL: {crawl_result.url}")
             logger.debug(f"Depth: {crawl_result.metadata.get('depth', 0)}")
@@ -252,24 +236,3 @@ class WebsiteCrawler:
         logger.info("-" * 30)
 
         return filtered_results
-
-    @staticmethod
-    def _save_crawl_results_as_md(filtered_results: list[dict]):
-        """將單筆過濾後的爬取結果寫入 Markdown 檔案。"""
-        for filtered_result in filtered_results:
-            markdown_file_path = filtered_result["markdown_file_path"]
-            url = filtered_result["url"]
-            fit_markdown = filtered_result["fit_markdown"]
-            images = filtered_result["images"]
-
-            with open(markdown_file_path, "w", encoding="utf-8") as f:
-                f.write("-" * 5 + "\n")
-                f.write(f"URL: {url}\n")
-                f.write("-" * 5 + "\n")
-                f.write(fit_markdown)
-                if images:
-                    f.write("\n" + "-" * 5 + "\n")
-                    f.write("Images:\n\n")
-                    for image in images:
-                        f.write(f"![]({image['src']})\n")
-                    f.write("\n" + "-" * 5 + "\n")
