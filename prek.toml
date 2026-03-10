@@ -1,0 +1,33 @@
+[[repos]]
+repo = "builtin"
+hooks = [
+    # code style
+    { id = "end-of-file-fixer" },
+    { id = "mixed-line-ending" },
+    { id = "trailing-whitespace" },
+    # git safety
+    { id = "check-added-large-files" },
+    { id = "check-merge-conflict" },
+    { id = "check-case-conflict" },
+    { id = "detect-private-key" },
+    # config files
+    { id = "check-yaml" },
+    { id = "check-json" },
+    { id = "check-toml" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.0"
+hooks = [
+    { id = "ruff-check", args = [
+        "--fix",
+    ], types_or = [
+        "python",
+        "pyi",
+    ] },
+    { id = "ruff-format", types_or = [
+        "python",
+        "pyi",
+    ] },
+]

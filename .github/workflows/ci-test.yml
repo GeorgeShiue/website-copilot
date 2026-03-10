@@ -31,12 +31,12 @@ jobs:
         run: uv run pyright .
 
       - name: Install Playwright browsers
-        run: | 
+        run: |
           uv run playwright install-deps
           uv run playwright install
 
       - name: Set up environment variables
         run: echo "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-      
+
       - name: Run tests
         run: uv run pytest -s
