@@ -21,11 +21,15 @@ from crawl4ai.deep_crawling.filters import (
 logger = logging.getLogger(__name__)
 
 
-class WebsiteCrawler:
+class WebsiteCrawlerConstants:
     KEEP_TITLE_CONTENT_THRESHOLD = 0.45
     KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
     HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
     SAFE_TITLE_PATTERN = re.compile(r"[\\/:\"\*\?<>\|]|\s+")
+
+
+class WebsiteCrawler:
+    Constanants = WebsiteCrawlerConstants
 
     @classmethod
     def crawl_website(
@@ -36,7 +40,7 @@ class WebsiteCrawler:
         allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = KEEP_TITLE_CONTENT_THRESHOLD,
+        content_threshold: float = Constanants.KEEP_TITLE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ) -> list[dict] | None:
@@ -89,7 +93,7 @@ class WebsiteCrawler:
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = KEEP_TITLE_CONTENT_THRESHOLD,
+        content_threshold: float = Constanants.KEEP_TITLE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ) -> list:
@@ -169,10 +173,10 @@ class WebsiteCrawler:
             if crawl_result.status_code == 404:
                 error_count += 1
                 # results.remove(result)
-                logger.debug(
-                    f"Webpage {crawl_result.url} status code is 404, skipping..."
-                )
-                logger.debug("-" * 30)
+                # logger.info(
+                #     f"Webpage {crawl_result.url} status code is 404, skipping..."
+                # )
+                # logger.info("-" * 30)
                 continue
 
             # 過濾網頁多餘文字
@@ -188,7 +192,7 @@ class WebsiteCrawler:
                 fit_markdown = crawl_result.markdown.fit_markdown
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
-            heading_match = cls.HEADING_PATTERN.search(fit_markdown)
+            heading_match = cls.Constanants.HEADING_PATTERN.search(fit_markdown)
             if heading_match:
                 title = heading_match.group(1).strip()
                 safe_title = re.sub(r"[\\/:\"\*\?<>\|]", "", title)
@@ -200,10 +204,10 @@ class WebsiteCrawler:
             # 避免存取相同網頁多次，若網頁已存在則跳過
             if markdown_file_name in existed_markdown_file_names:
                 repeat_count += 1
-                logger.debug(
-                    f"Webpage {markdown_file_name} already exists, skipping..."
-                )
-                logger.debug("-" * 30)
+                # logger.info(
+                #     f"Webpage {markdown_file_name} already exists, skipping..."
+                # )
+                # logger.info("-" * 30)
                 continue
             existed_markdown_file_names.add(markdown_file_name)
 
@@ -221,12 +225,12 @@ class WebsiteCrawler:
             }
             filtered_results.append(filtered_result)
 
-            logger.debug(f"URL: {crawl_result.url}")
-            logger.debug(f"Depth: {crawl_result.metadata.get('depth', 0)}")
-            logger.debug("Images:")
-            for image in images:
-                logger.debug(image)
-            logger.debug("-" * 30)
+            # logger.info(f"URL: {crawl_result.url}")
+            # logger.info(f"Depth: {crawl_result.metadata.get('depth', 0)}")
+            # logger.info("Images:")
+            # for image in images:
+            #     logger.info(image)
+            # logger.info("-" * 30)
 
         logger.info("Website crawling stats:")
         logger.info(f"  * Successful unique pages: {success_unique_count}")

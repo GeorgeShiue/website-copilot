@@ -4,7 +4,6 @@ import time
 from app.crawl4ai_crawler import WebsiteCrawler
 from app.md_file_manager import MdFileManager
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
