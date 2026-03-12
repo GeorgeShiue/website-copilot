@@ -19,14 +19,22 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class _ImageSummarizeParameters:
-    """VLM 圖片摘要用參數，供內部方法共用"""
+    """VLM 圖片摘要用不可變設定參數，供內部方法共用"""
 
     model: str | None
     prompt: str | None
     api_key: str | None
-    caption_heading: str | None
     vlm_max_workers: int | None
     litellm_kwargs: dict[str, Any]
+
+
+@dataclass
+class _ImageSummarizeStates:
+    """Per-call 可變狀態：快取與下載統計。"""
+
+    cache: dict[str, tuple[str, str]]  # url -> (caption, download_status)
+    download_stats: dict[str, int]
+    retry_count: int = 0
 
 
 class WebpageImageSummarizerConstants:
@@ -44,7 +52,6 @@ class WebpageImageSummarizerConstants:
         "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
         "若需要列點敘述，統一使用「*」作為 Markdown 列點符號。"
     )
-    CAPTION_HEADING = "**圖片說明：**"
 
     # 圖片下載配置
     DEFAULT_DOWNLOAD_TIMEOUT: float = 15.0  # 秒
@@ -69,15 +76,13 @@ class WebpageImageSummarizer:
     Constants = WebpageImageSummarizerConstants
 
     @classmethod
-    def summarize_webpage_markdown_images(
+    def summarize_crawl_results_images(
         cls,
         crawl_results: list[dict[str, Any]],
         *,
         model: str | None = None,
         prompt: str | None = None,
         api_key: str | None = None,
-        caption_heading: str | None = None,
-        caption_cache: dict[str, str] | None = None,
         vlm_max_workers: int | None = None,
         **litellm_kwargs: Any,
     ) -> list[dict]:
@@ -88,97 +93,68 @@ class WebpageImageSummarizer:
           傳入後會自動對應模型型號與 .env 中的 API key；未傳則使用 Constants.DEFAULT_VLM_MODEL（'openai'）。
         - prompt: 送給 VLM 的提示詞，未設則用內建 IMAGE_CAPTION_PROMPT。
         - api_key: 若提供則覆寫該次呼叫的 API key，否則依模型商使用 VLM_MODELS 對應的環境變數。
-        - caption_cache: 可選。若提供則會在此 dict 中累積 url -> 圖片說明，同一次呼叫內跨頁共用；下次呼叫可傳入同一 dict 以跨次重用。
         - vlm_max_workers: VLM 並行數上限，未設則用 Constants.DEFAULT_VLM_MAX_WORKERS，避免觸發 API rate limit。
         - **litellm_kwargs: 其他傳給 litellm.completion 的參數。
         """
-        # Per-call state: do not store mutable progress on instance.
-        download_stats = {
-            "success": 0,
-            "network_failure": 0,
-            "processing_failure": 0,
-            "cache_reuse": 0,
-        }
-        retry_count = 0
-
-        caption_cache = caption_cache if caption_cache is not None else {}
+        # Per-call states: do not store mutable progress on instance.
         params = _ImageSummarizeParameters(
             model=model,
             prompt=prompt,
             api_key=api_key,
-            caption_heading=caption_heading,
             vlm_max_workers=vlm_max_workers,
             litellm_kwargs=litellm_kwargs,
         )
-        enhanced_crawl_results = cls._summarize_webpages(
-            crawl_results,
-            caption_cache,
-            params,
-            download_stats=download_stats,
+        states = _ImageSummarizeStates(
+            cache={},
+            download_stats=cls._new_download_stats(),
         )
 
-        # TODO: 以下重試機制獨立成一個方法，並簡化流程
         min_success_rate = cls.Constants.MIN_SUCCESS_RATE_THRESHOLD
-        max_retries = cls.Constants.MAX_RETRIES
-        while retry_count < max_retries:
-            success_rate = cls._success_rate_for_retry(download_stats)
-            if success_rate is None or success_rate >= min_success_rate:
-                break
-
-            # 找出所有失敗的 URL（caption 為空字串）
-            failed_urls = {url for url, cap in caption_cache.items() if cap == ""}
-            if not failed_urls:
-                break
-
-            # 從 cache 中移除失敗的 URL，以便重試時重新下載
-            for url in failed_urls:
-                del caption_cache[url]
-
-            wait_sec = cls._backoff_seconds(retry_count)
-            logger.warning(
-                "Image download success rate %.0f%% (< %.0f%%). Possible blocking detected; retrying %s URLs in %.1f seconds (attempt %s)",
-                success_rate * 100,
-                min_success_rate * 100,
-                len(failed_urls),
-                wait_sec,
-                retry_count + 1,
-            )
-            logger.warning("-" * 30)
-            time.sleep(wait_sec)
-
-            # 重置統計，準備重試
-            download_stats = {
-                "success": 0,
-                "network_failure": 0,
-                "processing_failure": 0,
-                "cache_reuse": 0,
-            }
-
-            # 只重新處理包含失敗 URL 的頁面（效率優化）
-            cls._summarize_webpages(
+        target_urls: set[str] | None = None
+        enhanced_crawl_results = crawl_results
+        while True:
+            enhanced_crawl_results = cls._summarize_crawl_results_images(
                 crawl_results,
-                caption_cache,
                 params,
-                download_stats,
-                target_urls=failed_urls,
+                states,
+                target_urls=target_urls,
             )
-            retry_count += 1
+
+            retry_context = cls._retrieve_retry_context(states, min_success_rate)
+            if retry_context is None:
+                break
+
+            success_rate, failed_urls = retry_context
+            target_urls = cls._prepare_retry_urls(
+                states=states,
+                failed_urls=failed_urls,
+                success_rate=success_rate,
+                min_success_rate=min_success_rate,
+            )
 
         logger.info("Image download stats:")
-        for k, v in download_stats.items():
+        for k, v in states.download_stats.items():
             logger.info("  * %s: %s", k, v)
-        logger.info("  * total retries: %s", retry_count)
+        logger.info("  * total retries: %s", states.retry_count)
         logger.info("-" * 30)
 
         return enhanced_crawl_results
 
     @classmethod
-    def _summarize_webpages(
+    def _new_download_stats(cls) -> dict[str, int]:
+        return {
+            "success": 0,
+            "network_failure": 0,
+            "processing_failure": 0,
+            "cache_reuse": 0,
+        }
+
+    @classmethod
+    def _summarize_crawl_results_images(
         cls,
         crawl_results: list[dict[str, Any]],
-        caption_cache: dict[str, str],
         params: _ImageSummarizeParameters,
-        download_stats: dict[str, int],
+        states: _ImageSummarizeStates,
         target_urls: set[str] | None = None,
     ) -> list[dict]:
         """通用頁面摘要流程，支援全量模式與重試過濾模式。
@@ -201,24 +177,22 @@ class WebpageImageSummarizer:
                 crawl_result["enhanced_markdown"] = markdown
                 continue
 
-            enhanced = cls._summarize_markdown_with_captions(
+            enhanced = cls._enhance_markdown_with_image_captions(
                 markdown,
                 images=images,
-                caption_cache=caption_cache,
                 params=params,
-                download_stats=download_stats,
+                states=states,
             )
             crawl_result["enhanced_markdown"] = enhanced
         return crawl_results
 
     @classmethod
-    def _summarize_markdown_with_captions(
+    def _enhance_markdown_with_image_captions(
         cls,
         markdown: str,
         images: list[dict[str, str]],
-        caption_cache: dict[str, str],
         params: _ImageSummarizeParameters,
-        download_stats: dict[str, int],
+        states: _ImageSummarizeStates,
     ) -> str:
         """對單一 Markdown 字串：從 images 列表取得圖片 URL，並行呼叫 VLM，並將所有圖片說明附加到 markdown 末尾。"""
         # 從 images 提取所有 src
@@ -227,22 +201,19 @@ class WebpageImageSummarizer:
             return markdown
 
         # 取得所有 caption
-        url_to_caption = cls._get_captions_for_urls(
+        url_to_caption = cls._get_image_captions(
             image_urls,
-            caption_cache=caption_cache,
             params=params,
-            download_stats=download_stats,
+            states=states,
         )
-        heading = params.caption_heading or cls.Constants.CAPTION_HEADING
 
-        # TODO: 修改圖片說明格式
         # 附加所有圖片說明到 markdown 末尾
-        captions = []
+        captions = ["---\n\n# Image\n\n"]
         for i, url in enumerate(image_urls, 1):
             caption = url_to_caption.get(url, "")
             if caption:
                 captions.append(
-                    f"\n\n### 圖片 {i}\n\n> {heading}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}"
+                    f"## Image-{i}:\n\n> {caption.replace(chr(10), chr(10) + '> ')}"
                 )
 
         if captions:
@@ -250,21 +221,20 @@ class WebpageImageSummarizer:
         return markdown
 
     @classmethod
-    def _get_captions_for_urls(
+    def _get_image_captions(
         cls,
         urls: list[str],
-        caption_cache: dict[str, str],
         params: _ImageSummarizeParameters,
-        download_stats: dict[str, int],
+        states: _ImageSummarizeStates,
     ) -> dict[str, str]:
-        """對一組 URL 並行取得說明（ThreadPoolExecutor）；已存在 caption_cache 的 URL 直接重用。"""
+        """獲取單一網頁所有圖片的caption，已存在 cache 的圖片直接重用。"""
         url_to_caption: dict[str, str] = {}
-        cached_urls = set(caption_cache.keys())
+        cached_urls = set(states.cache.keys())
         uncached = [u for u in urls if u not in cached_urls]
-        for u in urls:
-            if u in cached_urls:
-                download_stats["cache_reuse"] += 1
-                url_to_caption[u] = caption_cache[u]
+        for url in urls:
+            if url in cached_urls:
+                states.download_stats["cache_reuse"] += 1
+                url_to_caption[url] = states.cache[url][0]
         if not uncached:
             return url_to_caption
 
@@ -274,92 +244,37 @@ class WebpageImageSummarizer:
             else cls.Constants.DEFAULT_VLM_MAX_WORKERS
         )
 
-        def fetch_caption(url: str) -> tuple[str, str, str]:
-            return cls._get_image_caption(url, params)
+        def fetch_caption(image_url: str) -> tuple[str, str, str]:
+            prompt = params.prompt or cls.Constants.IMAGE_CAPTION_PROMPT
+            image_base64_url, download_status = cls._download_image(image_url)
+            if image_base64_url is None:
+                return image_url, "", download_status
+
+            return cls._get_image_caption(
+                image_url=image_url,
+                prompt=prompt,
+                image_base64_url=image_base64_url,
+                download_status=download_status,
+                params=params,
+            )
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(fetch_caption, url) for url in uncached]
             for future in as_completed(futures):
-                url, caption, download_status = future.result()
+                image_url, image_caption, download_status = future.result()
                 # 根據狀態更新統計
                 if download_status == "success":
-                    download_stats["success"] += 1
+                    states.download_stats["success"] += 1
                 elif download_status == "network_failure":
-                    download_stats["network_failure"] += 1
+                    states.download_stats["network_failure"] += 1
                 elif download_status == "processing_failure":
-                    download_stats["processing_failure"] += 1
-                caption_cache[url] = caption
-                url_to_caption[url] = caption
+                    states.download_stats["processing_failure"] += 1
+                states.cache[image_url] = (image_caption, download_status)
+                url_to_caption[image_url] = image_caption
         return url_to_caption
 
     @classmethod
-    def _get_image_caption(
-        cls,
-        image_url: str,
-        params: _ImageSummarizeParameters,
-    ) -> tuple[str, str, str]:
-        """呼叫支援視覺的模型取得圖片描述，失敗時回傳空字串。
-        回傳 (url, caption, download_status)，其中 download_status 為 "success", "network_failure", "processing_failure"。
-        """
-        prompt = params.prompt or cls.Constants.IMAGE_CAPTION_PROMPT
-        image_base64_url, download_status = cls._download_image_as_base64_data_url(
-            image_url
-        )
-        if image_base64_url is None:
-            return image_url, "", download_status
-
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_base64_url},
-                    },
-                ],
-            }
-        ]
-
-        provider_config = cls.Constants.VLM_MODELS.get(
-            params.model
-            if params.model is not None
-            else cls.Constants.DEFAULT_VLM_MODEL
-        )
-        if provider_config is None:
-            raise ValueError(f"VLM 模型{params.model}名稱錯誤")
-        model_name, api_key_name = provider_config
-
-        effective_api_key = (
-            params.api_key if params.api_key is not None else os.getenv(api_key_name)
-        )
-        if effective_api_key is None:
-            raise ValueError(f"VLM 模型{model_name}API key錯誤")
-
-        options: dict[str, Any] = {}
-        options["api_key"] = effective_api_key
-        options.update(params.litellm_kwargs)
-
-        try:
-            response = completion(
-                model=model_name, messages=messages, stream=False, **options
-            )
-            content = ""
-            choices = getattr(response, "choices", None)
-            if choices and isinstance(choices, (list, tuple)) and len(choices) > 0:
-                choice = choices[0]
-                message = getattr(choice, "message", None)
-                if message:
-                    msg_content = getattr(message, "content", None)
-                    if isinstance(msg_content, str):
-                        content = msg_content.strip()
-            return image_url, content, download_status
-        except Exception as e:
-            logger.warning("VLM model %s call failed: %s", model_name, e)
-            return image_url, "", download_status
-
-    @classmethod
-    def _download_image_as_base64_data_url(
+    def _download_image(
         cls,
         url: str,
         timeout: float | None = None,
@@ -409,23 +324,132 @@ class WebpageImageSummarizer:
             return None, "processing_failure"
 
     @classmethod
-    def _success_rate_for_retry(cls, download_stats: dict[str, int]) -> float | None:
-        """若網路下載嘗試數足夠則回傳網路層成功率（success/(success+network_failure)），否則回傳 None。
-        注意：只計算網路層面的成功率，不包括 processing_failure，因為後處理失敗不是網路被封鎖的徵兆。
+    def _get_image_caption(
+        cls,
+        image_url: str,
+        prompt: str,
+        image_base64_url: str,
+        download_status: str,
+        params: _ImageSummarizeParameters,
+    ) -> tuple[str, str, str]:
+        """呼叫支援視覺的模型取得圖片描述，失敗時回傳空字串。
+        回傳 (url, caption, download_status)，其中 download_status 為 "success", "network_failure", "processing_failure"。
         """
-        s, f = download_stats["success"], download_stats["network_failure"]
-        total = s + f
-        if total < cls.Constants.MIN_DOWNLOAD_ATTEMPTS_TO_CONSIDER_RETRY:
-            return None
-        return s / total
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_base64_url},
+                    },
+                ],
+            }
+        ]
+
+        provider_config = cls.Constants.VLM_MODELS.get(
+            params.model
+            if params.model is not None
+            else cls.Constants.DEFAULT_VLM_MODEL
+        )
+        if provider_config is None:
+            raise ValueError(f"VLM 模型{params.model}名稱錯誤")
+        model_name, api_key_name = provider_config
+
+        effective_api_key = (
+            params.api_key if params.api_key is not None else os.getenv(api_key_name)
+        )
+        if effective_api_key is None:
+            raise ValueError(f"VLM 模型{model_name}API key錯誤")
+
+        options: dict[str, Any] = {}
+        options["api_key"] = effective_api_key
+        options.update(params.litellm_kwargs)
+
+        try:
+            response = completion(
+                model=model_name, messages=messages, stream=False, **options
+            )
+            image_caption = ""
+            choices = getattr(response, "choices", None)
+            if choices and isinstance(choices, (list, tuple)) and len(choices) > 0:
+                choice = choices[0]
+                message = getattr(choice, "message", None)
+                if message:
+                    msg_content = getattr(message, "content", None)
+                    if isinstance(msg_content, str):
+                        image_caption = msg_content.strip()
+            return image_url, image_caption, download_status
+        except Exception as e:
+            logger.warning("VLM model %s call failed: %s", model_name, e)
+            return image_url, "", download_status
 
     @classmethod
-    def _backoff_seconds(cls, retry_index: int) -> float:
-        """依重試次數回傳等待秒數（含 jitter），不超過 BACKOFF_CAP_SECONDS。"""
+    def _retrieve_retry_context(
+        cls,
+        states: _ImageSummarizeStates,
+        min_success_rate: float,
+    ) -> tuple[float, set[str]] | None:
+        """回傳重試所需資料；若不需重試則回傳 None。"""
+        if states.retry_count >= cls.Constants.MAX_RETRIES:
+            return None
+
+        success, failure = (
+            states.download_stats["success"],
+            states.download_stats["network_failure"],
+        )
+        total = success + failure
+        success_rate = (
+            None
+            if total < cls.Constants.MIN_DOWNLOAD_ATTEMPTS_TO_CONSIDER_RETRY
+            else success / total
+        )
+        if success_rate is None or success_rate >= min_success_rate:
+            return None
+
+        failed_urls = {
+            url
+            for url, (_, status) in states.cache.items()
+            if status == "network_failure"
+        }
+        if not failed_urls:
+            return None
+
+        for failed_url in failed_urls:
+            states.cache.pop(failed_url, None)
+
+        return success_rate, failed_urls
+
+    @classmethod
+    def _prepare_retry_urls(
+        cls,
+        *,
+        states: _ImageSummarizeStates,
+        failed_urls: set[str],
+        success_rate: float,
+        min_success_rate: float,
+    ) -> set[str]:
+        # 依重試次數計算等待秒數（含 jitter），不超過 BACKOFF_CAP_SECONDS
         bases = cls.Constants.BACKOFF_SECONDS
-        base = bases[min(retry_index, len(bases) - 1)] if bases else 30
+        base = bases[min(states.retry_count, len(bases) - 1)] if bases else 30
         jitter = 1.0 + random.uniform(
             -cls.Constants.BACKOFF_JITTER_FRACTION,
             cls.Constants.BACKOFF_JITTER_FRACTION,
         )
-        return min(base * jitter, cls.Constants.BACKOFF_CAP_SECONDS)
+        wait_sec = min(base * jitter, cls.Constants.BACKOFF_CAP_SECONDS)
+        logger.warning(
+            "Image download success rate %.0f%% (< %.0f%%). Possible blocking detected; retrying %s URLs in %.1f seconds (attempt %s)",
+            success_rate * 100,
+            min_success_rate * 100,
+            len(failed_urls),
+            wait_sec,
+            states.retry_count + 1,
+        )
+        logger.warning("-" * 30)
+        time.sleep(wait_sec)
+
+        # 重置統計，準備重試
+        states.download_stats = cls._new_download_stats()
+        states.retry_count += 1
+        return failed_urls
