@@ -27,6 +27,10 @@ class WebsiteCrawlerConstants:
 
     HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
     EMPTY_HEADING_LINE_PATTERN = re.compile(r"^(\s{0,3}#{1,6})\s*$")
+    SKIP_AS_HEADING_PATTERN = re.compile(r"^\s*!?\[.*?\]\(.*?\)\s*$")
+
+    EMPTY_ANCHOR_LINK_PATTERN = re.compile(r"\[\]\(.*?#h\.[a-z0-9]+\)")
+
     INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
     WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
 
@@ -43,7 +47,7 @@ class WebsiteCrawler:
         allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = Constanants.KEEP_TITLE_CONTENT_THRESHOLD,
+        content_threshold: float = Constanants.KEEP_IMAGE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ) -> list[dict] | None:
@@ -96,7 +100,7 @@ class WebsiteCrawler:
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
         max_pages: int | None = None,
-        content_threshold: float = Constanants.KEEP_TITLE_CONTENT_THRESHOLD,
+        content_threshold: float = Constanants.KEEP_IMAGE_CONTENT_THRESHOLD,
         light_mode: bool = True,
         wait_for_images: bool = True,
     ) -> list:
@@ -190,26 +194,12 @@ class WebsiteCrawler:
                     if not any(word in line for word in exclude_words)
                 )
 
-            # 修正空標題行
-            lines = fit_markdown.splitlines(keepends=True)
-            fixed_lines: list[str] = []
-            i = 0
-            while i < len(lines):
-                current_line = lines[i]
-                heading_match = cls.Constanants.EMPTY_HEADING_LINE_PATTERN.match(
-                    current_line.rstrip("\r\n")
-                )
-                if heading_match and i + 1 < len(lines):
-                    next_line_text = lines[i + 1].strip()
-                    if next_line_text:
-                        fixed_lines.append(
-                            f"{heading_match.group(1)} {next_line_text}\n"
-                        )
-                        i += 2
-                        continue
-                fixed_lines.append(current_line)
-                i += 1
-            fit_markdown = "".join(fixed_lines)
+            # 移除 https://...#h.xxx 這類隱藏錨點空連結
+            fit_markdown = cls.Constanants.EMPTY_ANCHOR_LINK_PATTERN.sub(
+                "", fit_markdown
+            )
+
+            fit_markdown = cls._promote_empty_heading_line(fit_markdown)
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = cls.Constanants.HEADING_PATTERN.search(fit_markdown)
@@ -257,7 +247,40 @@ class WebsiteCrawler:
         logger.info(f"  * Successful unique pages: {success_unique_count}")
         logger.info(f"  * Error pages: {error_count}")
         logger.info(f"  * Repeat pages: {repeat_count}")
-        logger.info(f"  * Total images: {image_count}")
+        # logger.info(f"  * Total images: {image_count}")
         logger.info("-" * 30)
 
         return filtered_results
+
+    @classmethod
+    def _promote_empty_heading_line(cls, fit_markdown: str) -> str:
+        """將空標題行提升為下一個可用文字標題，並保留中間內容。"""
+        lines = fit_markdown.splitlines(keepends=True)
+        fixed_lines: list[str] = []
+        i = 0
+
+        while i < len(lines):
+            current_line = lines[i]
+            heading_match = cls.Constanants.EMPTY_HEADING_LINE_PATTERN.match(
+                current_line.rstrip("\r\n")
+            )
+            if heading_match:
+                j = i + 1
+                while j < len(lines):
+                    candidate = lines[j].strip()
+                    if candidate and not cls.Constanants.SKIP_AS_HEADING_PATTERN.match(
+                        candidate
+                    ):
+                        fixed_lines.append(f"{heading_match.group(1)} {candidate}\n")
+                        fixed_lines.extend(lines[i + 1 : j])
+                        i = j + 1
+                        break
+                    j += 1
+                else:
+                    fixed_lines.append(current_line)
+                    i += 1
+            else:
+                fixed_lines.append(current_line)
+                i += 1
+
+        return "".join(fixed_lines)

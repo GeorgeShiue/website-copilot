@@ -2,11 +2,12 @@ import base64
 import logging
 import os
 import random
+import re
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from litellm import completion
@@ -24,6 +25,7 @@ class _ImageSummarizeParameters:
     api_key: str | None
     vlm_max_workers: int | None
     litellm_kwargs: dict[str, Any]
+    image_source: Literal["images", "markdown"]
 
 
 @dataclass
@@ -41,11 +43,11 @@ class WebpageImageSummarizerConstants:
     }
     DEFAULT_VLM_MODEL: str = "openai"
     DEFAULT_VLM_MAX_WORKERS: int = 10
-    IMAGE_CAPTION_PROMPT = (
-        "請描述這張圖片中的文字與版面內容。"
-        "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
-        "若需要列點敘述，統一使用「*」作為 Markdown 列點符號。"
-    )
+    IMAGE_CAPTION_PROMPT = """
+描述這張圖片中的文字與版面內容。
+以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。
+若需要列點敘述，統一使用「*」作為 Markdown 列點符號。
+"""
 
     # 圖片下載配置
     DEFAULT_DOWNLOAD_TIMEOUT: float = 15.0  # 秒
@@ -62,6 +64,9 @@ class WebpageImageSummarizerConstants:
     BACKOFF_JITTER_FRACTION: float = 0.2  # ±20% 隨機
     MAX_RETRIES: int = 6  # 對應 BACKOFF_SECONDS 長度 + 最後一次用 cap
 
+    # Markdown 圖片語法解析
+    MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
+
 
 class WebpageImageSummarizer:
     Constants = WebpageImageSummarizerConstants
@@ -75,6 +80,7 @@ class WebpageImageSummarizer:
         prompt: str | None = None,
         api_key: str | None = None,
         vlm_max_workers: int | None = None,
+        image_source: Literal["images", "markdown"] = "markdown",
         **litellm_kwargs: Any,
     ) -> list[dict]:
         """
@@ -95,6 +101,7 @@ class WebpageImageSummarizer:
             api_key=api_key,
             vlm_max_workers=vlm_max_workers,
             litellm_kwargs=litellm_kwargs,
+            image_source=image_source,
         )
         states = _ImageSummarizeStates(
             cache={},
@@ -132,8 +139,8 @@ class WebpageImageSummarizer:
 
         return enhanced_crawl_results
 
-    @classmethod
-    def _new_download_stats(cls) -> dict[str, int]:
+    @staticmethod
+    def _new_download_stats() -> dict[str, int]:
         return {
             "success": 0,
             "network_failure": 0,
@@ -151,57 +158,56 @@ class WebpageImageSummarizer:
     ) -> list[dict]:
         """摘要爬取的網頁中的所有圖片。"""
         for crawl_result in crawl_results:
-            markdown = crawl_result.get("fit_markdown", "")
-            images = crawl_result.get("images", [])
-
-            if target_urls is not None:
-                page_urls = {img.get("src", "") for img in images if img.get("src")}
-                if not (page_urls & target_urls):
-                    continue
-
-            if not images:
-                crawl_result["enhanced_markdown"] = markdown
+            prepared = cls._prepare_page_image_urls(
+                crawl_result=crawl_result,
+                image_source=params.image_source,
+                target_urls=target_urls,
+            )
+            if prepared is None:
                 continue
 
-            enhanced = cls._enhance_markdown_with_image_captions(
-                markdown,
-                images=images,
+            markdown, image_urls = prepared
+
+            url_to_caption = cls._get_image_captions(
+                image_urls,
                 params=params,
                 states=states,
             )
-            crawl_result["enhanced_markdown"] = enhanced
+
+            enhanced_markdown = cls._build_enhanced_markdown(
+                markdown=markdown,
+                image_urls=image_urls,
+                url_to_caption=url_to_caption,
+                image_source=params.image_source,
+            )
+            crawl_result["enhanced_markdown"] = enhanced_markdown
+
         return crawl_results
 
     @classmethod
-    def _enhance_markdown_with_image_captions(
+    def _prepare_page_image_urls(
         cls,
-        markdown: str,
-        images: list[dict[str, str]],
-        params: _ImageSummarizeParameters,
-        states: _ImageSummarizeStates,
-    ) -> str:
-        """取得單一網頁中的所有圖片，並行呼叫 VLM，並將所有圖片說明附加到該網頁 markdown 末尾。"""
-        image_urls = [img.get("src", "") for img in images if img.get("src")]
+        crawl_result: dict[str, Any],
+        image_source: Literal["images", "markdown"],
+        target_urls: set[str] | None = None,
+    ) -> tuple[str, list[str]] | None:
+        """從爬取結果中提取圖片 URL。"""
+        markdown = crawl_result.get("fit_markdown", "")
+
+        if image_source == "markdown":
+            image_urls = cls.Constants.MARKDOWN_IMAGE_PATTERN.findall(markdown)
+        else:
+            images = crawl_result.get("images", [])
+            image_urls = [img.get("src", "") for img in images if img.get("src")]
+
+        if target_urls is not None and not (set(image_urls) & target_urls):
+            return None
+
         if not image_urls:
-            return markdown
+            crawl_result["enhanced_markdown"] = markdown
+            return None
 
-        url_to_caption = cls._get_image_captions(
-            image_urls,
-            params=params,
-            states=states,
-        )
-
-        captions = ["---\n\n# Image\n\n"]
-        for i, url in enumerate(image_urls, 1):
-            caption = url_to_caption.get(url, "")
-            if caption:
-                captions.append(
-                    f"## Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
-                )
-
-        if captions:
-            return markdown + "".join(captions)
-        return markdown
+        return markdown, image_urls
 
     @classmethod
     def _get_image_captions(
@@ -263,16 +269,12 @@ class WebpageImageSummarizer:
         cls,
         url: str,
         timeout: float | None = None,
-        referer: str | None = None,
     ) -> tuple[str | None, str]:
         """下載圖片並轉成 image url(base64)，供 VLM 使用。"""
+        headers = {"User-Agent": cls.Constants.DEFAULT_USER_AGENT}
         effective_timeout = (
             timeout if timeout is not None else cls.Constants.DEFAULT_DOWNLOAD_TIMEOUT
         )
-
-        headers = {"User-Agent": cls.Constants.DEFAULT_USER_AGENT}
-        if referer:
-            headers["Referer"] = referer
 
         # 圖片下載
         try:
@@ -364,6 +366,49 @@ class WebpageImageSummarizer:
             return image_url, "", download_status
 
     @classmethod
+    def _build_enhanced_markdown(
+        cls,
+        markdown: str,
+        image_urls: list[str],
+        url_to_caption: dict[str, str],
+        image_source: Literal["images", "markdown"],
+    ) -> str:
+        """將圖片說明以適當格式插入原 markdown 中。"""
+        enhanced_markdown = ""
+        if image_source == "markdown":
+            lines = markdown.splitlines(keepends=True)
+            enhanced_parts: list[str] = []
+            occurrence_index = 0
+
+            for line in lines:
+                enhanced_parts.append(line)
+                line_image_urls = cls.Constants.MARKDOWN_IMAGE_PATTERN.findall(line)
+                for _ in line_image_urls:
+                    if occurrence_index >= len(image_urls):
+                        break
+
+                    url = image_urls[occurrence_index]
+                    occurrence_index += 1
+                    caption = url_to_caption.get(url, "")
+                    if caption:
+                        enhanced_parts.append(
+                            f"> Image-{occurrence_index}:\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                        )
+
+            enhanced_markdown = "".join(enhanced_parts)
+        elif image_source == "images":
+            captions = ["---\n\n# Image\n\n"]
+            for i, url in enumerate(image_urls, 1):
+                caption = url_to_caption.get(url, "")
+                if caption:
+                    captions.append(
+                        f"## Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                    )
+            enhanced_markdown = markdown + "".join(captions)
+
+        return enhanced_markdown
+
+    @classmethod
     def _retrieve_retry_context(
         cls,
         states: _ImageSummarizeStates,
@@ -408,6 +453,7 @@ class WebpageImageSummarizer:
         success_rate: float,
         min_success_rate: float,
     ) -> set[str]:
+        """根據失敗的 URL 集合和成功率計算等待時間，並回傳下一輪要重試的 URL。"""
         # 依重試次數計算等待秒數（含 jitter），不超過 BACKOFF_CAP_SECONDS
         bases = cls.Constants.BACKOFF_SECONDS
         base = bases[min(states.retry_count, len(bases) - 1)] if bases else 30
