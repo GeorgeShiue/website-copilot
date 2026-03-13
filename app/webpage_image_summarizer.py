@@ -19,8 +19,6 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class _ImageSummarizeParameters:
-    """VLM 圖片摘要用不可變設定參數，供內部方法共用"""
-
     model: str | None
     prompt: str | None
     api_key: str | None
@@ -30,23 +28,19 @@ class _ImageSummarizeParameters:
 
 @dataclass
 class _ImageSummarizeStates:
-    """Per-call 可變狀態：快取與下載統計。"""
-
     cache: dict[str, tuple[str, str]]  # url -> (caption, download_status)
     download_stats: dict[str, int]
     retry_count: int = 0
 
 
 class WebpageImageSummarizerConstants:
-    """VLM 圖片摘要用常數：圖片 URL 正則、預設提示詞、支援的模型對照。"""
-
+    # VLM 配置
     VLM_MODELS: dict[str, tuple[str, str]] = {
         "openai": ("gpt-4.1-mini", "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY"),
         "gemini": ("gemini-2.5-flash", "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY"),
     }
     DEFAULT_VLM_MODEL: str = "openai"
     DEFAULT_VLM_MAX_WORKERS: int = 10
-
     IMAGE_CAPTION_PROMPT = (
         "請描述這張圖片中的文字與版面內容。"
         "以結構化、易讀的純文字輸出，方便作為網頁內容的補充說明。"
@@ -69,10 +63,7 @@ class WebpageImageSummarizerConstants:
     MAX_RETRIES: int = 6  # 對應 BACKOFF_SECONDS 長度 + 最後一次用 cap
 
 
-# TODO: 簡化程式碼
 class WebpageImageSummarizer:
-    """可初始化的網頁 Markdown 圖片摘要器，統計資訊封裝於實例內。"""
-
     Constants = WebpageImageSummarizerConstants
 
     @classmethod
@@ -87,8 +78,10 @@ class WebpageImageSummarizer:
         **litellm_kwargs: Any,
     ) -> list[dict]:
         """
-        對多個 crawl_result 項目做 VLM 圖片摘要，回傳 (更新後的 crawl_results, 重試次數, 下載統計)。
-        若一輪後圖片下載成功率 < 80% 且嘗試數足夠，視為可能被擋，依指數退避自動重試（僅重試失敗的 URL）。
+        使用 VLM 總結所有爬取下的網頁中的圖片。
+        若一輪後圖片下載成功率 < 80% 且嘗試數足夠，視為可能被擋，依指數退避自動重試。
+
+        - crawl_results: 爬取結果列表，每個元素為 dict，包含 "fit_markdown"與 "images"。
         - model: 模型商名稱（WebpageImageSummarizerConstants.VLM_MODELS 的 key），
           傳入後會自動對應模型型號與 .env 中的 API key；未傳則使用 Constants.DEFAULT_VLM_MODEL（'openai'）。
         - prompt: 送給 VLM 的提示詞，未設則用內建 IMAGE_CAPTION_PROMPT。
@@ -96,7 +89,6 @@ class WebpageImageSummarizer:
         - vlm_max_workers: VLM 並行數上限，未設則用 Constants.DEFAULT_VLM_MAX_WORKERS，避免觸發 API rate limit。
         - **litellm_kwargs: 其他傳給 litellm.completion 的參數。
         """
-        # Per-call states: do not store mutable progress on instance.
         params = _ImageSummarizeParameters(
             model=model,
             prompt=prompt,
@@ -157,13 +149,7 @@ class WebpageImageSummarizer:
         states: _ImageSummarizeStates,
         target_urls: set[str] | None = None,
     ) -> list[dict]:
-        """通用頁面摘要流程，支援全量模式與重試過濾模式。
-
-        - target_urls 為空（None 或空集合）時：全量處理所有頁面。
-          無圖片頁面會寫入 enhanced_markdown = fit_markdown。
-        - target_urls 有值時：只處理包含任一 target URL 的頁面（重試模式）。
-          未命中的頁面保持原值，不重算不覆寫。
-        """
+        """摘要爬取的網頁中的所有圖片。"""
         for crawl_result in crawl_results:
             markdown = crawl_result.get("fit_markdown", "")
             images = crawl_result.get("images", [])
@@ -194,26 +180,23 @@ class WebpageImageSummarizer:
         params: _ImageSummarizeParameters,
         states: _ImageSummarizeStates,
     ) -> str:
-        """對單一 Markdown 字串：從 images 列表取得圖片 URL，並行呼叫 VLM，並將所有圖片說明附加到 markdown 末尾。"""
-        # 從 images 提取所有 src
+        """取得單一網頁中的所有圖片，並行呼叫 VLM，並將所有圖片說明附加到該網頁 markdown 末尾。"""
         image_urls = [img.get("src", "") for img in images if img.get("src")]
         if not image_urls:
             return markdown
 
-        # 取得所有 caption
         url_to_caption = cls._get_image_captions(
             image_urls,
             params=params,
             states=states,
         )
 
-        # 附加所有圖片說明到 markdown 末尾
         captions = ["---\n\n# Image\n\n"]
         for i, url in enumerate(image_urls, 1):
             caption = url_to_caption.get(url, "")
             if caption:
                 captions.append(
-                    f"## Image-{i}:\n\n> {caption.replace(chr(10), chr(10) + '> ')}"
+                    f"## Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
                 )
 
         if captions:
@@ -262,15 +245,17 @@ class WebpageImageSummarizer:
             futures = [executor.submit(fetch_caption, url) for url in uncached]
             for future in as_completed(futures):
                 image_url, image_caption, download_status = future.result()
-                # 根據狀態更新統計
+
                 if download_status == "success":
                     states.download_stats["success"] += 1
                 elif download_status == "network_failure":
                     states.download_stats["network_failure"] += 1
                 elif download_status == "processing_failure":
                     states.download_stats["processing_failure"] += 1
+
                 states.cache[image_url] = (image_caption, download_status)
                 url_to_caption[image_url] = image_caption
+
         return url_to_caption
 
     @classmethod
@@ -280,12 +265,7 @@ class WebpageImageSummarizer:
         timeout: float | None = None,
         referer: str | None = None,
     ) -> tuple[str | None, str]:
-        """從 URL 下載圖片並轉成 data URL，供 VLM 使用。
-        回傳 (data_url, status)，其中 status 為：
-        - "success": 網路下載與後處理皆成功
-        - "network_failure": 網路抓取失敗（連線逾時、404 等）
-        - "processing_failure": 網路抓取成功但後處理失敗（content-type、base64 編碼等）
-        """
+        """下載圖片並轉成 image url(base64)，供 VLM 使用。"""
         effective_timeout = (
             timeout if timeout is not None else cls.Constants.DEFAULT_DOWNLOAD_TIMEOUT
         )
@@ -294,7 +274,7 @@ class WebpageImageSummarizer:
         if referer:
             headers["Referer"] = referer
 
-        # 網路下載圖片
+        # 圖片下載
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=effective_timeout) as resp:
@@ -306,7 +286,7 @@ class WebpageImageSummarizer:
             logger.warning("Image download failed (url=%s): %s", url, e)
             return None, "network_failure"
 
-        # 圖片後處理(content-type 解析、base64 編碼)
+        # 圖片後處理
         try:
             content_type = raw_content_type.split(";")[0].strip()
             if not content_type.startswith("image/"):
@@ -332,9 +312,7 @@ class WebpageImageSummarizer:
         download_status: str,
         params: _ImageSummarizeParameters,
     ) -> tuple[str, str, str]:
-        """呼叫支援視覺的模型取得圖片描述，失敗時回傳空字串。
-        回傳 (url, caption, download_status)，其中 download_status 為 "success", "network_failure", "processing_failure"。
-        """
+        """呼叫 VLM 取得圖片描述。"""
         messages = [
             {
                 "role": "user",
@@ -391,7 +369,7 @@ class WebpageImageSummarizer:
         states: _ImageSummarizeStates,
         min_success_rate: float,
     ) -> tuple[float, set[str]] | None:
-        """回傳重試所需資料；若不需重試則回傳 None。"""
+        """回傳重試所需資料（成功率、需重試的 URL 集合）"""
         if states.retry_count >= cls.Constants.MAX_RETRIES:
             return None
 
@@ -438,6 +416,7 @@ class WebpageImageSummarizer:
             cls.Constants.BACKOFF_JITTER_FRACTION,
         )
         wait_sec = min(base * jitter, cls.Constants.BACKOFF_CAP_SECONDS)
+
         logger.warning(
             "Image download success rate %.0f%% (< %.0f%%). Possible blocking detected; retrying %s URLs in %.1f seconds (attempt %s)",
             success_rate * 100,
@@ -449,7 +428,7 @@ class WebpageImageSummarizer:
         logger.warning("-" * 30)
         time.sleep(wait_sec)
 
-        # 重置統計，準備重試
         states.download_stats = cls._new_download_stats()
         states.retry_count += 1
+
         return failed_urls

@@ -1,14 +1,30 @@
+import json
 import os
 import shutil
 
+WEBSITE_CRAWL_RESULTS_JSON_PATH = "./data/test/website_crawl_results.json"
 WEBPAGE_FIT_MARKDOWN_FOLDER_PATH = "./data/test/webpage_fit_markdown"
 WEBPAGE_ENHANCED_MARKDOWN_FOLDER_PATH = "./data/test/webpage_enhanced_markdown"
 
 
-class MdFileManager:
-    @classmethod
+class FileManager:
+    @staticmethod
+    def save_crawl_results_as_json(crawl_results: list[dict]) -> None:
+        """將爬取結果列表寫入 JSON 檔案。"""
+        with open(WEBSITE_CRAWL_RESULTS_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump(crawl_results, f, ensure_ascii=False, indent=4)
+
+    @staticmethod
+    def load_crawl_results_from_json() -> list[dict]:
+        """從 JSON 檔案讀取爬取結果列表。"""
+        if not os.path.exists(WEBSITE_CRAWL_RESULTS_JSON_PATH):
+            raise FileNotFoundError(f"{WEBSITE_CRAWL_RESULTS_JSON_PATH} not found.")
+        with open(WEBSITE_CRAWL_RESULTS_JSON_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @staticmethod
     def save_crawl_results_as_md(
-        cls, craw_results: list[dict], markdown_type: str
+        craw_results: list[dict], markdown_type: str, save_images: bool = False
     ) -> None:
         """將所有爬取結果寫入 Markdown 檔案。"""
         match markdown_type:
@@ -35,8 +51,7 @@ class MdFileManager:
                 f.write("-" * 5 + "\n")
                 f.write(markdwon)
 
-                # if images and markdown_type == "fit_markdown":
-                if images:  # test
+                if images and save_images:
                     f.write("\n" + "-" * 5 + "\n")
                     f.write("Images:\n\n")
                     for image in images:

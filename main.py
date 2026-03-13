@@ -1,8 +1,9 @@
 import logging
 import time
 
-from app.crawl4ai_crawler import WebsiteCrawler
-from app.md_file_manager import MdFileManager
+from utils.file_manager import FileManager
+from app.webpage_image_summarizer import WebpageImageSummarizer
+from app.website_crawler import WebsiteCrawler
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -34,9 +35,21 @@ def main():
         logger.error("Crawling failed.")
         return
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
+    logger.info("=" * 30)
+
+    logger.info("2. Image Summarization")
     logger.info("-" * 30)
 
-    MdFileManager.save_crawl_results_as_md(crawl_results, "fit_markdown")
+    webpage_image_summarizer = WebpageImageSummarizer()
+    enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
+        crawl_results=crawl_results
+    )
+    t2 = time.time()
+
+    logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
+    logger.info("=" * 30)
+
+    FileManager.save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
 
 
 if __name__ == "__main__":

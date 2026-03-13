@@ -24,8 +24,11 @@ logger = logging.getLogger(__name__)
 class WebsiteCrawlerConstants:
     KEEP_TITLE_CONTENT_THRESHOLD = 0.45
     KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
+
     HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
-    SAFE_TITLE_PATTERN = re.compile(r"[\\/:\"\*\?<>\|]|\s+")
+    EMPTY_HEADING_LINE_PATTERN = re.compile(r"^(\s{0,3}#{1,6})\s*$")
+    INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
+    WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
 
 
 class WebsiteCrawler:
@@ -169,7 +172,6 @@ class WebsiteCrawler:
         image_count = 0
 
         for crawl_result in crawl_results:
-            # 排除 404 頁面
             if crawl_result.status_code == 404:
                 error_count += 1
                 # results.remove(result)
@@ -179,29 +181,50 @@ class WebsiteCrawler:
                 # logger.info("-" * 30)
                 continue
 
-            # 過濾網頁多餘文字
+            fit_markdown = crawl_result.markdown.fit_markdown
+
             if exclude_words is not None:
                 fit_markdown = "".join(
                     line
-                    for line in crawl_result.markdown.fit_markdown.splitlines(
-                        keepends=True
-                    )
+                    for line in fit_markdown.splitlines(keepends=True)
                     if not any(word in line for word in exclude_words)
                 )
-            else:
-                fit_markdown = crawl_result.markdown.fit_markdown
+
+            # 修正空標題行
+            lines = fit_markdown.splitlines(keepends=True)
+            fixed_lines: list[str] = []
+            i = 0
+            while i < len(lines):
+                current_line = lines[i]
+                heading_match = cls.Constanants.EMPTY_HEADING_LINE_PATTERN.match(
+                    current_line.rstrip("\r\n")
+                )
+                if heading_match and i + 1 < len(lines):
+                    next_line_text = lines[i + 1].strip()
+                    if next_line_text:
+                        fixed_lines.append(
+                            f"{heading_match.group(1)} {next_line_text}\n"
+                        )
+                        i += 2
+                        continue
+                fixed_lines.append(current_line)
+                i += 1
+            fit_markdown = "".join(fixed_lines)
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = cls.Constanants.HEADING_PATTERN.search(fit_markdown)
             if heading_match:
                 title = heading_match.group(1).strip()
-                safe_title = re.sub(r"[\\/:\"\*\?<>\|]", "", title)
-                safe_title = re.sub(r"\s+", "_", safe_title)
+                safe_title = cls.Constanants.INVALID_FILENAME_CHARS_PATTERN.sub(
+                    "", title
+                )
+                safe_title = cls.Constanants.WHITESPACE_SEQUENCE_PATTERN.sub(
+                    "_", safe_title
+                )
                 markdown_file_name = f"{safe_title}.md"
             else:
                 markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
 
-            # 避免存取相同網頁多次，若網頁已存在則跳過
             if markdown_file_name in existed_markdown_file_names:
                 repeat_count += 1
                 # logger.info(
@@ -211,12 +234,9 @@ class WebsiteCrawler:
                 continue
             existed_markdown_file_names.add(markdown_file_name)
 
-            # 獲取網頁圖片
             images = crawl_result.media.get("images", [])
             image_count += len(images)
 
-            # 儲存為 Markdown 檔案
-            success_unique_count += 1
             filtered_result = {
                 "markdown_file_name": markdown_file_name,
                 "url": crawl_result.url,
@@ -224,6 +244,7 @@ class WebsiteCrawler:
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
+            success_unique_count += 1
 
             # logger.info(f"URL: {crawl_result.url}")
             # logger.info(f"Depth: {crawl_result.metadata.get('depth', 0)}")
