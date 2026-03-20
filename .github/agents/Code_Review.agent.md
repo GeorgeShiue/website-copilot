@@ -1,6 +1,15 @@
 ---
-description: 'Review your code to identify issues and provide improvement suggestions'
-tools: ['read/readFile', 'search', 'search/usages', 'read/problems', 'web/fetch', 'web/githubRepo', 'edit/editFiles']
+description: "Review your code to identify issues and provide improvement suggestions"
+tools:
+  [
+    "read/readFile",
+    "search",
+    "search/usages",
+    "read/problems",
+    "web/fetch",
+    "web/githubRepo",
+    "edit/editFiles",
+  ]
 ---
 
 # Code Review Mode Instructions
