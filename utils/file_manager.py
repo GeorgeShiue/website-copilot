@@ -40,17 +40,12 @@ class FileManager:
         for filtered_result in craw_results:
             markdown_file_name = filtered_result["markdown_file_name"]
             markdown_file_path = os.path.join(markdown_folder_path, markdown_file_name)
-            url = filtered_result["url"]
             # markdown_type: "fit_markdown" or "enhanced_markdown"
             markdwon = filtered_result[markdown_type]
             images = filtered_result["images"]
 
             with open(markdown_file_path, "w", encoding="utf-8") as f:
-                f.write("-" * 5 + "\n")
-                f.write(f"URL: {url}\n")
-                f.write("-" * 5 + "\n")
                 f.write(markdwon)
-
                 if images and save_images:
                     f.write("\n" + "-" * 5 + "\n")
                     f.write("Images:\n\n")
