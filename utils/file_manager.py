@@ -13,6 +13,7 @@ class FileManager:
     @staticmethod
     def save_crawl_results_as_json(crawl_results: list[dict]) -> None:
         """將爬取結果列表寫入 JSON 檔案。"""
+        os.makedirs(os.path.dirname(WEBSITE_CRAWL_RESULTS_JSON_PATH), exist_ok=True)
         with open(WEBSITE_CRAWL_RESULTS_JSON_PATH, "w", encoding="utf-8") as f:
             json.dump(crawl_results, f, ensure_ascii=False, indent=4)
 
