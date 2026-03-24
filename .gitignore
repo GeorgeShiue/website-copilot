@@ -7,3 +7,5 @@ test_dev.py
 
 data/
 tmp/
+storage_context/
+ingestion_cache/
