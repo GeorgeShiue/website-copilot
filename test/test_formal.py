@@ -6,4 +6,4 @@ logger = logging.getLogger(__name__)
 
 
 def test_main():
-    main()
+    main(max_pages=10)  # test

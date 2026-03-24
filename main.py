@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main(max_pages: int | None = None) -> None:
     logger.info("1. Website Crawling")
     logger.info("-" * 30)
 
@@ -27,6 +27,7 @@ def main():
             "Google Sites",
             "Report abuse",
         ),
+        max_pages=max_pages,
     )
     t1 = time.time()
 
