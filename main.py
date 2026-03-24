@@ -1,9 +1,9 @@
 import logging
 import time
 
-from utils.file_manager import FileManager
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.website_crawler import WebsiteCrawler
+from utils.file_manager import FileManager
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ def main():
             "Google Sites",
             "Report abuse",
         ),
-        max_pages=10,  # test
     )
     t1 = time.time()
 
@@ -49,7 +48,8 @@ def main():
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
     logger.info("=" * 30)
 
-    FileManager.save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
+    FileManager.save_crawl_results_as_json(enhanced_crawl_results)
+    FileManager.save_enhanced_crawl_results_as_md(enhanced_crawl_results)
 
 
 if __name__ == "__main__":
