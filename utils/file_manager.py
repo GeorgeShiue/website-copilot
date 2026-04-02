@@ -2,8 +2,6 @@ import json
 import os
 import shutil
 
-from app.webpage_image_summarizer import WebpageImageSummarizerConstants
-
 WEBSITE_CRAWL_RESULTS_JSON_PATH = "./data/test/website_crawl_results.json"
 WEBPAGE_FIT_MARKDOWN_FOLDER_PATH = "./data/test/webpage_fit_markdown"
 WEBPAGE_ENHANCED_MARKDOWN_FOLDER_PATH = "./data/test/webpage_enhanced_markdown"
@@ -67,12 +65,10 @@ class FileManager:
     def save_enhanced_crawl_results_as_md(
         cls,
         craw_results: list[dict],
-        model: str | None = None,
+        model: str,
         save_images: bool = False,
     ) -> None:
         """將爬取結果寫入 enhanced markdown 檔案。"""
-        if model is None:
-            model = WebpageImageSummarizerConstants.DEFAULT_VLM_MODEL
         markdown_folder_path = os.path.join(
             WEBPAGE_ENHANCED_MARKDOWN_FOLDER_PATH, model.replace(".", "_")
         )
