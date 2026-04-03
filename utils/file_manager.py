@@ -7,6 +7,7 @@ WEBPAGE_FIT_MARKDOWN_FOLDER_PATH = "./data/test/webpage_fit_markdown"
 WEBPAGE_ENHANCED_MARKDOWN_FOLDER_PATH = "./data/test/webpage_enhanced_markdown"
 
 
+# TODO: 將class移除（？
 class FileManager:
     @staticmethod
     def save_crawl_results_as_json(crawl_results: list[dict]) -> None:
@@ -50,7 +51,7 @@ class FileManager:
                     f.write("\n" + "-" * 5 + "\n")
 
     @classmethod
-    def save_fit_crawl_results_ad_md(
+    def save_fit_crawl_results_as_md(
         cls, craw_results: list[dict], save_images: bool = False
     ) -> None:
         """將爬取結果寫入 fit markdown 檔案。"""

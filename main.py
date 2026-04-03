@@ -40,7 +40,7 @@ def main(max_pages: int | None = None) -> None:
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
 
-    webpage_image_summarizer = WebpageImageSummarizer()
+    webpage_image_summarizer = WebpageImageSummarizer().from_toml()
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results=crawl_results
     )

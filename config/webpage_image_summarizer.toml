@@ -1,0 +1,25 @@
+[webpage_image_summarizer]
+download_timeout = 10.0
+model = "gpt-5-mini"
+vlm_max_workers = 10
+image_source = "markdown"
+success_threshold = 0.8
+max_retries = 6
+prompt = """
+用繁體中文描述圖片，作為網頁補充說明。
+
+依序輸出：
+    - 圖片摘要：1 句（20-40 字）。
+    - 可觀察元素：列出 3-5 點可直接看見的內容（物件、顏色、位置、構圖）。
+    - 可讀文字：列出圖片中的文字；若沒有請寫「無」。
+    - 場景功能：1 句，描述圖片中場景可能的用途或功能。
+
+規則：
+    - 只寫可觀察事實，避免主觀形容詞。
+    - 不確定就寫「不確定」，不要臆測細節。
+    - 若需列點，一律使用「*」作為 Markdown 列點符號。
+"""
+
+[webpage_image_summarizer.litellm_kwargs]
+# temperature = 0.2
+# timeout = 30
