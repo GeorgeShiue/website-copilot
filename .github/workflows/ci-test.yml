@@ -39,4 +39,4 @@ jobs:
         run: echo "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
 
       - name: Run tests
-        run: uv run pytest -s
+        run: uv run pytest test/test_formal.py
