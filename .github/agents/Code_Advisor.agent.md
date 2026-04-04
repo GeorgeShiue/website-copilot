@@ -3,12 +3,13 @@ description: "Recommend how to solve code problems based on current file context
 tools:
   [
     execute/getTerminalOutput,
-    execute/runInTerminal,
     execute/runTests,
+    execute/runInTerminal,
+    read/terminalSelection,
+    read/terminalLastCommand,
     read/problems,
     read/readFile,
     search,
-    search/usages,
     web,
     "io.github.upstash/context7/*",
   ]
