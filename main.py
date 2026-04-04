@@ -40,7 +40,7 @@ def main(max_pages: int | None = None) -> None:
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
 
-    webpage_image_summarizer = WebpageImageSummarizer()
+    webpage_image_summarizer = WebpageImageSummarizer().from_toml()
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results=crawl_results
     )
@@ -50,7 +50,9 @@ def main(max_pages: int | None = None) -> None:
     logger.info("=" * 30)
 
     FileManager.save_crawl_results_as_json(enhanced_crawl_results)
-    FileManager.save_enhanced_crawl_results_as_md(enhanced_crawl_results)
+    FileManager.save_enhanced_crawl_results_as_md(
+        enhanced_crawl_results, webpage_image_summarizer.model
+    )
 
 
 if __name__ == "__main__":
