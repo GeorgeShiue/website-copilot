@@ -1,8 +1,11 @@
 import logging
+import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,10 @@ INIT_KEYS = {
     "image_source",
     "success_threshold",
     "max_retries",
+}
+VLM_MODEL_TO_API_KEY: dict[str, str] = {
+    "gpt": "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
+    "gemini": "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
 }
 
 
@@ -151,3 +158,27 @@ def _validate_init_kwargs(init_kwargs: dict[str, Any]) -> None:
             raise ConfigError("max_retries 必須是整數")
         if max_retries < 0:
             raise ConfigError("max_retries 不可小於 0")
+
+
+def get_vlm_api_key(model: str) -> str:
+    """根據 VLM 模型名稱推斷環境變數，並傳回有效的 API 金鑰。"""
+    api_key_name: str | None = None
+    for keyword, key_var in VLM_MODEL_TO_API_KEY.items():
+        if keyword.lower() in model.lower():
+            api_key_name = key_var
+            break
+
+    if api_key_name is None:
+        raise ConfigError(
+            f"無法根據模型名稱 '{model}' 推斷 API key 變數。"
+            f"請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
+        )
+
+    load_dotenv()
+    api_key = os.getenv(api_key_name)
+    if api_key is None:
+        raise ConfigError(
+            f"環境變數 {api_key_name} 未設定。請檢查 .env 或系統環境變數。"
+        )
+
+    return api_key

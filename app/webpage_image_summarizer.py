@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import logging
-import os
 import random
 import re
 import time
@@ -9,19 +8,18 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
-from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 
 from app.webpage_image_summarizer_config import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_CONFIG_SECTION,
+    get_vlm_api_key,
     load_webpage_image_summarizer_args,
 )
 
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
 
 DEFAULT_PROMPT = """
 用繁體中文描述圖片，作為網頁補充說明。
@@ -67,11 +65,11 @@ class WebpageImageSummarizer:
         self.max_retries = max_retries
 
         # url -> {"caption": ..., "download_stats": ..., "summarize_stats": ...}
+        self._stats: dict[str, int | float] = self._new_stats()
         self._image_cache: dict[str, dict[str, str]] = {}
         self._image_urls: list[str] = []
         self._image_captions: dict[str, str] = {}
-        self._stats: dict[str, int | float] = self._new_stats()
-        self._retries: int = 0
+        self._final_stats: dict[str, int | float] = self._new_final_stats()
 
     # TODO: 下載和摘要拆成兩個模組
     def summarize_crawl_results_images(
@@ -87,35 +85,28 @@ class WebpageImageSummarizer:
         self._image_cache = {}
         self._image_urls = []
         self._image_captions = {}
-        self._stats = self._new_stats()
-        self._retries = 0
+        self._final_stats = self._new_final_stats()
 
         target_urls: set[str] | None = None
         enhanced_crawl_results = crawl_results
-        success_threshold = self.success_threshold
         while True:
             enhanced_crawl_results = self._summarize_crawl_results_images(
                 crawl_results, target_urls
             )
-
-            retry_context = self._retrieve_retry_context(success_threshold)
+            retry_context = self._retrieve_retry_context()
             if retry_context is None:
                 break
 
-            # TODO: 重試機制根據 max retries 動態生成等待時間
-            success_rate, failed_urls = retry_context
-            self._prepare_retry_urls(failed_urls, success_rate, success_threshold)
+            failed_urls, success_rate = retry_context
+            self._prepare_retry_urls(failed_urls, success_rate)
             target_urls = failed_urls
+            self._final_stats["retries"] += 1
 
-        if self._retries > 0:
-            logger.info("Retries: %s", self._retries)
-        logger.info("Image summarize stats:")
-        logger.info("  * model: %s", self.model)
-        for k, v in self._stats.items():
+        logger.info("Final image summarize stats:")
+        for k, v in self._final_stats.items():
             if k == "cost_usd":
                 v = f"${v:.6f}"
             logger.info("  * %s: %s", k, v)
-        logger.info("-" * 30)
 
         return enhanced_crawl_results
 
@@ -134,6 +125,7 @@ class WebpageImageSummarizer:
 
             fit_markdown, image_urls = crawl_result_content
             self._image_urls = image_urls
+            self._stats = self._new_stats()
 
             uncached_image_urls = self._collect_cached_captions()
             downloaded_images = self._download_images(uncached_image_urls)
@@ -142,6 +134,20 @@ class WebpageImageSummarizer:
             crawl_result["enhanced_markdown"] = enhanced_markdown
 
             logger.info("-" * 30)
+            logger.info("Image summarize stats:")
+            for k, v in self._stats.items():
+                if k == "cost_usd":
+                    v = f"${v:.6f}"
+                logger.info("  * %s: %s", k, v)
+            logger.info("-" * 30)
+
+            self._final_stats["success"] += self._stats["success"]
+            self._final_stats["failure"] += (
+                self._stats["network_failure"]
+                + self._stats["processing_failure"]
+                + self._stats["summarize_failure"]
+            )
+            self._final_stats["cost_usd"] += self._stats["cost_usd"]
 
         return crawl_results
 
@@ -255,7 +261,7 @@ class WebpageImageSummarizer:
                 content_type = default_content_type
             b64 = base64.standard_b64encode(data).decode("ascii")
             data_url = f"data:{content_type};base64,{b64}"
-            logger.info("Image download and processing succeeded (url=%s)", url)
+            logger.info("Image download succeeded (url=%s)", url)
             return data_url, "success"
         except Exception as e:
             logger.warning(
@@ -273,34 +279,11 @@ class WebpageImageSummarizer:
         if not images:
             return
 
-        prompt = self.prompt
-        model = self.model
-
-        # TODO: 載入環境參數外包（？
-        api_key_name: str | None = None
-        for keyword, key_var in VLM_MODEL_TO_API_KEY.items():
-            if keyword.lower() in model.lower():
-                api_key_name = key_var
-                break
-        if api_key_name is None:
-            raise ValueError(
-                f"無法根據模型名稱 '{model}' 推斷 API key 變數。請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
-            )
-        api_key = os.getenv(api_key_name)
-        if api_key is None:
-            raise ValueError(f"VLM 模型 {model} API key 錯誤")
-
-        options: dict[str, Any] = {}
-        options["api_key"] = api_key
-        options.update(self.litellm_kwargs)
-
-        max_workers = self.vlm_max_workers
-
-        caption_results = asyncio.run(
-            self._agenerate_image_captions(images, prompt, model, options, max_workers)
-        )
+        caption_results = asyncio.run(self._agenerate_image_captions(images))
         logger.info(
-            "Generated captions for %s/%s images", len(caption_results), len(images)
+            "%s/%s image captions generate succeeded",
+            len(caption_results),
+            len(images),
         )
 
         for image_url, image_caption, summarize_status, cost_usd in caption_results:
@@ -320,20 +303,14 @@ class WebpageImageSummarizer:
     async def _agenerate_image_captions(
         self,
         images: dict[str, str],
-        prompt: str,
-        model: str,
-        options: dict[str, Any],
-        max_concurrency: int,
     ) -> list[tuple[str, str, str, float]]:
         """對圖片批次平行摘要，回傳 (url, caption, status, cost)。"""
-        semaphore = asyncio.Semaphore(max(1, max_concurrency))
+        semaphore = asyncio.Semaphore(max(1, self.vlm_max_workers))
 
         tasks: list[tuple[str, asyncio.Task[tuple[str, str, float]]]] = []
         for image_url, image_base64_url in images.items():
             await semaphore.acquire()
-            task = asyncio.create_task(
-                self._agenerate_image_caption(prompt, image_base64_url, model, options)
-            )
+            task = asyncio.create_task(self._agenerate_image_caption(image_base64_url))
             task.add_done_callback(lambda _task: semaphore.release())
             tasks.append((image_url, task))
 
@@ -357,17 +334,14 @@ class WebpageImageSummarizer:
 
     async def _agenerate_image_caption(
         self,
-        prompt: str,
         image_base64_url: str,
-        model: str,
-        options: dict[str, Any],
     ) -> tuple[str, str, float]:
         """呼叫 VLM 取得圖片描述。"""
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
+                    {"type": "text", "text": self.prompt},
                     {
                         "type": "image_url",
                         "image_url": {"url": image_base64_url},
@@ -375,12 +349,19 @@ class WebpageImageSummarizer:
                 ],
             }
         ]
+        api_key = get_vlm_api_key(self.model)
+        litellm_kwargs: dict[str, Any] = {}
+        litellm_kwargs["api_key"] = api_key  # 避免 api key 洩漏
+        litellm_kwargs.update(self.litellm_kwargs)
         image_caption = ""
 
         # 圖片說明生成
         try:
             response = await acompletion(
-                model=model, messages=messages, stream=False, **options
+                model=self.model,
+                messages=messages,
+                stream=False,
+                **litellm_kwargs,
             )
         except Exception as e:
             logger.warning("Image summarization failed: %s", e)
@@ -441,19 +422,13 @@ class WebpageImageSummarizer:
                     )
             enhanced_markdown = markdown + "".join(captions)
 
-        logger.info(
-            "Enhanced markdown with image captions for %s images",
-            len(self._image_captions),
-        )
-
         return enhanced_markdown
 
     def _retrieve_retry_context(
         self,
-        min_success_rate: float,
-    ) -> tuple[float, set[str]] | None:
-        """回傳重試所需資料（成功率、需重試的 URL 集合）"""
-        if self._retries >= self.max_retries:
+    ) -> tuple[set[str], float] | None:
+        """回傳重試所需資料（需重試的 URL 集合、成功率）"""
+        if self._final_stats["retries"] >= self.max_retries:
             return None
 
         success, failure = (
@@ -464,7 +439,7 @@ class WebpageImageSummarizer:
         if total == 0:
             return None
         success_rate = success / total
-        if success_rate >= min_success_rate:
+        if success_rate >= self.success_threshold:
             return None
 
         failed_urls = {
@@ -478,19 +453,23 @@ class WebpageImageSummarizer:
         for failed_url in failed_urls:
             self._image_cache.pop(failed_url, None)
 
-        return success_rate, failed_urls
+        return failed_urls, success_rate
 
+    # TODO: 重試機制根據 max retries 動態生成等待時間
     def _prepare_retry_urls(
         self,
         failed_urls: set[str],
         success_rate: float,
-        min_success_rate: float,
     ) -> None:
         """根據失敗的 URL 集合和成功率計算等待時間，並回傳下一輪要重試的 URL。"""
         # 依重試次數計算等待秒數（含 jitter），不超過 BACKOFF_CAP_SECONDS
         # 指數退避秒數：第 1 次 30s、第 2 次 60s、第 3 次 2min，之後 5～10min，上限 15min
         bases = (30, 60, 120, 300, 600)
-        base = bases[min(self._retries, len(bases) - 1)] if bases else 30
+        base = (
+            bases[min(int(self._final_stats["retries"]), len(bases) - 1)]
+            if bases
+            else 30
+        )
         backoff_cap_seconds = 900.0  # 15 分鐘
         backoff_jitter_fraction = 0.2  # ±20% 隨機
         jitter = 1.0 + random.uniform(
@@ -502,16 +481,13 @@ class WebpageImageSummarizer:
         logger.warning(
             "Image download success rate %.0f%% (< %.0f%%). Possible blocking detected; retrying %s URLs in %.1f seconds (attempt %s)",
             success_rate * 100,
-            min_success_rate * 100,
+            self.success_threshold * 100,
             len(failed_urls),
             wait_sec,
-            self._retries + 1,
+            self._final_stats["retries"] + 1,
         )
         logger.warning("-" * 30)
         time.sleep(wait_sec)
-
-        self._stats = self._new_stats()
-        self._retries += 1
 
     @classmethod
     def from_toml(
@@ -535,6 +511,15 @@ class WebpageImageSummarizer:
             "processing_failure": 0,
             "summarize_failure": 0,
             "cache_reuse": 0,
+        }
+
+    @staticmethod
+    def _new_final_stats() -> dict[str, int | float]:
+        return {
+            "cost_usd": 0.0,
+            "success": 0,
+            "failure": 0,
+            "retries": 0,
         }
 
     @staticmethod
