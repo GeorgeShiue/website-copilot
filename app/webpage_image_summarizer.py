@@ -14,7 +14,7 @@ from app.webpage_image_summarizer_config import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_CONFIG_SECTION,
     get_vlm_api_key,
-    load_webpage_image_summarizer_args,
+    set_webpage_image_summarizer_args,
 )
 
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
@@ -497,7 +497,8 @@ class WebpageImageSummarizer:
         **overrides: dict[str, Any],
     ) -> "WebpageImageSummarizer":
         """從 TOML 設定檔建立 WebpageImageSummarizer。"""
-        init_kwargs, litellm_kwargs = load_webpage_image_summarizer_args(
+        logger.info("Initializing WebpageImageSummarizer from toml")
+        init_kwargs, litellm_kwargs = set_webpage_image_summarizer_args(
             config_path, config_section, **overrides
         )
         return cls(**init_kwargs, **litellm_kwargs)
