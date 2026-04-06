@@ -1,21 +1,27 @@
 import logging
+import os
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = "config/webpage_image_summarizer.toml"
 DEFAULT_CONFIG_SECTION = "webpage_image_summarizer"
 INIT_KEYS = {
-    "download_timeout",
-    "model",
-    "prompt",
-    "vlm_max_workers",
-    "image_source",
     "success_threshold",
+    "vlm_max_workers",
+    "prompt",
+    "model",
+    "download_timeout",
+    "image_source",
     "max_retries",
+}
+VLM_MODEL_TO_API_KEY: dict[str, str] = {
+    "gpt": "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
+    "gemini": "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
 }
 
 
@@ -23,27 +29,34 @@ class ConfigError(ValueError):
     """設定檔解析或驗證錯誤。"""
 
 
-@dataclass(slots=True)
-class WebpageImageSummarizerConfig:
-    init_kwargs: dict[str, Any]
-    litellm_kwargs: dict[str, Any]
-
-
-def load_webpage_image_summarizer_args(
+def set_webpage_image_summarizer_args(
     config_path: str = DEFAULT_CONFIG_PATH,
     config_section: str = DEFAULT_CONFIG_SECTION,
     **overrides: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """從 TOML 讀取設定並套用 overrides，回傳建構子與 litellm 參數。"""
-    config_obj = _load_webpage_image_summarizer_config(config_path, config_section)
-    init_kwargs, litellm_kwargs = _build_init_and_litellm_kwargs(config_obj, overrides)
+    base_init_kwargs, base_litellm_kwargs = load_webpage_image_summarizer_args(
+        config_path, config_section
+    )
+    init_kwargs, litellm_kwargs = _build_init_and_litellm_kwargs(
+        base_init_kwargs,
+        base_litellm_kwargs,
+        overrides,
+    )
+    _log_webpage_image_summarizer_args(
+        "WebpageImageSummarizer init kwargs:", init_kwargs
+    )
+    _log_webpage_image_summarizer_args(
+        "WebpageImageSummarizer litellm kwargs:", litellm_kwargs
+    )
+    logger.info("-" * 30)
     return init_kwargs, litellm_kwargs
 
 
-def _load_webpage_image_summarizer_config(
+def load_webpage_image_summarizer_args(
     config_path: str,
     config_section: str,
-) -> WebpageImageSummarizerConfig:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """從 TOML 讀取設定，並回傳結構化結果。"""
     with Path(config_path).open("rb") as f:
         raw = tomllib.load(f)
@@ -73,20 +86,18 @@ def _load_webpage_image_summarizer_config(
 
     _validate_init_kwargs(init_kwargs)
 
-    return WebpageImageSummarizerConfig(
-        init_kwargs=init_kwargs,
-        litellm_kwargs=merged_litellm_kwargs,
-    )
+    return init_kwargs, merged_litellm_kwargs
 
 
 def _build_init_and_litellm_kwargs(
-    config_obj: WebpageImageSummarizerConfig,
+    init_kwargs_base: dict[str, Any],
+    litellm_kwargs_base: dict[str, Any],
     overrides: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """套用 overrides 並輸出建構子與 litellm 參數。"""
-    init_kwargs = dict(config_obj.init_kwargs)
-    litellm_kwargs = dict(config_obj.litellm_kwargs)
-    mutable_overrides = dict(overrides)
+    init_kwargs = init_kwargs_base
+    litellm_kwargs = litellm_kwargs_base
+    mutable_overrides = overrides
 
     override_litellm_kwargs = mutable_overrides.pop("litellm_kwargs", None)
 
@@ -104,6 +115,13 @@ def _build_init_and_litellm_kwargs(
     _validate_init_kwargs(init_kwargs)
 
     return init_kwargs, litellm_kwargs
+
+
+def _log_webpage_image_summarizer_args(title: str, args: dict[str, Any]) -> None:
+    if args:
+        logger.info("%s", title)
+        for k in args.keys():
+            logger.info("  %s: %s", k, args[k])
 
 
 def _validate_init_kwargs(init_kwargs: dict[str, Any]) -> None:
@@ -151,3 +169,27 @@ def _validate_init_kwargs(init_kwargs: dict[str, Any]) -> None:
             raise ConfigError("max_retries 必須是整數")
         if max_retries < 0:
             raise ConfigError("max_retries 不可小於 0")
+
+
+def get_vlm_api_key(model: str) -> str:
+    """根據 VLM 模型名稱推斷環境變數，並傳回有效的 API 金鑰。"""
+    api_key_name: str | None = None
+    for keyword, key_var in VLM_MODEL_TO_API_KEY.items():
+        if keyword.lower() in model.lower():
+            api_key_name = key_var
+            break
+
+    if api_key_name is None:
+        raise ConfigError(
+            f"無法根據模型名稱 '{model}' 推斷 API key 變數。"
+            f"請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
+        )
+
+    load_dotenv()
+    api_key = os.getenv(api_key_name)
+    if api_key is None:
+        raise ConfigError(
+            f"環境變數 {api_key_name} 未設定。請檢查 .env 或系統環境變數。"
+        )
+
+    return api_key
