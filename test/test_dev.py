@@ -3,7 +3,11 @@ import time
 
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.website_crawler import WebsiteCrawler
-from utils.file_manager import FileManager
+from utils.file_manager import (
+    load_crawl_results_from_json,
+    save_crawl_results_as_json,
+    save_crawl_results_as_md,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +43,8 @@ def test_website_crawler(max_pages: int | None = None):
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
     logger.info("=" * 30)
 
-    FileManager.save_crawl_results_as_json(crawl_results)
-    FileManager.save_fit_crawl_results_as_md(crawl_results)
+    save_crawl_results_as_json(crawl_results)
+    save_crawl_results_as_md(crawl_results, "fit_markdown")
 
 
 def test_webpage_image_summarizer(skip_website_crawling: bool = True):
@@ -50,7 +54,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
         test_website_crawler(
             max_pages=10  # test
         )
-    crawl_results = FileManager.load_crawl_results_from_json()
+    crawl_results = load_crawl_results_from_json()
 
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
@@ -70,10 +74,8 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
     logger.info("=" * 30)
 
-    FileManager.save_crawl_results_as_json(enhanced_crawl_results)
-    FileManager.save_enhanced_crawl_results_as_md(
-        enhanced_crawl_results, webpage_image_summarizer.model
-    )
+    save_crawl_results_as_json(enhanced_crawl_results)
+    save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
 
     # first_enhanced_crawl_result = enhanced_crawl_results[0]
     # print("first_enhanced_crawl_result:\n", first_enhanced_crawl_result)
