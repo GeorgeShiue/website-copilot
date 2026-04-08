@@ -60,14 +60,13 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     logger.info("-" * 30)
 
     t1 = time.time()
-    # webpage_image_summarizer = WebpageImageSummarizer()
     # TODO: 測試多組初始化參數
-    webpage_image_summarizer = WebpageImageSummarizer().from_toml()
-    # from app.webpage_image_summarizer_config import load_webpage_image_summarizer_args
-    # init_kwargs, litellm_kwargs = load_webpage_image_summarizer_args()
-    # webpage_image_summarizer = WebpageImageSummarizer(**init_kwargs, **litellm_kwargs)
+    # webpage_image_summarizer = WebpageImageSummarizer()
+    webpage_image_summarizer = WebpageImageSummarizer.from_toml(
+        download_timeout=30.0
+    )  # * 此處可以override
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
-        crawl_results=crawl_results,
+        crawl_results,
     )
     t2 = time.time()
 

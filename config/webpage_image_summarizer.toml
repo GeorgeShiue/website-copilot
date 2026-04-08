@@ -1,10 +1,12 @@
-[webpage_image_summarizer]
+[init]
 download_timeout = 10.0
+success_threshold = 0.8
+max_retries = 6
+
+[summarize]
 model = "gpt-5-mini"
 vlm_max_workers = 10
 image_source = "markdown"
-success_threshold = 0.8
-max_retries = 6
 prompt = """
 用繁體中文描述圖片，作為網頁補充說明。
 
@@ -20,6 +22,7 @@ prompt = """
     - 若需列點，一律使用「*」作為 Markdown 列點符號。
 """
 
-[webpage_image_summarizer.litellm_kwargs]
-# temperature = 0.2
-# timeout = 30
+[litellm_kwargs]
+# temperature = 0.2 ＃ gpt-5系列不支援
+timeout = 10
+max_tokens = 300

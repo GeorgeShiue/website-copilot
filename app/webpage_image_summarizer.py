@@ -6,15 +6,19 @@ import re
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from litellm import acompletion, completion_cost
 
 from app.webpage_image_summarizer_config import (
     DEFAULT_CONFIG_PATH,
-    DEFAULT_CONFIG_SECTION,
+    DEFAULT_INIT_CONFIG_SECTION,
     get_vlm_api_key,
-    set_webpage_image_summarizer_args,
+    load_init_config_from_toml,
+    log_config,
+    override_init_config,
+    validate_init_config,
+    validate_summarize_config,
 )
 
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
@@ -46,24 +50,31 @@ class WebpageImageSummarizer:
     def __init__(
         self,
         download_timeout: float = 10.0,
-        model: str = "gpt-5-mini",
-        prompt: str = DEFAULT_PROMPT,
-        vlm_max_workers: int = 10,
-        image_source: Literal["images", "markdown"] = "markdown",
         success_threshold: float = 0.8,  # 圖片下載成功率低於此值則啟動重試機制
         max_retries: int = 6,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
-        **litellm_kwargs: Any,
     ) -> None:
-        self.download_timeout = download_timeout
-        self.model = model
-        self.prompt = prompt
-        self.vlm_max_workers = vlm_max_workers
-        self.litellm_kwargs = litellm_kwargs
+        # ===== init args =====
+        logger.info("Initializing WebpageImageSummarizer with args")
+        init_config = {
+            "download_timeout": download_timeout,
+            "success_threshold": success_threshold,
+            "max_retries": max_retries,
+        }
+        validate_init_config(init_config)
+        logger.info("Init config validation passed")
 
-        self.image_source: Literal["images", "markdown"] = image_source
+        self.download_timeout = download_timeout
         self.success_threshold = success_threshold
         self.max_retries = max_retries
 
+        # ===== summarize args =====
+        self.model: str = ""
+        self.prompt: str = ""
+        self.vlm_max_workers: int = 0
+        self.image_source: str = ""
+        self.litellm_kwargs: dict[str, Any] = {}
+
+        # ===== internal state =====
         # url -> {"caption": ..., "download_stats": ..., "summarize_stats": ...}
         self._stats: dict[str, int | float] = self._new_stats()
         self._image_cache: dict[str, dict[str, str]] = {}
@@ -72,9 +83,15 @@ class WebpageImageSummarizer:
         self._final_stats: dict[str, int | float] = self._new_final_stats()
 
     # TODO: 下載和摘要拆成兩個模組
+    # TODO: 新增 from toml 選項加入參數
     def summarize_crawl_results_images(
         self,
         crawl_results: list[dict[str, Any]],
+        model: str = "gpt-5-mini",
+        prompt: str = DEFAULT_PROMPT,
+        vlm_max_workers: int = 10,
+        image_source: Literal["images", "markdown"] = "markdown",
+        **litellm_kwargs: Any,
     ) -> list[dict]:
         """
         使用 VLM 總結所有爬取下的網頁中的圖片。
@@ -82,6 +99,21 @@ class WebpageImageSummarizer:
 
         - crawl_results: 爬取結果列表，每個元素為 dict，包含 "fit_markdown"與 "images"。
         """
+        summarize_config = {
+            "model": model,
+            "prompt": prompt,
+            "vlm_max_workers": vlm_max_workers,
+            "image_source": image_source,
+            "litellm_kwargs": litellm_kwargs,
+        }
+        validate_summarize_config(summarize_config)
+
+        self.model = model
+        self.prompt = prompt
+        self.vlm_max_workers = vlm_max_workers
+        self.image_source = image_source
+        self.litellm_kwargs = litellm_kwargs
+
         self._image_cache = {}
         self._image_urls = []
         self._image_captions = {}
@@ -489,19 +521,22 @@ class WebpageImageSummarizer:
         logger.warning("-" * 30)
         time.sleep(wait_sec)
 
+    # TODO: 拆分 override 邏輯
     @classmethod
     def from_toml(
         cls,
         config_path: str = DEFAULT_CONFIG_PATH,
-        config_section: str = DEFAULT_CONFIG_SECTION,
-        **overrides: dict[str, Any],
-    ) -> "WebpageImageSummarizer":
+        config_section: str = DEFAULT_INIT_CONFIG_SECTION,
+        **overrides: Any,
+    ) -> Self:
         """從 TOML 設定檔建立 WebpageImageSummarizer。"""
         logger.info("Initializing WebpageImageSummarizer from toml")
-        init_kwargs, litellm_kwargs = set_webpage_image_summarizer_args(
-            config_path, config_section, **overrides
-        )
-        return cls(**init_kwargs, **litellm_kwargs)
+        init_config = load_init_config_from_toml(config_path, config_section)
+        if overrides:
+            init_config = override_init_config(init_config, **overrides)
+        log_config("WebpageImageSummarizer init config:", init_config)
+        summarizer = cls(**init_config)
+        return summarizer
 
     @staticmethod
     def _new_stats() -> dict[str, int | float]:
