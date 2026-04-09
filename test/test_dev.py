@@ -2,6 +2,10 @@ import logging
 import time
 
 from app.webpage_image_summarizer import WebpageImageSummarizer
+from app.webpage_image_summarizer_config import (
+    WebpageImageSummarizerConfig,
+    log_config,
+)
 from app.website_crawler import WebsiteCrawler
 from utils.file_manager import (
     load_crawl_results_from_json,
@@ -47,6 +51,7 @@ def test_website_crawler(max_pages: int | None = None):
     save_crawl_results_as_md(crawl_results, "fit_markdown")
 
 
+# TODO: 測試多組初始化參數
 def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # skip_website_crawling = False
 
@@ -58,18 +63,54 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
 
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
-
     t1 = time.time()
-    # TODO: 測試多組初始化參數
-    # webpage_image_summarizer = WebpageImageSummarizer()
-    webpage_image_summarizer = WebpageImageSummarizer.from_toml(
-        download_timeout=30.0
-    )  # * 此處可以override
+
+    # ----- 載入參數 -----
+    logger.info("Loading WebpageImageSummarizer config from toml")
+    config = WebpageImageSummarizerConfig.from_toml()
+    logger.info("WebpageImageSummarizer config loaded successfully from toml")
+    logger.info("-" * 30)
+    log_config("WebpageImageSummarizer config from toml:", vars(config))
+    logger.info("-" * 30)
+
+    # ----- 初始化實例 -----
+    webpage_image_summarizer = WebpageImageSummarizer(
+        download_timeout=config.download_timeout,
+        success_threshold=config.success_threshold,
+        max_retries=config.max_retries,
+    )
+    # webpage_image_summarizer = WebpageImageSummarizer(
+    #     download_timeout=10.0,
+    #     success_threshold=0.8,
+    #     max_retries=6,
+    # )
+
+    # ----- 覆寫參數 -----
+    # download_timeout = 30.0
+    # model = "gpt-4o-mini"
+    # logger.info("Overriding WebpageImageSummarizer config")
+
+    # config.override_init_config(download_timeout=download_timeout)
+    # config.override_summarize_config(model=model)
+
+    # webpage_image_summarizer.override_init_config(**vars(config))
+    # webpage_image_summarizer.override_summarize_config(**vars(config))
+    # logger.info("WebpageImageSummarizer config overridden successfully")
+    # logger.info("-" * 30)
+
+    # log_config("WebpageImageSummarizer config after override:", vars(config))
+    # logger.info("-" * 30)
+
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results,
+        model=config.model,
+        prompt=config.prompt,
+        vlm_max_workers=config.vlm_max_workers,
+        image_source=config.image_source,
+        **config.litellm_kwargs,
     )
-    t2 = time.time()
 
+    t2 = time.time()
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
     logger.info("=" * 30)
 

@@ -6,43 +6,16 @@ import re
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 from litellm import acompletion, completion_cost
 
-from app.webpage_image_summarizer_config import (
-    DEFAULT_CONFIG_PATH,
-    DEFAULT_INIT_CONFIG_SECTION,
-    get_vlm_api_key,
-    load_init_config_from_toml,
-    log_config,
-    override_init_config,
-    validate_init_config,
-    validate_summarize_config,
-)
+from app.webpage_image_summarizer_config import DEFAULT_PROMPT, get_vlm_api_key
 
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_PROMPT = """
-用繁體中文描述圖片，作為網頁補充說明。
-
-依序輸出：
-    - 圖片摘要：1 句（20-40 字）。
-    - 可觀察元素：列出 3-5 點可直接看見的內容（物件、顏色、位置、構圖）。
-    - 可讀文字：列出圖片中的文字；若沒有請寫「無」。
-    - 場景功能：1 句，描述圖片中場景可能的用途或功能。
-
-規則：
-    - 只寫可觀察事實，避免主觀形容詞。
-    - 不確定就寫「不確定」，不要臆測細節。
-    - 若需列點，一律使用「*」作為 Markdown 列點符號。
-"""
-VLM_MODEL_TO_API_KEY: dict[str, str] = {
-    "gpt": "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
-    "gemini": "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
-}
 MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 
 
@@ -54,15 +27,6 @@ class WebpageImageSummarizer:
         max_retries: int = 6,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
     ) -> None:
         # ===== init args =====
-        logger.info("Initializing WebpageImageSummarizer with args")
-        init_config = {
-            "download_timeout": download_timeout,
-            "success_threshold": success_threshold,
-            "max_retries": max_retries,
-        }
-        validate_init_config(init_config)
-        logger.info("Init config validation passed")
-
         self.download_timeout = download_timeout
         self.success_threshold = success_threshold
         self.max_retries = max_retries
@@ -83,7 +47,6 @@ class WebpageImageSummarizer:
         self._final_stats: dict[str, int | float] = self._new_final_stats()
 
     # TODO: 下載和摘要拆成兩個模組
-    # TODO: 新增 from toml 選項加入參數
     def summarize_crawl_results_images(
         self,
         crawl_results: list[dict[str, Any]],
@@ -99,15 +62,6 @@ class WebpageImageSummarizer:
 
         - crawl_results: 爬取結果列表，每個元素為 dict，包含 "fit_markdown"與 "images"。
         """
-        summarize_config = {
-            "model": model,
-            "prompt": prompt,
-            "vlm_max_workers": vlm_max_workers,
-            "image_source": image_source,
-            "litellm_kwargs": litellm_kwargs,
-        }
-        validate_summarize_config(summarize_config)
-
         self.model = model
         self.prompt = prompt
         self.vlm_max_workers = vlm_max_workers
@@ -521,23 +475,6 @@ class WebpageImageSummarizer:
         logger.warning("-" * 30)
         time.sleep(wait_sec)
 
-    # TODO: 拆分 override 邏輯
-    @classmethod
-    def from_toml(
-        cls,
-        config_path: str = DEFAULT_CONFIG_PATH,
-        config_section: str = DEFAULT_INIT_CONFIG_SECTION,
-        **overrides: Any,
-    ) -> Self:
-        """從 TOML 設定檔建立 WebpageImageSummarizer。"""
-        logger.info("Initializing WebpageImageSummarizer from toml")
-        init_config = load_init_config_from_toml(config_path, config_section)
-        if overrides:
-            init_config = override_init_config(init_config, **overrides)
-        log_config("WebpageImageSummarizer init config:", init_config)
-        summarizer = cls(**init_config)
-        return summarizer
-
     @staticmethod
     def _new_stats() -> dict[str, int | float]:
         return {
@@ -573,3 +510,26 @@ class WebpageImageSummarizer:
             image_summarization_log += f" (cost_usd={cost_usd_string} prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} total_tokens={total_tokens})"
 
         logger.info(image_summarization_log)
+
+    # ? 會在執行階段動態調整成員變數嗎
+    def override_init_config(self, **init_kwargs) -> None:
+        """覆寫建構子參數。"""
+        self.download_timeout = init_kwargs.get(
+            "download_timeout", self.download_timeout
+        )
+        self.success_threshold = init_kwargs.get(
+            "success_threshold", self.success_threshold
+        )
+        self.max_retries = init_kwargs.get("max_retries", self.max_retries)
+
+    def override_summarize_config(self, **summarize_kwargs) -> None:
+        """覆寫 summarize 參數。"""
+        self.model = summarize_kwargs.get("model", self.model)
+        self.prompt = summarize_kwargs.get("prompt", self.prompt)
+        self.vlm_max_workers = summarize_kwargs.get(
+            "vlm_max_workers", self.vlm_max_workers
+        )
+        self.image_source = summarize_kwargs.get("image_source", self.image_source)
+        litellm_kwargs = summarize_kwargs.get("litellm_kwargs", {})
+        if litellm_kwargs:
+            self.litellm_kwargs.update(litellm_kwargs)
