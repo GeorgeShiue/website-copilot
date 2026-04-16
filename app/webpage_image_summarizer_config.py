@@ -1,11 +1,11 @@
 import logging
 import os
-import tomllib
 from dataclasses import dataclass, field
-from dotenv import load_dotenv
 from pathlib import Path
 from typing import Any, Literal, Self
 
+from dotenv import load_dotenv
+from tomlkit import load, document, dump
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ DEFAULT_PROMPT = """
     - 不確定就寫「不確定」，不要臆測細節。
     - 若需列點，一律使用「*」作為 Markdown 列點符號。
 """
-DEFAULT_CONFIG_PATH = "config/webpage_image_summarizer.toml"
+DEFAULT_CONFIG_PATH = "./config/webpage_image_summarizer.toml"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"
 DEFAULT_LITELLM_CONFIG_SECTION = "litellm_kwargs"
@@ -44,7 +44,7 @@ VLM_MODEL_TO_API_KEY: dict[str, str] = {
 }
 
 
-# TODO: arg parse 可以改用 tyro
+# arg parse 可以改用 tyro
 @dataclass
 class WebpageImageSummarizerConfig:
     # ----- init config -----
@@ -97,6 +97,10 @@ class WebpageImageSummarizerConfig:
 
 class ConfigError(ValueError):
     """設定檔解析或驗證錯誤。"""
+
+
+class EnvironmentError(ValueError):
+    """環境變數相關錯誤。"""
 
 
 def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> None:
@@ -221,9 +225,9 @@ def _load_config_section_from_toml(
     config_section: str,
 ) -> dict[str, Any]:
     with Path(config_path).open("rb") as f:
-        raw = tomllib.load(f)
+        toml_content = load(f)
 
-    scoped_cfg = raw.get(config_section)
+    scoped_cfg = toml_content.get(config_section)
     if scoped_cfg is None:
         raise ConfigError(f"找不到設定區段: {config_section}")
     if not isinstance(scoped_cfg, dict):
@@ -290,6 +294,22 @@ def log_config(title: str, config: dict[str, Any]) -> None:
             logger.info("  %s: %s", k, config[k])
 
 
+def save_config_as_toml(config: object, toml_file_path: str) -> None:
+    """將配置物件寫入 TOML 檔案。"""
+    config_dict = config.__dict__
+
+    init_config_dict = {key: config_dict[key] for key in INIT_KEYS}
+    summarize_config_dict = {key: config_dict[key] for key in SUMMARIZE_KEYS}
+
+    toml_doc = document()
+    toml_doc["init"] = init_config_dict
+    toml_doc["summarize"] = summarize_config_dict
+    toml_doc["litellm_kwargs"] = config_dict.get("litellm_kwargs", {})
+
+    with open(toml_file_path, "w") as f:
+        dump(toml_doc, f)
+
+
 def get_vlm_api_key(model: str) -> str:
     """根據 VLM 模型名稱推斷環境變數，並傳回有效的 API 金鑰。"""
     api_key_name: str | None = None
@@ -299,7 +319,7 @@ def get_vlm_api_key(model: str) -> str:
             break
 
     if api_key_name is None:
-        raise ConfigError(
+        raise EnvironmentError(
             f"無法根據模型名稱 '{model}' 推斷 API key 變數。"
             f"請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
         )
@@ -307,7 +327,7 @@ def get_vlm_api_key(model: str) -> str:
     load_dotenv()
     api_key = os.getenv(api_key_name)
     if api_key is None:
-        raise ConfigError(
+        raise EnvironmentError(
             f"環境變數 {api_key_name} 未設定。請檢查 .env 或系統環境變數。"
         )
 
