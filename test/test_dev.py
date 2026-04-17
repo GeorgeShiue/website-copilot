@@ -37,9 +37,12 @@ def test_website_crawler(max_pages: int | None = None):
     os.makedirs(markdown_folder_path, exist_ok=True)
     # config_path = os.path.join(base_path, "config.toml")
 
-    crawl_results = WebsiteCrawler.crawl_website(
-        url="https://sites.google.com/site/nculab/labintro",
+    crawler = WebsiteCrawler(
         max_depth=2,
+        max_pages=max_pages,
+    )
+    crawl_results = crawler.crawl_website(
+        url="https://sites.google.com/site/nculab/labintro",
         url_patterns=["*nculab*"],
         allowed_domains=["sites.google.com"],
         exclude_words=(
@@ -50,7 +53,6 @@ def test_website_crawler(max_pages: int | None = None):
             "Google Sites",
             "Report abuse",
         ),
-        max_pages=max_pages,
     )
 
     if crawl_results is None:
