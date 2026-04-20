@@ -18,23 +18,21 @@ from crawl4ai.deep_crawling.filters import (
     URLPatternFilter,
 )
 
+from app.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
+
 logger = logging.getLogger(__name__)
 
 
-KEEP_TITLE_CONTENT_THRESHOLD = 0.45
-KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
+EMPTY_ANCHOR_LINK_PATTERN = re.compile(r"\[\]\(.*?#h\.[a-z0-9]+\)")
 
 HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
 EMPTY_HEADING_LINE_PATTERN = re.compile(r"^(\s{0,3}#{1,6})\s*$")
 SKIP_AS_HEADING_PATTERN = re.compile(r"^\s*!?\[.*?\]\(.*?\)\s*$")
 
-EMPTY_ANCHOR_LINK_PATTERN = re.compile(r"\[\]\(.*?#h\.[a-z0-9]+\)")
-
 INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
 WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
 
 
-# TODO: 加入內部狀態，success_unique_count、error_count、repeat_count、image_count 等統計資訊
 class WebsiteCrawler:
     def __init__(
         self,
@@ -57,6 +55,9 @@ class WebsiteCrawler:
         self.allowed_domains: str | list[str] | None = None
         self.exclude_words: tuple[str, ...] | None = None
 
+        # ===== internal state =====
+        self._crawl_stats: dict[str, int] = self._new_crawl_stats()
+
     def crawl_website(
         self,
         url: str,
@@ -64,19 +65,12 @@ class WebsiteCrawler:
         allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
     ) -> list[dict] | None:
-        """
-        執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。
-
-        Args:
-            url: 目標網址
-            url_patterns: URL 匹配模式列表
-            allowed_domains: 允許爬取的域名列表
-            exclude_words: 過濾掉包含這些詞的行
-        """
+        """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
         self.url_patterns = url_patterns
         self.allowed_domains = allowed_domains
         self.exclude_words = exclude_words
+        self._crawl_stats = self._new_crawl_stats()
 
         try:
             crawl_results = asyncio.run(self._crawl_website_async())
@@ -90,6 +84,13 @@ class WebsiteCrawler:
             logger.error(f"Error during filtering crawl results: {e}")
             return None
 
+        logger.info("Website crawling stats:")
+        logger.info(f"  * Success pages: {self._crawl_stats['success_count']}")
+        logger.info(f"  * Error pages: {self._crawl_stats['error_count']}")
+        logger.info(f"  * Repeat pages: {self._crawl_stats['repeat_count']}")
+        # logger.info(f"  * Total images: {self._crawl_stats['image_count']}")
+        logger.info("-" * 30)
+
         return filtered_results
 
     async def _crawl_website_async(
@@ -98,7 +99,6 @@ class WebsiteCrawler:
         """以指定爬蟲設定非同步抓取網站頁面並回傳原始爬取結果。"""
         browser_config = BrowserConfig(
             # headless=False, # 是否顯示瀏覽器
-            light_mode=self.light_mode,
         )
 
         pruning_content_filter = PruningContentFilter(
@@ -156,14 +156,10 @@ class WebsiteCrawler:
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
         filtered_results = []
         existed_markdown_file_names = set()
-        success_unique_count = 0
-        error_count = 0
-        repeat_count = 0
-        image_count = 0
 
         for crawl_result in crawl_results:
             if crawl_result.status_code == 404:
-                error_count += 1
+                self._crawl_stats["error_count"] += 1
                 # results.remove(result)
                 # logger.info(
                 #     f"Webpage {crawl_result.url} status code is 404, skipping..."
@@ -196,7 +192,7 @@ class WebsiteCrawler:
                 markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
 
             if markdown_file_name in existed_markdown_file_names:
-                repeat_count += 1
+                self._crawl_stats["repeat_count"] += 1
                 # logger.info(
                 #     f"Webpage {markdown_file_name} already exists, skipping..."
                 # )
@@ -205,7 +201,7 @@ class WebsiteCrawler:
             existed_markdown_file_names.add(markdown_file_name)
 
             images = crawl_result.media.get("images", [])
-            image_count += len(images)
+            self._crawl_stats["image_count"] += len(images)
 
             filtered_result = {
                 "markdown_file_name": markdown_file_name,
@@ -214,7 +210,7 @@ class WebsiteCrawler:
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
-            success_unique_count += 1
+            self._crawl_stats["success_count"] += 1
 
             # logger.info(f"URL: {crawl_result.url}")
             # logger.info(f"Depth: {crawl_result.metadata.get('depth', 0)}")
@@ -222,13 +218,6 @@ class WebsiteCrawler:
             # for image in images:
             #     logger.info(image)
             # logger.info("-" * 30)
-
-        logger.info("Website crawling stats:")
-        logger.info(f"  * Successful unique pages: {success_unique_count}")
-        logger.info(f"  * Error pages: {error_count}")
-        logger.info(f"  * Repeat pages: {repeat_count}")
-        # logger.info(f"  * Total images: {image_count}")
-        logger.info("-" * 30)
 
         return filtered_results
 
@@ -262,6 +251,15 @@ class WebsiteCrawler:
                 i += 1
 
         return "".join(fixed_lines)
+
+    @staticmethod
+    def _new_crawl_stats() -> dict[str, int]:
+        return {
+            "success_count": 0,
+            "error_count": 0,
+            "repeat_count": 0,
+            "image_count": 0,
+        }
 
     def override_init_config(self, **init_kwargs) -> None:
         """覆寫初始化參數。"""

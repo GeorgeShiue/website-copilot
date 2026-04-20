@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Literal, Self
 
 from dotenv import load_dotenv
-from tomlkit import load, document, dump
+from tomlkit import document, dump, load
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ def log_config(title: str, config: dict[str, Any]) -> None:
             logger.info("  %s: %s", k, config[k])
 
 
-def save_config_as_toml(config: object, toml_file_path: str) -> None:
+def save_summarizer_config_as_toml(config: object, toml_file_path: str) -> None:
     """將配置物件寫入 TOML 檔案。"""
     config_dict = config.__dict__
 
