@@ -9,14 +9,18 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
+# TODO: 更新 main 程式碼
 def main(max_pages: int | None = None) -> None:
     logger.info("1. Website Crawling")
     logger.info("-" * 30)
 
     t0 = time.time()
-    crawl_results = WebsiteCrawler.crawl_website(
-        url="https://sites.google.com/site/nculab/labintro",
+    crawler = WebsiteCrawler(
         max_depth=2,
+        max_pages=max_pages,
+    )
+    crawl_results = crawler.crawl_website(
+        url="https://sites.google.com/site/nculab/labintro",
         url_patterns=["*nculab*"],
         allowed_domains=["sites.google.com"],
         exclude_words=(
@@ -27,7 +31,6 @@ def main(max_pages: int | None = None) -> None:
             "Google Sites",
             "Report abuse",
         ),
-        max_pages=max_pages,
     )
     t1 = time.time()
 

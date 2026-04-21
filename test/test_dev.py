@@ -5,10 +5,11 @@ import time
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import (
     WebpageImageSummarizerConfig,
-    log_config,
-    save_config_as_toml,
+    save_summarizer_config_as_toml,
 )
 from app.website_crawler import WebsiteCrawler
+from app.website_crawler_config import WebsiteCrawlerConfig, save_crawler_config_as_toml
+from utils.config_manager import log_config
 from utils.file_manager import (
     load_crawl_results_from_json,
     save_crawl_results_as_json,
@@ -17,42 +18,66 @@ from utils.file_manager import (
 
 logger = logging.getLogger(__name__)
 
-
+# TODO: 將 base path 移動到 file_manager.py 內處理
 TEST_DATA_FOLDER_PATH = "./data/test"
 
 
-# TODO: 開始時輸出單元測試設定
-def test_website_crawler(max_pages: int | None = None):
-    max_pages = 10  # test
-
+# TODO: 實驗設置初始化部分獨立成一個模組
+def test_website_crawler():
     logger.info("1. Website Crawling")
     logger.info("-" * 30)
     t0 = time.time()
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    run_name = "WebpageImageSummarizer"
+    run_name = "WebsiteCrawler"
     base_path = os.path.join(TEST_DATA_FOLDER_PATH, timestamp, run_name)
     os.makedirs(base_path, exist_ok=True)
     markdown_folder_path = os.path.join(base_path, "results")
     os.makedirs(markdown_folder_path, exist_ok=True)
-    # config_path = os.path.join(base_path, "config.toml")
+    config_path = os.path.join(base_path, "config.toml")
 
-    crawl_results = WebsiteCrawler.crawl_website(
-        url="https://sites.google.com/site/nculab/labintro",
-        max_depth=2,
-        url_patterns=["*nculab*"],
-        allowed_domains=["sites.google.com"],
-        exclude_words=(
-            "Search this site",
-            "Embedded Files",
-            "Skip to main content",
-            "Skip to navigation",
-            "Google Sites",
-            "Report abuse",
-        ),
-        max_pages=max_pages,
+    # ----- 載入參數 -----
+    logger.info("Loading WebsiteCrawler config from toml")
+    config = WebsiteCrawlerConfig.from_config()
+    logger.info("WebsiteCrawler config loaded successfully from toml")
+    logger.info("-" * 30)
+    log_config("WebsiteCrawler config from toml:", vars(config))
+    logger.info("-" * 30)
+
+    # ----- 初始化實例 -----
+    crawler = WebsiteCrawler(
+        max_depth=config.max_depth,
+        max_pages=config.max_pages,
+        content_threshold=config.content_threshold,
+        light_mode=config.light_mode,
+        wait_for_images=config.wait_for_images,
     )
+    # crawler = WebsiteCrawler(
+    #     max_depth=2,
+    #     max_pages=max_pages,
+    # )
 
+    # ----- 覆寫參數 -----
+    # max_depth = 3
+    # content_threshold = 0.45
+    # logger.info("Overriding WebsiteCrawler config")
+
+    # config.override_init_config(max_depth=max_depth, content_threshold=content_threshold)
+    # crawler.override_init_config(**vars(config))
+    # logger.info("WebsiteCrawler config overridden successfully")
+    # logger.info("-" * 30)
+
+    # log_config("WebsiteCrawler config after override:", vars(config))
+    # logger.info("-" * 30)
+
+    save_crawler_config_as_toml(config, config_path)
+
+    crawl_results = crawler.crawl_website(
+        url=config.url,
+        url_patterns=config.url_patterns,
+        allowed_domains=config.allowed_domains,
+        exclude_words=config.exclude_words,
+    )
     if crawl_results is None:
         logger.error("Crawling failed.")
         return
@@ -70,9 +95,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # skip_website_crawling = False
 
     if not skip_website_crawling:
-        test_website_crawler(
-            max_pages=10  # test
-        )
+        test_website_crawler()
     crawl_results = load_crawl_results_from_json()
 
     logger.info("2. Image Summarization")
@@ -123,7 +146,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # log_config("WebpageImageSummarizer config after override:", vars(config))
     # logger.info("-" * 30)
 
-    save_config_as_toml(config, config_path)
+    save_summarizer_config_as_toml(config, config_path)
 
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results,
