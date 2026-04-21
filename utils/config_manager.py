@@ -106,3 +106,4 @@ def log_config(title: str, config: Mapping[str, Any]) -> None:
     logger.info("%s", title)
     for key in config:
         logger.info("  %s: %s", key, config[key])
+    logger.info("-" * 30)

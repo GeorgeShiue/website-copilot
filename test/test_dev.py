@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 
 from app.webpage_image_summarizer import WebpageImageSummarizer
@@ -10,39 +9,23 @@ from app.webpage_image_summarizer_config import (
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import WebsiteCrawlerConfig, save_crawler_config_as_toml
 from utils.config_manager import log_config
-from utils.file_manager import (
-    load_crawl_results_from_json,
-    save_crawl_results_as_json,
-    save_crawl_results_as_md,
-)
+from utils.exp_manager import ExperimentManager
 
 logger = logging.getLogger(__name__)
 
-# TODO: 將 base path 移動到 file_manager.py 內處理
-TEST_DATA_FOLDER_PATH = "./data/test"
+# TODO: 新增切換 config 機制
 
 
-# TODO: 實驗設置初始化部分獨立成一個模組
 def test_website_crawler():
     logger.info("1. Website Crawling")
     logger.info("-" * 30)
     t0 = time.time()
 
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    run_name = "WebsiteCrawler"
-    base_path = os.path.join(TEST_DATA_FOLDER_PATH, timestamp, run_name)
-    os.makedirs(base_path, exist_ok=True)
-    markdown_folder_path = os.path.join(base_path, "results")
-    os.makedirs(markdown_folder_path, exist_ok=True)
-    config_path = os.path.join(base_path, "config.toml")
-
-    # ----- 載入參數 -----
-    logger.info("Loading WebsiteCrawler config from toml")
+    # ----- 初始化設定 -----
+    module_name = "WebsiteCrawler"
+    exp_manager = ExperimentManager(module_name)
     config = WebsiteCrawlerConfig.from_config()
-    logger.info("WebsiteCrawler config loaded successfully from toml")
-    logger.info("-" * 30)
-    log_config("WebsiteCrawler config from toml:", vars(config))
-    logger.info("-" * 30)
+    log_config("WebsiteCrawler config loaded from toml:", vars(config))
 
     # ----- 初始化實例 -----
     crawler = WebsiteCrawler(
@@ -70,7 +53,7 @@ def test_website_crawler():
     # log_config("WebsiteCrawler config after override:", vars(config))
     # logger.info("-" * 30)
 
-    save_crawler_config_as_toml(config, config_path)
+    save_crawler_config_as_toml(config, exp_manager.config_path)
 
     crawl_results = crawler.crawl_website(
         url=config.url,
@@ -82,8 +65,8 @@ def test_website_crawler():
         logger.error("Crawling failed.")
         return
 
-    save_crawl_results_as_json(crawl_results)
-    save_crawl_results_as_md(crawl_results, markdown_folder_path, "fit_markdown")
+    exp_manager.save_crawl_results_as_json(crawl_results)
+    exp_manager.save_crawl_results_as_md(crawl_results, "fit_markdown")
 
     t1 = time.time()
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
@@ -92,30 +75,21 @@ def test_website_crawler():
 
 # TODO: 測試多組初始化參數
 def test_webpage_image_summarizer(skip_website_crawling: bool = True):
-    # skip_website_crawling = False
-
-    if not skip_website_crawling:
-        test_website_crawler()
-    crawl_results = load_crawl_results_from_json()
-
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
     t1 = time.time()
 
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    run_name = "WebpageImageSummarizer"
-    base_path = os.path.join(TEST_DATA_FOLDER_PATH, timestamp, run_name)
-    os.makedirs(base_path, exist_ok=True)
-    markdown_folder_path = os.path.join(base_path, "results")
-    os.makedirs(markdown_folder_path, exist_ok=True)
-    config_path = os.path.join(base_path, "config.toml")
-
-    # ----- 載入參數 -----
-    logger.info("Loading WebpageImageSummarizer config from toml")
+    # ------ 初始化設定 ------
+    module_name = "WebpageImageSummarizer"
+    exp_manager = ExperimentManager(module_name)
     config = WebpageImageSummarizerConfig.from_toml()
-    logger.info("WebpageImageSummarizer config loaded successfully from toml")
-    logger.info("-" * 30)
-    log_config("WebpageImageSummarizer config from toml:", vars(config))
+    log_config("WebpageImageSummarizer config loaded from toml:", vars(config))
+
+    # ----- 執行網站爬取 (可選) -----
+    # skip_website_crawling = False
+    if not skip_website_crawling:
+        test_website_crawler()
+    crawl_results = exp_manager.load_latest_crawl_results_from_json()
     logger.info("-" * 30)
 
     # ----- 初始化實例 -----
@@ -146,7 +120,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # log_config("WebpageImageSummarizer config after override:", vars(config))
     # logger.info("-" * 30)
 
-    save_summarizer_config_as_toml(config, config_path)
+    save_summarizer_config_as_toml(config, exp_manager.config_path)
 
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results,
@@ -157,15 +131,9 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
         **config.litellm_kwargs,
     )
 
+    exp_manager.save_crawl_results_as_json(enhanced_crawl_results)
+    exp_manager.save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
+
     t2 = time.time()
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
     logger.info("=" * 30)
-
-    save_crawl_results_as_json(enhanced_crawl_results)
-    save_crawl_results_as_md(
-        enhanced_crawl_results, markdown_folder_path, "enhanced_markdown"
-    )
-
-    # first_enhanced_crawl_result = enhanced_crawl_results[0]
-    # print("first_enhanced_crawl_result:\n", first_enhanced_crawl_result)
-    # print("enhanced_markdown:\n", first_enhanced_crawl_result["enhanced_markdown"])
