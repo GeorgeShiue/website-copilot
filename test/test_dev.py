@@ -27,6 +27,13 @@ def test_website_crawler():
     config = WebsiteCrawlerConfig.from_config()
     log_config("WebsiteCrawler config loaded from toml:", vars(config))
 
+    # ----- 覆寫參數 -----
+    max_pages = 10  # test
+    config.override_init_config(max_pages=max_pages)
+    log_config("WebsiteCrawler config after override:", vars(config))
+
+    save_crawler_config_as_toml(config, exp_manager.config_path)
+
     # ----- 初始化實例 -----
     crawler = WebsiteCrawler(
         max_depth=config.max_depth,
@@ -39,21 +46,6 @@ def test_website_crawler():
     #     max_depth=2,
     #     max_pages=max_pages,
     # )
-
-    # ----- 覆寫參數 -----
-    # max_depth = 3
-    # content_threshold = 0.45
-    # logger.info("Overriding WebsiteCrawler config")
-
-    # config.override_init_config(max_depth=max_depth, content_threshold=content_threshold)
-    # crawler.override_init_config(**vars(config))
-    # logger.info("WebsiteCrawler config overridden successfully")
-    # logger.info("-" * 30)
-
-    # log_config("WebsiteCrawler config after override:", vars(config))
-    # logger.info("-" * 30)
-
-    save_crawler_config_as_toml(config, exp_manager.config_path)
 
     crawl_results = crawler.crawl_website(
         url=config.url,
@@ -85,6 +77,16 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     config = WebpageImageSummarizerConfig.from_toml()
     log_config("WebpageImageSummarizer config loaded from toml:", vars(config))
 
+    # ----- 覆寫參數 -----
+    download_timeout = 30.0
+    model = "gpt-4o-mini"
+    config.override_init_config(download_timeout=download_timeout)
+    config.override_summarize_config(model=model)
+    log_config("WebpageImageSummarizer config after override:", vars(config))
+    logger.info("-" * 30)
+
+    save_summarizer_config_as_toml(config, exp_manager.config_path)
+
     # ----- 執行網站爬取 (可選) -----
     # skip_website_crawling = False
     if not skip_website_crawling:
@@ -103,24 +105,6 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     #     success_threshold=0.8,
     #     max_retries=6,
     # )
-
-    # ----- 覆寫參數 -----
-    # download_timeout = 30.0
-    # model = "gpt-4o-mini"
-    # logger.info("Overriding WebpageImageSummarizer config")
-
-    # config.override_init_config(download_timeout=download_timeout)
-    # config.override_summarize_config(model=model)
-
-    # webpage_image_summarizer.override_init_config(**vars(config))
-    # webpage_image_summarizer.override_summarize_config(**vars(config))
-    # logger.info("WebpageImageSummarizer config overridden successfully")
-    # logger.info("-" * 30)
-
-    # log_config("WebpageImageSummarizer config after override:", vars(config))
-    # logger.info("-" * 30)
-
-    save_summarizer_config_as_toml(config, exp_manager.config_path)
 
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results,

@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from tomlkit import document, dump, load
+from tomlkit import document, dump, load, table
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +90,12 @@ def save_config_as_toml(
     toml_doc = document()
 
     for section_name, section_keys in section_to_keys.items():
-        toml_doc[section_name] = {
-            key: config_dict[key] for key in section_keys if key in config_dict
-        }
+        section_table = table()
+        for section_key in section_keys:
+            config_value = config_dict.get(section_key)
+            if config_value is not None:
+                section_table[section_key] = config_value
+        toml_doc[section_name] = section_table
 
     with Path(toml_file_path).open("w") as file:
         dump(toml_doc, file)

@@ -26,7 +26,8 @@ def main(max_pages: int | None = None) -> None:
     exp_manager.init_module_paths(module_name)
     config = WebsiteCrawlerConfig.from_config()
     log_config("WebsiteCrawler config from toml:", vars(config))
-
+    config.override_init_config(max_pages=max_pages)
+    log_config("WebsiteCrawler config after override:", vars(config))
     save_crawler_config_as_toml(config, exp_manager.config_path)
 
     crawler = WebsiteCrawler(
