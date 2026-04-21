@@ -14,6 +14,7 @@ from utils.exp_manager import ExperimentManager
 logger = logging.getLogger(__name__)
 
 # TODO: 新增切換 config 機制
+# TODO: 測試多組初始化參數
 
 
 def test_website_crawler():
@@ -32,7 +33,7 @@ def test_website_crawler():
     config.override_init_config(max_pages=max_pages)
     log_config("WebsiteCrawler config after override:", vars(config))
 
-    save_crawler_config_as_toml(config, exp_manager.config_path)
+    save_crawler_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 初始化實例 -----
     crawler = WebsiteCrawler(
@@ -57,15 +58,14 @@ def test_website_crawler():
         logger.error("Crawling failed.")
         return
 
-    exp_manager.save_crawl_results_as_json(crawl_results)
-    exp_manager.save_crawl_results_as_md(crawl_results, "fit_markdown")
+    exp_manager.save_results_as_json(crawl_results)
+    exp_manager.save_results_as_md(crawl_results, "fit_markdown")
 
     t1 = time.time()
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
     logger.info("=" * 30)
 
 
-# TODO: 測試多組初始化參數
 def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     logger.info("2. Image Summarization")
     logger.info("-" * 30)
@@ -85,13 +85,13 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     log_config("WebpageImageSummarizer config after override:", vars(config))
     logger.info("-" * 30)
 
-    save_summarizer_config_as_toml(config, exp_manager.config_path)
+    save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 執行網站爬取 (可選) -----
     # skip_website_crawling = False
     if not skip_website_crawling:
         test_website_crawler()
-    crawl_results = exp_manager.load_latest_crawl_results_from_json()
+    latest_results = exp_manager.load_latest_results_from_json()
     logger.info("-" * 30)
 
     # ----- 初始化實例 -----
@@ -106,8 +106,8 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     #     max_retries=6,
     # )
 
-    enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
-        crawl_results,
+    enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
+        latest_results,
         model=config.model,
         prompt=config.prompt,
         vlm_max_workers=config.vlm_max_workers,
@@ -115,8 +115,8 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
         **config.litellm_kwargs,
     )
 
-    exp_manager.save_crawl_results_as_json(enhanced_crawl_results)
-    exp_manager.save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
+    exp_manager.save_results_as_json(enhanced_results)
+    exp_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
 
     t2 = time.time()
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")

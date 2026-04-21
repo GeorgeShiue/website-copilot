@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def main(max_pages: int | None = None) -> None:
+    max_pages = 10  # test
     exp_manager = ExperimentManager()
 
     logger.info("1. Website Crawling")
@@ -28,7 +29,7 @@ def main(max_pages: int | None = None) -> None:
     log_config("WebsiteCrawler config from toml:", vars(config))
     config.override_init_config(max_pages=max_pages)
     log_config("WebsiteCrawler config after override:", vars(config))
-    save_crawler_config_as_toml(config, exp_manager.config_path)
+    save_crawler_config_as_toml(config, exp_manager.config_toml_path)
 
     crawler = WebsiteCrawler(
         max_depth=config.max_depth,
@@ -48,8 +49,8 @@ def main(max_pages: int | None = None) -> None:
         logger.error("Crawling failed.")
         return
 
-    exp_manager.save_crawl_results_as_json(crawl_results)
-    exp_manager.save_crawl_results_as_md(crawl_results, "fit_markdown")
+    exp_manager.save_results_as_json(crawl_results)
+    exp_manager.save_results_as_md(crawl_results, "fit_markdown")
 
     t1 = time.time()
     logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
@@ -70,7 +71,7 @@ def main(max_pages: int | None = None) -> None:
         max_retries=config.max_retries,
     )
 
-    save_summarizer_config_as_toml(config, exp_manager.config_path)
+    save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
 
     enhanced_crawl_results = webpage_image_summarizer.summarize_crawl_results_images(
         crawl_results,
@@ -85,8 +86,8 @@ def main(max_pages: int | None = None) -> None:
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
     logger.info("=" * 30)
 
-    exp_manager.save_crawl_results_as_json(enhanced_crawl_results)
-    exp_manager.save_crawl_results_as_md(enhanced_crawl_results, "enhanced_markdown")
+    exp_manager.save_results_as_json(enhanced_crawl_results)
+    exp_manager.save_results_as_md(enhanced_crawl_results, "enhanced_markdown")
 
 
 if __name__ == "__main__":
