@@ -10,7 +10,10 @@ from typing import Any, Literal
 
 from litellm import acompletion, completion_cost
 
-from app.webpage_image_summarizer_config import DEFAULT_PROMPT, get_vlm_api_key
+from app.webpage_image_summarizer_config import (
+    DEFAULT_PROMPT,
+    get_summarizer_model_api_key,
+)
 
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -325,7 +328,7 @@ class WebpageImageSummarizer:
                 ],
             }
         ]
-        api_key = get_vlm_api_key(self.model)
+        api_key = get_summarizer_model_api_key(self.model)
         litellm_kwargs: dict[str, Any] = {}
         litellm_kwargs["api_key"] = api_key  # 避免 api key 洩漏
         litellm_kwargs.update(self.litellm_kwargs)

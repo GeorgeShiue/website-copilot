@@ -20,6 +20,10 @@ class ConfigValidationError(ValueError):
     """設定驗證錯誤。"""
 
 
+class EnvironmentVariableError(ValueError):
+    """環境變數相關錯誤。"""
+
+
 def _load_toml_section(
     config_path: str,
     config_section: str,
