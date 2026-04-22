@@ -268,6 +268,13 @@ def _override_summarize_config(
     return summarize_config
 
 
+def set_summarizer_run_name(config: WebpageImageSummarizerConfig) -> str:
+    """根據 summarize 參數生成實驗 run name。"""
+    model_name = config.model.replace("/", "-")
+    run_name = f"{model_name}_workers-{config.vlm_max_workers}"
+    return run_name
+
+
 def save_summarizer_config_as_toml(
     config: WebpageImageSummarizerConfig, toml_file_path: str
 ) -> None:

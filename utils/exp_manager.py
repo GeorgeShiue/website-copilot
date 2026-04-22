@@ -13,20 +13,23 @@ class ExperimentManager:
     def __init__(self, module_name: str = "") -> None:
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_path = self._set_base_path()
-        self.results_json_path = self._set_results_json_path()
-        logger.info("Paths initialized for experiment:")
-        logger.info(f"  * Base path: {self.base_path}")
-        logger.info(f"  * Results json path: {self.results_json_path}")
-        logger.info("-" * 30)
+        logger.info(f"Base path set to: {self.base_path}")
 
-        self.module_name = ""
+        self.module_name: str = ""
         self.module_path: str = ""
+        self.run_name: str = ""
+        self.run_path: str = ""
+
+        self.results_json_path = ""
         self.results_folder_path: str = ""
         self.config_toml_path: str = ""
         self.latest_results_json_path: str = ""
 
+        # 預先檢查允許初始化時不用提供 module_name
         if module_name:
-            self.init_module_paths(module_name)
+            self.set_module_path(module_name)
+
+        logger.info("-" * 30)
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
@@ -34,40 +37,62 @@ class ExperimentManager:
         os.makedirs(base_path, exist_ok=True)
         return base_path
 
-    def _set_results_json_path(self) -> str:
-        """設定爬取結果 JSON 路徑並回傳。"""
-        results_json_path = os.path.join(self.base_path, RESULTS_JSON_NAME)
-        return results_json_path
+    def set_module_path(self, module_name: str) -> None:
+        """設定模組路徑並回傳。"""
+        if not module_name:
+            raise ValueError("Module name must be provided to set module path.")
 
-    def init_module_paths(self, module_name: str) -> None:
-        """設定模組相關路徑。"""
         self.module_name = module_name
-        self.module_path = self._set_module_path()
-        self.results_folder_path = self._set_results_folder_path()
-        self.config_toml_path = self._set_config_toml_path()
+        module_path = os.path.join(self.base_path, module_name)
+        os.makedirs(module_path, exist_ok=True)
+        self.module_path = module_path
+        logger.info(f"Module_path set to: {self.module_path}")
 
-        logger.info(f"Paths initialized for module '{module_name}':")
-        logger.info(f"  * Module path: {self.module_path}")
+    def set_run_path(self, run_name: str) -> None:
+        """設定實驗路徑並回傳。"""
+        if not self.module_name:
+            raise ValueError("Module name must be set before setting run path.")
+        if not run_name:
+            raise ValueError("Run name must be provided to set run path.")
+
+        self.run_name = run_name
+        run_path = os.path.join(self.module_path, self.run_name)
+        os.makedirs(run_path, exist_ok=True)
+        self.run_path = run_path
+        logger.info(f"Run path set to: {self.run_path}")
+
+    def init_module_run_paths(self) -> None:
+        if not self.module_name:
+            raise ValueError("Module name must be set to initialize module run paths.")
+        if not self.run_name:
+            raise ValueError("Run name must be set to initialize module run paths.")
+
+        self._set_results_json_path()
+        self._set_results_folder_path()
+        self._set_config_toml_path()
+        logger.info(
+            f"Paths initialized for module '{self.module_name}' run '{self.run_name}':"
+        )
+        logger.info(f"  * Results json path: {self.results_json_path}")
         logger.info(f"  * Results folder path: {self.results_folder_path}")
         logger.info(f"  * Config toml path: {self.config_toml_path}")
         logger.info("-" * 30)
 
-    def _set_module_path(self) -> str:
-        """設定模組路徑並回傳。"""
-        module_path = os.path.join(self.base_path, self.module_name)
-        os.makedirs(module_path, exist_ok=True)
-        return module_path
+    def _set_results_json_path(self) -> None:
+        """設定爬取結果 JSON 路徑並回傳。"""
+        results_json_path = os.path.join(self.run_path, RESULTS_JSON_NAME)
+        self.results_json_path = results_json_path
 
-    def _set_results_folder_path(self) -> str:
+    def _set_results_folder_path(self) -> None:
         """設定執行結果檔案夾路徑。"""
-        results_folder_path = os.path.join(self.module_path, "results")
+        results_folder_path = os.path.join(self.run_path, "results")
         os.makedirs(results_folder_path, exist_ok=True)
-        return results_folder_path
+        self.results_folder_path = results_folder_path
 
-    def _set_config_toml_path(self) -> str:
+    def _set_config_toml_path(self) -> None:
         """設定 TOML 設定檔路徑。"""
-        config_path = os.path.join(self.module_path, "config.toml")
-        return config_path
+        config_toml_path = os.path.join(self.run_path, "config.toml")
+        self.config_toml_path = config_toml_path
 
     def save_results_as_json(self, results: list[dict]) -> None:
         """將爬取結果列表寫入 JSON 檔案。"""
@@ -110,32 +135,35 @@ class ExperimentManager:
         logger.info(f"Looking for experiment folders in {TEST_DATA_FOLDER_PATH}...")
         exp_folder_names = self._filter_exp_folders()
 
-        # 篩選出包含爬取結果 JSON 的實驗資料夾
-        exp_with_results_folder_names = []
-        for folder_name in exp_folder_names:
-            results_json_path = os.path.join(
-                TEST_DATA_FOLDER_PATH, folder_name, RESULTS_JSON_NAME
+        # 由新到舊尋找第一份位於 website_crawler 子目錄中的 results.json
+        latest_results_json_path = ""
+        for folder_name in sorted(exp_folder_names, reverse=True):
+            website_crawler_folder_path = os.path.join(
+                TEST_DATA_FOLDER_PATH, folder_name, "website_crawler"
             )
-            if os.path.isfile(results_json_path):
-                exp_with_results_folder_names.append(folder_name)
-        if not exp_with_results_folder_names:
-            raise FileNotFoundError(
-                f"No experiment folders with crawl results found in {TEST_DATA_FOLDER_PATH}."
-            )
+            if not os.path.isdir(website_crawler_folder_path):
+                continue
 
-        latest_exp_with_results_folder_name = sorted(exp_with_results_folder_names)[-1]
-        latest_results_json_path = os.path.join(
-            TEST_DATA_FOLDER_PATH,
-            latest_exp_with_results_folder_name,
-            RESULTS_JSON_NAME,
-        )
+            for root, dirs, files in os.walk(website_crawler_folder_path):
+                dirs.sort()
+                files.sort()
+                if RESULTS_JSON_NAME in files:
+                    latest_results_json_path = os.path.join(root, RESULTS_JSON_NAME)
+                    break
+
+            if latest_results_json_path:
+                break
+
+        if not latest_results_json_path:
+            raise FileNotFoundError("No crawl results found")
+
         self.latest_results_json_path = latest_results_json_path
-
         latest_results = self._load_latest_results()
         if latest_results is None:
             raise FileNotFoundError(
                 f"Failed to load crawl results from {latest_results_json_path}."
             )
+
         return latest_results
 
     def _load_latest_results(self) -> list[dict] | None:

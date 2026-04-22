@@ -54,7 +54,7 @@ class WebsiteCrawlerConfig:
     exclude_words: tuple[str, ...] | None = None
 
     @classmethod
-    def from_config(
+    def from_toml(
         cls,
         config_path: str = DEFAULT_CONFIG_PATH,
         init_config_section: str = DEFAULT_INIT_CONFIG_SECTION,
@@ -246,6 +246,16 @@ def _override_crawl_config(
     return crawl_config
 
 
+# TODO: 寫成 property
+def set_crawler_run_name(config: WebsiteCrawlerConfig) -> str:
+    """根據 WebsiteCrawlerConfig 生成實驗名稱。"""
+    run_name = f"max_depth-{config.max_depth}"
+    if config.max_pages is not None:
+        run_name += f"_max_pages-{config.max_pages}"
+    return run_name
+
+
+# TODO: 把 Sections_to_keys 變成類別常數，就可以移動 save_crawler_config_as_toml 到 utils/config_manager.py
 def save_crawler_config_as_toml(
     config: WebsiteCrawlerConfig, toml_file_path: str
 ) -> None:
