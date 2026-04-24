@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from utils.config_manager import (
     ConfigValidationError,
     EnvironmentVariableError,
+    filter_commented_configs,
     load_config_section_from_toml,
     save_config_as_toml,
 )
@@ -67,6 +68,9 @@ class WebpageImageSummarizerConfig:
     vlm_max_workers: int = 10
     litellm_kwargs: dict[str, Any] = field(default_factory=dict)
 
+    # ----- metadata -----
+    config_path: str = DEFAULT_CONFIG_PATH
+
     def __post_init__(self):
         _validate_init_config(
             download_timeout=self.download_timeout,
@@ -93,7 +97,7 @@ class WebpageImageSummarizerConfig:
         summarize_config = _load_summarize_config_from_toml(
             config_path, summarize_config_section
         )
-        return cls(**init_config, **summarize_config)
+        return cls(**init_config, **summarize_config, config_path=config_path)
 
     def override_init_config(self, **overrides) -> None:
         """覆寫建構子參數並驗證。"""
@@ -102,6 +106,22 @@ class WebpageImageSummarizerConfig:
     def override_summarize_config(self, **overrides) -> None:
         """覆寫 summarize 參數並驗證。"""
         _override_summarize_config(vars(self), **overrides)
+
+    @property
+    def run_name(self) -> str:
+        """根據 config toml 中的註解生成 run name。"""
+        commented_configs = filter_commented_configs(self.config_path, "run name")
+
+        if not commented_configs:
+            return "default"
+
+        run_name = ""
+        for config in commented_configs:
+            value = getattr(self, config, None)
+            if value is not None:
+                run_name += f"{config}-{value}_"
+
+        return run_name.rstrip("_") or "default"
 
 
 def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> None:

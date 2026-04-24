@@ -4,6 +4,7 @@ from typing import Any, Pattern, Self
 
 from utils.config_manager import (
     ConfigValidationError,
+    filter_commented_configs,
     load_config_section_from_toml,
     save_config_as_toml,
 )
@@ -38,23 +39,22 @@ SECTIONS_TO_KEYS = {
 class WebsiteCrawlerConfig:
     # ----- init config (no default values)-----
     max_depth: int
-
     # ----- crawl config (no default values)-----
     url: str
-
     # ----- init config -----
     max_pages: int | None = None
     content_threshold: float = KEEP_IMAGE_CONTENT_THRESHOLD
     light_mode: bool = True
     wait_for_images: bool = True
-
     # ----- crawl config -----
     url_patterns: str | Pattern | list[str | Pattern] | None = None
     allowed_domains: str | list[str] | None = None
     exclude_words: tuple[str, ...] | None = None
+    # ----- metadata -----
+    config_path: str = DEFAULT_CONFIG_PATH
 
     @classmethod
-    def from_config(
+    def from_toml(
         cls,
         config_path: str = DEFAULT_CONFIG_PATH,
         init_config_section: str = DEFAULT_INIT_CONFIG_SECTION,
@@ -63,7 +63,7 @@ class WebsiteCrawlerConfig:
         """從 TOML 設定檔建立 WebsiteCrawlerConfig。"""
         init_config = _load_init_config_from_toml(config_path, init_config_section)
         crawl_config = _load_crawl_config_from_toml(config_path, crawl_config_section)
-        return cls(**init_config, **crawl_config)
+        return cls(**init_config, **crawl_config, config_path=config_path)
 
     def __post_init__(self) -> None:
         _validate_init_config(
@@ -87,6 +87,25 @@ class WebsiteCrawlerConfig:
     def override_crawl_config(self, **overrides) -> None:
         """覆寫 crawl 參數並驗證。"""
         _override_crawl_config(vars(self), **overrides)
+
+    @property
+    def run_name(self) -> str:
+        """根據 config toml 中的註解生成 run name"""
+        commented_configs = filter_commented_configs(self.config_path, "run name")
+
+        if not commented_configs:
+            return "default"
+
+        run_name = ""
+        if commented_configs:
+            for config in commented_configs:
+                value = getattr(self, config, None)
+                if value is not None:
+                    config_part = f"{config}-{value}"
+                    run_name += config_part + "_"
+            run_name = run_name.rstrip("_")
+
+        return run_name
 
 
 def _validate_init_config(
@@ -246,6 +265,7 @@ def _override_crawl_config(
     return crawl_config
 
 
+# TODO: sections_to_keys 設定成 metadata，就可以移動 save_crawler_config_as_toml 到 utils/config_manager.py
 def save_crawler_config_as_toml(
     config: WebsiteCrawlerConfig, toml_file_path: str
 ) -> None:

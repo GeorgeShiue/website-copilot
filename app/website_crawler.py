@@ -84,6 +84,7 @@ class WebsiteCrawler:
             logger.error(f"Error during filtering crawl results: {e}")
             return None
 
+        logger.info("-" * 30)
         logger.info("Website crawling stats:")
         logger.info(f"  * Success pages: {self._crawl_stats['success_count']}")
         logger.info(f"  * Error pages: {self._crawl_stats['error_count']}")
