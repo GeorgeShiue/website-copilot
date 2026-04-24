@@ -4,14 +4,12 @@ import time
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import (
     WebpageImageSummarizerConfig,
-    save_summarizer_config_as_toml,
 )
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import (
     WebsiteCrawlerConfig,
-    save_crawler_config_as_toml,
 )
-from utils.config_helper import log_config
+from utils.config_helper import log_config, save_config_as_toml
 from utils.exp_manager import ExperimentManager
 
 logger = logging.getLogger(__name__)
@@ -39,7 +37,7 @@ def test_website_crawler():
     # ----- 初始化實驗路徑 -----
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_crawler_config_as_toml(config, exp_manager.config_toml_path)
+    save_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 初始化實例 -----
     crawler = WebsiteCrawler(
@@ -97,7 +95,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # ----- 初始化實驗路徑 -----
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
+    save_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 執行網站爬取 (可選) -----
     # skip_website_crawling = False

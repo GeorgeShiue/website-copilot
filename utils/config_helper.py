@@ -82,14 +82,18 @@ def load_config_section_from_toml(
 
 def save_config_as_toml(
     config: object,
-    section_to_keys: Mapping[str, set[str]],
     toml_file_path: str,
-) -> None:
-    """Persist config values into TOML sections based on key mapping."""
+):
+    """Persist config values into TOML sections based on config's metadata."""
     config_dict = config.__dict__
+    sections_to_keys = getattr(config, "sections_to_keys", {})
+    if not sections_to_keys:
+        raise ValueError(
+            "Config object must have 'sections_to_keys' metadata for TOML saving."
+        )
     toml_doc = document()
 
-    for section_name, section_keys in section_to_keys.items():
+    for section_name, section_keys in sections_to_keys.items():
         section_table = table()
         for section_key in section_keys:
             config_value = config_dict.get(section_key)
