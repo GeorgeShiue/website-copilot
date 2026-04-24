@@ -1,34 +1,46 @@
 ---
 agent: "agent"
-description: "Inspect a given file and its recent edits before executing the requested operation."
+description: "Review a target file, compare it against prior understanding, then execute the requested edit operation."
 ---
 
 Please follow these steps exactly:
 
 1. You are given:
    - a file path or file content (`file_path`, `file_content`)
-   - the user’s intended follow-up operation (`task_description`)
+   - optional prior understanding of the same file (`previous_understanding`)
+   - optional change signals (`diff`, `patch`, `user_edit_notes`)
+   - the user’s requested modification (`task_description`)
 
-2. First, open and read the provided file fully.
-   - If a diff/patch is also provided, analyze it to identify which lines/sections were modified.
-   - If no explicit diff is given, infer likely changed areas from the latest available context or from the user’s direct message about edits.
+2. Phase 1 - Inspect and summarize the specified file.
+   - Open and read the provided file fully before doing any edits.
+   - Summarize the file’s current purpose, structure, and key sections.
+   - If there are obvious recent edits in the file, call them out briefly.
 
-3. Summarize:
-   - current file purpose
-   - detected modifications and which parts changed
-   - any potential implications for the requested operation
+3. Phase 2 - Compare the file with your prior understanding.
+   - Use `previous_understanding` when available.
+   - If `diff`, `patch`, or `user_edit_notes` are provided, use them as evidence.
+   - Identify the gap between current file reality and your prior understanding.
+   - Explicitly list what is new, changed, removed, or still uncertain.
+   - Explain how those gaps affect the requested modification.
 
-4. Only after confirming the above, perform the requested operation (`task_description`) on the file content.
+4. Phase 3 - Execute the requested modification.
+   - Only after completing Phase 1 and Phase 2, perform `task_description`.
+   - Apply changes consistent with the file’s current state and detected gaps.
+   - Avoid assumptions that conflict with the latest file content.
 
 Output:
-- Step 1: file review summary
-- Step 2: changed-region analysis
-- Step 3: result of the requested operation
+
+- Phase 1: file inspection summary
+- Phase 2: prior-understanding gap analysis
+- Phase 3: requested modification result
 
 Use clear, concise language and keep each stage separated.
 
 Inputs:
+
 - `file_path` (optional)
 - `file_content` (optional)
+- `previous_understanding` (optional)
 - `diff` or `patch` (optional)
+- `user_edit_notes` (optional)
 - `task_description` (required)
