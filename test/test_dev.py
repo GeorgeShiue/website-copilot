@@ -11,33 +11,35 @@ from app.website_crawler_config import (
 )
 from utils.config_helper import log_config, save_config_as_toml
 from utils.exp_manager import ExperimentManager
+from utils.log_helper import log_session, setup_logging
 
+# TODO: 調整 logging level
+setup_logging(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# TODO: 紀錄實驗 log (logfire/rich)
+# TODO: 紀錄實驗 log
 
 
 def test_website_crawler():
-    logger.info("1. Website Crawling")
-    logger.info("-" * 30)
+    log_session("Website Crawler", style="purple")
     t0 = time.time()
 
-    # ----- 初始化實驗管理器 -----
+    # ----- 初始化實驗 -----
+    log_session("Setting module paths", style="cyan")
     module_name = "website_crawler"
     exp_manager = ExperimentManager(module_name)
 
-    # ----- 初始化參數 -----
     test_config_path = "./config/website_crawler_test.toml"
     config = WebsiteCrawlerConfig.from_toml(test_config_path)
-    log_config("WebsiteCrawler config loaded from toml:", vars(config))
-    # max_pages = 10  # test
-    # config.override_init_config(max_pages=max_pages)
-    # log_config("WebsiteCrawler config after override:", vars(config))
+    log_config("WebsiteCrawler config loaded from toml", config)
 
-    # ----- 初始化實驗路徑 -----
+    # max_pages = 20  # test
+    # config.override_init_config(max_pages=max_pages)
+    # log_config("WebsiteCrawler config after override", config)
+
+    log_session("Setting run paths", style="cyan")
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 初始化實例 -----
     crawler = WebsiteCrawler(
@@ -53,6 +55,7 @@ def test_website_crawler():
     # )
 
     # ---- 執行網站爬取 -----
+    log_session("Website crawling", style="cyan")
     crawl_results = crawler.crawl_website(
         url=config.url,
         url_patterns=config.url_patterns,
@@ -63,46 +66,43 @@ def test_website_crawler():
         logger.error("Crawling failed.")
         return
 
-    # ----- 儲存執行結果 -----
+    # ----- 儲存設定和結果 -----
+    save_config_as_toml(config, exp_manager.config_toml_path)
     exp_manager.save_results_as_json(crawl_results)
     exp_manager.save_results_as_md(crawl_results, "fit_markdown")
 
     t1 = time.time()
-    logger.info(f"Crawling completed in {t1 - t0:.2f} seconds.")
-    logger.info("=" * 30)
+    logger.info(f"Website crawling completed in {t1 - t0:.2f} seconds.")
 
 
 def test_webpage_image_summarizer(skip_website_crawling: bool = True):
-    logger.info("2. Image Summarization")
-    logger.info("-" * 30)
+    log_session("Webpage Image Summarizer", style="purple")
     t1 = time.time()
 
-    # ----- 初始化實驗管理器 -----
+    # ----- 初始化實驗 -----
+    log_session("Setting module paths", style="cyan")
     module_name = "webpage_image_summarizer"
     exp_manager = ExperimentManager(module_name)
 
-    # ----- 初始化參數 -----
     test_config_path = "./config/webpage_image_summarizer_test.toml"
     config = WebpageImageSummarizerConfig.from_toml(test_config_path)
-    log_config("WebpageImageSummarizer config loaded from toml:", vars(config))
+    log_config("WebpageImageSummarizer config loaded from toml", config)
+
     # download_timeout = 30.0
     # model = "gpt-4o-mini"
     # config.override_init_config(download_timeout=download_timeout)
     # config.override_summarize_config(model=model)
-    # log_config("WebpageImageSummarizer config after override:", vars(config))
-    # logger.info("-" * 30)
+    # log_config("WebpageImageSummarizer config after override:", config)
 
-    # ----- 初始化實驗路徑 -----
+    log_session("Setting run paths", style="cyan")
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_config_as_toml(config, exp_manager.config_toml_path)
 
     # ----- 執行網站爬取 (可選) -----
     # skip_website_crawling = False
     if not skip_website_crawling:
         test_website_crawler()
     latest_results = exp_manager.load_latest_results_from_json()
-    logger.info("-" * 30)
 
     # ----- 初始化實例 -----
     webpage_image_summarizer = WebpageImageSummarizer(
@@ -117,6 +117,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # )
 
     # ---- 執行圖片摘要 -----
+    log_session("Image summarization", style="cyan")
     enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
         latest_results,
         model=config.model,
@@ -126,10 +127,10 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
         **config.litellm_kwargs,
     )
 
-    # ----- 儲存執行結果 -----
+    # ----- 儲存設定和結果 -----
+    save_config_as_toml(config, exp_manager.config_toml_path)
     exp_manager.save_results_as_json(enhanced_results)
     exp_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
 
     t2 = time.time()
     logger.info(f"Image summarization completed in {t2 - t1:.2f} seconds.")
-    logger.info("=" * 30)

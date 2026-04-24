@@ -13,7 +13,7 @@ class ExperimentManager:
     def __init__(self, module_name: str = "") -> None:
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_path = self._set_base_path()
-        logger.info(f"Base path set to: {self.base_path}")
+        logger.info(f"Base path: {self.base_path}")
 
         self.module_name: str = ""
         self.module_path: str = ""
@@ -28,8 +28,6 @@ class ExperimentManager:
         # 預先檢查允許初始化時不用提供 module_name
         if module_name:
             self.set_module_path(module_name)
-
-        logger.info("-" * 30)
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
@@ -46,7 +44,8 @@ class ExperimentManager:
         module_path = os.path.join(self.base_path, module_name)
         os.makedirs(module_path, exist_ok=True)
         self.module_path = module_path
-        logger.info(f"Module_path set to: {self.module_path}")
+
+        logger.info(f"Module path: {self.module_path}")
 
     def set_run_path(self, run_name: str) -> None:
         """設定實驗路徑並回傳。"""
@@ -59,7 +58,7 @@ class ExperimentManager:
         run_path = os.path.join(self.module_path, self.run_name)
         os.makedirs(run_path, exist_ok=True)
         self.run_path = run_path
-        logger.info(f"Run path set to: {self.run_path}")
+        logger.info(f"Run path: {self.run_path}")
 
     def init_module_run_paths(self) -> None:
         if not self.module_name:
@@ -70,13 +69,13 @@ class ExperimentManager:
         self._set_results_json_path()
         self._set_results_folder_path()
         self._set_config_toml_path()
+
         logger.info(
             f"Paths initialized for module '{self.module_name}' run '{self.run_name}':"
         )
         logger.info(f"  * Results json path: {self.results_json_path}")
         logger.info(f"  * Results folder path: {self.results_folder_path}")
         logger.info(f"  * Config toml path: {self.config_toml_path}")
-        logger.info("-" * 30)
 
     def _set_results_json_path(self) -> None:
         """設定爬取結果 JSON 路徑並回傳。"""
@@ -110,10 +109,8 @@ class ExperimentManager:
     ) -> None:
         """將爬取結果寫入 Markdown 檔案。"""
         for result in results:
-            markdown_file_name = result["markdown_file_name"]
-            markdown_file_path = os.path.join(
-                self.results_folder_path, markdown_file_name
-            )
+            md_file_path = result["md_file_name"] + ".md"
+            markdown_file_path = os.path.join(self.results_folder_path, md_file_path)
             markdown = result[markdown_type]
             images = result["images"]
 
