@@ -5,12 +5,11 @@ from typing import Any, Literal, Self
 
 from dotenv import load_dotenv
 
-from utils.config_manager import (
+from utils.config_helper import (
     ConfigValidationError,
     EnvironmentVariableError,
     filter_commented_configs,
     load_config_section_from_toml,
-    save_config_as_toml,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,9 +66,11 @@ class WebpageImageSummarizerConfig:
     image_source: Literal["images", "markdown"] = "markdown"
     vlm_max_workers: int = 10
     litellm_kwargs: dict[str, Any] = field(default_factory=dict)
-
     # ----- metadata -----
     config_path: str = DEFAULT_CONFIG_PATH
+    sections_to_keys: dict[str, set[str]] = field(
+        default_factory=lambda: SECTIONS_TO_KEYS
+    )
 
     def __post_init__(self):
         _validate_init_config(
@@ -286,13 +287,6 @@ def _override_summarize_config(
 
     _validate_summarize_config(summarize_config)
     return summarize_config
-
-
-def save_summarizer_config_as_toml(
-    config: WebpageImageSummarizerConfig, toml_file_path: str
-) -> None:
-    """將配置物件寫入 TOML 檔案。"""
-    save_config_as_toml(config, SECTIONS_TO_KEYS, toml_file_path)
 
 
 def get_summarizer_model_api_key(model: str) -> str:

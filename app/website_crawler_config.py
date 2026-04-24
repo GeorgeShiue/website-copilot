@@ -1,12 +1,11 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Pattern, Self
 
-from utils.config_manager import (
+from utils.config_helper import (
     ConfigValidationError,
     filter_commented_configs,
     load_config_section_from_toml,
-    save_config_as_toml,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +51,9 @@ class WebsiteCrawlerConfig:
     exclude_words: tuple[str, ...] | None = None
     # ----- metadata -----
     config_path: str = DEFAULT_CONFIG_PATH
+    sections_to_keys: dict[str, set[str]] = field(
+        default_factory=lambda: SECTIONS_TO_KEYS
+    )
 
     @classmethod
     def from_toml(
@@ -263,11 +265,3 @@ def _override_crawl_config(
 
     _validate_crawl_config(crawl_config)
     return crawl_config
-
-
-# TODO: sections_to_keys 設定成 metadata，就可以移動 save_crawler_config_as_toml 到 utils/config_manager.py
-def save_crawler_config_as_toml(
-    config: WebsiteCrawlerConfig, toml_file_path: str
-) -> None:
-    """將 WebsiteCrawlerConfig 儲存為 TOML 檔案。"""
-    save_config_as_toml(config, SECTIONS_TO_KEYS, toml_file_path)

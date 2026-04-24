@@ -4,14 +4,12 @@ import time
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import (
     WebpageImageSummarizerConfig,
-    save_summarizer_config_as_toml,
 )
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import (
     WebsiteCrawlerConfig,
-    save_crawler_config_as_toml,
 )
-from utils.config_manager import log_config
+from utils.config_helper import log_config, save_config_as_toml
 from utils.exp_manager import ExperimentManager
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
@@ -34,7 +32,7 @@ def main(max_pages: int | None = None) -> None:
 
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_crawler_config_as_toml(config, exp_manager.config_toml_path)
+    save_config_as_toml(config, exp_manager.config_toml_path)
 
     crawler = WebsiteCrawler(
         max_depth=config.max_depth,
@@ -73,7 +71,7 @@ def main(max_pages: int | None = None) -> None:
 
     exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
-    save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
+    save_config_as_toml(config, exp_manager.config_toml_path)
 
     webpage_image_summarizer = WebpageImageSummarizer(
         download_timeout=config.download_timeout,
