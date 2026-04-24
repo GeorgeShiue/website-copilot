@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Pattern, Self
 
-from utils.config_manager import (
+from utils.config_helper import (
     ConfigValidationError,
     filter_commented_configs,
     load_config_section_from_toml,

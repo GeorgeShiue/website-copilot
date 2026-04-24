@@ -11,7 +11,7 @@ from app.website_crawler_config import (
     WebsiteCrawlerConfig,
     save_crawler_config_as_toml,
 )
-from utils.config_manager import log_config
+from utils.config_helper import log_config
 from utils.exp_manager import ExperimentManager
 
 logger = logging.getLogger(__name__)
