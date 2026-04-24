@@ -110,3 +110,48 @@ def log_config(title: str, config: Mapping[str, Any]) -> None:
     for key in config:
         logger.info("  %s: %s", key, config[key])
     logger.info("-" * 30)
+
+
+def filter_commented_configs(config_path: str, comment_keyword: str) -> list[str]:
+    text = Path(config_path).read_text(encoding="utf-8")
+    result: list[str] = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if line.startswith("[") and line.endswith("]") and not line.startswith("[["):
+            continue
+
+        in_single = False
+        in_double = False
+        comment_index = -1
+        for idx, ch in enumerate(raw_line):
+            if ch == '"' and not in_single:
+                in_double = not in_double
+            elif ch == "'" and not in_double:
+                in_single = not in_single
+            elif ch == "#" and not in_single and not in_double:
+                comment_index = idx
+                break
+
+        if comment_index < 0:
+            continue
+
+        comment = raw_line[comment_index + 1 :].strip()
+        if comment_keyword not in comment:
+            continue
+
+        code_part = raw_line[:comment_index].strip()
+        if "=" not in code_part:
+            continue
+
+        key_part, _ = code_part.split("=", 1)
+        key = key_part.strip()
+        if not key:
+            continue
+
+        result.append(key)
+
+    return result

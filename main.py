@@ -5,13 +5,11 @@ from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import (
     WebpageImageSummarizerConfig,
     save_summarizer_config_as_toml,
-    set_summarizer_run_name,
 )
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import (
     WebsiteCrawlerConfig,
     save_crawler_config_as_toml,
-    set_crawler_run_name,
 )
 from utils.config_manager import log_config
 from utils.exp_manager import ExperimentManager
@@ -34,8 +32,7 @@ def main(max_pages: int | None = None) -> None:
     config.override_init_config(max_pages=max_pages)
     log_config("WebsiteCrawler config after override:", vars(config))
 
-    run_name = set_crawler_run_name(config)
-    exp_manager.set_run_path(run_name)
+    exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
     save_crawler_config_as_toml(config, exp_manager.config_toml_path)
 
@@ -74,8 +71,7 @@ def main(max_pages: int | None = None) -> None:
     config = WebpageImageSummarizerConfig.from_toml()
     log_config("WebpageImageSummarizer config from toml:", vars(config))
 
-    run_name = set_summarizer_run_name(config)
-    exp_manager.set_run_path(run_name)
+    exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
     save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
 

@@ -5,20 +5,17 @@ from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import (
     WebpageImageSummarizerConfig,
     save_summarizer_config_as_toml,
-    set_summarizer_run_name,
 )
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import (
     WebsiteCrawlerConfig,
     save_crawler_config_as_toml,
-    set_crawler_run_name,
 )
 from utils.config_manager import log_config
 from utils.exp_manager import ExperimentManager
 
 logger = logging.getLogger(__name__)
 
-# TODO: 透過 config toml 註解設定 run name
 # TODO: 紀錄實驗 log (logfire/rich)
 
 
@@ -40,8 +37,7 @@ def test_website_crawler():
     # log_config("WebsiteCrawler config after override:", vars(config))
 
     # ----- 初始化實驗路徑 -----
-    run_name = set_crawler_run_name(config)
-    exp_manager.set_run_path(run_name)
+    exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
     save_crawler_config_as_toml(config, exp_manager.config_toml_path)
 
@@ -88,7 +84,8 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     exp_manager = ExperimentManager(module_name)
 
     # ----- 初始化參數 -----
-    config = WebpageImageSummarizerConfig.from_toml()
+    test_config_path = "./config/webpage_image_summarizer_test.toml"
+    config = WebpageImageSummarizerConfig.from_toml(test_config_path)
     log_config("WebpageImageSummarizer config loaded from toml:", vars(config))
     # download_timeout = 30.0
     # model = "gpt-4o-mini"
@@ -98,8 +95,7 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
     # logger.info("-" * 30)
 
     # ----- 初始化實驗路徑 -----
-    run_name = set_summarizer_run_name(config)
-    exp_manager.set_run_path(run_name)
+    exp_manager.set_run_path(config.run_name)
     exp_manager.init_module_run_paths()
     save_summarizer_config_as_toml(config, exp_manager.config_toml_path)
 
