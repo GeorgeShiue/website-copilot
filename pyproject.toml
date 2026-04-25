@@ -26,7 +26,4 @@ exclude = ["dev/**", ".venv"]
 exclude = ["dev/**", "**/node_modules", "**/__pycache__", ".venv", "**/.*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
-log_cli = false
-log_cli_level = "INFO"
-log_cli_format = "%(levelname)s - %(message)s"
 addopts = "-s -v"

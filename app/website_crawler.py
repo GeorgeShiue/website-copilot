@@ -257,7 +257,7 @@ class WebsiteCrawler:
 
     @staticmethod
     def _log_stats(stats: dict[str, int]) -> None:
-        log_session("Website crawling stats", style="green")
+        log_session("Website Crawling Stats", style="green")
 
         table = Table(show_header=True, header_style="bold green")
         table.add_column("Metric", style="green", no_wrap=True)

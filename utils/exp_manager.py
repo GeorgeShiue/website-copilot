@@ -13,7 +13,6 @@ class ExperimentManager:
     def __init__(self, module_name: str = "") -> None:
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_path = self._set_base_path()
-        logger.info(f"Base path: {self.base_path}")
 
         self.module_name: str = ""
         self.module_path: str = ""
@@ -45,8 +44,6 @@ class ExperimentManager:
         os.makedirs(module_path, exist_ok=True)
         self.module_path = module_path
 
-        logger.info(f"Module path: {self.module_path}")
-
     def set_run_path(self, run_name: str) -> None:
         """設定實驗路徑並回傳。"""
         if not self.module_name:
@@ -58,7 +55,6 @@ class ExperimentManager:
         run_path = os.path.join(self.module_path, self.run_name)
         os.makedirs(run_path, exist_ok=True)
         self.run_path = run_path
-        logger.info(f"Run path: {self.run_path}")
 
     def init_module_run_paths(self) -> None:
         if not self.module_name:
@@ -70,9 +66,14 @@ class ExperimentManager:
         self._set_results_folder_path()
         self._set_config_toml_path()
 
+    def _log_paths(self) -> None:
+        """紀錄目前的實驗路徑設定（內部使用）。"""
         logger.info(
-            f"Paths initialized for module '{self.module_name}' run '{self.run_name}':"
+            f"Experiment paths for module '{self.module_name}' run '{self.run_name}':"
         )
+        logger.info(f"  * Base path: {self.base_path}")
+        logger.info(f"  * Module path: {self.module_path}")
+        logger.info(f"  * Run path: {self.run_path}")
         logger.info(f"  * Results json path: {self.results_json_path}")
         logger.info(f"  * Results folder path: {self.results_folder_path}")
         logger.info(f"  * Config toml path: {self.config_toml_path}")
@@ -166,10 +167,10 @@ class ExperimentManager:
     def _load_latest_results(self) -> list[dict] | None:
         """載入最新的爬取結果 JSON。"""
         if not self.latest_results_json_path:
-            logger.error("Latest results JSON path is not set.")
+            logger.warning("Latest results JSON path is not set.")
             return None
         if not os.path.isfile(self.latest_results_json_path):
-            logger.error(f"{self.latest_results_json_path} not found.")
+            logger.warning(f"{self.latest_results_json_path} not found.")
             return None
 
         logger.info(f"Latest crawl results found at: {self.latest_results_json_path}")
