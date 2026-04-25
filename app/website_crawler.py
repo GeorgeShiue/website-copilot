@@ -17,8 +17,10 @@ from crawl4ai.deep_crawling.filters import (
     URLFilter,
     URLPatternFilter,
 )
+from rich.table import Table
 
 from app.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
+from utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)
 
@@ -84,13 +86,7 @@ class WebsiteCrawler:
             logger.error(f"Error during filtering crawl results: {e}")
             return None
 
-        logger.info("-" * 30)
-        logger.info("Website crawling stats:")
-        logger.info(f"  * Success pages: {self._crawl_stats['success_count']}")
-        logger.info(f"  * Error pages: {self._crawl_stats['error_count']}")
-        logger.info(f"  * Repeat pages: {self._crawl_stats['repeat_count']}")
-        # logger.info(f"  * Total images: {self._crawl_stats['image_count']}")
-        logger.info("-" * 30)
+        self._log_stats(self._crawl_stats)
 
         return filtered_results
 
@@ -156,16 +152,16 @@ class WebsiteCrawler:
     ) -> list[dict]:
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
         filtered_results = []
-        existed_markdown_file_names = set()
+        existed_md_file_names = set()
 
         for crawl_result in crawl_results:
+            logger.debug("-" * 30)
             if crawl_result.status_code == 404:
-                self._crawl_stats["error_count"] += 1
-                # results.remove(result)
-                # logger.info(
-                #     f"Webpage {crawl_result.url} status code is 404, skipping..."
-                # )
-                # logger.info("-" * 30)
+                self._crawl_stats["error_pages"] += 1
+                logger.debug(
+                    f"Webpage {crawl_result.url} status code is 404, skipping..."
+                )
+                logger.debug("-" * 30)
                 continue
 
             fit_markdown = crawl_result.markdown.fit_markdown
@@ -188,37 +184,34 @@ class WebsiteCrawler:
                 title = heading_match.group(1).strip()
                 safe_title = INVALID_FILENAME_CHARS_PATTERN.sub("", title)
                 safe_title = WHITESPACE_SEQUENCE_PATTERN.sub("_", safe_title)
-                markdown_file_name = f"{safe_title}.md"
+                md_file_name = safe_title
             else:
-                markdown_file_name = f"{crawl_result.url.split('/')[-1]}.md"
+                md_file_name = crawl_result.url.split("/")[-1]
 
-            if markdown_file_name in existed_markdown_file_names:
-                self._crawl_stats["repeat_count"] += 1
-                # logger.info(
-                #     f"Webpage {markdown_file_name} already exists, skipping..."
-                # )
-                # logger.info("-" * 30)
+            if md_file_name in existed_md_file_names:
+                self._crawl_stats["repeat_pages"] += 1
+                logger.debug(f"Webpage {md_file_name} already exists, skipping...")
                 continue
-            existed_markdown_file_names.add(markdown_file_name)
+            existed_md_file_names.add(md_file_name)
 
-            images = crawl_result.media.get("images", [])
-            self._crawl_stats["image_count"] += len(images)
+            # images = crawl_result.media.get("images", [])
+            # self._crawl_stats["image_count"] += len(images)
 
             filtered_result = {
-                "markdown_file_name": markdown_file_name,
+                "md_file_name": md_file_name,
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
                 "images": crawl_result.media.get("images", []),
             }
             filtered_results.append(filtered_result)
-            self._crawl_stats["success_count"] += 1
+            self._crawl_stats["success_pages"] += 1
 
-            # logger.info(f"URL: {crawl_result.url}")
-            # logger.info(f"Depth: {crawl_result.metadata.get('depth', 0)}")
-            # logger.info("Images:")
+            logger.debug(f"Successfully crawled webpage: {md_file_name}")
+            logger.debug(f"*  URL: {crawl_result.url}")
+            logger.debug(f"*  Depth: {crawl_result.metadata.get('depth', 0)}")
+            # logger.debug("Images:")
             # for image in images:
-            #     logger.info(image)
-            # logger.info("-" * 30)
+            #     logger.debug(image)
 
         return filtered_results
 
@@ -256,11 +249,23 @@ class WebsiteCrawler:
     @staticmethod
     def _new_crawl_stats() -> dict[str, int]:
         return {
-            "success_count": 0,
-            "error_count": 0,
-            "repeat_count": 0,
-            "image_count": 0,
+            "success_pages": 0,
+            "error_pages": 0,
+            "repeat_pages": 0,
+            # "image_count": 0,
         }
+
+    @staticmethod
+    def _log_stats(stats: dict[str, int]) -> None:
+        log_session("Website Crawling Stats", style="green")
+
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Metric", style="green", no_wrap=True)
+        table.add_column("Value", style="white")
+        for key in stats:
+            table.add_row(key, str(stats[key]))
+
+        print_log(table)
 
     def override_init_config(self, **init_kwargs) -> None:
         """覆寫初始化參數。"""

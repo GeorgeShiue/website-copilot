@@ -2,9 +2,16 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
+
+from rich import box
+from rich.table import Table
+
+from utils.log_helper import print_log
 
 TEST_DATA_FOLDER_PATH = "./data/test"
 RESULTS_JSON_NAME = "results.json"
+RUN_PATH_COMPLETE = ["Results json", "Config toml", "Log file"]
 
 logger = logging.getLogger(__name__)
 
@@ -13,23 +20,21 @@ class ExperimentManager:
     def __init__(self, module_name: str = "") -> None:
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_path = self._set_base_path()
-        logger.info(f"Base path set to: {self.base_path}")
 
         self.module_name: str = ""
         self.module_path: str = ""
         self.run_name: str = ""
         self.run_path: str = ""
 
-        self.results_json_path = ""
         self.results_folder_path: str = ""
+        self.results_json_path = ""
         self.config_toml_path: str = ""
+        self.log_path: str = ""
         self.latest_results_json_path: str = ""
 
         # 預先檢查允許初始化時不用提供 module_name
         if module_name:
             self.set_module_path(module_name)
-
-        logger.info("-" * 30)
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
@@ -46,7 +51,6 @@ class ExperimentManager:
         module_path = os.path.join(self.base_path, module_name)
         os.makedirs(module_path, exist_ok=True)
         self.module_path = module_path
-        logger.info(f"Module_path set to: {self.module_path}")
 
     def set_run_path(self, run_name: str) -> None:
         """設定實驗路徑並回傳。"""
@@ -59,7 +63,6 @@ class ExperimentManager:
         run_path = os.path.join(self.module_path, self.run_name)
         os.makedirs(run_path, exist_ok=True)
         self.run_path = run_path
-        logger.info(f"Run path set to: {self.run_path}")
 
     def init_module_run_paths(self) -> None:
         if not self.module_name:
@@ -70,13 +73,70 @@ class ExperimentManager:
         self._set_results_json_path()
         self._set_results_folder_path()
         self._set_config_toml_path()
-        logger.info(
-            f"Paths initialized for module '{self.module_name}' run '{self.run_name}':"
+        self._set_log_path()
+
+    def log_run_paths(self, usage: str) -> None:
+        """以 Rich 表格紀錄目前的實驗路徑設定（內部使用）。"""
+        rows = [
+            ("Base", self.base_path),
+            ("Module", self.module_path),
+            ("Run", self.run_path),
+            ("Results folder", self.results_folder_path),
+            ("Results json", self.results_json_path),
+            ("Config toml", self.config_toml_path),
+            ("Log file", self.log_path),
+        ]
+
+        table = Table(
+            box=box.SIMPLE_HEAVY,
+            show_lines=False,
+            header_style="bold cyan",
         )
-        logger.info(f"  * Results json path: {self.results_json_path}")
-        logger.info(f"  * Results folder path: {self.results_folder_path}")
-        logger.info(f"  * Config toml path: {self.config_toml_path}")
-        logger.info("-" * 30)
+        table.add_column("Type", style="cyan", no_wrap=True)
+        table.add_column("Directory", style="white")
+        table.add_column("Status", no_wrap=True)
+
+        for path_key, raw_path in rows:
+            path_value = ""
+            status = ""
+
+            if usage == "init":
+                path_value, status = self._log_run_path_init(raw_path, path_key)
+            elif usage == "complete":
+                path_value, status = self._log_run_path_complete(raw_path, path_key)
+
+            if path_value and status:
+                table.add_row(path_key, path_value, status)
+
+        print_log(table)
+
+    def _log_run_path_init(self, raw_path: str, path_key: str) -> tuple[str, str]:
+        """以 Rich 表格紀錄路徑初始化狀態（內部使用）。"""
+        path_obj = Path(raw_path)
+        if path_key in RUN_PATH_COMPLETE:
+            path_value = str(path_obj)
+            status = "[yellow]wait for saving[/yellow]"
+        elif not path_obj.exists():
+            raise NotADirectoryError(f"{path_key}:{raw_path} has not been created.")
+        else:
+            path_value = str(path_obj)
+            status = "[green]created[/green]"
+
+        return path_value, status
+
+    def _log_run_path_complete(self, raw_path: str, path_key: str) -> tuple[str, str]:
+        """以 Rich 表格紀錄路徑已建立狀態（內部使用）。"""
+        if path_key not in RUN_PATH_COMPLETE:
+            return "", ""
+
+        path_obj = Path(raw_path)
+        if not path_obj.exists():
+            raise NotADirectoryError(f"{path_key}:{raw_path} has not been saved.")
+        else:
+            path_value = str(path_obj)
+            status = "[green]saved[/green]"
+
+        return path_value, status
 
     def _set_results_json_path(self) -> None:
         """設定爬取結果 JSON 路徑並回傳。"""
@@ -94,12 +154,16 @@ class ExperimentManager:
         config_toml_path = os.path.join(self.run_path, "config.toml")
         self.config_toml_path = config_toml_path
 
+    def _set_log_path(self) -> None:
+        """設定實驗 log 檔案路徑。"""
+        log_path = os.path.join(self.run_path, "terminal.log")
+        self.log_path = log_path
+
     def save_results_as_json(self, results: list[dict]) -> None:
         """將爬取結果列表寫入 JSON 檔案。"""
         os.makedirs(os.path.dirname(self.results_json_path), exist_ok=True)
         with open(self.results_json_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
-
         self.latest_results_json_path = self.results_json_path
 
     def save_results_as_md(
@@ -110,10 +174,8 @@ class ExperimentManager:
     ) -> None:
         """將爬取結果寫入 Markdown 檔案。"""
         for result in results:
-            markdown_file_name = result["markdown_file_name"]
-            markdown_file_path = os.path.join(
-                self.results_folder_path, markdown_file_name
-            )
+            md_file_path = result["md_file_name"] + ".md"
+            markdown_file_path = os.path.join(self.results_folder_path, md_file_path)
             markdown = result[markdown_type]
             images = result["images"]
 
@@ -169,10 +231,10 @@ class ExperimentManager:
     def _load_latest_results(self) -> list[dict] | None:
         """載入最新的爬取結果 JSON。"""
         if not self.latest_results_json_path:
-            logger.error("Latest results JSON path is not set.")
+            logger.warning("Latest results JSON path is not set.")
             return None
         if not os.path.isfile(self.latest_results_json_path):
-            logger.error(f"{self.latest_results_json_path} not found.")
+            logger.warning(f"{self.latest_results_json_path} not found.")
             return None
 
         logger.info(f"Latest crawl results found at: {self.latest_results_json_path}")

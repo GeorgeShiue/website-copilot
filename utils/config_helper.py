@@ -3,7 +3,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from rich.table import Table
 from tomlkit import document, dump, load, table
+
+from utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)
 
@@ -105,17 +108,6 @@ def save_config_as_toml(
         dump(toml_doc, file)
 
 
-def log_config(title: str, config: Mapping[str, Any]) -> None:
-    """Log config key-values with a section title."""
-    if not config:
-        return
-
-    logger.info("%s", title)
-    for key in config:
-        logger.info("  %s: %s", key, config[key])
-    logger.info("-" * 30)
-
-
 def filter_commented_configs(config_path: str, comment_keyword: str) -> list[str]:
     text = Path(config_path).read_text(encoding="utf-8")
     result: list[str] = []
@@ -159,3 +151,40 @@ def filter_commented_configs(config_path: str, comment_keyword: str) -> list[str
         result.append(key)
 
     return result
+
+
+def log_config(title: str, config: object) -> None:
+    """Log config key-values as sectioned Rich tables."""
+    config_dict = vars(config)
+    if not config_dict:
+        raise ValueError("Config object has no attributes to log.")
+    sections_to_keys = getattr(config, "sections_to_keys", {})
+    if not sections_to_keys:
+        raise ValueError(
+            "Config object must have 'sections_to_keys' metadata for logging."
+        )
+
+    log_session(title, style="cyan")
+    if isinstance(sections_to_keys, Mapping) and sections_to_keys:
+        for section in sections_to_keys:
+            section_keys = sorted(
+                key for key in sections_to_keys[section] if key in config_dict
+            )
+            if not section_keys:
+                continue
+
+            table = Table(
+                title=f"[bold cyan]{section}[/bold cyan]",
+                show_header=True,
+                header_style="bold cyan",
+            )
+            table.add_column("Config", style="cyan", no_wrap=True)
+            table.add_column("Value", style="white")
+
+            for key in section_keys:
+                value = config_dict[key]
+                if isinstance(value, set):
+                    value = sorted(value)
+                table.add_row(str(key), str(value))
+
+            print_log(table)

@@ -4,18 +4,19 @@ import logging
 import random
 import re
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
+from urllib.request import Request, urlopen
 
 from litellm import acompletion, completion_cost
+from rich.table import Table
 
 from app.webpage_image_summarizer_config import (
     DEFAULT_PROMPT,
     get_summarizer_model_api_key,
 )
+from utils.log_helper import TaskCountProgress, log_session, print_log
 
-logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -85,7 +86,7 @@ class WebpageImageSummarizer:
                 crawl_results, target_urls
             )
 
-            self._log_stats(self._all_page_stats, "All image summarize stats:")
+            self._log_stats(self._all_page_stats, "All Image Summarize Stats")
             self._all_round_stats["cost_usd"] += self._all_page_stats["cost_usd"]
             self._all_round_stats["success"] += self._all_page_stats["success"]
             self._all_round_stats["failure"] += self._all_page_stats["failure"]
@@ -100,7 +101,7 @@ class WebpageImageSummarizer:
             target_urls = failed_urls
 
         if self._all_round_stats["retries"] > 1:
-            self._log_stats(self._all_round_stats, "All rounds image summarize stats:")
+            self._log_stats(self._all_round_stats, "All Rounds Image Summarize Stats")
 
         return enhanced_crawl_results
 
@@ -117,6 +118,10 @@ class WebpageImageSummarizer:
             if crawl_result_content is None:
                 continue
 
+            log_session(
+                f"Summarizing Images in [{crawl_result.get('md_file_name', '<unknown>')}]",
+                style="blue",
+            )
             fit_markdown, image_urls = crawl_result_content
             self._image_urls = image_urls
             self._page_stats = self._new_page_stats()
@@ -127,8 +132,7 @@ class WebpageImageSummarizer:
             enhanced_markdown = self._enhance_markdown(fit_markdown)
             crawl_result["enhanced_markdown"] = enhanced_markdown
 
-            logger.info("-" * 30)
-            self._log_stats(self._page_stats, "Image summarize stats:")
+            self._log_stats(self._page_stats)
             self._all_page_stats["success"] += self._page_stats["success"]
             self._all_page_stats["failure"] += (
                 self._page_stats["download_failure"]
@@ -199,20 +203,26 @@ class WebpageImageSummarizer:
                 executor.submit(self._download_image, url): url for url in image_urls
             }
             futures = list(future_to_image_url.keys())
-            for future in as_completed(futures):
-                image_url = future_to_image_url[future]
-                image_base64_url, download_status = future.result()
 
-                if "failure" in download_status:
-                    self._page_stats[download_status] += 1
-                    self._image_cache[image_url] = {
-                        "caption": "",
-                        "download_stats": download_status,
-                        "summarize_stats": "failed",
-                    }
-                    self._image_captions[image_url] = ""
-                elif image_base64_url is not None:
-                    downloaded_images[image_url] = image_base64_url
+            with TaskCountProgress() as progress:
+                task_id = progress.add_task("Downloading images...", total=len(futures))
+
+                for future in as_completed(futures):
+                    image_url = future_to_image_url[future]
+                    image_base64_url, download_status = future.result()
+
+                    if "failure" in download_status:
+                        self._page_stats[download_status] += 1
+                        self._image_cache[image_url] = {
+                            "caption": "",
+                            "download_stats": download_status,
+                            "summarize_stats": "failed",
+                        }
+                        self._image_captions[image_url] = ""
+                    elif image_base64_url is not None:
+                        downloaded_images[image_url] = image_base64_url
+
+                    progress.update(task_id, advance=1)
 
         return downloaded_images
 
@@ -227,8 +237,8 @@ class WebpageImageSummarizer:
         download_timeout = self.download_timeout
 
         try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=download_timeout) as resp:
+            req = Request(url, headers=headers)
+            with urlopen(req, timeout=download_timeout) as resp:
                 data = resp.read()
                 raw_content_type: str = resp.headers.get("Content-Type", "")
         except Exception as e:
@@ -246,7 +256,7 @@ class WebpageImageSummarizer:
 
         b64 = base64.standard_b64encode(data).decode("ascii")
         data_url = f"data:{content_type};base64,{b64}"
-        logger.info("Image download succeeded (url=%s)", url)
+        logger.debug("Image download succeeded (url=%s)", url)
 
         return data_url, "success"
 
@@ -259,11 +269,11 @@ class WebpageImageSummarizer:
             return
 
         caption_results = asyncio.run(self._agenerate_image_captions(images))
-        logger.info(
-            "%s/%s image captions generate succeeded",
-            len(caption_results),
-            len(images),
-        )
+        # logger.debug(
+        #     "%s/%s image captions generate succeeded",
+        #     len(caption_results),
+        #     len(images),
+        # )
 
         for image_url, image_caption, summarize_status, cost_usd in caption_results:
             if summarize_status == "success":
@@ -284,32 +294,56 @@ class WebpageImageSummarizer:
         images: dict[str, str],
     ) -> list[tuple[str, str, str, float]]:
         """對圖片批次平行摘要，回傳 (url, caption, status, cost)。"""
-        semaphore = asyncio.Semaphore(max(1, self.vlm_max_workers))
-
-        tasks: list[tuple[str, asyncio.Task[tuple[str, str, float]]]] = []
+        tasks: list[asyncio.Task[tuple[str, str, str, float]]] = []
         for image_url, image_base64_url in images.items():
-            await semaphore.acquire()
-            task = asyncio.create_task(self._agenerate_image_caption(image_base64_url))
-            task.add_done_callback(lambda _task: semaphore.release())
-            tasks.append((image_url, task))
-
-        if not tasks:
-            return []
-
-        gathered_results = await asyncio.gather(
-            *(task for _, task in tasks),
-            return_exceptions=True,
-        )
+            task = asyncio.create_task(
+                self._agenerate_image_caption_task(image_url, image_base64_url)
+            )
+            tasks.append(task)
 
         results: list[tuple[str, str, str, float]] = []
-        for (image_url, _), item in zip(tasks, gathered_results):
-            if isinstance(item, BaseException):
-                logger.warning("Image summarization task failed unexpectedly: %s", item)
-                continue
-            image_caption, summarize_status, cost_usd = item
-            results.append((image_url, image_caption, summarize_status, cost_usd))
+        with TaskCountProgress() as progress:
+            task_id = progress.add_task("Generating captions...", total=len(tasks))
+
+            for completed_task in asyncio.as_completed(tasks):
+                try:
+                    (
+                        image_url,
+                        image_caption,
+                        summarize_status,
+                        cost_usd,
+                    ) = await completed_task
+                    results.append(
+                        (image_url, image_caption, summarize_status, cost_usd)
+                    )
+                    # logger.debug(
+                    #     "Image summarization %s (url=%s, cost_usd=$%.6f)",
+                    #     summarize_status,
+                    #     image_url,
+                    #     cost_usd,
+                    # )
+                except Exception as e:
+                    logger.warning(
+                        "Image summarization task failed unexpectedly: %s", e
+                    )
+                finally:
+                    progress.update(task_id, advance=1)
 
         return results
+
+    async def _agenerate_image_caption_task(
+        self,
+        image_url: str,
+        image_base64_url: str,
+    ) -> tuple[str, str, str, float]:
+        semaphore = asyncio.Semaphore(max(1, self.vlm_max_workers))
+        async with semaphore:
+            (
+                image_caption,
+                summarize_status,
+                cost_usd,
+            ) = await self._agenerate_image_caption(image_base64_url)
+            return image_url, image_caption, summarize_status, cost_usd
 
     async def _agenerate_image_caption(
         self,
@@ -346,7 +380,7 @@ class WebpageImageSummarizer:
             return image_caption, "failed", 0.0
 
         cost_usd = completion_cost(completion_response=response)
-        # self._log_image_summarization(response=response, cost_usd=cost_usd) # debug
+        self._log_caption_generation(response=response, cost_usd=cost_usd)  # debug
 
         choices = getattr(response, "choices", None)
         if choices and isinstance(choices, (list, tuple)) and len(choices) > 0:
@@ -495,17 +529,25 @@ class WebpageImageSummarizer:
         }
 
     @staticmethod
-    def _log_stats(stats: dict[str, int | float], title: str) -> None:
-        logger.info(title)
-        for k, v in stats.items():
-            if k == "cost_usd":
-                v = f"${v:.6f}"
-            logger.info("  * %s: %s", k, v)
-        logger.info("-" * 30)
+    def _log_stats(stats: dict[str, int | float], title: str = "") -> None:
+        if title:
+            log_session(title, style="green")
+
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Metric", style="green", no_wrap=True)
+        table.add_column("Value", style="white")
+
+        for key in stats:
+            value: int | float | str = stats[key]
+            if key == "cost_usd" and isinstance(value, (int, float)):
+                value = f"${value:.6f}"
+            table.add_row(key, str(value))
+
+        print_log(table)
 
     @staticmethod
-    def _log_image_summarization(response=None, cost_usd=None) -> None:
-        image_summarization_log = "Image summarization succeeded"
+    def _log_caption_generation(response=None, cost_usd=None) -> None:
+        caption_generation_log = "Caption generation succeeded"
 
         if response is not None and cost_usd is not None:
             usage = getattr(response, "usage", None)
@@ -515,9 +557,9 @@ class WebpageImageSummarizer:
             )
             total_tokens = getattr(usage, "total_tokens", None) if usage else None
             cost_usd_string = f"${cost_usd:.6f}"
-            image_summarization_log += f" (cost_usd={cost_usd_string} prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} total_tokens={total_tokens})"
+            caption_generation_log += f" (cost_usd={cost_usd_string} prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} total_tokens={total_tokens})"
 
-        logger.info(image_summarization_log)
+        logger.debug(caption_generation_log)
 
     # ? 會在執行階段動態調整成員變數嗎
     def override_init_config(self, **init_kwargs) -> None:
