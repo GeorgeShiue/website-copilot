@@ -1,4 +1,9 @@
 import logging
+import re
+import sys
+from contextlib import contextmanager
+from logging import Logger
+from pathlib import Path
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -12,8 +17,39 @@ from rich.progress import (
 from rich.rule import Rule
 from rich.text import Text
 
+# 全域變數用於檔案輸出
+_tee_stream: "_TeeStream | None" = None
+_stdout_original = sys.stdout
+_stderr_original = sys.stderr
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+PROGRESS_LINE_PREFIXES = (
+    "Downloading images...",
+    "Generating captions...",
+)
 
-def setup_logging(level: str = "info") -> None:
+
+class _TeeStream:
+    """Mirror stdout/stderr writes to both terminal and log file."""
+
+    def __init__(self, terminal_stream, file_stream) -> None:
+        self.terminal_stream = terminal_stream
+        self.file_stream = file_stream
+
+    def write(self, data: str) -> int:
+        self.terminal_stream.write(data)
+        # 保留終端彩色輸出，但寫檔時移除 ANSI 控制碼
+        self.file_stream.write(ANSI_ESCAPE_PATTERN.sub("", data))
+        return len(data)
+
+    def flush(self) -> None:
+        self.terminal_stream.flush()
+        self.file_stream.flush()
+
+    def isatty(self) -> bool:
+        return self.terminal_stream.isatty()
+
+
+def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
     """Initialize shared Rich logging configuration for app and tests."""
     logging.basicConfig(
         level=logging.INFO,
@@ -32,6 +68,83 @@ def setup_logging(level: str = "info") -> None:
     if level.lower() == "debug":
         logging.getLogger("app.website_crawler").setLevel(logging.DEBUG)
         logging.getLogger("app.webpage_image_summarizer").setLevel(logging.DEBUG)
+        if logger is not None:
+            logger.setLevel(logging.DEBUG)
+
+
+def setup_file_logging(log_file_path: str) -> None:
+    """設定終端機輸出和日誌同時保存到檔案."""
+    global _tee_stream
+
+    disable_file_logging()
+
+    # 建立檔案輸出流
+    file_stream = open(log_file_path, "a", encoding="utf-8")
+
+    # 捕捉直接寫入 stdout / stderr 的訊息
+    _tee_stream = _TeeStream(_stdout_original, file_stream)
+    sys.stdout = _tee_stream
+    sys.stderr = _tee_stream
+
+
+def _is_target_progress_line(line: str) -> bool:
+    """Whether the line is one of the progress outputs to be collapsed."""
+    stripped = line.lstrip()
+    return stripped.startswith(PROGRESS_LINE_PREFIXES)
+
+
+def _collapse_adjacent_progress_lines(log_file_path: str) -> None:
+    """Keep only the last line for each adjacent progress-line block."""
+    log_path = Path(log_file_path)
+    if not log_path.exists():
+        return
+
+    original_lines = log_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    collapsed_lines: list[str] = []
+
+    idx = 0
+    while idx < len(original_lines):
+        current_line = original_lines[idx]
+        if not _is_target_progress_line(current_line):
+            collapsed_lines.append(current_line)
+            idx += 1
+            continue
+
+        block_last_line = current_line
+        idx += 1
+        while idx < len(original_lines) and _is_target_progress_line(
+            original_lines[idx]
+        ):
+            block_last_line = original_lines[idx]
+            idx += 1
+
+        collapsed_lines.append(block_last_line)
+
+    if collapsed_lines != original_lines:
+        log_path.write_text("".join(collapsed_lines), encoding="utf-8")
+
+
+@contextmanager
+def file_logging(log_file_path: str):
+    """Context manager for setup/teardown of run-specific file logging."""
+    setup_file_logging(log_file_path)
+    try:
+        yield
+    finally:
+        disable_file_logging()
+        _collapse_adjacent_progress_lines(log_file_path)
+
+
+def disable_file_logging() -> None:
+    """Restore streams and close previous file logging resources."""
+    global _tee_stream
+
+    sys.stdout = _stdout_original
+    sys.stderr = _stderr_original
+
+    if _tee_stream is not None:
+        _tee_stream.file_stream.close()
+        _tee_stream = None
 
 
 def _get_logging_console() -> Console:
