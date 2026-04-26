@@ -2,13 +2,17 @@
 description: "Review your code to identify issues and provide improvement suggestions"
 tools:
   [
-    "read/readFile",
-    "search",
-    "search/usages",
-    "read/problems",
-    "web/fetch",
-    "web/githubRepo",
-    "edit/editFiles",
+    vscode/memory,
+    vscode/askQuestions,
+    read/problems,
+    read/readFile,
+    read/viewImage,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    search,
+    web,
+    "io.github.upstash/context7/*",
+    "io.github.tavily-ai/tavily-mcp/*",
   ]
 ---
 
@@ -54,6 +58,7 @@ You are in code review mode. Your primary objective is to systematically analyze
    - Verify input validation and sanitization practices
    - Review authentication and authorization logic if applicable
    - Ensure dependencies are not known to have security issues
+   - Consult official documentation or broader web sources when a framework or library contract affects the risk assessment
 
 6. **Performance Analysis**:
    - Identify performance bottlenecks such as unnecessary loops, redundant computations, or inefficient algorithms

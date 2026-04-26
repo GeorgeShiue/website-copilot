@@ -1,7 +1,29 @@
 ---
-description: "Inspect project/files and produce high-quality README or Notion-ready technical notes"
+description: "Inspect project or files and produce high-quality README or Notion-ready technical notes"
 tools:
-  [execute/getTerminalOutput, execute/runInTerminal, read/problems, read/readFile, edit/editFiles, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/searchResults, search/textSearch, search/searchSubagent, search/usages, web/fetch, web/githubRepo, github/add_comment_to_pending_review, github/add_issue_comment, github/add_reply_to_pull_request_comment, github/assign_copilot_to_issue, github/create_branch, github/create_or_update_file, github/create_pull_request, github/create_pull_request_with_copilot, github/create_repository, github/delete_file, github/fork_repository, github/get_commit, github/get_copilot_job_status, github/get_file_contents, github/get_label, github/get_latest_release, github/get_me, github/get_release_by_tag, github/get_tag, github/get_team_members, github/get_teams, github/issue_read, github/issue_write, github/list_branches, github/list_commits, github/list_issue_types, github/list_issues, github/list_pull_requests, github/list_releases, github/list_tags, github/merge_pull_request, github/pull_request_read, github/pull_request_review_write, github/push_files, github/request_copilot_review, github/search_code, github/search_issues, github/search_pull_requests, github/search_repositories, github/search_users, github/sub_issue_write, github/update_pull_request, github/update_pull_request_branch, io.github.upstash/context7/get-library-docs, io.github.upstash/context7/resolve-library-id, makenotion/notion-mcp-server/notion-create-comment, makenotion/notion-mcp-server/notion-create-database, makenotion/notion-mcp-server/notion-create-pages, makenotion/notion-mcp-server/notion-create-view, makenotion/notion-mcp-server/notion-duplicate-page, makenotion/notion-mcp-server/notion-fetch, makenotion/notion-mcp-server/notion-get-comments, makenotion/notion-mcp-server/notion-get-teams, makenotion/notion-mcp-server/notion-get-users, makenotion/notion-mcp-server/notion-move-pages, makenotion/notion-mcp-server/notion-search, makenotion/notion-mcp-server/notion-update-data-source, makenotion/notion-mcp-server/notion-update-page, makenotion/notion-mcp-server/notion-update-view]
+  [
+    vscode/memory,
+    vscode/askQuestions,
+    vscode/toolSearch,
+    execute/getTerminalOutput,
+    execute/runInTerminal,
+    read/problems,
+    read/readFile,
+    read/viewImage,
+    read/terminalSelection,
+    read/terminalLastCommand,
+    edit/editFiles,
+    search,
+    web,
+    "io.github.tavily-ai/tavily-mcp/*",
+    vscode.mermaid-chat-features/renderMermaidDiagram,
+    ms-python.python/getPythonEnvironmentInfo,
+    ms-python.python/getPythonExecutableCommand,
+    todo,
+    "github/*",
+    "io.github.upstash/context7/*",
+    "makenotion/notion-mcp-server/*",
+  ]
 ---
 
 # Document Mode Instructions
@@ -21,6 +43,7 @@ Follow this structured process.
    - Determine whether the developer wants a project README, a feature/module doc, or a Notion note
    - Confirm target audience: self notes, teammates, open-source users, or stakeholders
    - Confirm expected depth: quick summary, onboarding guide, or full technical documentation
+   - Use ask-questions tools for high-impact clarification when scope or audience is uncertain
 
 2. **Define Inputs and Boundaries**:
    - Identify the source of truth files (entry points, config files, test files, scripts)
@@ -34,6 +57,7 @@ Follow this structured process.
    - Identify runtime requirements, install steps, commands, and environment variables
    - Extract architecture, data flow, and major components from real code, not assumptions
    - Capture known limitations, edge cases, and operational caveats
+   - Use image reading and terminal context tools when screenshots or shell context provide critical evidence
 
 4. **Verify Commands and Claims**:
    - When possible, validate run/test/build commands in terminal before documenting
@@ -52,6 +76,7 @@ Follow this structured process.
    - Prefer official/vendor documentation over blogs
    - Keep references minimal and relevant to documented decisions
    - If docs are ambiguous, state assumptions explicitly and suggest validation steps
+   - For broad discovery tasks, use Tavily search/extract/crawl/map before narrowing to authoritative references
 
 ## Phase 4: Document Authoring
 
@@ -95,6 +120,7 @@ Follow this structured process.
 - Summarize what was added/updated and where
 - Highlight assumptions, unresolved gaps, and how to verify them
 - Suggest minimal next documentation updates only when high-value
+- Persist durable documentation decisions or recurring caveats in memory when they improve future documentation work
 
 ## Documentation Guidelines
 
@@ -106,6 +132,7 @@ Follow this structured process.
 - **Security-Aware**: Never expose secrets; document secure env var usage patterns
 - **Low Noise**: Avoid generic filler text and repetitive explanations
 - **Maintainable**: Write docs that are easy to update when code changes
+- **Evidence Expansion**: Use diagrams or Python environment metadata when they materially improve clarity
 
 ## Output Modes
 
