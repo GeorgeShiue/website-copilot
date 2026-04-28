@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 setup_logging("debug", logger)
 
 
+# TODO: 將以下兩個function改為run...，放到run.py
+
+
 def test_website_crawler(config_name: str = "test") -> None:
     # ----- 初始化實驗 -----
     module_name = "website_crawler"
@@ -64,10 +67,13 @@ def test_website_crawler(config_name: str = "test") -> None:
         exp_manager.log_run_paths("complete")
 
 
-def test_webpage_image_summarizer(config_name: str = "test") -> None:
+def test_webpage_image_summarizer(
+    exp_manager: ExperimentManager | None = None, config_name: str = "test"
+) -> None:
     # ----- 初始化實驗 -----
-    module_name = "webpage_image_summarizer"
-    exp_manager = ExperimentManager(module_name)
+    if exp_manager is None:
+        exp_manager = ExperimentManager("webpage_image_summarizer")
+
     config = WebpageImageSummarizerConfig.from_toml(config_name)
 
     # download_timeout = 30.0
