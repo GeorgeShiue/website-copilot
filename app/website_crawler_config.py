@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Pattern, Self
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 KEEP_TITLE_CONTENT_THRESHOLD = 0.45
 KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
-DEFAULT_CONFIG_PATH = "./config/website_crawler.toml"
+DEFAULT_CONFIG_FODER_PATH = "./config/website_crawler"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_CRAWL_CONFIG_SECTION = "crawl"
 INIT_KEYS = {
@@ -40,6 +41,8 @@ class WebsiteCrawlerConfig:
     max_depth: int
     # ----- crawl config (no default values)-----
     url: str
+    # ----- metadata (no default values)-----
+    config_path: str
     # ----- init config -----
     max_pages: int | None = None
     content_threshold: float = KEEP_IMAGE_CONTENT_THRESHOLD
@@ -50,7 +53,6 @@ class WebsiteCrawlerConfig:
     allowed_domains: str | list[str] | None = None
     exclude_words: tuple[str, ...] | None = None
     # ----- metadata -----
-    config_path: str = DEFAULT_CONFIG_PATH
     sections_to_keys: dict[str, set[str]] = field(
         default_factory=lambda: SECTIONS_TO_KEYS
     )
@@ -58,11 +60,13 @@ class WebsiteCrawlerConfig:
     @classmethod
     def from_toml(
         cls,
-        config_path: str = DEFAULT_CONFIG_PATH,
+        config_name: str = "default",
         init_config_section: str = DEFAULT_INIT_CONFIG_SECTION,
         crawl_config_section: str = DEFAULT_CRAWL_CONFIG_SECTION,
     ) -> Self:
         """從 TOML 設定檔建立 WebsiteCrawlerConfig。"""
+        config_path = os.path.join(DEFAULT_CONFIG_FODER_PATH, f"{config_name}.toml")
+        cls.config_path = config_path
         init_config = _load_init_config_from_toml(config_path, init_config_section)
         crawl_config = _load_crawl_config_from_toml(config_path, crawl_config_section)
         return cls(**init_config, **crawl_config, config_path=config_path)
@@ -204,8 +208,8 @@ def _validate_crawl_config(
 
 
 def _load_init_config_from_toml(
-    config_path: str = DEFAULT_CONFIG_PATH,
-    config_section: str = DEFAULT_INIT_CONFIG_SECTION,
+    config_path: str,
+    config_section: str,
 ) -> dict[str, Any]:
     """從 TOML 讀取 init 參數。"""
     init_config = load_config_section_from_toml(
@@ -219,8 +223,8 @@ def _load_init_config_from_toml(
 
 
 def _load_crawl_config_from_toml(
-    config_path: str = DEFAULT_CONFIG_PATH,
-    config_section: str = DEFAULT_CRAWL_CONFIG_SECTION,
+    config_path: str,
+    config_section: str,
 ) -> dict[str, Any]:
     """從 TOML 讀取 crawl 參數。"""
     crawl_config = load_config_section_from_toml(
