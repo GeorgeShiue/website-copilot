@@ -2,7 +2,7 @@ name: CI Test
 
 on:
   push:
-    branches: ["github-action", "dev-test_exp"]
+    branches: ["dev-test_exp"]
 
 jobs:
   python-unit-test:
@@ -36,7 +36,9 @@ jobs:
           uv run playwright install
 
       - name: Set up environment variables
-        run: echo "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        run:  |
+          echo "OPENAI_WEBPAGE_IAMGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Run tests
         run: uv run pytest test/test_formal.py
