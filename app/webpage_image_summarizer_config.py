@@ -28,7 +28,7 @@ DEFAULT_PROMPT = """
     - 不確定就寫「不確定」，不要臆測細節。
     - 若需列點，一律使用「*」作為 Markdown 列點符號。
 """
-DEFAULT_CONFIG_PATH = "./config/webpage_image_summarizer.toml"
+DEFAULT_CONFIG_FODER_PATH = "./config/webpage_image_summarizer"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"
 DEFAULT_LITELLM_CONFIG_SECTION = "litellm_kwargs"
@@ -48,14 +48,16 @@ SECTIONS_TO_KEYS = {
     "summarize": SUMMARIZE_KEYS,
 }
 VLM_MODEL_TO_API_KEY: dict[str, str] = {
-    "gpt": "OPENAI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
-    "gemini": "GEMINI_WEBPAGE_SUMMARIZER_VLM_API_KEY",
+    "gpt": "OPENAI_WEBPAGE_IAMGE_SUMMARIZER_VLM_API_KEY",
+    "gemini": "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY",
 }
 
 
 # arg parse 可以改用 tyro
 @dataclass
 class WebpageImageSummarizerConfig:
+    # ----- metadata (no default values)-----
+    config_path: str
     # ----- init config -----
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
@@ -67,7 +69,6 @@ class WebpageImageSummarizerConfig:
     vlm_max_workers: int = 10
     litellm_kwargs: dict[str, Any] = field(default_factory=dict)
     # ----- metadata -----
-    config_path: str = DEFAULT_CONFIG_PATH
     sections_to_keys: dict[str, set[str]] = field(
         default_factory=lambda: SECTIONS_TO_KEYS
     )
@@ -89,11 +90,13 @@ class WebpageImageSummarizerConfig:
     @classmethod
     def from_toml(
         cls,
-        config_path: str = DEFAULT_CONFIG_PATH,
+        config_name: str = "default",
         init_config_section: str = DEFAULT_INIT_CONFIG_SECTION,
         summarize_config_section: str = DEFAULT_SUMMARIZE_CONFIG_SECTION,
     ) -> Self:
         """從 TOML 設定檔建立 WebpageImageSummarizerConfig。"""
+        config_path = os.path.join(DEFAULT_CONFIG_FODER_PATH, f"{config_name}.toml")
+        cls.config_path = config_path
         init_config = _load_init_config_from_toml(config_path, init_config_section)
         summarize_config = _load_summarize_config_from_toml(
             config_path, summarize_config_section
@@ -121,8 +124,13 @@ class WebpageImageSummarizerConfig:
             value = getattr(self, config, None)
             if value is not None:
                 run_name += f"{config}-{value}_"
+        run_name = run_name.rstrip("_").replace("/", "-")
 
-        return run_name.rstrip("_") or "default"
+        # 刪除模型名稱中多餘的 "-gemini"
+        if run_name.find("-gemini") > 1:
+            run_name = run_name.replace("-gemini", "", 1)
+
+        return run_name
 
 
 def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> None:
@@ -196,8 +204,8 @@ def _validate_summarize_config(
 
 
 def _load_init_config_from_toml(
-    config_path: str = DEFAULT_CONFIG_PATH,
-    config_section: str = DEFAULT_INIT_CONFIG_SECTION,
+    config_path: str,
+    config_section: str,
 ) -> dict[str, Any]:
     """從 TOML 讀取建構子參數。"""
     return load_config_section_from_toml(
@@ -209,8 +217,8 @@ def _load_init_config_from_toml(
 
 
 def _load_summarize_config_from_toml(
-    config_path: str = DEFAULT_CONFIG_PATH,
-    config_section: str = DEFAULT_SUMMARIZE_CONFIG_SECTION,
+    config_path: str,
+    config_section: str,
 ) -> dict[str, Any]:
     """從 TOML 讀取 summarize 參數。"""
     summarize_cfg = load_config_section_from_toml(

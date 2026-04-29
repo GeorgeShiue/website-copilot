@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 setup_logging("debug", logger)
 
 
-def test_website_crawler():
+# TODO: 將以下兩個function改為run...，放到run.py
+
+
+def test_website_crawler(config_name: str = "test") -> None:
     # ----- 初始化實驗 -----
     module_name = "website_crawler"
     exp_manager = ExperimentManager(module_name)
-
-    test_config_path = "./config/website_crawler_test.toml"
-    config = WebsiteCrawlerConfig.from_toml(test_config_path)
+    config = WebsiteCrawlerConfig.from_toml(config_name)
 
     # max_pages = 20  # test
     # config.override_init_config(max_pages=max_pages)
@@ -66,13 +67,14 @@ def test_website_crawler():
         exp_manager.log_run_paths("complete")
 
 
-def test_webpage_image_summarizer(skip_website_crawling: bool = True):
+def test_webpage_image_summarizer(
+    exp_manager: ExperimentManager | None = None, config_name: str = "test"
+) -> None:
     # ----- 初始化實驗 -----
-    module_name = "webpage_image_summarizer"
-    exp_manager = ExperimentManager(module_name)
+    if exp_manager is None:
+        exp_manager = ExperimentManager("webpage_image_summarizer")
 
-    test_config_path = "./config/webpage_image_summarizer_test.toml"
-    config = WebpageImageSummarizerConfig.from_toml(test_config_path)
+    config = WebpageImageSummarizerConfig.from_toml(config_name)
 
     # download_timeout = 30.0
     # model = "gpt-4o-mini"
@@ -90,9 +92,6 @@ def test_webpage_image_summarizer(skip_website_crawling: bool = True):
         exp_manager.log_run_paths("init")
 
         # ----- 獲取最近一次結果 -----
-        # skip_website_crawling = False
-        if not skip_website_crawling:
-            test_website_crawler()
         log_session("Loading Latest Results", style="cyan")
         latest_results = exp_manager.load_latest_results_from_json()
 

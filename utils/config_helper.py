@@ -69,6 +69,9 @@ def load_config_section_from_toml(
     unknown_keys_warning: str,
 ) -> dict[str, Any]:
     """Load one TOML section, then filter by allowed keys with unknown-key warnings."""
+    if not Path(config_path).is_file():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
     config = _load_toml_section(
         config_path=config_path,
         config_section=config_section,

@@ -1,0 +1,151 @@
+─────────────────────────────────────────────────────────────── Webpage Image Summarizer (gpt-4.1-mini) ────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────── WebpageImageSummarizer Config Loaded from toml ────────────────────────────────────────────────────────────
+            init
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config            ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ download_timeout  │ 10.0  │
+│ max_retries       │ 6     │
+│ success_threshold │ 0.8   │
+└───────────────────┴───────┘
+                                           summarize
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                                                     ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ image_source    │ markdown                                                                  │
+│ model           │ gpt-4.1-mini                                                              │
+│ prompt          │ 用繁體中文描述圖片，作為網頁補充說明。                                    │
+│                 │                                                                           │
+│                 │ 依序輸出：                                                                │
+│                 │     - 圖片摘要：1 句（20-40 字）。                                        │
+│                 │     - 可觀察元素：列出 3-5 點可直接看見的內容（物件、顏色、位置、構圖）。 │
+│                 │     - 可讀文字：列出圖片中的文字；若沒有請寫「無」。                      │
+│                 │     - 場景功能：1 句，描述圖片中場景可能的用途或功能。                    │
+│                 │                                                                           │
+│                 │ 規則：                                                                    │
+│                 │     - 只寫可觀察事實，避免主觀形容詞。                                    │
+│                 │     - 不確定就寫「不確定」，不要臆測細節。                                │
+│                 │     - 若需列點，一律使用「*」作為 Markdown 列點符號。                     │
+│                 │                                                                           │
+│ vlm_max_workers │ 10                                                                        │
+└─────────────────┴───────────────────────────────────────────────────────────────────────────┘
+─────────────────────────────────────────────────────────────────────────── Experiment Paths ───────────────────────────────────────────────────────────────────────────
+
+  Type             Directory                                                                            Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base             data/test/20260428_181956                                                            created
+  Module           data/test/20260428_181956/webpage_image_summarizer                                   created
+  Run              data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini                created
+  Results folder   data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/results        created
+  Results json     data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/results.json   wait for saving
+  Config toml      data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/config.toml    wait for saving
+  Log file         data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/terminal.log   wait for saving
+
+──────────────────────────────────────────────────────────────────────── Loading Latest Results ────────────────────────────────────────────────────────────────────────
+INFO     Latest crawl results found at: ./data/test/20260428_181956/webpage_image_summarizer/model-gpt-5-mini/results.json
+───────────────────────────────────────────────────────────────────────── Image Summarization ──────────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────── Summarizing Images in [Web_智慧與資料探勘實驗室] ───────────────────────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCyeq3UD9Cr6IWhSDUAIhHeJk_zeWhGcJ_kLH49KZOgsD4nkK_-3ukwre8ksvC8AzIjbXfEr__xknYZLmyLNrE9qVTuT0LRN831_lk-0XTvJ
+         _KR77YtJ3QE_xCXPSBXI_3gYhLwus02wIUnsCHII2kuHPcivmyaMFE2_5xI7-QBq-NCkvp3INeTGu0cJAB9erlCrcySc1kDI5DgEEQg9xvJO_tiIT71ewrwOhM=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAaQvsZE-yrn0sdDZxGlKYCDm-etNEu6IPwVX7eG-LXgnbGd9GXKwnixYv4rny_w56W4Oq5Cue51Zd_BnkrJ7aG4wDfc30l9moK4737j9qHs
+         eAk0zNsvylApepI8rhy8VVTkdxmLq5oeJIuqcLyZRSfCKsajx2NF4FSA6FSNbGWFFLiaaI6SdQJRhGDP7yH_Y63l-fAg3QNheVyB5pmcaIjVukA5xRfr6BN8p4=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBIOpMeABC3pSiGsl-QAicCjpO9qdQ9s9_gS0prUYhiwoVsPZbGLSFCBTFp-ihKQpBPkUebvv3PmwcdHeNF2IUZyET6gcqTlKGUkiEtnT3Hg
+         iGOiEDPLtOMmXg8rH4ggJgRgKtKkcyLeszR9PtxXkOgpZu9JgcNqosHwSE7X0tDBiEOVbIF7-88iQg=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAaYjRA2tdEcX5CRg-6N2A2IPG3oI6yqlT2ihFDEbZxKfHZ6_SppCXou0fLuzkHwvxxpc1enRf-zKQnCQQfKIY6jnggGobGlmLIby4wrOdTF
+         MqTRY_bifhdu9WgZk8LBZabZYW5RER0skDzcW-u2ebCnGZcRln087uHv_vupJwpBN2Xfj2ZUSQWP-c=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 0.303s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUA6cMO-sjJc21lHoNQkEDDkq0V9-PcXYNFvuXpv87k7iUG-jjVxyjqabBgyTeJaBZnDFc_tTqdT5ZFlZZ4JH68JF4L9q7V3B3mjTj2aN6RIA
+         BESZKwcrInfzk3FGfTUBbCEl7UvxhvSztJScDT1Guaw0vTuSkvEXn1kN_KBWjUZtCLiZa3lyRmfomgfmcnnNgCb62nq0YZeaGA=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.372s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 2.056s
+DEBUG    Caption generation succeeded (cost_usd=$0.000339 prompt_tokens=240 completion_tokens=152 total_tokens=392)
+Generating captions... ━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/5 2.158s
+DEBUG    Caption generation succeeded (cost_usd=$0.000461 prompt_tokens=596 completion_tokens=139 total_tokens=735)
+Generating captions... ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 2.670s
+DEBUG    Caption generation succeeded (cost_usd=$0.000525 prompt_tokens=596 completion_tokens=179 total_tokens=775)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━ 3/5 2.980s
+DEBUG    Caption generation succeeded (cost_usd=$0.000539 prompt_tokens=596 completion_tokens=188 total_tokens=784)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 3.706s
+DEBUG    Caption generation succeeded (cost_usd=$0.000453 prompt_tokens=596 completion_tokens=134 total_tokens=730)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 3.731s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.002317 │
+│ success           │ 5         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+─────────────────────────────────────────────────────────────────── Summarizing Images in [Advisor] ────────────────────────────────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUA8SCT5z7eL-g9G__80tUqguoz0tLxLg2nazJ4BGquZQS8XeaNZYzrCxJy9dBjMXmocX2gmBahhsciHpyX-QmTn9l-Pmu_Gub5TXioctXWwp
+         Jvg6fLd-oEwbyWkiI6VO55YMQEMYhx48lxtIM4Jq7VuN0_KQIAftsEVjCt5p1W2rPbxACf0kl6sFt4rda6332lTdYdfFULvMBjxJXqbtIXGpMCY6AgVrNqb8eE=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.067s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 2.720s
+DEBUG    Caption generation succeeded (cost_usd=$0.000294 prompt_tokens=240 completion_tokens=124 total_tokens=364)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.746s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000294 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────────────────────────── Summarizing Images in [感謝QSAN捐贈雙控網路儲存設備] ─────────────────────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBP-vcB6jRCSEBy0li9SyRN3VaAvxlxroKxsyJe2XcGMKYWXFVCD8ShsO_cQ-38U7xJ-c1sy7bO7p62-wnc7DeiTwbj2kcBWmHTFyyGWaHyk
+         dr1qRk2Eb9Q3ZNhkkODFEZJBsp1iZel9Eh2-R31b9ay_TZMmVnWR256b2GdcstbzDN43-Knj0B3aRT9mXkFaVbHsQ=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 0.100s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBDEdx6VUwOy1jZ8zSVQejnLGJty1mCjBp42L8hICkqqZu_gGlHlssrGY6mZRt7A4iKG0dYmRtaUVuQDG27QBDiMORk6LEQrnvA-LBW5-RAB
+         PCTnHnq9Vj5QCUDtOzXIfyel_U3-bAEVrHHkwvQP2dyvI7wnGUlDLrVf99_mdIVq_5QD5NJcZht8_6Wm50lSfZyUz4B=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.190s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 2.860s
+DEBUG    Caption generation succeeded (cost_usd=$0.000473 prompt_tokens=366 completion_tokens=204 total_tokens=570)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 5.719s
+DEBUG    Caption generation succeeded (cost_usd=$0.001356 prompt_tokens=2291 completion_tokens=275 total_tokens=2566)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 5.759s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001829 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────────────────────────────────────── All Image Summarize Stats ───────────────────────────────────────────────────────────────────────
+┏━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric   ┃ Value     ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd │ $0.004440 │
+│ success  │ 8         │
+│ failure  │ 0         │
+└──────────┴───────────┘
+──────────────────────────────────────────────────────────────────── Image Summarization Completed ─────────────────────────────────────────────────────────────────────
+
+  Type           Directory                                                                            Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Results json   data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/results.json   saved
+  Config toml    data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/config.toml    saved
+  Log file       data/test/20260428_181956/webpage_image_summarizer/model-gpt-4.1-mini/terminal.log   saved

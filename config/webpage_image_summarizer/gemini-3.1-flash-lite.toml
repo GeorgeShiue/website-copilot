@@ -4,8 +4,8 @@ success_threshold = 0.8
 max_retries = 6
 
 [summarize]
-model = "gpt-5-mini" # run name
-vlm_max_workers = 15 # run name
+model = "gemini/gemini-3.1-flash-lite-preview" # run name # 使用 Gemini API key 模型名稱要加上 "gemini/" 前綴
+vlm_max_workers = 10
 image_source = "markdown"
 prompt = """
 用繁體中文描述圖片，作為網頁補充說明。
