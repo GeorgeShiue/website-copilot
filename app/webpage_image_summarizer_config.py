@@ -124,8 +124,13 @@ class WebpageImageSummarizerConfig:
             value = getattr(self, config, None)
             if value is not None:
                 run_name += f"{config}-{value}_"
+        run_name = run_name.rstrip("_").replace("/", "-")
 
-        return run_name.rstrip("_") or "default"
+        # 刪除模型名稱中多餘的 "-gemini"
+        if run_name.find("-gemini") > 1:
+            run_name = run_name.replace("-gemini", "", 1)
+
+        return run_name
 
 
 def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> None:

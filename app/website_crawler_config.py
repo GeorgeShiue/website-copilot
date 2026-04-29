@@ -103,13 +103,12 @@ class WebsiteCrawlerConfig:
             return "default"
 
         run_name = ""
-        if commented_configs:
-            for config in commented_configs:
-                value = getattr(self, config, None)
-                if value is not None:
-                    config_part = f"{config}-{value}"
-                    run_name += config_part + "_"
-            run_name = run_name.rstrip("_")
+        for config in commented_configs:
+            value = getattr(self, config, None)
+            if value is not None:
+                config_part = f"{config}-{value}"
+                run_name += config_part + "_"
+        run_name = run_name.rstrip("_")
 
         return run_name
 

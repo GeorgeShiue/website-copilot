@@ -1,12 +1,10 @@
 [init]
-download_timeout = 10.0
 success_threshold = 0.8
 max_retries = 6
+download_timeout = 10.0
 
 [summarize]
-model = "gemini/gemini-2.5-flash-lite"
-vlm_max_workers = 10
-image_source = "markdown"
+model = "gemini/gemini-2.5-flash-lite" # run name
 prompt = """
 用繁體中文描述圖片，作為網頁補充說明。
 
@@ -21,8 +19,5 @@ prompt = """
     - 不確定就寫「不確定」，不要臆測細節。
     - 若需列點，一律使用「*」作為 Markdown 列點符號。
 """
-
-[litellm_kwargs]
-# temperature = 0.2 ＃ gpt-5系列不支援
-# timeout = 10
-# max_tokens = 300
+image_source = "markdown"
+vlm_max_workers = 10
