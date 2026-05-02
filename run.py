@@ -65,7 +65,9 @@ def run_website_crawler(config_name: str = "test") -> None:
 
 
 def run_webpage_image_summarizer(
-    run_manager: RunManager | None = None, config_name: str = "test"
+    run_manager: RunManager | None = None,
+    config_name: str = "test",
+    run_name: str | None = None,
 ) -> None:
     # ----- 初始化實驗 -----
     if run_manager is None:
@@ -78,12 +80,14 @@ def run_webpage_image_summarizer(
     # config.override_init_config(download_timeout=download_timeout)
     # config.override_summarize_config(model=model)
     # log_config("WebpageImageSummarizer Config after Override:", config)
-
-    run_manager.set_run_path(config.run_name)
+    if run_name is None:
+        run_manager.set_run_path(config.run_name)
+    else:
+        run_manager.set_run_path(run_name)
     run_manager.init_module_run_paths()
 
     with file_logging(run_manager.log_path):
-        log_session("Webpage Image Summarizer", style="purple")
+        log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
         log_config("WebpageImageSummarizer Config Loaded from toml", config)
         log_session("Experiment Paths", style="cyan")
         run_manager.log_run_paths("init")
