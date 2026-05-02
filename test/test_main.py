@@ -5,4 +5,4 @@ setup_logging("debug")
 
 
 def test_main():
-    main(max_pages=10)  # test
+    main(max_pages=10, webpage_image_summarizer_config_name="test")

@@ -1,21 +1,23 @@
 import logging
 import time
 
-from utils.run_manager import RunManager
-
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.website_crawler import WebsiteCrawler
 from app.website_crawler_config import WebsiteCrawlerConfig
 from utils.config_helper import log_config, save_config_as_toml
 from utils.log_helper import file_logging, log_session, setup_logging
+from utils.run_manager import RunManager
 
 logger = logging.getLogger(__name__)
 setup_logging()
 
 
 # TODO: 修改計時機制
-def main(max_pages: int | None = None) -> None:
+def main(
+    max_pages: int | None = None,
+    webpage_image_summarizer_config_name: str | None = None,
+) -> None:
     t0 = time.time()
 
     run_manager = RunManager()
@@ -67,7 +69,12 @@ def main(max_pages: int | None = None) -> None:
     module_name = "webpage_image_summarizer"
     run_manager.set_module_path(module_name)
 
-    config = WebpageImageSummarizerConfig.from_toml()
+    if webpage_image_summarizer_config_name is None:
+        config = WebpageImageSummarizerConfig.from_toml()
+    else:
+        config = WebpageImageSummarizerConfig.from_toml(
+            webpage_image_summarizer_config_name
+        )
 
     run_manager.set_run_path(config.run_name)
     run_manager.init_module_run_paths()
