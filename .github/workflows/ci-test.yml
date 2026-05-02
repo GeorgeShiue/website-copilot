@@ -2,7 +2,7 @@ name: CI Test
 
 on:
   push:
-    branches: ["dev-test_exp"]
+    branches: ["dev-test"]
 
 jobs:
   quality-check:
