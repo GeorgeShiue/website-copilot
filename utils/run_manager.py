@@ -9,14 +9,15 @@ from rich.table import Table
 
 from utils.log_helper import print_log
 
-TEST_DATA_FOLDER_PATH = "./data/test"
+RUNS_FOLDER_PATH = "./runs"
+os.makedirs(RUNS_FOLDER_PATH, exist_ok=True)
 RESULTS_JSON_NAME = "results.json"
 RUN_PATH_COMPLETE = ["Results json", "Config toml", "Log file"]
 
 logger = logging.getLogger(__name__)
 
 
-class ExperimentManager:
+class RunManager:
     def __init__(self, module_name: str = "") -> None:
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_path = self._set_base_path()
@@ -38,7 +39,7 @@ class ExperimentManager:
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
-        base_path = os.path.join(TEST_DATA_FOLDER_PATH, self.timestamp)
+        base_path = os.path.join(RUNS_FOLDER_PATH, self.timestamp)
         os.makedirs(base_path, exist_ok=True)
         return base_path
 
@@ -194,14 +195,14 @@ class ExperimentManager:
         if latest_results is not None:
             return latest_results
 
-        logger.info(f"Looking for experiment folders in {TEST_DATA_FOLDER_PATH}...")
-        exp_folder_names = self._filter_exp_folders()
+        logger.info(f"Looking for run folders in {RUNS_FOLDER_PATH}...")
+        run_folder_names = self._filter_run_folders()
 
         # 由新到舊尋找第一份位於 website_crawler 子目錄中的 results.json
         latest_results_json_path = ""
-        for folder_name in sorted(exp_folder_names, reverse=True):
+        for folder_name in sorted(run_folder_names, reverse=True):
             website_crawler_folder_path = os.path.join(
-                TEST_DATA_FOLDER_PATH, folder_name, "website_crawler"
+                RUNS_FOLDER_PATH, folder_name, "website_crawler"
             )
             if not os.path.isdir(website_crawler_folder_path):
                 continue
@@ -241,15 +242,13 @@ class ExperimentManager:
         with open(self.latest_results_json_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _filter_exp_folders(self) -> list[str]:
+    def _filter_run_folders(self) -> list[str]:
         """篩選出符合實驗資料夾命名規則的資料夾名稱列表。"""
-        folder_names = os.listdir(TEST_DATA_FOLDER_PATH)
-        exp_folder_names = []
+        folder_names = os.listdir(RUNS_FOLDER_PATH)
+        run_folder_names = []
         for folder_name in folder_names:
             if folder_name.startswith("20") and len(folder_name) == 15:
-                exp_folder_names.append(folder_name)
-        if not exp_folder_names:
-            raise FileNotFoundError(
-                f"No experiment folders found in {TEST_DATA_FOLDER_PATH}."
-            )
-        return exp_folder_names
+                run_folder_names.append(folder_name)
+        if not run_folder_names:
+            raise FileNotFoundError(f"No run folders found in {RUNS_FOLDER_PATH}.")
+        return run_folder_names

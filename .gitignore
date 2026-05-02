@@ -3,7 +3,7 @@ __pycache__/
 
 .env
 
-data/
+runs/
 tmp/
 storage_context/
 ingestion_cache/
