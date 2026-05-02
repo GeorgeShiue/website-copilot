@@ -59,4 +59,4 @@ jobs:
           echo "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Run tests
-        run: uv run pytest test/test_formal.py
+        run: uv run pytest test/test_module.py
