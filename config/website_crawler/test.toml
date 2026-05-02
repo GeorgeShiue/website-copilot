@@ -16,4 +16,10 @@ exclude_words = [
     "Skip to navigation",
     "Google Sites",
     "Report abuse",
+    "搜尋這個協作平台",
+    "嵌入的檔案",
+    "跳到主要內容",
+    "跳到導覽列",
+    "Google 協作平台",
+    "檢舉濫用情形",
 ]

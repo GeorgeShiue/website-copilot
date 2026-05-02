@@ -11,5 +11,13 @@ def webpage_image_summarizer_model():
         run_webpage_image_summarizer(run_manager, config_name=model)
 
 
+def webpage_image_summarizer_prompt():
+    run_manager = RunManager("webpage_image_summarizer")
+    prompts = ["prompt-v1", "prompt-v2"]
+    for prompt in prompts:
+        run_webpage_image_summarizer(run_manager, config_name=prompt, run_name=prompt)
+
+
 if __name__ == "__main__":
-    webpage_image_summarizer_model()
+    # webpage_image_summarizer_model()
+    webpage_image_summarizer_prompt()

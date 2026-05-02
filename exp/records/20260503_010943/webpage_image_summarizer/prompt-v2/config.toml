@@ -1,11 +1,10 @@
 [init]
-download_timeout = 10.0
 success_threshold = 0.8
+download_timeout = 10.0
 max_retries = 6
 
 [summarize]
-model = "gemini/gemini-2.5-flash-lite" # run name
-vlm_max_workers = 10
+model = "gemini/gemini-2.5-flash-lite"
 image_source = "markdown"
 prompt = """
 【角色設定 (Role)】
@@ -36,8 +35,4 @@ prompt = """
 3. 綜合場景敘述
 [基於上述分析，用 2 到 3 個流暢的段落描述圖片的佈局、細節與整體情境]
 """
-
-[litellm_kwargs]
-# temperature = 0.2 ＃ gpt-5系列不支援
-# timeout = 10
-# max_tokens = 300
+vlm_max_workers = 10
