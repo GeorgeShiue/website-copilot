@@ -87,7 +87,7 @@ def run_webpage_image_summarizer(
     run_manager.init_module_run_paths()
 
     with file_logging(run_manager.log_path):
-        log_session("Webpage Image Summarizer", style="purple")
+        log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
         log_config("WebpageImageSummarizer Config Loaded from toml", config)
         log_session("Experiment Paths", style="cyan")
         run_manager.log_run_paths("init")
