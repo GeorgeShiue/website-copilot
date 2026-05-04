@@ -28,7 +28,7 @@ def run_website_crawler(config_name: str = "test") -> None:
     with file_logging(run_manager.log_path):
         log_session("Website Crawler", style="purple")
         log_config("WebsiteCrawler Config Loaded from toml", config)
-        log_session("Experiment Paths", style="cyan")
+        log_session("Run Paths", style="cyan")
         run_manager.log_run_paths("init")
 
         # ----- 初始化實例 -----
@@ -65,64 +65,60 @@ def run_website_crawler(config_name: str = "test") -> None:
 
 
 def run_webpage_image_summarizer(
-    run_manager: RunManager | None = None,
-    config_name: str = "test",
-    run_name: str | None = None,
+    config_names: list[str] = ["test"],
+    run_name_use_config_name: bool = False,
 ) -> None:
     # ----- 初始化實驗 -----
-    if run_manager is None:
-        run_manager = RunManager("webpage_image_summarizer")
+    run_manager = RunManager("webpage_image_summarizer")
+    webpage_image_summarizer = WebpageImageSummarizer()
 
-    config = WebpageImageSummarizerConfig.from_toml(config_name)
+    for config_name in config_names:
+        config = WebpageImageSummarizerConfig.from_toml(config_name)
+        # download_timeout = 30.0
+        # model = "gpt-4o-mini"
+        # config.override_init_config(download_timeout=download_timeout)
+        # config.override_summarize_config(model=model)
+        # log_config("WebpageImageSummarizer Config after Override:", config)
 
-    # download_timeout = 30.0
-    # model = "gpt-4o-mini"
-    # config.override_init_config(download_timeout=download_timeout)
-    # config.override_summarize_config(model=model)
-    # log_config("WebpageImageSummarizer Config after Override:", config)
-    if run_name is None:
-        run_manager.set_run_path(config.run_name)
-    else:
-        run_manager.set_run_path(run_name)
-    run_manager.init_module_run_paths()
+        if run_name_use_config_name:
+            run_manager.set_run_path(config_name)
+        else:
+            run_manager.set_run_path(config.run_name)
+        run_manager.init_module_run_paths()
 
-    with file_logging(run_manager.log_path):
-        log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
-        log_config("WebpageImageSummarizer Config Loaded from toml", config)
-        log_session("Experiment Paths", style="cyan")
-        run_manager.log_run_paths("init")
+        with file_logging(run_manager.log_path):
+            log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
+            log_config("WebpageImageSummarizer Config Loaded from toml", config)
+            log_session("Run Paths", style="cyan")
+            run_manager.log_run_paths("init")
 
-        # ----- 獲取最近一次結果 -----
-        log_session("Loading Latest Results", style="cyan")
-        latest_results = run_manager.load_latest_results_from_json()
+            # ----- 獲取最近一次結果 -----
+            log_session("Loading Latest Results", style="cyan")
+            latest_results = run_manager.load_latest_results_from_json()
 
-        # ----- 初始化實例 -----
-        webpage_image_summarizer = WebpageImageSummarizer(
-            download_timeout=config.download_timeout,
-            success_threshold=config.success_threshold,
-            max_retries=config.max_retries,
-        )
-        # webpage_image_summarizer = WebpageImageSummarizer(
-        #     download_timeout=10.0,
-        #     success_threshold=0.8,
-        #     max_retries=6,
-        # )
+            # ----- 初始化實例 -----
+            webpage_image_summarizer.override_init_config(
+                download_timeout=config.download_timeout,
+                success_threshold=config.success_threshold,
+                max_retries=config.max_retries,
+                cache_download_images=config.cache_download_images,
+            )
 
-        # ---- 執行圖片摘要 -----
-        log_session("Image Summarization", style="cyan")
-        enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
-            latest_results,
-            model=config.model,
-            prompt=config.prompt,
-            vlm_max_workers=config.vlm_max_workers,
-            image_source=config.image_source,
-            **config.litellm_kwargs,
-        )
+            # ---- 執行圖片摘要 -----
+            log_session("Image Summarization", style="cyan")
+            enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
+                latest_results,
+                model=config.model,
+                prompt=config.prompt,
+                vlm_max_workers=config.vlm_max_workers,
+                image_source=config.image_source,
+                **config.litellm_kwargs,
+            )
 
-        # ----- 儲存設定和結果 -----
-        save_config_as_toml(config, run_manager.config_toml_path)
-        run_manager.save_results_as_json(enhanced_results)
-        run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
+            # ----- 儲存設定和結果 -----
+            save_config_as_toml(config, run_manager.config_toml_path)
+            run_manager.save_results_as_json(enhanced_results)
+            run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
 
-        log_session("Image Summarization Completed", style="cyan")
-        run_manager.log_run_paths("complete")
+            log_session("Image Summarization Completed", style="cyan")
+            run_manager.log_run_paths("complete")

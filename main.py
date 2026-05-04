@@ -34,7 +34,7 @@ def main(
         log_session("Website Crawler", style="purple")
         log_config("WebsiteCrawler Config Loaded from toml", config)
         log_config("WebsiteCrawler Config after Override", config)
-        log_session("Experiment Paths", style="cyan")
+        log_session("Run Paths", style="cyan")
         run_manager.log_run_paths("init")
 
         crawler = WebsiteCrawler(
@@ -82,13 +82,14 @@ def main(
     with file_logging(run_manager.log_path):
         log_session("Webpage Image Summarizer", style="purple")
         log_config("WebpageImageSummarizer Config Loaded from toml", config)
-        log_session("Experiment Paths", style="cyan")
+        log_session("Run Paths", style="cyan")
         run_manager.log_run_paths("init")
 
         webpage_image_summarizer = WebpageImageSummarizer(
             download_timeout=config.download_timeout,
             success_threshold=config.success_threshold,
             max_retries=config.max_retries,
+            cache_download_images=config.cache_download_images,
         )
 
         log_session("Image Summarization", style="cyan")

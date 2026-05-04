@@ -36,6 +36,7 @@ INIT_KEYS = {
     "download_timeout",
     "success_threshold",
     "max_retries",
+    "cache_download_images",
 }
 SUMMARIZE_KEYS = {
     "prompt",
@@ -62,6 +63,7 @@ class WebpageImageSummarizerConfig:
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
     max_retries: int = 6  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
+    cache_download_images: bool = False
     # ----- summarize config -----
     model: str = "gpt-5-mini"
     prompt: str = DEFAULT_PROMPT
@@ -78,6 +80,7 @@ class WebpageImageSummarizerConfig:
             download_timeout=self.download_timeout,
             success_threshold=self.success_threshold,
             max_retries=self.max_retries,
+            cache_download_images=self.cache_download_images,
         )
         _validate_summarize_config(
             prompt=self.prompt,
@@ -161,6 +164,12 @@ def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> No
             raise ConfigValidationError("max_retries 必須是整數")
         if max_retries < 0:
             raise ConfigValidationError("max_retries 不可小於 0")
+
+    cache_download_images = init_kwargs.get("cache_download_images")
+    if cache_download_images is not None and not isinstance(
+        cache_download_images, bool
+    ):
+        raise ConfigValidationError("cache_download_images 必須是布林值")
 
 
 def _validate_summarize_config(
