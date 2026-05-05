@@ -29,11 +29,13 @@ class WebpageImageSummarizer:
         download_timeout: float = 10.0,
         success_threshold: float = 0.8,  # 圖片下載成功率低於此值則啟動重試機制
         max_retries: int = 6,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
+        cache_download_images: bool = False,  # 適用於同一批網頁重複實驗的情況
     ) -> None:
         # ===== init args =====
         self.download_timeout = download_timeout
         self.success_threshold = success_threshold
         self.max_retries = max_retries
+        self.cache_downloaded_image = cache_download_images
 
         # ===== summarize args =====
         self.model: str = ""
@@ -43,19 +45,20 @@ class WebpageImageSummarizer:
         self.litellm_kwargs: dict[str, Any] = {}
 
         # ===== internal state =====
-        # url -> {"caption": ..., "download_stats": ..., "summarize_stats": ...}
+        # url -> {"base_64_url": ..., "caption": ..., "download_status": ..., "summarize_status": ...}
         self._image_cache: dict[str, dict[str, str]] = {}
         self._image_urls: list[str] = []
+        self._downloaded_images: dict[str, str] = {}
         self._image_captions: dict[str, str] = {}
         self._page_stats: dict[str, int | float] = self._new_page_stats()
         self._all_page_stats: dict[str, int | float] = self._new_all_page_stats()
         self._all_round_stats: dict[str, int | float] = self._new_all_round_stats()
 
-    # TODO: 下載和摘要拆成兩個模組
+    # * 下載和摘要拆成兩個模組
     def summarize_crawl_results_images(
         self,
         crawl_results: list[dict[str, Any]],
-        model: str = "gpt-5-mini",
+        model: str = "gemini/gemini-3-flash-preview",
         prompt: str = DEFAULT_PROMPT,
         vlm_max_workers: int = 10,
         image_source: Literal["images", "markdown"] = "markdown",
@@ -73,8 +76,10 @@ class WebpageImageSummarizer:
         self.image_source = image_source
         self.litellm_kwargs = litellm_kwargs
 
-        self._image_cache = {}
         self._image_urls = []
+        if not self.cache_downloaded_image:
+            self._image_cache = {}
+            self._downloaded_images = {}
         self._image_captions = {}
         self._all_round_stats = self._new_all_round_stats()
 
@@ -126,9 +131,9 @@ class WebpageImageSummarizer:
             self._image_urls = image_urls
             self._page_stats = self._new_page_stats()
 
-            uncached_image_urls = self._collect_cached_captions()
-            downloaded_images = self._download_images(uncached_image_urls)
-            self._generate_image_captions(downloaded_images)
+            uncached_image_urls = self._collect_cached_items()
+            self._download_images(uncached_image_urls)
+            self._generate_image_captions()
             enhanced_markdown = self._enhance_markdown(fit_markdown)
             crawl_result["enhanced_markdown"] = enhanced_markdown
 
@@ -142,24 +147,35 @@ class WebpageImageSummarizer:
 
         return crawl_results
 
-    def _collect_cached_captions(
+    def _collect_cached_items(
         self,
     ) -> list[str]:
-        """收集快取命中的 caption，並回傳未命中的 URL。"""
+        """收集快取並回傳未命中的 URL。"""
         cached_urls = set(self._image_cache.keys())
-        image_urls = self._image_urls
 
-        for url in image_urls:
+        uncached_urls = []
+        for url in self._image_urls:
             if url in cached_urls:
-                self._page_stats["cache_reuse"] += 1
-                self._image_captions[url] = self._image_cache[url]["caption"]
+                # download images 重用
+                if self._image_cache[url]["download_status"] == "success":
+                    self._downloaded_images[url] = self._image_cache[url]["base_64_url"]
+                    self._page_stats["cache_reuse"] += 1
+                else:
+                    uncached_urls.append(url)
 
-        uncached_urls = [url for url in image_urls if url not in cached_urls]
-        if len(image_urls) - len(uncached_urls) > 0:
-            logger.info(
+                # caption 重用
+                # if cache_image_captions:
+                # if self._image_cache[url]["summarize_status"] == "success":
+                #     self._image_captions[url] = self._image_cache[url]["caption"]
+                #     self._page_stats["cache_reuse"] += 1
+            else:
+                uncached_urls.append(url)
+
+        if len(self._image_urls) - len(uncached_urls) > 0:
+            logger.debug(
                 "Collected captions from cache for %s/%s images",
-                len(image_urls) - len(uncached_urls),
-                len(image_urls),
+                len(self._image_urls) - len(uncached_urls),
+                len(self._image_urls),
             )
 
         return uncached_urls
@@ -191,12 +207,8 @@ class WebpageImageSummarizer:
     def _download_images(
         self,
         image_urls: list[str],
-    ) -> dict[str, str]:
+    ) -> None:
         """平行下載圖片，回傳成功下載圖片。"""
-        downloaded_images: dict[str, str] = {}
-        if not image_urls:
-            return downloaded_images
-
         max_workers = self.vlm_max_workers
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_image_url = {
@@ -211,20 +223,24 @@ class WebpageImageSummarizer:
                     image_url = future_to_image_url[future]
                     image_base64_url, download_status = future.result()
 
-                    if "failure" in download_status:
-                        self._page_stats[download_status] += 1
+                    if "failure" in download_status or image_base64_url is None:
+                        self._page_stats["download_failure"] += 1
                         self._image_cache[image_url] = {
+                            "base_64_url": "",
+                            "download_status": download_status,
                             "caption": "",
-                            "download_stats": download_status,
-                            "summarize_stats": "failed",
+                            "summarize_status": "failed",
                         }
+                        self._downloaded_images[image_url] = ""
                         self._image_captions[image_url] = ""
-                    elif image_base64_url is not None:
-                        downloaded_images[image_url] = image_base64_url
+                    else:
+                        self._downloaded_images[image_url] = image_base64_url
+                        self._image_cache[image_url] = {
+                            "base_64_url": image_base64_url,
+                            "download_status": "success",
+                        }
 
                     progress.update(task_id, advance=1)
-
-        return downloaded_images
 
     def _download_image(
         self,
@@ -243,7 +259,7 @@ class WebpageImageSummarizer:
                 raw_content_type: str = resp.headers.get("Content-Type", "")
         except Exception as e:
             logger.warning("Image download failed (url=%s): %s", url, e)
-            return None, "download_failure"
+            return None, "failed"
 
         content_type: str = raw_content_type.split(";")[0].strip()
         if not content_type.startswith("image/"):
@@ -252,7 +268,7 @@ class WebpageImageSummarizer:
                 url,
                 content_type or "<empty>",
             )
-            return None, "download_failure"
+            return None, "failed"
 
         b64 = base64.standard_b64encode(data).decode("ascii")
         data_url = f"data:{content_type};base64,{b64}"
@@ -262,13 +278,14 @@ class WebpageImageSummarizer:
 
     def _generate_image_captions(
         self,
-        images: dict[str, str],
     ) -> None:
         """為已下載成功的圖片取得 caption。"""
-        if not images:
+        if not self._downloaded_images:
             return
 
-        caption_results = asyncio.run(self._agenerate_image_captions(images))
+        caption_results = asyncio.run(
+            self._agenerate_image_captions(self._downloaded_images)
+        )
         # logger.debug(
         #     "%s/%s image captions generate succeeded",
         #     len(caption_results),
@@ -282,11 +299,8 @@ class WebpageImageSummarizer:
             else:
                 self._page_stats["summarize_failure"] += 1
 
-            self._image_cache[image_url] = {
-                "caption": image_caption,
-                "download_stats": "success",
-                "summarize_stats": summarize_status,
-            }
+            self._image_cache[image_url]["caption"] = image_caption
+            self._image_cache[image_url]["summarize_status"] = summarize_status
             self._image_captions[image_url] = image_caption
 
     async def _agenerate_image_captions(
@@ -457,17 +471,20 @@ class WebpageImageSummarizer:
         failed_urls = {
             url
             for url, cache_item in self._image_cache.items()
-            if cache_item["download_stats"] == "download_failure"
+            if cache_item["download_status"] == "failed"
+            or cache_item["summarize_status"] == "failed"
         }
         if not failed_urls:
             return None
 
         for failed_url in failed_urls:
             self._image_cache.pop(failed_url, None)
+            self._downloaded_images.pop(failed_url, None)
+            # self._image_captions.pop(failed_url, None)
 
         return failed_urls, success_rate
 
-    # TODO: 重試機制根據 max retries 動態生成等待時間
+    # * 重試機制根據 max retries 動態生成等待時間
     def _prepare_retry_urls(
         self,
         failed_urls: set[str],
@@ -561,7 +578,6 @@ class WebpageImageSummarizer:
 
         logger.debug(caption_generation_log)
 
-    # ? 會在執行階段動態調整成員變數嗎
     def override_init_config(self, **init_kwargs) -> None:
         """覆寫建構子參數。"""
         self.download_timeout = init_kwargs.get(
@@ -571,15 +587,7 @@ class WebpageImageSummarizer:
             "success_threshold", self.success_threshold
         )
         self.max_retries = init_kwargs.get("max_retries", self.max_retries)
-
-    def override_summarize_config(self, **summarize_kwargs) -> None:
-        """覆寫 summarize 參數。"""
-        self.model = summarize_kwargs.get("model", self.model)
-        self.prompt = summarize_kwargs.get("prompt", self.prompt)
-        self.vlm_max_workers = summarize_kwargs.get(
-            "vlm_max_workers", self.vlm_max_workers
+        self.cache_downloaded_image = init_kwargs.get(
+            "cache_download_images",
+            init_kwargs.get("cache_downloaded_image", self.cache_downloaded_image),
         )
-        self.image_source = summarize_kwargs.get("image_source", self.image_source)
-        litellm_kwargs = summarize_kwargs.get("litellm_kwargs", {})
-        if litellm_kwargs:
-            self.litellm_kwargs.update(litellm_kwargs)

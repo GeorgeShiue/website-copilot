@@ -15,18 +15,33 @@ from utils.config_helper import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT = """
-用繁體中文描述圖片，作為網頁補充說明。
+【角色設定 (Role)】
+你是一位專業的視覺數據分析師與網頁內容無障礙專家，具備精準解讀各類網頁圖像（包含攝影照片、資訊圖表、UI截圖與行銷海報）的能力。
 
-依序輸出：
-    - 圖片摘要：1 句（20-40 字）。
-    - 可觀察元素：列出 3-5 點可直接看見的內容（物件、顏色、位置、構圖）。
-    - 可讀文字：列出圖片中的文字；若沒有請寫「無」。
-    - 場景功能：1 句，描述圖片中場景可能的用途或功能。
+【核心任務 (Task)】
+請分析這張從網頁上下載的圖片，並提供結構化、客觀且具備高度視覺證據支持的詳細描述。
 
-規則：
-    - 只寫可觀察事實，避免主觀形容詞。
-    - 不確定就寫「不確定」，不要臆測細節。
-    - 若需列點，一律使用「*」作為 Markdown 列點符號。
+【視覺思維鏈分析步驟 (Visual Chain-of-Thought)】
+在給出最終描述前，請務必按照以下步驟進行推理與掃描：
+
+全域掃描 (Global Scan)：判定圖片的基礎類型（例如：實景照片、電商產品圖、文字海報、數據圖表或軟體截圖）與整體環境氛圍。
+
+特徵與文字提取 (Element & Text Extraction)：條列出畫面中的核心物件、人物特徵或關鍵圖示。若圖片中包含任何可見的印刷或手寫文字（OCR），請精確提取。
+
+空間與語境關係 (Spatial & Contextual Relations)：描述核心物件在畫面中的相對位置（如前景、背景、上下左右）以及它們之間的邏輯互動關係。
+
+【輸出約束與格式 (Constraints & Output)】
+請嚴格依照以下的 Markdown 格式輸出。保持語句簡明扼要，絕不能捏造或過度解釋圖片中未明確顯示的細節。
+
+1. 圖片類型與主旨
+[請用一句話簡潔總結這張圖片的類型與核心畫面]
+
+2. 核心視覺元素與文字
+主要物件/特徵： [條列關鍵物件與細節]
+提取文字 (OCR)： [精確列出圖片中的重要文字；若無則填寫「無可見文字」]
+
+3. 綜合場景敘述
+[基於上述分析，用 2 到 3 個流暢的段落描述圖片的佈局、細節與整體情境]
 """
 DEFAULT_CONFIG_FODER_PATH = "./config/webpage_image_summarizer"
 DEFAULT_INIT_CONFIG_SECTION = "init"
@@ -36,6 +51,7 @@ INIT_KEYS = {
     "download_timeout",
     "success_threshold",
     "max_retries",
+    "cache_download_images",
 }
 SUMMARIZE_KEYS = {
     "prompt",
@@ -62,8 +78,9 @@ class WebpageImageSummarizerConfig:
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
     max_retries: int = 6  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
+    cache_download_images: bool = False
     # ----- summarize config -----
-    model: str = "gpt-5-mini"
+    model: str = "gemini/gemini-3-flash-preview"
     prompt: str = DEFAULT_PROMPT
     image_source: Literal["images", "markdown"] = "markdown"
     vlm_max_workers: int = 10
@@ -78,6 +95,7 @@ class WebpageImageSummarizerConfig:
             download_timeout=self.download_timeout,
             success_threshold=self.success_threshold,
             max_retries=self.max_retries,
+            cache_download_images=self.cache_download_images,
         )
         _validate_summarize_config(
             prompt=self.prompt,
@@ -161,6 +179,12 @@ def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> No
             raise ConfigValidationError("max_retries 必須是整數")
         if max_retries < 0:
             raise ConfigValidationError("max_retries 不可小於 0")
+
+    cache_download_images = init_kwargs.get("cache_download_images")
+    if cache_download_images is not None and not isinstance(
+        cache_download_images, bool
+    ):
+        raise ConfigValidationError("cache_download_images 必須是布林值")
 
 
 def _validate_summarize_config(

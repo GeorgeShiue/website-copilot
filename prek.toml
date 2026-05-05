@@ -6,7 +6,7 @@ hooks = [
     { id = "mixed-line-ending" },
     { id = "trailing-whitespace" },
     # git safety
-    { id = "check-added-large-files" },
+    { id = "check-added-large-files", args = ["--maxkb=1024"] },
     { id = "check-merge-conflict" },
     { id = "check-case-conflict" },
     { id = "detect-private-key" },

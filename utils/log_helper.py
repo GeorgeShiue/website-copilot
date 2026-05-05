@@ -1,6 +1,7 @@
 import logging
 import re
 import sys
+import time
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
@@ -19,6 +20,7 @@ from rich.text import Text
 
 # 全域變數用於檔案輸出
 _tee_stream: "_TeeStream | None" = None
+_logging_path: str | None = None
 _stdout_original = sys.stdout
 _stderr_original = sys.stderr
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -65,18 +67,22 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
     )
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)  # * 減少 debug log
 
+    logging_level = logging.INFO
     if level.lower() == "debug":
-        logging.getLogger("app.website_crawler").setLevel(logging.DEBUG)
-        logging.getLogger("app.webpage_image_summarizer").setLevel(logging.DEBUG)
-        if logger is not None:
-            logger.setLevel(logging.DEBUG)
+        logging_level = logging.DEBUG
+
+    logging.getLogger("app.website_crawler").setLevel(logging_level)
+    logging.getLogger("app.webpage_image_summarizer").setLevel(logging_level)
+    if logger is not None:
+        logger.setLevel(logging_level)
 
 
-def setup_file_logging(log_file_path: str) -> None:
+def setup_logging_file(log_file_path: str) -> None:
     """設定終端機輸出和日誌同時保存到檔案."""
-    global _tee_stream
+    global _tee_stream, _logging_path
 
-    disable_file_logging()
+    disable_logging_file()
+    _logging_path = log_file_path
 
     # 建立檔案輸出流
     file_stream = open(log_file_path, "a", encoding="utf-8")
@@ -125,17 +131,17 @@ def _collapse_adjacent_progress_lines(log_file_path: str) -> None:
 
 
 @contextmanager
-def file_logging(log_file_path: str):
+def save_logging_file(log_file_path: str):
     """Context manager for setup/teardown of run-specific file logging."""
-    setup_file_logging(log_file_path)
+    setup_logging_file(log_file_path)
     try:
         yield
     finally:
-        disable_file_logging()
+        disable_logging_file()
         _collapse_adjacent_progress_lines(log_file_path)
 
 
-def disable_file_logging() -> None:
+def disable_logging_file() -> None:
     """Restore streams and close previous file logging resources."""
     global _tee_stream
 
@@ -145,6 +151,20 @@ def disable_file_logging() -> None:
     if _tee_stream is not None:
         _tee_stream.file_stream.close()
         _tee_stream = None
+
+
+@contextmanager
+def log_execution_time(title: str = ""):
+    """Context manager that logs elapsed execution time in finally block."""
+    start_time = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_seconds = time.perf_counter() - start_time
+        message = f"Completed in {elapsed_seconds:.3f} seconds"
+        if title:
+            message = f"{title} {message}"
+        logging.getLogger(__name__).info(message)
 
 
 def _get_logging_console() -> Console:
