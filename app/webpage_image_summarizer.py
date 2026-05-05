@@ -54,11 +54,11 @@ class WebpageImageSummarizer:
         self._all_page_stats: dict[str, int | float] = self._new_all_page_stats()
         self._all_round_stats: dict[str, int | float] = self._new_all_round_stats()
 
-    # TODO: 下載和摘要拆成兩個模組
+    # * 下載和摘要拆成兩個模組
     def summarize_crawl_results_images(
         self,
         crawl_results: list[dict[str, Any]],
-        model: str = "gpt-5-mini",
+        model: str = "gemini/gemini-3-flash-preview",
         prompt: str = DEFAULT_PROMPT,
         vlm_max_workers: int = 10,
         image_source: Literal["images", "markdown"] = "markdown",
@@ -484,7 +484,7 @@ class WebpageImageSummarizer:
 
         return failed_urls, success_rate
 
-    # TODO: 重試機制根據 max retries 動態生成等待時間
+    # * 重試機制根據 max retries 動態生成等待時間
     def _prepare_retry_urls(
         self,
         failed_urls: set[str],

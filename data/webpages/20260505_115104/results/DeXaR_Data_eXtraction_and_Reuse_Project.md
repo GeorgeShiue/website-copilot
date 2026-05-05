@@ -1,0 +1,21 @@
+## DeXaR: Data eXtraction and Reuse Project
+**Project Title** : Efficient and Scalable Web Data Extraction for Annotation-Free Full Schema Induction
+**Project Number** : MOST105-2628-E-008-004-MY2
+**Leader** : Prof. Chia-Hui Chang
+**Team Members** :
+Tzu-Ping Lin (2021-2023), 張智鈞(2020-2022), Chen-Yu Wu (2019-2021)
+Oviliani Yenty Yuliana, Yu-An Chou, Yan-Kai Lai (2016-2018)
+**Abstract**
+Unsupervised Web data extraction from annotation-free Web pages has been one of the main research topics in Web data extraction. Page-level web data extraction provides a complete solution for various kinds of extraction needs. However, very few researchers focus on this task because of the difficulties and complexities in the problem. On the other hands, previous page-level IE systems focus on how to achieve unsupervised data extraction and pay less attention to schema verification, i.e. how to extract data by matching testing pages with an existing schema.
+In this project, we emphasize the importance of schema verification for large-scale extraction tasks. Given a large number of web pages for data extraction, the system uses part of the input pages for training the schema without supervision and then extracts data from the rest of the input pages through schema verification. While the process feels like a supervised training process, the approach is actually unsupervised since users do not need to label the input pages. Therefore, we call it annotation-free schema training. The benefit of schema verification is the quick extraction of data from testing pages without complex analysis and immediate report of schema change if the website has changed its template or schema. Thus, annotation-free schema training and schema-guided extraction could achieve efficient and scalable Web data extraction.
+In addition to the issue of extraction efficiency, web data extraction for singleton pages is also more challenging than list pages because more data chunks need to be aligned. In this project, we use leaf nodes of the input DOM trees as the basic processing units and dynamically adjust the encoding for better alignment to speed up the processing. We define landmark equivalence class (LEC) as leaf nodes with the same text content and similar paths and use them for template mining. We then prioritize the discovery of templates in order of mandatory and optional via occurrence vectors and ensure the consistency of such templates through LIS (longest increasing sequence). Another challenge is multi-order attribute-value pairs, which is rare for list pages and has a serious effect on the design of the alignment algorithm for schema induction and verification.
+We develop a Web-based service to allow better manipulation of Web data for data reuse. The proposed alignment algorithm will serve as a core technology for the Web ETL tool to provide efficient and effective extraction, transformation, and loading of the data from the Web.
+**Publications**
+  * Oviliani Yenty Yuliana and Chia-Hui Chang, [DCADE: divide and conquer alignment with dynamic encoding for full page data extraction](http://www.google.com/url?q=http%3A%2F%2Flink.springer.com%2Farticle%2F10.1007%2Fs10489-019-01499-0&sa=D&sntz=1&usg=AOvVaw2nkB0jK22KkvL_fYKf8JwN), Applied Intelligence, 50(2), 271-295. 2020.
+  * Oviliani Yenty Yuliana, Chia-Hui Chang, **A novel alignment algorithm for effective web data extraction from singleton pages** , Journal of Applied Intelligence, 48(11), 4355–4370. 2018. **DOI: 10.1007/s10489-018-1208-0** , [Data Download](https://sites.google.com/site/nculab/projects/WDEMS/dca)
+  * Oviliani Yenty Yuliana, Chia-Hui Chang, **AFIS: Aligning Detail-Pages for Full Schema Induction** , TAAI 2016, pp. 220-227, DOI: [10.1109/TAAI.2016.7880164](https://www.google.com/url?q=https%3A%2F%2Fdoi.org%2F10.1109%2FTAAI.2016.7880164&sa=D&sntz=1&usg=AOvVaw1zWbJfcA8lnGQuepnUVEsp)
+
+
+**Applications**
+  * [**Data API Creator: Web Data ETL System**](http://www.google.com/url?q=http%3A%2F%2F140.115.54.44%3A8001%2F&sa=D&sntz=1&usg=AOvVaw1CtJ7ujgFZiXGyKHy4kdJS)
+  * [**Mobile Web Creator**](http://www.google.com/url?q=http%3A%2F%2F140.115.54.44%3A8000%2F&sa=D&sntz=1&usg=AOvVaw3bztHNr_SMocmtb6H66izM)**(**[**Demonstration**](https://www.youtube.com/watch?v=3YpQgIWtJgc)**)**
