@@ -3,11 +3,11 @@ download_timeout = 10.0
 success_threshold = 0.8
 max_retries = 6
 cache_download_images = true
-cache_image_captions = true
+cache_image_captions = false
 
 [summarize]
-model = "gemini/gemini-3.1-flash-lite-preview" # run name
-vlm_max_workers = 20
+model = "gemini/gemini-2.5-flash-lite"
+vlm_max_workers = 10
 image_source = "markdown"
 prompt = """
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。

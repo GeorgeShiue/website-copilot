@@ -32,7 +32,7 @@
 
 ### 設定與驗證
 - `app/webpage_image_summarizer_config.py` 管理下載與摘要參數
-- 支援設定：`download_timeout`、`success_threshold`、`max_retries`、`cache_download_images`
+- 支援設定：`download_timeout`、`success_threshold`、`max_retries`、`cache_download_images`、`cache_image_captions`
 - 摘要設定：`model`、`prompt`、`image_source`、`vlm_max_workers`、`litellm_kwargs`
 - `_validate_init_config()` 會驗證下載參數型別與範圍
 - `_validate_summarize_config()` 會驗證模型、prompt、來源、worker 數與 litellm_kwargs
@@ -52,6 +52,10 @@
   - [x] 呼叫 VLM
   - [x] 平行處理、快取
   - [x] 自動重試
+  - [x] Prompt 調整
+      - [x] prompt-v1
+      - [x] prompt-v2
+      - [x] prompt-v3
   - [ ] 下載和摘要拆成兩個模組
 
 # 未來規劃
