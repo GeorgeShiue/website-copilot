@@ -52,6 +52,7 @@ INIT_KEYS = {
     "success_threshold",
     "max_retries",
     "cache_download_images",
+    "cache_image_captions",
 }
 SUMMARIZE_KEYS = {
     "prompt",
@@ -79,6 +80,7 @@ class WebpageImageSummarizerConfig:
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
     max_retries: int = 6  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
     cache_download_images: bool = False
+    cache_image_captions: bool = False
     # ----- summarize config -----
     model: str = "gemini/gemini-3-flash-preview"
     prompt: str = DEFAULT_PROMPT
@@ -96,6 +98,7 @@ class WebpageImageSummarizerConfig:
             success_threshold=self.success_threshold,
             max_retries=self.max_retries,
             cache_download_images=self.cache_download_images,
+            cache_image_captions=self.cache_image_captions,
         )
         _validate_summarize_config(
             prompt=self.prompt,
@@ -185,6 +188,10 @@ def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> No
         cache_download_images, bool
     ):
         raise ConfigValidationError("cache_download_images 必須是布林值")
+
+    cache_image_captions = init_kwargs.get("cache_image_captions")
+    if cache_image_captions is not None and not isinstance(cache_image_captions, bool):
+        raise ConfigValidationError("cache_image_captions 必須是布林值")
 
 
 def _validate_summarize_config(

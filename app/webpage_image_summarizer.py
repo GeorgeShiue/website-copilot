@@ -30,12 +30,14 @@ class WebpageImageSummarizer:
         success_threshold: float = 0.8,  # 圖片下載成功率低於此值則啟動重試機制
         max_retries: int = 6,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
         cache_download_images: bool = False,  # 適用於同一批網頁重複實驗的情況
+        cache_image_captions: bool = False,  # 適用於同一批網頁重複實驗的情況
     ) -> None:
         # ===== init args =====
         self.download_timeout = download_timeout
         self.success_threshold = success_threshold
         self.max_retries = max_retries
-        self.cache_downloaded_image = cache_download_images
+        self.cache_download_image = cache_download_images
+        self.cache_image_captions = cache_image_captions
 
         # ===== summarize args =====
         self.model: str = ""
@@ -47,7 +49,6 @@ class WebpageImageSummarizer:
         # ===== internal state =====
         # url -> {"base_64_url": ..., "caption": ..., "download_status": ..., "summarize_status": ...}
         self._image_cache: dict[str, dict[str, str]] = {}
-        self._image_urls: list[str] = []
         self._downloaded_images: dict[str, str] = {}
         self._image_captions: dict[str, str] = {}
         self._page_stats: dict[str, int | float] = self._new_page_stats()
@@ -76,11 +77,13 @@ class WebpageImageSummarizer:
         self.image_source = image_source
         self.litellm_kwargs = litellm_kwargs
 
-        self._image_urls = []
-        if not self.cache_downloaded_image:
-            self._image_cache = {}
+        if not self.cache_download_image:
             self._downloaded_images = {}
-        self._image_captions = {}
+        if not self.cache_image_captions:
+            self._image_captions = {}
+        if not self.cache_download_image and not self.cache_image_captions:
+            self._image_cache = {}
+
         self._all_round_stats = self._new_all_round_stats()
 
         target_urls: set[str] | None = None
@@ -128,13 +131,14 @@ class WebpageImageSummarizer:
                 style="blue",
             )
             fit_markdown, image_urls = crawl_result_content
-            self._image_urls = image_urls
             self._page_stats = self._new_page_stats()
 
-            uncached_image_urls = self._collect_cached_items()
-            self._download_images(uncached_image_urls)
-            self._generate_image_captions()
-            enhanced_markdown = self._enhance_markdown(fit_markdown)
+            image_uncached_urls, caption_uncached_urls = self._collect_cached_items(
+                image_urls
+            )
+            self._download_images(image_uncached_urls)
+            self._generate_image_captions(caption_uncached_urls)
+            enhanced_markdown = self._enhance_markdown(fit_markdown, image_urls)
             crawl_result["enhanced_markdown"] = enhanced_markdown
 
             self._log_stats(self._page_stats)
@@ -149,36 +153,54 @@ class WebpageImageSummarizer:
 
     def _collect_cached_items(
         self,
-    ) -> list[str]:
+        image_urls: list[str],
+    ) -> tuple[list[str], list[str]]:
         """收集快取並回傳未命中的 URL。"""
         cached_urls = set(self._image_cache.keys())
 
-        uncached_urls = []
-        for url in self._image_urls:
-            if url in cached_urls:
-                # download images 重用
-                if self._image_cache[url]["download_status"] == "success":
-                    self._downloaded_images[url] = self._image_cache[url]["base_64_url"]
-                    self._page_stats["cache_reuse"] += 1
+        image_uncached_urls = []
+        caption_uncached_urls = []
+        for image_url in image_urls:
+            if image_url in cached_urls:
+                cache_reused = False
+
+                if self._image_cache[image_url]["download_status"] == "success":
+                    self._downloaded_images[image_url] = self._image_cache[image_url][
+                        "base_64_url"
+                    ]
+                    cache_reused = True
                 else:
-                    uncached_urls.append(url)
+                    image_uncached_urls.append(image_url)
 
-                # caption 重用
-                # if cache_image_captions:
-                # if self._image_cache[url]["summarize_status"] == "success":
-                #     self._image_captions[url] = self._image_cache[url]["caption"]
-                #     self._page_stats["cache_reuse"] += 1
+                if self._image_cache[image_url]["summarize_status"] == "success":
+                    self._image_captions[image_url] = self._image_cache[image_url][
+                        "caption"
+                    ]
+                    cache_reused = True
+                else:
+                    caption_uncached_urls.append(image_url)
+
+                if cache_reused:
+                    self._page_stats["cache_reuse"] += 1
             else:
-                uncached_urls.append(url)
+                image_uncached_urls.append(image_url)
+                caption_uncached_urls.append(image_url)
 
-        if len(self._image_urls) - len(uncached_urls) > 0:
+        if len(image_urls) - len(image_uncached_urls) > 0:
             logger.debug(
-                "Collected captions from cache for %s/%s images",
-                len(self._image_urls) - len(uncached_urls),
-                len(self._image_urls),
+                "Collected download images from cache for %s/%s images",
+                len(image_urls) - len(image_uncached_urls),
+                len(image_urls),
             )
 
-        return uncached_urls
+        if len(image_urls) - len(caption_uncached_urls) > 0:
+            logger.debug(
+                "Collected image captions from cache for %s/%s images",
+                len(image_urls) - len(caption_uncached_urls),
+                len(image_urls),
+            )
+
+        return image_uncached_urls, caption_uncached_urls
 
     def _retrieve_crawl_result_content(
         self,
@@ -238,6 +260,8 @@ class WebpageImageSummarizer:
                         self._image_cache[image_url] = {
                             "base_64_url": image_base64_url,
                             "download_status": "success",
+                            "caption": "",
+                            "summarize_status": "",
                         }
 
                     progress.update(task_id, advance=1)
@@ -258,7 +282,7 @@ class WebpageImageSummarizer:
                 data = resp.read()
                 raw_content_type: str = resp.headers.get("Content-Type", "")
         except Exception as e:
-            logger.warning("Image download failed (url=%s): %s", url, e)
+            logger.warning("Image download failed (url=%s) : %s", url, e)
             return None, "failed"
 
         content_type: str = raw_content_type.split(";")[0].strip()
@@ -278,14 +302,21 @@ class WebpageImageSummarizer:
 
     def _generate_image_captions(
         self,
+        image_urls: list[str],
     ) -> None:
         """為已下載成功的圖片取得 caption。"""
-        if not self._downloaded_images:
+        if not image_urls:
             return
 
-        caption_results = asyncio.run(
-            self._agenerate_image_captions(self._downloaded_images)
-        )
+        images = {}
+        for url in image_urls:
+            if (
+                self._downloaded_images.get(url) is not None
+                and self._downloaded_images[url] != ""
+            ):
+                images[url] = self._downloaded_images[url]
+
+        caption_results = asyncio.run(self._agenerate_image_captions(images))
         # logger.debug(
         #     "%s/%s image captions generate succeeded",
         #     len(caption_results),
@@ -394,7 +425,7 @@ class WebpageImageSummarizer:
             return image_caption, "failed", 0.0
 
         cost_usd = completion_cost(completion_response=response)
-        self._log_caption_generation(response=response, cost_usd=cost_usd)  # debug
+        self._log_caption_generation(response=response, cost_usd=cost_usd)
 
         choices = getattr(response, "choices", None)
         if choices and isinstance(choices, (list, tuple)) and len(choices) > 0:
@@ -410,12 +441,12 @@ class WebpageImageSummarizer:
     def _enhance_markdown(
         self,
         markdown: str,
+        image_urls: list[str],
     ) -> str:
         """將圖片說明以適當格式插入原 markdown 中。"""
         if not self._image_captions:
             return markdown
 
-        image_urls = self._image_urls
         enhanced_markdown = ""
         if self.image_source == "markdown":
             lines = markdown.splitlines(keepends=True)
@@ -434,7 +465,7 @@ class WebpageImageSummarizer:
                     caption = self._image_captions.get(url, "")
                     if caption:
                         enhanced_parts.append(
-                            f"> Image-{occurrence_index}:\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                            f"> # Image-{occurrence_index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
                         )
 
             enhanced_markdown = "".join(enhanced_parts)
@@ -444,7 +475,7 @@ class WebpageImageSummarizer:
                 caption = self._image_captions.get(url, "")
                 if caption:
                     captions.append(
-                        f"## Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                        f"# Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
                     )
             enhanced_markdown = markdown + "".join(captions)
 
@@ -587,7 +618,10 @@ class WebpageImageSummarizer:
             "success_threshold", self.success_threshold
         )
         self.max_retries = init_kwargs.get("max_retries", self.max_retries)
-        self.cache_downloaded_image = init_kwargs.get(
+        self.cache_download_image = init_kwargs.get(
             "cache_download_images",
-            init_kwargs.get("cache_downloaded_image", self.cache_downloaded_image),
+            init_kwargs.get("cache_download_image", self.cache_download_image),
+        )
+        self.cache_image_captions = init_kwargs.get(
+            "cache_image_captions", self.cache_image_captions
         )
