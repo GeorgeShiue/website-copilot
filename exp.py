@@ -11,7 +11,7 @@ def webpage_image_summarizer_model():
     #     "gemini-3-flash",
     #     "gemini-3-pro",
     # ]
-    models = ["gemini-3.1-flash-lite", "gemini-3-flash"]
+    models = ["gemini-3.1-flash-lite", "gemini-3-flash"]  # temp
 
     run_webpage_image_summarizer(
         config_names=models,
@@ -19,7 +19,8 @@ def webpage_image_summarizer_model():
 
 
 def webpage_image_summarizer_prompt():
-    prompts = ["prompt-v1", "prompt-v2"]
+    # all_prompts = ["prompt-v1", "prompt-v2", "prompt-v3"]
+    prompts = ["prompt-v3"]  # temp
     run_webpage_image_summarizer(
         config_names=prompts,
         run_name_use_config_name=True,

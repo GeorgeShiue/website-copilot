@@ -3,6 +3,7 @@ download_timeout = 10.0
 success_threshold = 0.8
 max_retries = 6
 cache_download_images = true
+cache_image_captions = false
 
 [summarize]
 model = "gemini/gemini-2.5-flash-lite"

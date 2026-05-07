@@ -1,0 +1,10 @@
+# MapMarker: Extraction of Postal Addresses And Associated Information for General Web Pages
+Post date: Jul 7, 2010 6:45:53 AM
+Address information is essential for people’s daily life. People often need to query addresses of unfamiliar location through Web and then use map services to mark down the location for direction purpose. Although both address information and map services are available online, they are not well combined. Users usually need to copy individual address from a Web site and paste it to another Web site with map services to locate its direction. Such copy and paste operations have to be repeated if multiple addresses are listed on a single page such as public school list or apartment list. Furthermore, associated information with individual address has to be copied and included on each marker for better comprehension.
+Our research is devoted to automate the above process and make the combination an easier task for users. The main techniques applied here include postal address extraction and associated information extraction. We apply sequence labeling algorithm based on Conditional Random Fields (CRFs) to train models for address extraction. Meanwhile, using the extracted addresses as landmarks, we apply pattern mining to identify the boundaries of address blocks and extract associated information with each individual address. The experimental result shows high F-score at 91% for postal address extraction and 87% accuracy for associated information extraction.
+  * Slides Download
+  * DataSet Download：[Data Set](http://www.google.com/url?q=http%3A%2F%2F140.115.51.19%2FDataset.rar&sa=D&sntz=1&usg=AOvVaw3m4ngn75SnTaIzUVwrDp2A) (From[ Zheyuan Yu's Research](http://www.google.com/url?q=http%3A%2F%2Fweb.cs.dal.ca%2F%257Ezyu%2Fresearch%2F&sa=D&sntz=1&usg=AOvVaw0ND36bi1UCmDZSl53ErV0z))
+  * Demonstration web site：[http://140.115.51.18/MapMarker.html](http://www.google.com/url?q=http%3A%2F%2F140.115.51.18%2FMapMarker.html&sa=D&sntz=1&usg=AOvVaw2uZ_lvg8OXhDjLrOxb-D-i)
+
+
+[](https://drive.google.com/folderview?id=0B2XRm-m6dNA8b2kwTzRLQ2E3ZnM "Open Drive Folder in new window")

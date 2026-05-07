@@ -100,6 +100,7 @@ def run_webpage_image_summarizer(
                 success_threshold=config.success_threshold,
                 max_retries=config.max_retries,
                 cache_download_images=config.cache_download_images,
+                cache_image_captions=config.cache_image_captions,
             )
 
             # ----- 獲取最近一次結果 -----
