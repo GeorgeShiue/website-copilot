@@ -1,95 +1,97 @@
 ## Projects
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAZCSGRZvt3Sr6yBC-Il7BNwFYNZ9Aa9XLFGDiC1CMND7QGs-QUur4cPpRZ2L0B-KL2q_xpK37J0vRnrQ-nJVsNiccUyKRzKIGYiXYpvnYk4XxwcdVqwMnIJwXw4pySvNQGsp-eKsRJOL5KzETx8QJSpjappNFwG50X63-a_DM9CMOuY7-6SjMd-nBKBOSrP_3qqIYH-LXNcbWu10DId6_AT7mMszUwyL4hq-Q=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDVBM7IQaG8sS5X1ShaIkQhFXRwxozcAH5dwjw-y1QK4JcHhacORC9YHPBrDWO7voIQ92FN3yCspP3ACRi27i7OpjzAz1YJNPkvZ3Bp1sjW-fah-FUPug-ItW0Pe7iomzIhK0kaXt_0UVeJQSOgTeSR8XnyrrSbMdctXUkdpQaXErd0-0xHHz_QSPN91Qf-tB0GjRS5lT_na8jU2RwNpJ6qgJO7Gtp7PdZXTbw=w1280)
 > # Image-1
 >
-> ## 圖片摘要
-> 機器人頭部正面圖，頭頂有三個紅色按鈕，胸前標示 AI 字樣。
+> **圖片摘要：**
+> 機器人頭部正視前方，胸前標示 AI 文字，整體以藍色線條呈現。
 >
-> ## 主要元素
-> 1. 實體: 機器人, AI
+> **主要元素：**
+> 1. 實體: 機器人, AI文字
 > 2. OCR文字: AI
-> 3. 主題標籤: 人工智慧, 機器人, AI技術
+> 3. 主題標籤: 人工智慧, 機器人技術, 數位圖示
 >
-> ## 頁面關聯
-> 此圖為 AI 技術或人工智慧相關頁面的視覺圖標。
+> **頁面關聯：**
+> 本圖示代表人工智慧與機器人主題，可作為 AI 技術欄位之檢索錨點。
 
 [StoryBot](https://sites.google.com/site/nculab/projects/storychatbot) /
 [EduACT](https://eduact.csie.ncu.edu.tw/)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAJf9rl5xH5h91N-7PkJ3rovdihdEhARTnN9-bKCeaZRAo7lQohCMWi0WRH6TJldToY1t09m__BHb2jMuSEjSU8JFATSpAJlcFgV39xJ7f93lCculQ4KHIbw9P0h3tzTC4K2hMHtYuRj8PJzjsFDUgS5hIP9e4OHYKi-9EtSXZzFv8qM7FUtkY1Z9dRuJI7r_wpZw-l9kjVDzqlFQs84YozWhhLHEtsjjrEwsc=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUC7pkJJ4uGxsUPSHiRpwk9vPAb1kmTMbpcwAI5e2TlpZ16e7UvRZQ2r6P6BsRMd8HEzNraOw4ynnihIgg5JrupDM3MsHNRZ9FxybPoweTnTxuUX3sNVn3bVIhJqAED814JwHUcyzMXcyk1eBSEBXJTq9HYKMZnRINk4Vi_npyP3yez8IWt7IhfiTllTUxGJbom-Fi4wFYbrDn-DsISeRcIklClJu-KYUbRRmAo=w1280)
 > # Image-2
 >
-> ## 圖片摘要
-> 法律文件與厚重書籍重疊放置，文件中顯現 LAW 標題及盾牌圖示。
+> **圖片摘要：**
+> 一本咖啡色書籍前方放置一份標有 LAW 字樣的法律文件，文件左下角繪有盾牌圖示。
 >
-> ## 主要元素
-> 1. 實體: 法律文件, 厚重書籍, 盾牌圖示, LAW
-> 2. OCR文字: LAW
-> 3. 主題標籤: 法律, 法規, 法律文件, 法學
+> **主要元素：**
+> 1. 實體: 書籍, 法律文件, 盾牌圖示
+> 2. OCR文字:
+> LAW
+> 3. 主題標籤: 法律, 法規, 司法, 文件
 >
-> ## 頁面關聯
-> 此圖為法律領域相關的頁面插圖，用於表示法規、法律文件或法學研究內容，檢索錨點為法律。
+> **頁面關聯：**
+> 本圖為法律主題頁面的圖示，與法規條文與法律文件檢索錨點相關。
 
 [Legal AI / CCG](https://ccg.csie.ncu.edu.tw:8443/login)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCHHuRREkVI9R0uDxrVubVg9Hq7SRopqTvpmBwniJuKRMGLec1PibRvGBBMtOxJN1LkV6dKfRPFqgi_ya0RmCob8cCI8SKZ-K3pR2CtG06S372UDZWTS2xsUBT5G_1bDNCJBHtDyRLOlgHl4DOZEpUUPcUaJOGLpH_wwt7rqpH02xHPP_b7EtSTvUvsGGhk54tvhiVkUD7QuFm-ytWlvwgQdwQGYpaIvdIZUuU=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBuFparpC_F9fx1_23n1WhJH0Cv0zAd7VheD9nCmzoupa7NpCB2XJ-Jc4gr1rjwRixMATSUmDyv9Jc-7sqRel26db7MR7sovqb2zTeNplKRBJfPno_fLoMDLm_od3alsFHAGClDq2qDbR8UeHmOLNgyfyQekpT3aMKeQBYx-7bl4ME_hNNmFwNoVWn53U2YJjm-rp14GE4cDDUUNfEVmcfOPqWceghOvoOtX1o=w1280)
 > # Image-3
 >
-> ## 圖片摘要
-> 藍色對話框中心顯示白色粗體文字，對話框外圍帶有深色矩形邊框，底部右側呈現三角形指向。
+> **圖片摘要：**
+> 藍色對話框圖示內包含白色文字，外部環繞灰色框線。
 >
-> ## 主要元素
-> 1. 實體: 對話框, 文字方塊
+> **主要元素：**
+> 1. 實體: 對話框, 標題文字
 > 2. OCR文字:
 > UPCOMING
 > EVENTS
-> 3. 主題標籤: 活動預告, 資訊欄
+> 3. 主題標籤: 活動資訊, 公告欄, 網站圖示
 >
-> ## 頁面關聯
-> 此圖標作為 Upcoming Events 頁面資訊索引錨點。
+> **頁面關聯：**
+> 頁面活動區塊索引，作為活動資訊頁面標題錨點。
 
 [EventGo!](http://140.115.54.49:8080/#/home)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCbXND0m2Rlqw71nR4CTeCY71oKmyPIv1tGPTXyZgOf3nA05KP4KoDT7lRzHgTeYFTqGpv__tgeAQhwev3_hRJmZis6hdxtsU6-x2qFqYFbIAHtEvR7fqATSkN-CnFwmU94ff0MM-TtkBhF4tUvHNkyflWd_dR0aQpcfUaKmWXNgzR0bY3jogR7nmnqlXoehq11zYsql7iVD4VCuM4BiK7x9vMBncUtgS5qjXw=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUB9BHgRehtW5OEM_AcLJgkThlq4WjAPtObKOaqGAb2Ix2InppI8hQTlLDOWgRJncrEARaPXZfqaFLWp4C8D-PraViboFu80nHWGr-Pp9GTnJNnQ6yuqgSwgTRrOGSPEcIdGGUs9JiL5MRw4FYWPzKMlrPdhLhd0xiC_SIjR3XAnCmnbKYktzxq6m25KPDRyZI4iSacScJKQNXXgVXQV4shhtURxr7bpjb_aYk4=w1280)
 > # Image-4
 >
-> ## 圖片摘要
-> API 文字位於齒輪圖示中央，左上方設有包含紅藍雙向箭頭的雲朵圖示。
+> **圖片摘要：**
+> 雲朵圖示位於齒輪圖示上方，齒輪中心標示 API 字樣，雲朵內部包含紅藍雙向箭頭。
 >
-> ## 主要元素
-> 1. 實體: API, 齒輪, 雲朵, 雙向箭頭
-> 2. OCR文字: API
-> 3. 主題標籤: 雲端運算, API整合, 軟體架構, 數據交換
+> **主要元素：**
+> 1. 實體: 雲朵圖示, 齒輪圖示, API, 雙向箭頭
+> 2. OCR文字:
+> API
+> 3. 主題標籤: 雲端運算, API整合, 軟體架構, 系統整合
 >
-> ## 頁面關聯
-> 圖片顯示 API 與雲端服務整合架構，屬於系統介面技術圖示。
+> **頁面關聯：**
+> 本圖為軟體系統架構圖示，代表 API 雲端整合服務，錨點包含 API。
 
 [Data API Creator](http://140.115.54.44:8001/)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAwb_xyuHSaxhCgY5Kcwhg0xnA4XTtLKwEEt22lE98glQbF3o0CQQG19uXXwG3-PzHO0dyOuEGOuvlnWv0rIbZojVBvrRZMrtJW8l2bSm5ccWxcWRYOrMDffRdpyCXY5UZlyj7hBeEwdJy9EQSVlkCfNy0LB9AggFREqyZRgUYa6Qcdx6Ukkf_x3mUzAqcqys65XrG3Hm83I1opXpZMtcqXLb6l9h8AHDS1jtc=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUByxABUsdk_FrFzPh_Z6-u2lhRdqeRzXuqVqsSc53ayi0RFO4MmidarN6Z0GoaKp22MAOhB31BnF_90zoThbgfajs7W6u9HnC6SzGPaahsQtZrbHDemLMEtrwfq6wcqoodTgYKmEdxE2TFJCZikLihZnhO2_i76VsGEUl3HSnFI5B-FL09c6XSLKsGM_ZXrZ2u4YQZu1DKH7PtDWgffNF6sxShiaQX7ewKAwpc=w1280)
 > # Image-5
 >
-> ## 圖片摘要
-> 手持裝置螢幕顯示包含圖文區塊的網頁版面，呈現資訊瀏覽介面。
+> **圖片摘要：**
+> 智慧型手機介面顯示圖文排版內容，手掌托持手機左右兩側。
 >
-> ## 主要元素
-> 1. 實體: 手持裝置, 網頁介面, 資訊區塊
+> **主要元素：**
+> 1. 實體: 智慧型手機, 手掌, 介面排版
 > 2. OCR文字: 無
-> 3. 主題標籤: 行動裝置, 網頁瀏覽, UI介面, 資訊顯示
+> 3. 主題標籤: 行動裝置, 使用者介面, 網頁瀏覽
 >
-> ## 頁面關聯
-> 此圖示代表行動裝置網頁瀏覽行為，用於標示網頁資訊讀取或行動版面設計。
+> **頁面關聯：**
+> 呈現行動裝置介面操作，作為手機網頁瀏覽、行動應用程式或響應式設計展示錨點。
 
 [Mobile Web Creator](http://140.115.54.44:8000/)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBEEu2aaSVBq1GK3pSHP-2p6rn4Z_4CmEkx6gHuQyl-qx6QIF8rq368XQjYGMWWfXpv5l9SLPesci8xC_IBryicwXOF696jVdXdqNAV6QzekFf2E9W3JSRpBgz4IRUzLdhtRiLo3Q5gWvTbzkzNXjFjuSUHuotfchwCdzVhaCTgYJLlpFw2sMRrgVggp6uhKTwlFZ6lNFspURs2Ci0VS1Mu_crMPdazDIz_=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDLb6c-wvJPSbAXFdjHsolUT8TNG-sCDG1mHT21kWdaws12Q3XQDmCqMm-fhQr5e4p02WfUyqEjqG2u08sqOqiaUf3m2muYxtpr4yV9H7Ap0rojwxg6rwhD4VB74nCSfyFxraNOUrvTu9LaHQjrf0y-v07JUpkyF4PYTHXITj92r4uznoVdSOm1oT11Gz_zLN5J1jqiX0KfYqvUhxMjkskMQRbcLPL8CdAQ=w1280)
 > # Image-6
 >
-> ## 圖片摘要
-> 文件圖示中心，左側連結人物與住宅圖示，右側連結定位點與大樓圖示，呈現資訊歸戶關聯。
+> **圖片摘要：**
+> 文件圖示置於圓框中央，左側連結個人與住家圖示，右側連結定位點與辦公大樓圖示。
 >
-> ## 主要元素
-> 1. 實體: 文件圖示, 人物圖示, 住宅圖示, 定位點圖示, 大樓圖示
+> **主要元素：**
+> 1. 實體: 文件, 個人圖示, 住家圖示, 定位點, 辦公大樓
 > 2. OCR文字: 無
-> 3. 主題標籤: 資訊整合, 資料歸戶, 關聯分析
+> 3. 主題標籤: 資訊管理, 資料分類, 業務流程, 實體關聯
 >
-> ## 頁面關聯
-> 此圖為資料處理頁面的功能示意圖，呈現文件與人物、地址、地點及組織的關聯結構。
+> **頁面關聯：**
+> 本圖為資料物件屬性關聯示意圖，錨點包含文件分類、資訊聚合。
 
 [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
 基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)

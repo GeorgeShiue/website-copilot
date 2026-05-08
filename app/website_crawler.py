@@ -172,11 +172,14 @@ class WebsiteCrawler:
                     for line in fit_markdown.splitlines(keepends=True)
                     if not any(word in line for word in self.exclude_words)
                 )
-
             # 移除 https://...#h.xxx 這類隱藏錨點空連結
             fit_markdown = EMPTY_ANCHOR_LINK_PATTERN.sub("", fit_markdown)
+            # 移除空清單噪聲，例如行尾為 "* ##" 或 "* #" 之類的標記
+            fit_markdown = re.sub(r"(?m)^\s*\*\s*#{1,6}\s*$", "", fit_markdown)
 
             fit_markdown = self._promote_empty_heading_line(fit_markdown)
+            # 合併連續多於兩個的空行（含只包含空白的行）
+            fit_markdown = re.sub(r"(?:\r?\n[ \t\f\v\r]*){3,}", "\n\n\n", fit_markdown)
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = HEADING_PATTERN.search(fit_markdown)

@@ -6,14 +6,14 @@ Kai-Chien Yang, Chien-Fu Ling, Yuan-Hao Lin, Hung-Wei Chang
 With the popularity of mobile devices and smartphones, we have witnessed rapid growth in mobile applications and services, especially in location-based services (LBS). According to a mobile marketing survey, maps/location searches are among the most utilized services on smartphones. Points of interest (POIs), such as stores, shops, gas stations, parking lots, and bus stops, are particularly important for maps/location searches. Existing map services such as Google Maps and Wikimapia are constructed manually either professionally or with crowdsourcing. However, manual annotation is costly and limited in current POI search services. With the abundance of information on the Web, many business POIs can be extracted from the Web.
 In this project, we focus on automatically constructing a POI database to enable business POI map searches. We propose techniques that are required to construct a POI database, including focused crawling, information extraction, and information retrieval techniques. We first crawl Yellow Page websites to obtain vocabularies of business names. These vocabularies are then investigated with search engines to obtain sentences containing these business names from search snippets in order to train a business-name recognition model. To extract POIs scattered across the Web, we propose a query-based crawler to find address-bearing pages that might be used to extract addresses and business names. We crawled 1.25 million distinct POI pairs scattered across the Web and implemented a POI search service via Apache Lucent's search platform, called Solr. The experimental results demonstrate that the proposed geographical information retrieval model outperforms Wikimapia and a commercial app called "What's the Number?"
 [: (in Chinese)](https://www.google.com/url?q=https%3A%2F%2Fpowerpoi.widm.csie.ncu.edu.tw%2Fdashboard&sa=D&sntz=1&usg=AOvVaw0TgHtKfYowWmR72-XiMMVi)
-[![https://itunes.apple.com/tw/app/id1057491998](https://lh3.googleusercontent.com/sitesv/AA5AbUBVseJYX0IhQkW5XX_D8IPDmfZMbdUADtIRv6TpE07cZxnss_ZwQaalzbcZ1ODSIS4RvMfsFf-eG_sdbl6BthCkJU0kHkiz5a1kf3pzF71gb2o8sNFYgHUjrfaH0CphezrL5T_Iwxtm70vDIenSoQVmwHL9Zltvnk-zgYJi0kork53xO-wXw3ocaZ-YywtYcaA=w1280)](https://www.google.com/url?q=https%3A%2F%2Fitunes.apple.com%2Ftw%2Fapp%2Fid1057491998&sa=D&sntz=1&usg=AOvVaw3dpTar0dnttCxOr5087pd-)
+[![https://itunes.apple.com/tw/app/id1057491998](https://lh3.googleusercontent.com/sitesv/AA5AbUC8wXENRrH6BNUI4xf6WvIbe7Nj8TAc-lQ0j2Yks15f8mbGvlWf5wVT1fSpx4jAtXRk1n1M19mfeBwLPnsw6RPSwjDOKczeg_7jNHy3_6HwjKPcaSfhLjp9PsPgneE73ZZ6smqhME8q03PdjaVjW4-U8p2iLBKYvjvU4B7TFgzzcXuij4Y6BBusJlSlWLDYhLo=w1280)](https://www.google.com/url?q=https%3A%2F%2Fitunes.apple.com%2Ftw%2Fapp%2Fid1057491998&sa=D&sntz=1&usg=AOvVaw3dpTar0dnttCxOr5087pd-)
 > # Image-1
 >
-> ## 圖片摘要
-> 紫色圓角正方形應用程式圖示，中心包含白色「店」字與房屋輪廓，位於頁面左側。
+> **圖片摘要：**
+> 紫色方形圖標置於左側，內部含有白色「店」字與屋頂輪廓圖形，右側標示應用程式說明文字。
 >
-> ## 主要元素
-> 1. 實體: 疾疾店家現身, PowerPOI, 應用程式圖示
+> **主要元素：**
+> 1. 實體: 疾疾店家現身, PowerPOI, App Store 頁面, 店字圖標
 > 2. OCR文字:
 > Open iTunes to buy and download apps.
 > Description
@@ -21,10 +21,10 @@ In this project, we focus on automatically constructing a POI database to enable
 > 去到外地時人生地不熟，東問西問還找不到店家，您還在擔心這類問題嗎？
 > 就讓疾疾店家現身讓您三秒化身在地人！
 > 資料內容包含了全台灣各式各樣的店家，食衣住行應有盡有，並結合地圖服務，介面簡單易懂，不需繁雜的使用教學，輕鬆讓您一手掌握！
-> 3. 主題標籤: 應用程式, 找店家, 生活資訊, 地圖服務
+> 3. 主題標籤: 生活服務, 地圖搜尋, 疾疾店家現身, PowerPOI, 行動應用程式
 >
-> ## 頁面關聯
-> 此圖為應用程式疾疾店家現身（PowerPOI）的軟體圖示，用於說明軟體功能與介紹。
+> **頁面關聯：**
+> 圖片為 App Store 應用程式頁面，呈現疾疾店家現身 (PowerPOI) 之圖標與功能簡介。
 
 [**Download PowerPOI (疾疾店家現身) APP from Apple Store**](https://www.google.com/url?q=https%3A%2F%2Fitunes.apple.com%2Ftw%2Fapp%2Fid1057491998&sa=D&sntz=1&usg=AOvVaw3dpTar0dnttCxOr5087pd-)
 **Publication**

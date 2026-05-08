@@ -1,55 +1,55 @@
 ## Members
 ## PHD Students & Project Assistants
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUD8YUqmkmN-88Z4GA1dG3n1LkOxJls0bjRLJpQcXoDmjTD_j1WVhd0mfoiMPBbuHCdn-dxm_l5lGrNeBnjT0-e14n6Uqf_cn36t-18wyYj66CG7RDrmfZo7Bwkkdr5xPF4mDsSi_a3-cSB3-kNtzOnVVXRROx3Iw5-opE8mdqkryozOKciZtNgx-UTa2PVWgdBzgNsJkjhD=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUB8nzPpmLPM5K3rQweaEqQ3gJ0GZ_s0ze6mUPHsDQ_xGbWYixSSqDlRQILM678_CE6B8sZU66YjW8kBodMv1P-CRosD0f2SoAcjZLl6UjhkE8YH8BPoC1p5j4yDA1aP4ZZWbEYIHRuC0qnOXMEBqoDFVZ8uEcxwKuc6A5sXRJjjzVC1z5bOuKyrDvib7DaEbZ0C6H3gbLpo=w1280)
 > # Image-1
 >
-> ## 圖片摘要
-> 年輕男性穿著黑色學位服與白色領子，正面半身特寫，背景為漸層藍色。
+> **圖片摘要：**
+> 男性身穿學士袍與白襯衫、黑色領帶，正面半身照，背景為藍白漸層。
 >
-> ## 主要元素
-> 1. 實體: 男性, 學位服, 白襯衫, 領帶
+> **主要元素：**
+> 1. 實體: 男性, 學士袍, 襯衫, 領帶
 > 2. OCR文字: 無
-> 3. 主題標籤: 畢業照, 人物肖像, 學士服
+> 3. 主題標籤: 畢業照, 人物肖像, 學位服
 >
-> ## 頁面關聯
-> 個人畢業照，顯示學生畢業身分，作為畢業生檢索錨點。
+> **頁面關聯：**
+> 圖片為畢業典禮或學籍檔案人像，檢索錨點為畢業生個人照。
 
 林圓皓
 Yuan-Hao Lin
 PHD Students
 NLP, Meetup Event Extraction, Named Entity Recognition, Event Extraction
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDrpAI_5e_kFYzeyKhvdl1UXkONG7zbYe_ajmZwkSFgVrM9s7kcyes94uWb85dlvVRN6dEPhju904BLou1_323AINXw4Tleaq_lJRzytztKeA-P0-5mis7vEBrS3QaEg4haGeDJm-A7bvGX2tS9jZ7TVmtGvM2cbvznu1Xi9DrtfF_rVcYtp3VrEgi0dkUeAEYFN2fIswORZPipsLFUw_iN9CM3E4GG3adi=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDZbNUF2bRZx8cpaLzC4pTzdEHj32LWSLSuJga0e6cmmsuN-TrVHaK6MmfjWAR6xFVRAzJBIZsz2jEB3UNMj9UvczpwBWPeS3udgCofvYXbaCnHz2sWaHV7zwVgfI5uOBoeKaXwOqbJb3bDWujufCMHockvi8kCOgS_tVpAcYA0ETRIMbKJoxpWJQLzOxsYyicxIjKdndA84NrZ9gmkei7ID3XX84O4n2Dw=w1280)
 > # Image-2
 >
-> ## 圖片摘要
-> 戴眼鏡男子身穿深色外套，坐在木紋桌前，手中握著包裝內的食物。
+> **圖片摘要：**
+> 男子佩戴眼鏡穿深色外套，坐在木質桌前右手持飯糰。
 >
-> ## 主要元素
-> 1. 實體: 男子, 眼鏡, 深色外套, 木紋桌, 食物
+> **主要元素：**
+> 1. 實體: 男子, 眼鏡, 外套, 飯糰, 木桌
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像, 生活紀實
+> 3. 主題標籤: 人物肖像, 日常生活
 >
-> ## 頁面關聯
-> 圖片顯示人物特寫，作為個人形象或活動紀錄之視覺錨點。
+> **頁面關聯：**
+> 圖片呈現人物資訊，用於個人介紹或生活紀錄頁面。
 
 簡國峻
 Kuo-Chun Chien
 PHD Students
 NLP, Named Entity Recognition, Legal AI
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCzwVEXHRp-fVJ1KcWDzP11WNPT8kb75QrhDpUncC19Mwf1-R4Ec-7fvnrHjLCPszgyjpyQ9x6ibLuzrG2KP_C-AUI_xH28HOYEtaXTmrtw70LJ2d6r-PNJgAbv5_RuxY2czjaRx_VAyDzegM5aV3Xtn9nsr81WQJhOzkngiWb7dDjn9PTpchEX1PUT438R0cCw51UzErP-ta9re-jqzOTPTDDzWfuXK4l_yZY=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBIGld1RiiJKzC2Ip9KR_FykCFoyK5va24eTZVJ6J6PmK7t5jkzBC1pMZTObsJW_1N-s7QpNfcxXFHToyTkNPgxEUJYVO7epK-oE9zqlKnzkqUU4jrn66O2Uz3GAY0X2sif2X9KCCJzXdI-BtbKfZLuk6jHzElYixr3BnJAvdcfWK4B-835SP7FZQ2D7f-lu1y82X7_BKgsTk-NJGHhwI1DQTbiWXQrnYUmjY8=w1280)
 > # Image-3
 >
-> ## 圖片摘要
-> 長髮女子正面自拍，臉部嘟嘴，身後為木製圍欄與碎石步道，肩背點點圖案背包。
+> **圖片摘要：**
+> 黑髮女子背負圓點圖案背包，於戶外地面與木質結構旁自拍。
 >
-> ## 主要元素
-> 1. 實體: 長髮女子, 點點背包, 木圍欄, 碎石步道
+> **主要元素：**
+> 1. 實體: 女子, 背包
 > 2. OCR文字: 無
-> 3. 主題標籤: 個人肖像, 自拍, 戶外休閒
+> 3. 主題標籤: 旅遊, 生活照, 自拍
 >
-> ## 頁面關聯
-> 個人肖像照，呈現自拍情境。
+> **頁面關聯：**
+> 圖片為人物生活紀錄，屬於個人社群頁面資訊。
 
 李翊翎
 Yi-Ling Lee
@@ -59,96 +59,96 @@ Specialty : 英語閱讀、網路學習
 email：white52035@g.ncu.edu.tw
 ## Master Students (碩二)
 [](https://sites.google.com/site/nculab/members#h.p_Vf-CDrVIdNSX)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDdCGLCnh3kzFAadcNA3LOrm6midht3ee4BUvr5ILopB0wAnmoRNl-Wt6I_rQBj8zOXEbxhg2_mcIyhjcNSGRH10oJ5F-Bu20YLOubYaF5LCv2pzCUP1l2YSeCKW7PMI7VaeUPMGqn647ibXmQC4uc8YTeoWHxjPPCIlGGRZObwGo_Rdzo-LZn60ldVTrBaVr_oY9yxUkUpAzxYIHca3E0JLiwf9rGJlnrPnqE=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCjzwkyxTqw_nL-O9V8jjBMtSiuDReS2mq_CFdtt2gclqqFdNTydq_Ul3H2ynZFtLPjqVny-Ams-pHB5MKHoUXmk8hCXZwTG2F5Qi5_mJehD3truxjAiq9SilgiH-fNkJ5dDb-JE4FWwhE0pBINUbrQ5ZgbBVvn4Uh5cB1Dr1FLjAP8BaCJgApWKUiMudMUGnDpFVl-rlpOybKAaNuPJ_I0kPaMzssnD-y4e9s=w1280)
 > # Image-4
 >
-> ## 圖片摘要
-> 一名長髮戴眼鏡男子手持一杯奶蓋飲料，位於背景為白色露營車與戶外空間的前景。
+> **圖片摘要：**
+> 長髮眼鏡男子手持飲料杯於前景，後方背景為戶外活動空間與白色貨車。
 >
-> ## 主要元素
-> 1. 實體: 長髮男子, 眼鏡, 奶蓋飲料, 白色露營車, 戶外市集
+> **主要元素：**
+> 1. 實體: 長髮男子, 眼鏡, 飲料杯, 戶外空間, 白色貨車
 > 2. OCR文字:
-> 【芝士奶蓋烏龍】
-> 3. 主題標籤: 飲品體驗, 戶外市集, 奶蓋飲料, 芝士奶蓋烏龍
+> 【不可辨識】
+> 3. 主題標籤: 戶外活動, 生活紀錄, 飲品
 >
-> ## 頁面關聯
-> 此圖為飲品體驗活動記錄，主體包含芝士奶蓋烏龍，檢索錨點為芝士奶蓋烏龍。
+> **頁面關聯：**
+> 本圖為活動現場紀錄，檢索錨點為戶外活動與飲品體驗。
 
 龔若齊
 Jo-ChiKung
 Master Students
 半夜十點後不要打給我，因為我睡了...
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAgYHUFBxLNl4iY1d9xy_pTEakWmAo8e3mMdi3dLJJNYr8ZdwlbZSauWbUak64Vl91VlcCss4f1ytvCJUI_p5ygh36ssg18kWN2gaZOY9tNOMbuZ40ZUIIgrQOj9AlX_4tJeEHk80_vv0h_i0KLCP-Teqgc8sLCTkgLMc-OmeALk9qa6BNL4MicmGI5Zm7oxqqy91bp98WjuKVjd7gpnVgOER8gOTNhySoPlf4=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCOuHvlCA9436JCzgDY2ot5E_vRDo7W2T1lhoL7CZaboSYnCzlpLp8fIdIIKbKk9DUTu6Y5LZZ9wXHxpnB3o4Iqw-KwXdFI6-tWvtAriqRGlqh4Ji-gcuFr7v8kPB5gOOWDnwvqAGhpdbjik5IczeedhzrVKAFWs4v7-D8nq_wub7jb6JVhURrR3lzKDhr1urx6g2LWUA5RISmd6sIJXc1QAbVZng49tUZyW-c=w1280)
 > # Image-5
 >
-> ## 圖片摘要
-> 一位戴眼鏡的青年男子位於前景微笑，後方另一位戴眼鏡人士僅露出半臉與肩膀。
+> **圖片摘要：**
+> 兩名戴眼鏡男性並肩合影，前景男子穿著灰色襯衫並背負後背包，背景男子掛有印製文字的識別證。
 >
-> ## 主要元素
-> 1. 實體: 戴眼鏡男子, 青年, 肩膀
+> **主要元素：**
+> 1. 實體: 男性，眼鏡，襯衫，後背包，識別證
 > 2. OCR文字:
 > 張道行
-> 3. 主題標籤: 人物肖像, 活動現場, 人際互動
+> 3. 主題標籤: 活動紀錄，人員合影
 >
-> ## 頁面關聯
-> 圖片顯示張道行於活動現場之影像紀錄。
+> **頁面關聯：**
+> 圖片為活動現場記錄，包含參與者張道行與其他人員之合影。
 
 謝程偉
 Cheng-Wei Hsieh
 Master Students
 NLP, Fact Checking, Web, Embedding model
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDqgjkaf82tbak7MFJwMQK5YeHqnFuIsaE0E97agGFzgJNLzi5lJRA7WxgCz_kKBF5-0rIGoI6B5QbzKJQhHpiyIP_dNowlL5eSuYmSfCTC0Kbs24mb5S4A-q6KbbUgzkOb0M4ktb1upx5-oHxvVRt6F3D_y7zhAO_hcKekPNuAWcbKrodDAfyODU0paHANoO8daiM67K5sn4hBSZNWXB0cXYioc34bZfzu=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCk5WyA1ZoQDPkmXr-WhLYghsVq4IaTi1yAw7o3Mu4Vrj8kb6AHW0hYQBezSPiLMdo8Abnf9LTK0f6NDujKh1XOenbz6dG5tlUL9Et0tClEKbqu1sA3fB01vn_KUNU54l3jCFUSiPKjhMpgCbTmUg8OK2JXLCinJN7xdMGBpWQvVgnLkFUZRjbnRApD8AcZdz1MApYM9qTotpHyB9_IlJYvbQwdwHX94rs2=w1280)
 > # Image-6
 >
-> ## 圖片摘要
-> 戴金屬框眼鏡的年輕男性穿著深褐色襯衫，面帶笑容看向側邊。
+> **圖片摘要：**
+> 戴眼鏡男子身穿棕色襯衫，雙手置於前景金屬架物體前，面露笑容。
 >
-> ## 主要元素
-> 1. 實體: 年輕男性, 金屬框眼鏡, 深褐色襯衫
+> **主要元素：**
+> 1. 實體: 男子, 眼鏡, 襯衫, 金屬架
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像
+> 3. 主題標籤: 人像攝影, 生活紀錄
 >
-> ## 頁面關聯
-> 圖片顯示人物特寫，為網頁內容中關於特定個人的視覺呈現，無明確關聯文字錨點。
+> **頁面關聯：**
+> 圖片為人物形象紀錄，檢索錨點為男性人像。
 
 丁仕杰
 Shi-Jie Ding
 Master Students
 NLP, Web, Space AI
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCcvGCp8d8x_Y9Cm1BHcorL-w_cp5lLAWIEWolp5yYkwK3SiEJ7ye8WSggLK80yErjv_SK1DpK8ARPmUq9eKKK3YZnQuvAIAl9Sh0cGMViXm6Mdhh0yR3scnLuRoppQ4CINb9shuifYucU3LlxImsCTj6mf8IyUQ_oab0PR245Q5fYYv0OBSaKCHAz7TjsLv85cRhJQsrTeDOfFBq-Z6TN2-v6EUtXN92KU=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBTmZ8bYe6qrUvnVR0gTsvJW1MZZD6brytDR3EfDaPJUo_QJI13e371mWt-XwsngwET8UStYU6YgQXKRNYE9vOQJbwfs1FawPm4wG9f59x9BQv4zmLheBNBmjF7DNkKPnhle14iZ5LZsi-5BBrCWknxVanhN3lBjz4zF_QUOwPFSvcN6uqk-UNvDmKT_VJEmEQV0kXzxkzPwq3Nw97B8_h3qvIXhOivTfZ3=w1280)
 > # Image-7
 >
-> ## 圖片摘要
-> 年輕女性閉眼微笑，位於藍色沙發前，背景為白色磚牆。
+> **圖片摘要：**
+> 長髮女子閉眼微笑，位於藍色沙發前方，背景為白色磚牆。
 >
-> ## 主要元素
-> 1. 實體: 年輕女性, 藍色沙發, 白色磚牆
+> **主要元素：**
+> 1. 實體: 長髮女子, 藍色沙發, 白色磚牆
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像, 生活紀實
+> 3. 主題標籤: 人像攝影, 生活紀錄
 >
-> ## 頁面關聯
-> 此圖片展示個人生活照，未包含可識別組織或特定事件錨點。
+> **頁面關聯：**
+> 本圖為個人生活紀錄影像，檢索錨點為人像攝影。
 
 黃懷萱
 Huai-Hsuan Huang
 Master Students
 NLP, Web, Automatic Annotation
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBZODjVm1jx8wLrJ6BriNdIaaI-SMaFy1h5dhzaJTqPTdjAGoIEI78c6gw1S4_7nE0j9UmPC5ZAqFoLK9nG4jXY43gKEd7Gq8uYbftiujk53CFBRxNH-8Ghcbi-Gv6ttZELKc1c5EHBgxVU2EaPFurEs6bT_ciCvFWHZtq5rMBplhASh7OFp0IOGC9NMOcQ3bt5bKx6QaLlWAWjy-qlCJH78l1EB-SkJnsy0G8=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBTnmnebUKatZz99aOBRCGPhaaha7gvBsHLT9atICmBc6ALo_xGZyCjCH6KpnHBtAr8uH0zMnIAgIX5_WxQw6KyFDJXf7tQhLz_D70TAXDRyvuKAHARhq_GucU2O-ryha16FCkItz-JA-T4uaebfUzfvCc0Ur4vmuVRTv4BP5yvZL7Y2dxxEPF1HJaGCHwYxdLfFn3IFrWeX_09BtE5L7WlNQm4v00j4VWTOlY=w1280)
 > # Image-8
 >
-> ## 圖片摘要
-> 年輕男子站在講台前手持簡報筆演講，身穿印有 THE TIME IS NOW 與 AWS 標誌的黑色T恤。
+> **圖片摘要：**
+> 男性講者站在講台後方，身穿印有圖案與 AWS 標誌的黑色 T 恤，手持麥克風進行演說。
 >
-> ## 主要元素
-> 1. 實體: 講者, 講台, 簡報筆, AWS T恤
+> **主要元素：**
+> 1. 實體: 男性講者, 講台, 麥克風, T 恤, AWS 標誌
 > 2. OCR文字:
 > THE TIME IS
-> NOW
 > AWS
-> 3. 主題標籤: AWS, 雲端運算, 資訊技術, 簡報, 演講
+> TRAIN AND CERTIFICATION
+> 3. 主題標籤: 專業演講, AWS, 雲端運算, 認證活動
 >
-> ## 頁面關聯
-> 講者於 AWS 相關活動中進行簡報，圖片為演講現場實錄。
+> **頁面關聯：**
+> 圖片呈現 AWS 認證活動現場，男性講者為活動演講者。
 
 葉季儒
 Chi-JuYeh
@@ -156,114 +156,116 @@ Master Students
 NLP, web development, cloud programming
 ## Master Students (碩一)
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCUjY0IZs58XM1EeZA8KdjU5VqnI43b-u_Ogw0NBCvWanaaGhZIRheWGWZkTbmV_WXUIo0vuEzSmAkmjzBvZV-g9gDRM8_9qDBwzBinHbwFBuAkUQwuVENQv0w8_tX-dbYhY7GFCNyD0h53en8y-bo52KKaN8LHTedgP0ZVHghAesIS84t5522URCg=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUACuGCNXN3oo7-kWX6DyR9mB-HtWZdcPGdcrEVN7TSyIc35JBAl2PAriA3PYDKJfUHfNIwYAUwOXbj6K3q8zYiznlBmn2l4IF-GmvUIQkMY_Kc0ktGPP7kSq3eGFYUQrO-1lJUIeJ0-5OXZyQj8msR46zhqFClwWqXtgtFJMpb5gQW7aMrGHADGLxs=w1280)
 > # Image-9
 >
-> ## 圖片摘要
-> 長髮女子頭戴棒球帽，背對鏡頭站在岸邊，手持智慧型手機拍攝遠方海面的夕陽。
+> **圖片摘要：**
+> 戴黑色鴨舌帽的長髮女子背對鏡頭，手持手機拍攝海平面上的日落景觀。
 >
-> ## 主要元素
-> 1. 實體: 女子, 棒球帽, 智慧型手機, 海面, 夕陽
+> **主要元素：**
+> 1. 實體: 女子, 鴨舌帽, 手機, 海面, 夕陽
 > 2. OCR文字: 無
-> 3. 主題標籤: 攝影, 海景, 夕陽, 休閒, 生活
+> 3. 主題標籤: 日落, 攝影, 海邊, 人物插畫, 休閒
 >
-> ## 頁面關聯
-> 本圖展示人物使用行動裝置紀錄海景，相關情境為個人攝影或旅遊記錄。
+> **頁面關聯：**
+> 圖片呈現海邊日落場景，屬個人休閒攝影主題，檢索錨點為日落與攝影。
 
 陳冠蓉
 Kuan-Jung, Chen
 Master Students
 NLP, Web| project : ESG, Eduact
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBPnE9u61jNHk8ABiWwntZ2CRxHtrb9LYJe3CZUSmY1nyahxSC_lPQWB2BfWUoKSuOcFZYn8PpvG7GRkDhHMyWw2MKqCaQGgDDwIwO30JjyGey8b9wk-4qSWj5gj2aRXT7pMak_jOIxGKdv3Z-2pbqajkir1aBmfPojKWYsFhtH-m_BgDA-u04dNa0=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUA9qZZ9WUGRzdXzgXnNgpaHoBheZsSGzAHgY0TPHqxzeLOoxetRDAW5DhWu4MP0B_U5giDsW0A7-G2RACMYmacqz78Tr-DgNTrD-HZ3pnhsjCCPH5F0voRbeMZ-5r6otI3WcdIYEbl1bGxEi1b6N3e42sko4AfYBjp7U_E_LFGcC9u8Cdo_mxWCztg=w1280)
 > # Image-10
 >
-> ## 圖片摘要
-> 年輕男性配戴眼鏡，穿著白色襯衫，面帶微笑面向右方。
+> **圖片摘要：**
+> 一名戴眼鏡的年輕男子身穿白色襯衫，面帶微笑看向前方。
 >
-> ## 主要元素
-> 1. 實體: 男性, 眼鏡, 白色襯衫
+> **主要元素：**
+> 1. 實體: 男子, 眼鏡, 白色襯衫
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像, 男性特寫
+> 3. 主題標籤: 人物肖像, 男性
 >
-> ## 頁面關聯
-> 人物影像，屬於頁面中的人物特寫或簡介照片。
+> **頁面關聯：**
+> 本圖片為人物肖像，呈現個人形象展示。
 
 許耀文
 Yao-Wen Hsu
 Master Students
 ESG, LLMOps, Retrieval-augmented generation, Chain of Thought, Task Agents | Project: ESGenius: AI-Driven ESG Reporting Consultant
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDgifyq4V_g1_RpeU_Ig7eTAUYEYa2AqB9RO3nUrCO2nCFVnQZJ21QWj4uagVcGDed3EIqVFjTLC9ALKdy_w_diEDmbX0N0zUtcIJ9q3qzUtPIrE7enBQEQvyoUwCgGy_uxxBvTMlsmLxr3VOPuaTXpLEgilofiHhxNKMj03yZqp4sDUPkQcIbvKN1pTOJiMlRu0hVJsnKp3MKDP85IBSjWynxVObtGO8g7Mpk=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBf3OzYiXD10DyaA2SdLeQQ9vKjTlPhE3eSrz72sSqfdaIzdcNxQhtIO6-Upd3ukjXJABdV4KNrGLS8E3LXTgxNBVQw53-SBw6N0S5gewMHycggqNx0IPbKPdClyBqA6DfPGHcCJl7ZsItwPkcr7Qjcx1mPPnBQrlJd-Txed6pnJRveQARZV_Hdmz-9OveCzgDeIzuPh03Nf4P40G8SknoWQ4KOGFrLYa1sv90=w1280)
 > # Image-11
 >
-> ## 圖片摘要
-> 橘白相間的長毛貓頭部朝右上角仰望，眼神注視上方，胸前有白色飾毛。
+> **圖片摘要：**
+> 緬因貓抬頭注視上方，頭部與頸部呈現橙白雙色長毛特徵，位於畫面中央。
 >
-> ## 主要元素
-> 1. 實體: 長毛貓, 貓臉
+> **主要元素：**
+> 1. 實體: 緬因貓, 貓毛
 > 2. OCR文字: 無
-> 3. 主題標籤: 寵物, 貓科動物, 動物攝影
+> 3. 主題標籤: 寵物, 貓科動物, 緬因貓
 >
-> ## 頁面關聯
-> 此圖為貓科動物主題頁面的配圖。
+> **頁面關聯：**
+> 圖片作為寵物圖鑑或品種介紹頁面的視覺展示，檢索錨點為緬因貓。
 
 施冠宏
 Guan-Hong Shi
 Master Students
 Fintech, Judgement correction
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUB7pVHoRab5lInnIkULZsn73xTDONhCvZw2-e6EDbtoy9StYn-Ie4dLZ2g9EQENB0JxzKlWHwodaJLFQIeSY0_BJ53lFLb6yRCym4xrUZsz6zShQSfEV9feFU8DIsWo2sYGvAWCL7xus368q5AEcHbsuenCGTaaPtYkduIxpCImKk3XYPHgiYMtJGiObUbh6g_GaVyiBDqG9-lVFd1SmJpFJ8_AXucj6Kcd9OA=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCDXiGnIZJDeD30RbE004xxmeZFnCZsMj5F_Hes6ZH_8F14juPw9ug2y4cpLInkJN0NrnWb0e_sepAboku257EKuO4XpZ7Y-KZOyEv7X0v8SfEu9C5E1RrbRLccrDD5whzF-DqdA3uVnzmzDUI9vg1fRaGNxR7usAi2jlEN5QbH72KnfLJXO4R5c57PZZD4_CKzWa1fnhEcBISA4Gjbwyi-rfX7ilOKTLB8P48=w1280)
 > # Image-12
 >
-> ## 圖片摘要
-> 佩戴眼鏡與超級任天堂世界掛繩的男性，手持綠色飲料站在超級任天堂世界園區背景前，身上配戴耀西圖案手環。
+> **圖片摘要：**
+> 戴眼鏡男子身穿白衣、掛著超級任天堂世界掛繩，手持飲料站立於超級任天堂世界造景前。
 >
-> ## 主要元素
-> 1. 實體: 男性遊客, 超級任天堂世界, 耀西手環, 飲料, 園區造景
+> **主要元素：**
+> 1. 實體: 男子, 超級任天堂世界, 蘑菇飲料杯, 瑪利歐主題掛繩, 遊樂園造景
 > 2. OCR文字:
->    ADVENTURE
->    SUPER NINTENDO WORLD
->    SUPER NINTENDO WORLD
->    No Climbing
-> 3. 主題標籤: 超級任天堂世界, 日本環球影城, 主題樂園, 遊樂園體驗, 旅遊
+> SUPER NINTENDO WORLD
+> ADVENTURE
+> THE SUPER NINTENDO WORLD
+> CHAINSAW MAN
+> No Climbing
+> 3. 主題標籤: 超級任天堂世界, 日本環球影城, 遊樂園, 瑪利歐, 鏈鋸人
 >
-> ## 頁面關聯
-> 此圖展示遊客於日本大阪超級任天堂世界園區內之實地體驗，頁面錨點包含超級任天堂世界與環球影城。
+> **頁面關聯：**
+> 圖片為遊客於日本環球影城超級任天堂世界之紀錄，連結至超級任天堂世界遊樂設施。
 
 陳楷勲
 Kai-Hsun Chen
 Master Students
 NLP, Web, Space AI, EduACT
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUB5I6b0Smjb3dfHpo8ob7_EDsPstBjzV-ty7uAQgBDdA1UWl98tx2UoB7v7tv-nym-M2_gmqJI9iDu3fG6Q4jcwNTt0z2_JtAS1nHZsZ4sTI1aHfAxMRPyw2HzsIbuJVsH6qhSIGv_66jzrh6oMM8sPyFYzeOFcBQvS0kYEey_kEIHzo1pA3-8A3Iy-z7b_EWvdtzqU_fOkJRed0oAMiOXOCZW9StgpHIQa=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUB62y-N_lCxcn9SkF3aDhtgdwaaCKS4uzN8BvM6B7VsDHhVhgWe87LIubco2srJqjE8hTFtREKCd849qKlaZIY8kQ9IDdRxPUnsQ1yBEWOjK-IHw5ufWfGcQpQ8ybN2NCBF1leODhU7_LhJ5HMgQnW_BqiN0gs6raQcWq5RM-rQNbBZsqTthtk5GilIc6Lmha8nG-XyXeeK8hnwmFVz1srCC5_HWL2AKPPm=w1280)
 > # Image-13
 >
-> ## 圖片摘要
-> 年輕男性穿著紫色連帽衫，正面印有 Paragraph 品牌標誌與文字，背景為白色牆面。
+> **圖片摘要：**
+> 男子身著紫色連帽衫面對鏡頭，胸前印有 Paragraph 品牌字樣。
 >
-> ## 主要元素
-> 1. 實體: 年輕男性, 紫色連帽衫, Paragraph品牌標誌
-> 2. OCR文字: Paragraph
+> **主要元素：**
+> 1. 實體: 男子, 連帽衫, Paragraph
+> 2. OCR文字:
+> Paragraph
 > 2020 SUPER BIG COLLECTION
-> 3. 主題標籤: 品牌服飾, 街頭潮流, 男裝
+> 3. 主題標籤: 服飾, Paragraph
 >
-> ## 頁面關聯
-> 該圖片展示品牌服飾產品，可檢索錨點為 Paragraph 品牌。
+> **頁面關聯：**
+> 本圖展示品牌服飾實穿，連結 Paragraph 品牌產品資訊。
 
 陳柏安
 Po-An Chen
 Master Students
 NLP, Fintech, Judgement correction
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUB4PK_fTz9dk9i-eOqW1LnpS4nNV_pVoYCgJsH8xK_whbuyh2AjYgewEIGj8S2sJ9Zy19YqSX3Hiu3GzMRiAzBFJMT5vyxTQCcPFbrLaXXTU_hE8LyFd62DMyY79wHUYOow3-gMf94FUKWzZOysNH97W5DKfTXKP8iNL7dkfb4Z_HI1D9Te2Cl0NEvef_mPCcWGmwCmwhw5SdXbWBL1wthP6v1CdXn4XOxp=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUClkcb_hhLEMytlXXg9J8pvOKzRaZNepztWVxTl7L8bfIztjZ2houqaAo9JP9VDD45Zg_vx6cGIklybMIzYk6DaLMsjRB83WD3TSfur658pb7--sHCcTFtlIqnLvhs2rVVHwIm-dpfAjojOW0aGKztOw-J1wcCOf3_QhEGHF_zPJzB3UGy1UydIhMvi7H6wh0uXLdia1EOVhtuPRzMdHLlYzLpzakOZ7cB5=w1280)
 > # Image-14
 >
-> ## 圖片摘要
-> 一名穿著軍綠色短袖襯衫的男性正面半身照，以白色為背景。
+> **圖片摘要：**
+> 男性正面半身照，身穿橄欖綠色翻領襯衫，背景為純白色。
 >
-> ## 主要元素
-> 1. 實體: 男性，軍綠色襯衫
+> **主要元素：**
+> 1. 實體: 男性, 翻領襯衫
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像，人員照片
+> 3. 主題標籤: 人物照, 個人檔案, 證件照
 >
-> ## 頁面關聯
-> 該圖為個人照片，對應網頁中的人員識別資訊。
+> **頁面關聯：**
+> 圖片為人物檔案照，作為使用者個人頁面或簡介識別標籤。
 
 熊偉如
 Leonard Valentino Jusuf
@@ -272,56 +274,56 @@ Fintech, Judgement Correction
 ## Alumni
 
 [Thesis Advised](https://sites.google.com/site/nculab/publication/thesisadvised)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBE-T4oNhZbqyuegLKdVj_FJ748QNN-VObUMMP9FbexXXKQZkzdO-0Z-uqmkkYhDmZVRRn4TJXR03CTbZomqQyiNbJjZrLuOWdBrhUhxSOytYQ825PTgx4k2dSu9CWDDTjpefEyN2O-JGC8svwuGtVHi8SKLVqMh2myB4EphQHDqFoCoshAWmp9O49xEO1yn5_XjLgX0_f2rKGm-wo8TSnnMScxwVAdCrrzsLI=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUA2V_WYsnKdKVlBYLxJgu2M7PHd-8iyyHmmg4OjY_g_DfTerR5qzYyqojTBxcfAzma67XX0WHjwRdYPO04DwsVOWyGpK_0xrFaVAPQgppYiU9Qr-HGaTTeIPnmcbrGmVwQcCyJn-9itee1PGKsc9ZMm3N1pgcnDEv-l-l4DenGBfyVyfYWKow3mDorWHBmGxVgYfAKgn4xbJBLAgkrO4Vs0A9S9Avew_QjuXXc=w1280)
 > # Image-15
 >
-> ## 圖片摘要
-> 男子佩戴圓框眼鏡，身穿白色上衣，右手比出手指愛心，背景為枝垂櫻樹。
+> **圖片摘要：**
+> 男子身穿白衣，右手比出手指愛心，背景為樹枝與櫻花。
 >
-> ## 主要元素
-> 1. 實體: 男子, 圓框眼鏡, 手指愛心, 枝垂櫻
+> **主要元素：**
+> 1. 實體: 男子, 手指愛心, 櫻花, 樹枝
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物攝影, 櫻花
+> 3. 主題標籤: 人物肖像, 旅遊, 櫻花
 >
-> ## 頁面關聯
-> 人物形象展示，用於個人簡介或生活記錄頁面。
+> **頁面關聯：**
+> 圖片顯示人物特寫，用於個人社群頁面或旅遊紀錄。
 
 黃冠傑
 Guan-JieHuang
 Master Students
 
 "WIDM是你唯一的歸宿"
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDUcEwfjzCdQXQExFb7aKo10FA4fPekvpB4eUKb7W61Dxlx50V-aGMvq2CgvwPa0QnVP6-vOfHkHOrJUSKouhfaJRnKA3G_exfZ-UtDGsNEdKc3SbJnQX2AVwrctluCVGoRTzRgWOfnltLPncjNKQaJERpXz4bRPP5AwN7EcAH_WAaWtPlLada2D5s2y4BTGP1OmkQPpaSyt4bGIKgwDDwgQ9hBuPHv8t_iTk4=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDNu3VSKU16zBNMbG2_666KMbPtoxKk6QHTU2_HvSXjI6zikpnC0qdnf3pxeHKPZ6WxPX4F0AQTn3BHi7_3N3AxMub1eBiC6-XoMoHdqpY1wAN5p3ZiyJU5cRhGe40kyv31J_7T7NkhNATF3MzhjmNV8S-C9IpR02a5fdkty5xttIxWb6tgRE7iA5QDQv6TytH7LgLrulv2euWJd9aMX5AhaEHV4eI3soi8wGs=w1280)
 > # Image-16
 >
-> ## 圖片摘要
-> 年輕男子正面半身照，戴細框圓形眼鏡，身穿淺灰色短袖圓領上衣，背景為單一米白色牆面。
+> **圖片摘要：**
+> 男性青年穿著淺灰色圓領上衣，配戴細框圓形眼鏡，正對鏡頭拍攝半身像。
 >
-> ## 主要元素
-> 1. 實體: 年輕男子, 細框眼鏡, 圓領上衣
+> **主要元素：**
+> 1. 實體: 男性青年, 圓形眼鏡, 淺灰色圓領上衣
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像, 頭像, 個人照
+> 3. 主題標籤: 個人形象照, 人像攝影
 >
-> ## 頁面關聯
-> 此為個人頭像照片，呈現人物正面形象，作為個人識別或頁面展示之用。
+> **頁面關聯：**
+> 本圖為個人肖像，用於識別特定人物身份資訊。
 
 黃淯銘
 Yu-Ming Huang
 Master Students
 NLP, Event/Relation Extraction, Question Generation
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCSxHBrwRdz1kxBI-UyqvTX7A5JByXTwjj1iYe8i-_nH1C8wg0D0QRIH343sKAk0HxZi_eSjUKYIOqJaYSKPOf7myRswg-Ay2SytK4E1GnG-bPdUJwXUXy0QdqbCT50HNnM7tKBKsBEQkdII6gDwjp1D72B14DWtqiZHbKivXU_ZQpIOpqp0jUiM6TOeRFb66zH2Y2Gvu-LQZg1V1HEO1Be4IQdOVAtz_Lz=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBY8fiN0yPVNeDZKg-ntIclAqSN-lr05_nN-6Gv3GcCewKWhWkjnJ3F965xHSpacK061kWNSiQvqpw53W_dCibi5QLX8oh8VZcJGwvnSWyD_sn1CR_h_mpy9yq5odFNn0rcyXlDMoIahho_3jn-JpI7QT48eoCBjDyyprsTRB4d0LTwjt5VzZUK1Wtvyl2OT6D13Fo1JdcLvVrp8WwbCNt6Kj7M3tYO6X2p=w1280)
 > # Image-17
 >
-> ## 圖片摘要
-> 戴眼鏡男子在海邊蹲姿，食指輕點高聳層疊的扁平石頭塔頂部，背景為海灘與海洋。
+> **圖片摘要：**
+> 男子蹲姿於礫石海灘，右手食指輕觸疊石塔頂端，疊石塔位於畫面左側，背景為海洋與天空。
 >
-> ## 主要元素
-> 1. 實體: 男子, 石頭塔, 海灘, 海洋, 眼鏡
+> **主要元素：**
+> 1. 實體: 男子, 疊石塔, 礫石海灘, 海洋
 > 2. OCR文字: 無
-> 3. 主題標籤: 戶外活動, 海岸, 石頭堆疊, 海邊休閒
+> 3. 主題標籤: 疊石, 海灘活動, 景觀
 >
-> ## 頁面關聯
-> 此圖為石頭堆疊活動紀錄，展示人物與海岸景觀的互動，作為個人動態或旅遊攝影檢索錨點。
+> **頁面關聯：**
+> 圖片展示個人海邊活動，屬於人物生活紀錄，可檢索錨點為海灘活動。
 
 洪閔昭
 Min-Chao Hung

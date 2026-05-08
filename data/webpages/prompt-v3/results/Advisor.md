@@ -1,17 +1,17 @@
 # Advisor
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDSpMPUGH-xA_EsfTpJNULZAp2VRuJEwJoP1tCdR7MjLC9yHK-vAW4jpTz8YPw2l-kFQKHznaeAGybvldd5y7-TiGzJZp9HY1kXZyhsHsb3JJRncvWyA1M-GfJuoBeO5DkL-DiCt3gFykT2bTxw5oU9l1peplARpyMnjUWUdSXjf98qhwTwXvyQaLM1mqTTPTjIJA1SGUujApIjSM5H_tdXA9fKHrHEHXAUuTc=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDZk8xCvN7gdT7tKEu37p8DTDcPPv2Z3m6zJLzvXebkdyRNjvFQZyEYftvYFb-dfZdBRIy6BkEcgfpR7axZQgG8kEbkQcEld8U0bvvevcS_jd6MvkU5-VuJG6PD1-1lgom9Zgg0c4UvCktJqKnviEiUiaTmTZExS0f7umro-FzCctgCW5RTpSD9Lfkb_LBdsDJgVuM64P_xpymgizi5O_KElhaRtPQmXqI6-Vs=w1280)
 > # Image-1
 >
-> ## 圖片摘要
-> 一名戴眼鏡的女性身穿黑色上衣、掛著藍色識別證，背著後背包，站在戶外背景前微笑。
+> **圖片摘要：**
+> 女子佩戴眼鏡、藍色識別證帶及後背包，站立於戶外丘陵景觀前方。
 >
-> ## 主要元素
-> 1. 實體: 女性, 識別證, 眼鏡, 後背包
+> **主要元素：**
+> 1. 實體: 女子, 眼鏡, 識別證帶, 後背包, 丘陵
 > 2. OCR文字: 無
 > 3. 主題標籤: 人物肖像, 戶外活動
 >
-> ## 頁面關聯
-> 該圖片為相關頁面的人物識別影像，顯示該名人士參與特定活動的現場。
+> **頁面關聯：**
+> 圖片為人物肖像，所屬對象為個人頁面或活動紀錄。
 
 [0000-0002-1101-6337](https://www.google.com/url?q=https%3A%2F%2Forcid.org%2F0000-0002-1101-6337&sa=D&sntz=1&usg=AOvVaw3wPdd5E5dDAlO-souovXb2)
 chiahui@g.ncu.edu.tw

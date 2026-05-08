@@ -8,17 +8,18 @@ Taiwan is one of the top countries to provide free WiFi access points for all vi
 引入廣告的營運模式是相當自然的發展。早期無線電視節目，近代網路服務如Google搜尋、臉書、LINE免費APP等服務等，已經應用的相當成熟。但是在電信服務上一直處於向消費者付費的B2C (Business to Consumer)營運模式，很少有系統業者會去開拓與廣告業務相關的B2B (Business to Business)系統。國內只有統一7-11的電信服務，在全省四千多家門市提供Wi-Fi上網服務，提供每日3次免費30分鐘上網，藉以吸引顧客提高回店率，也透過消費者的行動裝置推播廣告、進行產品的行銷。
 而就國內目前的情況，即使政府提供許多公共Wi-Fi無線網路，使用者的上網體驗仍然有相當大的改進空間。不少人一坐下來即開始搜尋無線網路，詢問登入密碼。在人潮擁擠之處，光是取得IP都要耗費數十秒之久，更遑論等待登入頁面出現的時間，以及密碼輸入錯誤或是忘記密碼等其他問題，因此解決使用者登入的順暢度是重要的問題。而更進階的期待，則是能做到透過Wi-Fi網路達到B2B的商業模式以求系統的永續。
 我們提出一個Wi-Fi分享平台以及其搭配的APP，稱為「Wi-Fi登入通」。使用者可以透過APP (1)連網並儲存上鎖Wi-Fi的密碼、(2)替需要進行網頁登入的Wi-Fi熱點製作登入腳本並(3)儲存、管理以及分享密碼或者登入腳本並透過(4)計點機制賺取上網時間或者免費上網。透過Wi-Fi分享平台我們可以替使用者節省行動上網的費用、替分享者獲得利益(替店家行銷，客戶統計或分析)、創造與使用者的接觸機會和替電信業者舒緩行動上網流量的壅塞。
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAKdPdEaIss-DUBUalsBLq33FsiaF8W8uaNTvtWu_NxpoK9EcdsVQi1MarK4wpty2vHoHKPUzY6XV_rHjs50YzkgI9PCbDp6s9LUW90IKTAbFgRihBd3PqfKAqG43uDdif67Re4dZQ32YD6NzjI2q4zSg8JDD67MPd05QAk1kCb6z1HVE5ElrM-gMxC-eFGuR_DqWhY=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBmI43tgPUx0IQSFepqyjpmjD-M9oto-9hmMEU5D0Xy3LaeMYtvJYyGF_d66JD7bPMTfkyrjYVnCh1ZO57OpXq-HahBxcSicmhebTesyGnoQaBj2a5oKcGxkHqod9Scdyu5BDA1zniaTcz50cXUSpCmHg7FNc4lUijGgx1scTROLeMCO9kaoOdO14sgVAy3l7xlOqML=w1280)
 > # Image-1
 >
-> ## 圖片摘要
-> Wi-Fi登入通應用程式頁面包含軟體圖示、名稱、開發者資訊、安裝按鈕，下方並列三個手機介面螢幕擷圖顯示Wi-Fi熱點列表與中央大學無線網路服務登入畫面。
+> **圖片摘要：**
+> Wi-Fi登入通應用程式商店頁面，上方顯示應用程式圖示與名稱，下方並列展示三個包含熱點清單與登入介面的操作示範截圖。
 >
-> ## 主要元素
-> 1. 實體: Wi-Fi登入通, WIDM lab, 中央大學無線網路服務, 手機介面, 安裝按鈕
+> **主要元素：**
+> 1. 實體: Wi-Fi登入通, WIDM lab, Google Play, Android, 中央大學無線網路服務
 > 2. OCR文字:
 > Wi-Fi登入通 (Wi-Fi Pass)
 > WIDM lab Tools
+> 22
 > 3+
 > You don't have any devices
 > Add to Wishlist
@@ -41,20 +42,20 @@ Taiwan is one of the top countries to provide free WiFi access points for all vi
 > 使用者登入
 > User Login
 > username
-> 3. 主題標籤: Android應用程式, Wi-Fi熱點工具, 校園網路服務, NCUWL, WIDM lab
+> 3. 主題標籤: 網路工具, 行動應用程式, Wi-Fi認證, 中央大學
 >
-> ## 頁面關聯
-> 此圖為 Google Play 商店應用程式 Wi-Fi登入通 頁面，展示軟體介面與中央大學無線網路認證流程。
+> **頁面關聯：**
+> 本圖片為 Wi-Fi登入通 應用程式於 Google Play 商店的產品介紹頁面。
 
 [Download WiFiPass (WiFi登入通) APP from Google Play](https://play.google.com/store/apps/details?id=com.project.twwifipass&hl=en)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBV0PCVxLMdkOw_iaRp3jy7xyvjad-ttTeqF6tFup_LbieAJVEhoFI-Dgn1Iqoieq_TJBwLjQxMajyPF4yjUg8hA_Y57mfbRzwX1rvjscZhgMXWQNSFT988o_hENGAd22VofaCE3idFXtEHLYZ6D87syAceTygMOUcQhQAVs5vYj6f-xJLK3qcLv0T_oQ2PvhfYzw=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDdhVMFt_WrCDrRMasP4sRhrEalKfTgmD0D_VR4D62f6Q7Er7RewZ2gNoxpBR3nowCdKL4wZ6UyZaajlgXs9mRVJGEUGBmxQsIWGVr5RbC0GamE7tKdnkrIFKlWPP00yYdzJUgjxlKGKvp_4wAPlx0S7tx5DkBsl72h7Cfg5bRcz9Zlp2EcO5y11vTzfYBOe7XE1A=w1280)
 > # Image-2
 >
-> ## 圖片摘要
-> Y5PASS 應用程式於 Google Play 商店的頁面，上方為藍色圓形圖標，下方顯示程式名稱、開發者 WIDM lab 及安裝選項。
+> **圖片摘要：**
+> Y5PASS 應用程式介面顯示藍色圖示，下方排列解除安裝與開啟按鈕。
 >
-> ## 主要元素
-> 1. 實體: Y5PASS, Google Play 商店, WIDM lab, 應用程式圖標, 安裝介面
+> **主要元素：**
+> 1. 實體: Y5PASS, WIDM lab, 應用程式圖示, 解除安裝按鈕, 開啟按鈕
 > 2. OCR文字:
 > Y5PASS
 > Y5PASS
@@ -62,9 +63,9 @@ Taiwan is one of the top countries to provide free WiFi access points for all vi
 > 3+
 > 解除安裝
 > 開啟
-> 3. 主題標籤: 應用程式, 軟體下載, Android, 行動應用
+> 3. 主題標籤: 軟體應用, 行動裝置, Y5PASS, WIDM lab
 >
-> ## 頁面關聯
-> 此圖為 Android 系統應用程式商店頁面，展示 Y5PASS 產品安裝狀態與開發者資訊。
+> **頁面關聯：**
+> 本圖為 Google Play 商店中的 Y5PASS 產品頁面，由 WIDM lab 開發。
 
 [Download Y5Pass APP from Google Play](https://play.google.com/store/apps/details?id=tw.edu.ncu.wifipass&hl=en)

@@ -21,8 +21,7 @@
 ### 2024
 
 
-
-  1. Jo-Chi Kung, Huai-Hsuan Huang, Kuo-Chun Chien and Chia-Hui Chang: A Narrative Assistant for Traffic Accidents Based on Large Language Models (LLM) (Long) Brno, Czech Republic. 11-13 December 2024.
+1. Jo-Chi Kung, Huai-Hsuan Huang, Kuo-Chun Chien and Chia-Hui Chang: A Narrative Assistant for Traffic Accidents Based on Large Language Models (LLM) (Long) Brno, Czech Republic. 11-13 December 2024.
   2. Kuo-Chun Chien, Chia-Hui Chang, Huai-Hsuan Huang and Jo-Chi Kung: Prosecutorial Outcome Predication with LoRA and QLoRA (Short)Brno, Czech Republic. 11-13 December 2024.
   3. Jhuoan Li* (李倬安), Jason Yeh (葉展維), Chia-Hui Chang: 基於深度學習的跨多輸入法編輯器整合系統 (#81), [TAAI 2024](https://taai2024.org/program-of-domestic-track/) (Appier Award).
   4. Yuan-Hao Lin; Chia-Hui Chang; Hsiu-Min Chuang: [Fine-Grained Meetup Events Extraction Through Context-Aware Event Argument Positioning and Recognition](https://link.springer.com/article/10.1007/s44196-024-00697-0), International Journal of Computational Intelligence Systems 17, 296 2024. [https://doi.org/10.1007/s44196-024-00697-0](https://doi.org/10.1007/s44196-024-00697-0)
@@ -67,7 +66,6 @@
   9. Chia-Hui Chang, Zhi-Xian Liu, Yu-Ching Liao, Yu-Hao Wu , Thamolwan Poopradubsil: [Chat-log Disentanglement via Same-Thread Classification and Direct-Reply Prediction](https://aclanthology.org/2022.paclic-1.11/), accepted by [PACLIC 2022](https://www.paclic2022.net/papers.html).
   10. Chia-Hui Chang, Yu-Ching Liao and Ting Yeh:[Event Source Page Discovery via Policy-based RL with Multi-Task Neural Sequence Model](https://drive.google.com/file/d/1zalwnKtxsF7bpJceB7Tsw-uxH0c1noNh/view?usp=sharing), accepted by[WISE 2022](https://wise2022.sigappfr.org/). [[pdf](https://drive.google.com/file/d/1h2NxZqgz7xdizQ4BPnSCtQxRovnqiewv/view?usp=drive_link)]
   11. [Chia-Hui Chang](https://sites.google.com/site/jahuichang/), Cheng-Ju Wu and Tzu-Ping Lin:[Automatic Web Data API Creation via Cross-Lingual Neural Pagination Recognition](https://drive.google.com/file/d/1h2NxZqgz7xdizQ4BPnSCtQxRovnqiewv/view?usp=sharing),[ICWE 2022](https://icwe2022.webengineering.org/programandsessions/) (accept rate: 22%).
-
 
 
 ### 2021
