@@ -1,18 +1,18 @@
 # Advisor
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAT_85cwJo2fiZTwHWfdGZf3CqE8au2QMULjTG_-5tFFFUGNVVyob7wLFhkuTJ8ul8UC_LdXC_4wTRoE1jUTONhPRK7cTuOOcPVe6eAFF4cpwCvtvRHxCCu3VWZ8-uMJv_cA0g-bz4559jpm4XBvk2MVeRWueMCOHSsGRzasnl8EpREqzpFAtMQNvKDX7xsDI4avuZQxQtSeMJ0XVXPYpv9b1EJwtnT5uDIORs=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAwGB11sLyewznxTp2_dXoqkUOHKJ_f0R7FsFK5vsB6yV0eifcwDUWpsCWluUniWOXICFkF7dKMOXftaKKo4AsdqjIPF5l6TfJC_N7IOngxB1-JRmyu2IMEsoQeCVm82cNrqOyNm7-5cNXK1biR4BkG7ULLP7bwcMN1o3lFJfYJFgrNC_iQnsb6A42GJcSqrML1daoIByRMO4xF-9DjIS20pMTn0E5yf-cI-M0=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 女子佩戴眼鏡與識別證，身穿黑色上衣，背負背包，站在戶外山坡風景前。
+> 戴眼鏡女性正向站立，身後為土耳其棉堡石灰華階地與藍色池水，頸部配戴藍色識別證帶。
 >
 > **主要元素：**
-> 1. 實體: 女子, 眼鏡, 識別證, 背包, 山坡
+> 1. 實體: 女性, 眼鏡, 識別證帶, 棉堡, 石灰華
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像, 戶外活動
+> 3. 主題標籤: 人物肖像, 土耳其旅遊, 棉堡, 景點導覽
 >
 > **頁面關聯：**
-> 圖片為人物資訊頁面之個人肖像。
+> 圖片呈現遊客於棉堡景區的個人肖像，屬於旅遊紀錄或個人頁面。檢索錨點：棉堡。
 [0000-0002-1101-6337](https://www.google.com/url?q=https%3A%2F%2Forcid.org%2F0000-0002-1101-6337&sa=D&sntz=1&usg=AOvVaw3wPdd5E5dDAlO-souovXb2) chiahui@g.ncu.edu.tw
 
 +886-3-422-7151 #35302 Engineering Building 5, B302 Jhongda Road, Jhongli Dist. Taoyuan, Taiwan [個人首頁 / Personal Website](https://sites.google.com/site/jahuichang/)

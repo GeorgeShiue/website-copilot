@@ -58,13 +58,13 @@ class WebpageImageSummarizer:
     # * 下載和摘要拆成兩個模組
     def summarize_crawl_results_images(
         self,
-        crawl_results: list[dict[str, Any]],
+        crawl_results: dict[str, dict[str, Any]],
         model: str = "gemini/gemini-3-flash-preview",
         prompt: str = DEFAULT_PROMPT,
         vlm_max_workers: int = 10,
         image_source: Literal["images", "markdown"] = "markdown",
         **litellm_kwargs: Any,
-    ) -> list[dict]:
+    ) -> dict[str, dict[str, Any]]:
         """
         使用 VLM 總結所有爬取下的網頁中的圖片。
         若一輪後圖片下載成功率 < 80% 且嘗試數足夠，視為可能被擋，依指數退避自動重試。
@@ -115,11 +115,11 @@ class WebpageImageSummarizer:
 
     def _summarize_crawl_results_images(
         self,
-        crawl_results: list[dict[str, Any]],
+        crawl_results: dict[str, dict[str, Any]],
         target_urls: set[str] | None = None,
-    ) -> list[dict]:
+    ) -> dict[str, dict[str, Any]]:
         """摘要爬取的網頁中的所有圖片。"""
-        for crawl_result in crawl_results:
+        for page_title, crawl_result in crawl_results.items():
             crawl_result_content = self._retrieve_crawl_result_content(
                 crawl_result, target_urls
             )
@@ -127,7 +127,7 @@ class WebpageImageSummarizer:
                 continue
 
             log_session(
-                f"Summarizing Images in [{crawl_result.get('md_file_name', '<unknown>')}]",
+                f"Summarizing Images in [{page_title}]",
                 style="blue",
             )
             fit_markdown, image_urls = crawl_result_content
@@ -138,8 +138,13 @@ class WebpageImageSummarizer:
             )
             self._download_images(image_uncached_urls)
             self._generate_image_captions(caption_uncached_urls)
-            enhanced_markdown = self._enhance_markdown(fit_markdown, image_urls)
-            crawl_result["enhanced_markdown"] = enhanced_markdown
+            crawl_result["enhanced_markdown"] = self._enhance_markdown(
+                fit_markdown, image_urls
+            )
+            for image in crawl_result.get("images", []):
+                url = image.get("url", "")
+                if url in self._image_captions:
+                    image["caption"] = self._image_captions[url]
 
             self._log_stats(self._page_stats)
             self._all_page_stats["success"] += self._page_stats["success"]
@@ -215,7 +220,7 @@ class WebpageImageSummarizer:
             image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
         elif self.image_source == "images":
             images = crawl_result.get("images", [])
-            image_urls = [img.get("src", "") for img in images if img.get("src")]
+            image_urls = [image.get("url", "") for image in images if image.get("url")]
 
         if target_urls is not None and not (set(image_urls) & target_urls):
             return None
@@ -448,36 +453,25 @@ class WebpageImageSummarizer:
             return markdown
 
         enhanced_markdown = ""
-        if self.image_source == "markdown":
-            lines = markdown.splitlines(keepends=True)
-            enhanced_parts: list[str] = []
-            occurrence_index = 0
+        lines = markdown.splitlines(keepends=True)
+        enhanced_parts: list[str] = []
+        index = 0
+        for line in lines:
+            enhanced_parts.append(line)
+            line_image_urls = MARKDOWN_IMAGE_PATTERN.findall(line)
+            for _ in line_image_urls:
+                if index >= len(image_urls):
+                    break
 
-            for line in lines:
-                enhanced_parts.append(line)
-                line_image_urls = MARKDOWN_IMAGE_PATTERN.findall(line)
-                for _ in line_image_urls:
-                    if occurrence_index >= len(image_urls):
-                        break
-
-                    url = image_urls[occurrence_index]
-                    occurrence_index += 1
-                    caption = self._image_captions.get(url, "")
-                    if caption:
-                        enhanced_parts.append(
-                            f"> # Image-{occurrence_index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
-                        )
-
-            enhanced_markdown = "".join(enhanced_parts).rstrip()
-        elif self.image_source == "images":
-            captions = ["---\n\n# Image\n\n"]
-            for i, url in enumerate(image_urls, 1):
+                url = image_urls[index]
+                index += 1
                 caption = self._image_captions.get(url, "")
                 if caption:
-                    captions.append(
-                        f"# Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
+                    enhanced_parts.append(
+                        f"> # Image-{index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
                     )
-            enhanced_markdown = markdown + "".join(captions).rstrip()
+
+        enhanced_markdown = "".join(enhanced_parts).rstrip()
 
         return enhanced_markdown
 

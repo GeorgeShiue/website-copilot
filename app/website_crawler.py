@@ -54,6 +54,8 @@ HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
 INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
 WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
 
+MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
+
 
 class WebsiteCrawler:
     def __init__(
@@ -86,7 +88,7 @@ class WebsiteCrawler:
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
-    ) -> list[dict] | None:
+    ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
         self.url_patterns = url_patterns
@@ -169,10 +171,10 @@ class WebsiteCrawler:
     def _filter_crawl_results(
         self,
         crawl_results: list,
-    ) -> list[dict]:
+    ) -> dict[str, dict]:
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
-        filtered_results = []
-        existed_md_file_names = set()
+        filtered_results = {}
+        existed_page_title = set()
 
         for crawl_result in crawl_results:
             logger.debug("-" * 30)
@@ -193,29 +195,29 @@ class WebsiteCrawler:
                 title = heading_match.group(1).strip()
                 safe_title = INVALID_FILENAME_CHARS_PATTERN.sub("", title)
                 safe_title = WHITESPACE_SEQUENCE_PATTERN.sub("_", safe_title)
-                md_file_name = safe_title
+                page_title = safe_title
             else:
-                md_file_name = crawl_result.url.split("/")[-1]
+                page_title = crawl_result.url.split("/")[-1]
 
-            if md_file_name in existed_md_file_names:
+            if page_title in existed_page_title:
                 self._crawl_stats["repeat_pages"] += 1
-                logger.debug(f"Webpage {md_file_name} already exists, skipping...")
+                logger.debug(f"Webpage {page_title} already exists, skipping...")
                 continue
-            existed_md_file_names.add(md_file_name)
+            existed_page_title.add(page_title)
 
-            # images = crawl_result.media.get("images", [])
+            image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
+            images = [{"url": url} for url in image_urls]
             # self._crawl_stats["image_count"] += len(images)
 
             filtered_result = {
-                "md_file_name": md_file_name,
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
-                "images": crawl_result.media.get("images", []),
+                "images": images,
             }
-            filtered_results.append(filtered_result)
+            filtered_results[page_title] = filtered_result
             self._crawl_stats["success_pages"] += 1
 
-            logger.debug(f"Successfully crawled webpage: {md_file_name}")
+            logger.debug(f"Successfully crawled webpage: {page_title}")
             logger.debug(f"*  URL: {crawl_result.url}")
             logger.debug(f"*  Depth: {crawl_result.metadata.get('depth', 0)}")
             # logger.debug("Images:")

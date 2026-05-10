@@ -1,11 +1,12 @@
 [init]
+success_threshold = 0.8
+cache_image_captions = true
+cache_download_images = true
 download_timeout = 10.0
 max_retries = 6
-cache_download_images = true
-cache_image_captions = true
-success_threshold = 0.8
 
 [summarize]
+model = "gemini/gemini-3.1-flash-lite-preview"
 image_source = "markdown"
 prompt = """
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。
@@ -44,4 +45,3 @@ prompt = """
 - 低資訊字只在內部過濾，不列入最終輸出
 """
 vlm_max_workers = 20
-model = "gemini/gemini-3.1-flash-lite-preview"

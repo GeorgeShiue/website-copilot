@@ -48,78 +48,79 @@ The Web Intelligence and Data Mining Laboratory at National Central University i
 
 賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCtjSgAFz22fLL3fBPH6INrBHmVkN0uznVdt10gaUObxFzLc56XfOcM0O1sn3idy7_7gEdqnFLCW1qql2Lz-P_fF4mfRyOi3xVZBsL5Nrc6-3le9T10By3jxycvDUInucMGIOFBepCOJwM8ujJWL-LKNxIREx9XxbBd15fp75OijGw1QaFjilHQLnc=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAf4udWbj7FxRsmYdSKvn6K6qzWy2wQn7AMFtGVQRMHRcBbzJQeQ9HcqAqkoQc-X--PUarvXz4rVS-aDaXf7F5amG7L6DPPvyRkGEkUkntGMvVrya2dDQPKT_f4UbMpCikfmXvjwtoMLwf-zD5CWPwVArgRdQ89gKN_MC1RYRZn-W6xxHW6n8tbRwg=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 藍色機器人頭像置於中心，方型螢幕臉部呈現微笑表情，底部標示 AI 字樣。
+> 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
 >
 > **主要元素：**
-> 1. 實體: 機器人, 方型螢幕, 微笑臉部
+> 1. 實體: 機器人, 顯示幕, 笑臉, AI
 > 2. OCR文字: AI
-> 3. 主題標籤: 人工智慧, 機器人學, 數位圖示
+> 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
 >
 > **頁面關聯：**
-> 呈現 AI 領域相關視覺符號，標示為人工智慧主題識別圖。
+> 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
 [EduACT](https://eduact.csie.ncu.edu.tw)
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAFyDMZnah7A-rOKmvrab4ohlwt_1juQV_MBy7hT-mdUmpLAMF45jp4r1_emk5qVZy9eehhcz4lVJ3vTjm8kXgRsgfN00UdH8k6PB1QL701xrPl9DOcioqIKcREwb1RjkH7reyPPuqCggAR9twTXQtfVlcFik9_mz1UIj-TlIbUzdnzRG-s8xksVfM=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBq3wuDxVZEDNj1RLex8jporVVO6yvqCS4VknB991L3mZZlMKX3VpMJgPnm-UsiQ1hwM6z3Q3K59_Kv5HQcE7BdTrz33S6K1quP2KaGfQu8wHXpIhyrt9oXtUQcdiX6rsdgF6XqGcGeYex3ypXmPQhPoH0EH0ZSc8u3yQ15ZJvPWsOaBN8HMi8vYSk=w1280)
 > # Image-2
 >
 > **圖片摘要：**
-> 一本咖啡色厚書放置於左後方，右前方為印有法律文字與盾牌標誌的紙張。
+> 一本棕色書本前方放置一份標有 LAW 字樣的白色文件，文件左下角繪有盾牌標誌。
 >
 > **主要元素：**
-> 1. 實體: 厚書, 文件, 盾牌標誌
+> 1. 實體: 書本, 文件, 盾牌
 > 2. OCR文字:
 > LAW
-> 3. 主題標籤: 法律, 法規, 司法, 文件
+> 3. 主題標籤: 法律, 法規, 文件
 >
 > **頁面關聯：**
-> 本圖為法律相關頁面之標示圖示，隸屬於法律文件與法規條文檢索項目。
+> 頁面內容關聯法律文件與規範主題。
 ### Legal AI
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBRrRsRGkf3U6140yacgrUjdl1O46cNwzGMXvGoGVyEX7nUb64Rqn6rHFhlyvMSk2rcZtyAYCC2G6E3tEHL23b7I1NKq48K9xIvtybrcwcU6dB3kPa_eyMEKb5E2w3LDGGXFFxvXXt_SERoEfDNgHwOZASp766uqvqKNLeltDvNlzsKUb0AOLLjOPf41cCdgRHwChpuVKIjYzA=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBKtNKVzVoNJY1j9Q8yhjK4oQuUfoeVysxjqTVJhQMc-51pnTOvSHZbDZ_24c3-iMvJTlZDdCfNJmGDB8H8DK9i3d7YIhGXb0ZtbHHA2PXqxckiCSYs61vT7UdSQo6snk7cXP6Z56CoKYh9cWnFlKDNd5kiQZtd-mpESr2cNgZ7VLUdLjuX7BbK59jZeY-uEOsZZ9KHzTxe36Q=w1280)
 > # Image-3
 >
 > **圖片摘要：**
-> 藍色長方形月曆圖示置於淺綠色圓形底色中央，上方有兩個深藍色扣環，中間標示數字1。
+> 藍色日曆圖示中央標示數字 1，置於綠色圓形底色之上。
 >
 > **主要元素：**
-> 1. 實體: 月曆圖示, 數字1
+> 1. 實體: 日曆圖示, 數字 1
 > 2. OCR文字: 1
-> 3. 主題標籤: 日期, 時間管理, 行事曆
+> 3. 主題標籤: 行事曆, 日期, 使用者介面元件
 >
 > **頁面關聯：**
-> 圖片為日期與行程管理功能的圖示，用於行事曆應用程式或日程排程頁面。
+> 顯示日期資訊或行事曆功能的檢索錨點。
 [EventGo!](https://eventgo.widm.csie.ncu.edu.tw)
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUChqEKKprdyyqVeeMrbPISQt_tGSKD0t2r954V6lWx3BIHNuJjRCnHORDI1lqS3Ua76IsmvLUQWTJnBGAMRbCynNMx2-L_uh85GDI1ASr95rXt-__CZVnAwk4mVPHt3Flk14zhYsXTUtu2q4rNyLERxsgKpVN3gJ6frADFMBXCi3_ESQUHX-Sy2ywsKU1kJWHKdcSEa0Pq9Vm5SEp9Vmy7fperqmolXLRnwgQY=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCHF3ap0LAfNSjRqDDC5eIqK5Asn7qMCF6SzrGhJ5zLweEMCCmrBYBxou8K5yWqmSKaBEaCfTGn8PdKI8sHev494010Fbrsja5Dyk1xUf_cJEyaAEulKrANG-HF_keO3wZmmxkZK3N92cyO-mRiiXz1yuAdH153PHQMq6WAWbA7t_pXFkOajFMF8VNQExsbHnFdbAoIOwuHgLdUpV-LzVa536DgSijLVBuE8ns=w1280)
 > # Image-4
 >
 > **圖片摘要：**
-> 雲朵圖示位於齒輪圖示上方，齒輪中心顯示 API 字樣，雲朵內含雙向箭頭。
+> 雲朵圖示位於齒輪圖示上方，齒輪中心顯示 API 字樣，雲朵內含紅藍雙向箭頭。
 >
 > **主要元素：**
-> 1. 實體: 齒輪, 雲朵, 雙向箭頭, API
-> 2. OCR文字: API
-> 3. 主題標籤: 應用程式介面, 雲端運算, 軟體整合, 系統架構
+> 1. 實體: API, 齒輪, 雲朵, 雙向箭頭
+> 2. OCR文字:
+> API
+> 3. 主題標籤: 軟體開發, 雲端運算, 系統整合, API接口
 >
 > **頁面關聯：**
-> 本圖為軟體系統架構圖，說明 API 雲端資料交換機制，檢索錨點為 API。
+> 本圖為軟體系統架構圖示，代表 API 雲端服務串接功能，檢索錨點為 API。
 [Data API Creator](http://140.115.54.44:8001/)
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBRD03VDhLwDR5Anj5xlC-6qMas9guyE6mi1TziMhJpusBlOk5SfFjkmj7tCOglf2NSMfLdBhjXQ9bbYCOl87mlEKwNB_WF5BbxXKELSHrBviwu-iDdSKq1KsA1vwVkiwwTueP_hf9BuEvJYnrH3F-VdJgaMPFia44-t2PZV6MP5U0Gs9RN1xc_xwsuyAp7jVISPMWEakz4d_br2xsNAL7yljD227zcvIabjis=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUB_G2HK2gfULNjdHuBEas-2ADIll9jWt05WZGEtkQ6NGEAFT8YUc5i1y1PHnI3Zyp5x3KcnqcIRg6ggwm_g-0WR1yOpXA597b0VEUni3_iHgKk30sOFz7INxj7gHpVEsmoIGDDOfePGfVd7OyfWS4s0Ue8OsfwzwJrQxYawCvUOdk13r9fiHKB7z4mdtvqiXlQAUl4PPh09lPXNWnPQh0stGGlc6UkbDXC_7DA=w1280)
 > # Image-5
 >
 > **圖片摘要：**
-> 手持裝置螢幕顯示包含圖片區塊與文字列表的網頁版面配置。
+> 手持智慧型手機，螢幕顯示包含文字區塊與圖像區域的排版佈局。
 >
 > **主要元素：**
-> 1. 實體: 手持裝置, 網頁版面, 顯示螢幕
+> 1. 實體: 智慧型手機, 手掌, 螢幕排版, 文字區塊, 圖像區塊
 > 2. OCR文字: 無
-> 3. 主題標籤: 網頁設計, 行動裝置, 使用者介面, 版面配置
+> 3. 主題標籤: 行動裝置, 介面設計, UI設計, 手機應用
 >
 > **頁面關聯：**
-> 呈現行動裝置網頁設計的檢索錨點，所屬對象為 UI 設計資源。
+> 呈現行動裝置介面設計，隸屬於應用程式開發或網頁瀏覽主題，檢索錨點為行動裝置介面。
 [Mobile Web Creator](http://140.115.54.44:8000/)
