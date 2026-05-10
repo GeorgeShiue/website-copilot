@@ -2,7 +2,7 @@
 repo = "builtin"
 hooks = [
     # code style
-    { id = "end-of-file-fixer" },
+    { id = "end-of-file-fixer", exclude = '\.md$' },
     { id = "mixed-line-ending" },
     { id = "trailing-whitespace" },
     # git safety

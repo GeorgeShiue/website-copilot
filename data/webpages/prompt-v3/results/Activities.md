@@ -1,13 +1,15 @@
 ## Activities
+
 [Album](https://www.google.com/url?q=https%3A%2F%2Fwww.flickr.com%2Fgp%2F187371809%40N06%2F91adf8&sa=D&sntz=1&usg=AOvVaw0wj30FvANaxN2VY2Bw6aSp)
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDORQ6_fB1MgXoKvIidw7UB3YznkZtJgg8r33MDXuz3FI8BcjKswVQfHE79jZ80i1N_Yvpe6Ow7YFqyt4Ie4QJXazjGTrxqbVk6_elmT6v4cpNiLMeZaE1f7ZVoh7u0T6UDLNyS6utGeQxZeSLuFTIR19BNhalJNewL5qLKncstXtCCV5WLJjLjp4i1EMjKEyDmWy9tAFubNyp0Br0PmlG4vcgibxPdRKDU=w1280)
+
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUD_QzCX8hs3570KwRFA4DrJcmRbcwR1RKnKXPZewL_NATgIMmb9n1buGNB7k2UHwF4-b4J4QfxPCC0FNxHNUsEfd4oHd6ayDmhTjPHl_jDXSwWirlFsQwuRJzJqpaZJJse9Tl6d-lte2limFaWhPfYfP2kcyRrWdXItNUL3exXxh5Ah2B5_eMm1nyesVetistMXBgK7DxMS8HfGzhgJxl60snLcU3bPKstW=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 王品集團餐廳門口，一群年輕男女顧客合影留念，背景可見餐廳招牌、招募海報與營業中掛牌。
+> 一群人站立於王品集團餐廳門口合影，背景牆面設有王品集團招募海報與品牌標誌。
 >
 > **主要元素：**
-> 1. 實體: 王品集團, 五星會員招募海報, 餐廳門口, 顧客, 營業中掛牌
+> 1. 實體: 王品集團, 五星會員, 餐廳門口, 招募海報, 品牌標誌
 > 2. OCR文字:
 > 王品集團
 > 2025
@@ -15,244 +17,248 @@
 > 招募中
 > 2025/01/01-2025/12/31
 > 權益再升級
-> [圖示]
-> 極
-> POWER
+> 生日
+> 送餐點
+> 全日
+> 大優惠
+> 會員獨享
+> $100
+> 吃飽金
+> 3%點數
+> 回饋
+> 加贈17日
+> 吃飽金
+> 欲極
 > 和牛入魂
 > 日本和牛
 > 營業中
-> 3. 主題標籤: 王品集團, 餐廳行銷, 會員招募, 企業形象
+> 3. 主題標籤: 王品集團, 會員招募, 企業形象, 餐廳資訊
 >
 > **頁面關聯：**
-> 圖片為王品集團門市活動現場紀錄，用於展示會員招募活動與顧客互動。檢索錨點：王品集團、五星會員。
-
+> 圖片位於王品集團官方宣傳頁面，顯示團隊活動或會員招募現場，檢索錨點為王品集團。
 ### 2025/1/16
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDty3Qoya0S63_GvuFaH61W1l51H2DW73d8m7b1FQUuzSlNS-zRWLlnDh3X0Z3nr2hvS6PAYErhY3cLqH0xt7x38qhsBkjUjfiC4bthgEQLXU_xOosZJ5o7XgIMCF_vUGR5E6kkZfMfRSoeVDVLdkJxqFce2fF4KIvfosDvRCwCFRbFYYdijQg3kWh5LHcfGEQn9EkSnk4CZ5OfPixO6pQBWZ9VQA5ogSuzA8I=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAXyDTOAhlXTQfGVAcAMDouInQiHXhOlMwl1dou7StIdHa0r6bNJZDwB99QafGbA5ZVvKmSv_lfwKvGDX65mzK4K9AUfvbywolZizPaJtOKdw1iPjV3M3m6_SAJ7yAULhmMuX4fJn2Xm4b0BQc48vVABrug4AiOc6wKE4UkCBmW6A3ml_7is_beNf7Yp20QC6M04B1QvVux_BRp9iTHzeEcjjbDNYk86z0plvo=w1280)
 > # Image-2
 >
 > **圖片摘要：**
-> 一群年輕人在餐廳圍坐圓桌共同用餐，桌中央放置鴛鴦火鍋，周圍擺放餐具與菜盤。
+> 七名青年聚餐於火鍋店，中央放置雙味火鍋，多人比出剪刀手勢並面向鏡頭。
 >
 > **主要元素：**
-> 1. 實體: 年輕人, 鴛鴦火鍋, 餐桌, 餐廳, 餐具
+> 1. 實體: 青年群體, 雙味火鍋, 餐桌, 火鍋店
 > 2. OCR文字:
 > 和牛入魂
 > -140cm
 > -120cm
 > -100cm
-> 牛味
+> 激辣火鍋公報
+> 激辣火鍋公報
 > 涮起來！
-> 3. 主題標籤: 火鍋, 聚餐, 餐廳, 美食
+> 3. 主題標籤: 聚餐, 火鍋, 餐廳
 >
 > **頁面關聯：**
-> 圖片展示顧客於和牛入魂餐廳聚餐場景，檢索錨點為和牛入魂火鍋店。
-
+> 呈現和牛入魂餐廳聚餐情境，檢索錨點為和牛入魂。
 ### 2025/1/16
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDu84kM6P3k7PZ0SZ-bO-YAs3Ao8EtK41Yrx6J0oWZU3BuuapWqVyVRAMRWClEHEQvwGfJkJ0JwsAvhTcc1j0y9DeVGiOAOc0GAR7hU-lkXx1HGEHUNAA41c1OEjFseQTGFy3a0zyQeXue-WI1_WF_SjhAb4IJqjVkwwdikm3W7MIYn-5C5dMgAA2aDXJsu-FQorGLEzGg__Mf4Z0jRDJypVYYToxNm6SBK=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDOjLIdTk5tZvJxmrqGLgk8gxgF6oVd_EPufAme4frSOyzO3AOO3KoLP5wHdV4N5NTL206lQJK44neRJzOBSOtWSP_e_E4Jhv_wJF_MMqxZVNG0abhpZthslY2yjPZbGBRB0MKk6v2WnH6znYXHjYTSgPGLw7EdSDFMyfjIs3PdLkLV8wlQiXvJAf3l0tHBsxRV_pUSmC655AeFFqq5e-t8DOh_A0MYG2NS=w1280)
 > # Image-3
 >
 > **圖片摘要：**
-> 四位顧客於火鍋店用餐，桌中央放置鴛鴦火鍋，周圍擺放肉盤、餐具與菜單立牌，背景牆面設有電子菜單與富士山圖案。
+> 四位顧客於火鍋店用餐，桌中央放置鴛鴦火鍋，桌面擺放生肉盤、碗筷及菜單架。
 >
 > **主要元素：**
-> 1. 實體: 鴛鴦火鍋, 電子菜單, 顧客, 肉盤, 菜單立牌
+> 1. 實體: 鴛鴦火鍋, 顧客, 生肉盤, 菜單架, 餐桌
 > 2. OCR文字:
 > 極上和牛黑咖哩
-> 極上和牛咖哩
-> 和牛黑咖哩
+> 極上和牛碎肉
+> 和牛風味咖哩
 > うお
-> 美味い
-> 食放題
 > 食べ放題
-> 昆布湯
-> 九州蒜味湯
-> 和風泡菜湯
-> 地獄味噌湯
-> 3. 主題標籤: 火鍋店, 餐飲空間, 日本料理, 食放題, 聚餐
+> 燒肉
+> 3. 主題標籤: 火鍋, 餐飲業, 聚餐, 吃到飽, 日式料理
 >
 > **頁面關聯：**
-> 顧客聚餐場景，位於火鍋店內，背景呈現品牌電子菜單。
-
+> 顧客於火鍋餐廳內用餐，屬於餐飲服務場景，檢索錨點為吃到飽火鍋餐廳。
 ### 2025/1/16
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUD-mG9t-ovtuPJhdSYZAe9bmqd_LHxz6mMRVCuj2SioDRVmBlIlVsmOxTNmYUPqGcOL3qa0Nzt1KHNyiCMKnSARiIUkcKLgtAZ_DZnbF4x8QMK8IY0tzef_yNwgebeQysrPPtjrtdt09FF5vIt567qM7vUVH6pHT7O8r0VmR_89W-3FwoPCKrLaXqCUkRX_ruBfFSFaL3GnemqeB-jLSVrboz7ScGTUxuYUp70=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDyEFCEzf4zL511vAA-VlW8rkIUxq0uCWf7kEvFZ6B3cin0ypqGQMVYWzG4qLxlt_xwtVS6rvLT9m_rbDBCRYak9LyMrx1TjNVAAeJAOoF771_UFk9J9lumSO_tYf2UH3OmfeDlA8iD-USBZOZBqGvCs9MGEeNkpxiS3s1K-Q8DR9HlOMJTA9F6cL6x06OS88e8KhOaWj92NqsqsOfGI3mCBVSzQjKWIl5OPtE=w1280)
 > # Image-4
 >
 > **圖片摘要：**
-> 四人圍坐在餐桌旁，桌中央放置火鍋，男子手持手機由近處自拍，兩名女子分別比出剪刀手與讚手勢。
+> 四人圍坐在餐廳木桌前，中央置有加熱中的火鍋，桌上擺放生肉盤與餐具，後方設有長沙發座位區。
 >
 > **主要元素：**
-> 1. 實體: 四人合影, 火鍋, 肉盤, 餐桌
+> 1. 實體: 四人合照, 火鍋, 生肉盤, 長沙發, 餐桌
 > 2. OCR文字:
-> 潮肉
-> 3. 主題標籤: 餐廳聚餐, 火鍋料理, 潮肉
+> 潮辣
+> 金牌大師公證
+> 3. 主題標籤: 餐廳, 火鍋, 餐飲, 聚餐
 >
 > **頁面關聯：**
-> 圖片為潮肉餐廳聚餐場景，檢索錨點為潮肉。
-
+> 圖片顯示顧客於潮辣餐廳用餐，屬於餐飲聚會場景。
 ### 2025/1/16
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUC4Z4yVYaMVtp9Djl0LF4V01799csFOp7PBXcUgZdX5nVBQ6ys7FYI_b2F_d2pAk4zI6lB3JnfLuu96SEaGOc3l9rywVDBeZMb3TRdRRDJPY8JhmFSsEprPIDc1aWJZPwPq9GWO7zgC9aNkMarkPt9Je_pqDElZMSSrL_kFVUGroTskQw4aBhYUHSzAiwL3FH0Ocikf4XKYAcVjLKmeP57OGjfAowyp7Q_8=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUA9MdJXSbEVm3pwZMpqSKjWof32dyvVePEylq7Iuk_KF7tZXcg5GJD18mdRoKBryR2bToxxqhFaDOEQLljl8WIyNxm5nMFEwPmGNoTXPPbmHUFA0zQULH9sOjaK2Vjf3h6f5dJmU-3JqL1onIEYnsndU3ZMv07h4_OI0V8naBZml_mUAoZD0p69tI-aVNyrw-Jx2E4YBHFlq-tgDtZzJPVKy_YWc0ZiEjBS=w1280)
 > # Image-5
 >
 > **圖片摘要：**
-> 一群學生與師長站在木質階梯與牆面背景前，多位成員比出勝利手勢，女性教師位於前方中央。
+> 一群學生與一名女性教師站在木造露台階梯上合影，多數成員對鏡頭比出勝利手勢。
 >
 > **主要元素：**
-> 1. 實體: 學生, 教師, 階梯, 木質牆面, 拉拉熊玩偶
+> 1. 實體: 學生, 教師, 露台階梯, 拉拉熊玩偶
 > 2. OCR文字:
 > EDWIN
-> LEVI'S
-> STRAUSS & CO.
-> 3. 主題標籤: 教育活動, 團體合影, 校外參訪
+> LEVI STRAUSS & CO.
+> 3. 主題標籤: 團體合照, 師生聚會, 校園活動
 >
 > **頁面關聯：**
-> 校外參訪活動合影，成員包含教師與學生，檢索錨點為團體合影。
-
+> 本圖為團體活動合影，呈現師生互動情境，連結至教育活動或社團聚會頁面。
 ### 2023/6/2
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBuAWVPN2vt7hLLziSQjQq5iFAS3sbJQYcz713XckB7arkGiXbMtyKPUICob6ZpE9VS8mGQ1fgCrgu8FIB8S0OXfrbhHmkoy8fpgoyLqtT6rvbbSL2zv5Jzz2NwmRLCPUhuMA8NyGLjDN5IPqMM1D9FdKGCEDzPOT5huwXi7_FiHYHghXz3wvOk1HXCV8030XB9D6_6rPShzYjKILajsR7nB2tR7c70xQ=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDkDga4iG3TaTYm45hfgvXZoIYwJzNaCTNKjDY7MaoaPUOg6BrLb9EwsALt-BI3bmVdAeFfPVpehyEUJCBxFKN3w7Ob3Ya_wa1zVOsPtnDYCFAL2A_upOpgVwYRwtnjy2hoMkSGv2XxRmP47Tad4tUABTlgPPEYC6kL4KpWe4hrFP3h9PiFAI60cY2BDA_Nk_ytQzqzU_-bgFPPS9VMpA7zXHxFtd25ww=w1280)
 > # Image-6
 >
 > **圖片摘要：**
-> 十四人坐在紅色牆面的餐廳長桌兩側，對著鏡頭比出手指愛心姿勢，桌上擺放餐具與水杯。
+> 十四位男女並坐於鋪設白桌布的長餐桌兩側，桌上放置餐碗與手機，眾人面對鏡頭比出手指愛心手勢，背景為紅色磚牆與掛畫。
 >
 > **主要元素：**
-> 1. 實體: 十四人團體, 長桌, 餐廳, 水杯, 手指愛心
+> 1. 實體: 長餐桌, 紅色磚牆, 掛畫, 手指愛心, 餐具
 > 2. OCR文字: 無
-> 3. 主題標籤: 聚餐, 團體活動, 社交場合
+> 3. 主題標籤: 團體聚餐, 社交活動, 餐廳場景
 >
 > **頁面關聯：**
-> 本圖片呈現團體聚餐場景，屬於社群活動紀錄，檢索錨點為聚餐活動。
-
+> 本圖片為團體聚餐活動紀錄，屬於社交活動類影像內容，檢索錨點為聚餐活動。
 ### 2022/8/18
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDPuGzOhuJYDFNYqM2PSxJ0lR0X4r6_NAXsFxT1RaRVQHGYtd6gYYsT3NLfPzTwG8-h1JZj4aLdqy8IiLUBNbCtTucDG-iIUhcnSP_r7m8xo9-ilcpt87a6GJSHv_uSYSyb72J3zckzadEGW07EDnnnRpNvV_zQxjXxaMVijT2DgFI3SUjIzNa8ZE38da41rOkP465rrGoZx9frBxMXekqA72NnektM-1dy=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUA56dLg-rgMtkfYlUwengX0Ntr-snB5Qk-B08ai7WWE79wmFAzEZpi7ElKFEv_RG9hsFbMwNW4ihDOFtWO516FVhiXtVkr384BzZPwvH756fZ-AJ1PTOzwXbMtV3VYy09U0a7mmI9rKCAmIAkkMlTIzjOMMcpwlz-_p__6gRgljUxCMy2LAyvl0XkCQcNJ9iEpX9LdeMOndrsBxN9AR9uHNe1OhCwozTrn1=w1280)
 > # Image-7
 >
 > **圖片摘要：**
-> 十二名戴口罩男女站立於會議室內，中間女性手持生日賀卡，另一名女性手持拉拉熊玩偶。
+> 十三名配戴口罩的人員站立於會議室內，其中一人手持生日卡片，另一人懷抱拉拉熊玩偶。
 >
 > **主要元素：**
-> 1. 實體: 會議室, 生日賀卡, 拉拉熊玩偶, 學生, 教師
-> 2. OCR文字: Happy birthday to you
-> 3. 主題標籤: 生日慶祝, 團體合影, 校園活動, 會議室
+> 1. 實體: 人員, 生日卡片, 拉拉熊玩偶, 會議室
+> 2. OCR文字:
+> Happy
+> Birthday
+> to you
+> 3. 主題標籤: 團體合照, 慶生, 社交活動
 >
 > **頁面關聯：**
-> 圖片為慶生活動現場，包含參與學生與教師，位於校園會議室。
-
+> 團隊成員聚會合照，作為內部慶生活動記錄。
 ### 2022/3/31
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBqiprCga8ZYjxll_bBeztZNvcLALlRkc-G33Fu7FD-Amd0FA-GMGHo8AhcUebnDpqvkjFRl8V3bnhsMm4BunGn6VAs3jI2DkFcC9wVCh2ZRA0ptk92SpCR7rK6nHN0FF8cfIPVlJokW4KY65QIFoVsouIn_YnVwDJAx8Tu__kKzOju72tWgwERfB2PTaa023070BAcQMV5DjkZGGus9F2CW7HPkQv75Ns6J4o=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAj8dkTTkHHzfJtM06C3rGoC-6lWSu4EMc8RLaQo6DjLMB_AlpsGkV5A4CalJNKCgJXiZPal4M7GRPK3ErJBvNQBmqSEil0hzmCqBNY6nGz98XN6lnTPZUmw8QhyMvRMokZl8qTuLRtRQmWUiMNLqTtb5Xmd71lz-IptQp13RkD8ZLW1icKqgCH4xbxJgixrLtV4s0g3l0a9-tos3MFHyQEsQ1_ooy9p8DELY8=w1280)
 > # Image-8
 >
 > **圖片摘要：**
-> 一群學生與一名女性教師站在整面書牆前合影，部分人員手比讚或V字手勢，教師位於隊伍中心。
+> 一群學生與導師站在放置書籍的深色展架前，部分人比出拍照手勢，背景為整齊排列的書籍。
 >
 > **主要元素：**
-> 1. 實體: 學生, 女性教師, 書牆, 合影
+> 1. 實體: 學生, 導師, 書架, 書籍
 > 2. OCR文字:
-> THE BIG SQUEEZE
-> THE LITTLE KNIFE
-> POWERFUL EXHIBIT MARKETING
-> THE TROPIC OF BASEBALL
-> CHINA INC
-> DOS TARDOS
+> The Big Squeeze
+> The Noble Knife
+> Powerful Exhibit Marketing
+> The Tropic of Baseball
+> Matthias Politycki
+> CHINA INC.
+> DOS TABOOS
 > REFRAME
 > Roddy Doyle
-> WIFE 22
+> Wife 22
 > NIGHT FILM
-> THE BATTLE OF THE BUST
-> HUMPHREY HAWKSLEY
+> PESSL
+> THE
+> EVERYDAY THEORY
+> La Lilla
+> Humphrey Hawksley
 > DRAGONFIRE
-> MR RIGHT
+> Mr. Right
 > TO THE END OF TIME
 > THINGS FALL APART
 > FEAR OF THE TIGER
 > VIRAL LOOP
 > MONSTER ISLAND
 > THE FIRST MOVE
-> BUFFETOLOGY
-> ELIZABETH GILBERT
+> Beautiful Creatures
+> Buffettology
+> Roberto Bolano
+> HOW WOULD YOU MOVE MOUNT FUJI
 > THE ATOMIC BAZAAR
 > PRESS
-> 3. 主題標籤: 教育, 校園生活, 圖書館, 集體照
+> 3. 主題標籤: 學校參訪, 學術交流, 圖書館, 閱讀推廣
 >
 > **頁面關聯：**
-> 本圖為師生在校內書牆前的團體合照，代表課程或社團活動紀念，檢索錨點為校園團體。
-
+> 校園活動紀錄，師生於書架區合影，檢索錨點包含學生團體與教育參訪。
 ### 2022/1/14
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUACpULdEHo-NvhB6UoJiJNEvwYzyniYhAx_3ox4mI6XrUD4X-xJIKI9XJ5D67MfOp-ZVycprNJjql1-oNjKPe_qpdqOyONy7utbtpQg7AnBQVYauw_GdLpChyA82uHDBBEmxOHvKGnJAi67Yvbgt1cG39OULUzGs45GPjt1Ez8gw7RTo2yB0hgnosRkpDwCgD-4WfO0Ug5CWmY=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAeXFkmKHWDTkHAQ-V_orF4PVXKapzjyG1PpFslGiCNNU1wthlztcpqVzz0baRSKogkH63zq2zQ5x5NIzkMs2pvh6gbVCoqNYLSr-RBCH5GXPCimAWGtfaujHn9uEi5UXiRcUkmhrjMDBbMHndLbYCS95CuO6Z-vH94UTbT8ZAAKn8A0Xf5yxqUek4fMXYlhVz7H4r-f_gMHOg=w1280)
 > # Image-9
 >
 > **圖片摘要：**
-> 十四名學生與一名女性教師站立於會議桌後方，全員雙手比出手指愛心手勢，桌上擺放六個必勝客披薩盒。
+> 十四名人員並列於會議室前方，手持Pizza盒並比出手指愛心手勢，中心人員持一盒貼滿便條紙的Pizza。
 >
 > **主要元素：**
-> 1. 實體: 教師, 學生, 必勝客披薩盒, 會議桌
+> 1. 實體: 會議室, Pizza盒, 便條紙, 人員
 > 2. OCR文字:
 > Pizza Hut
 > Pizza Hut
 > Pizza Hut
 > Pizza Hut
-> Pizza Hut
-> Pizza Hut
-> www.pizzahut.com.tw
-> 3. 主題標籤: 團體合照, 必勝客, 會議室, 師生互動
+> Banana bruce lee
+> ROOTS CANADA
+> 3. 主題標籤: 團體聚餐, 內部會議, 團隊活動
 >
 > **頁面關聯：**
-> 圖片顯示師生於會議室進行活動，包含必勝客產品，可作為團體聚會或慶祝活動檢索。
-
+> 本圖記錄團隊成員於會議室進行Pizza餐會，錨點包含Pizza Hut與團隊成員。
 ### 2020/9/28
 
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDPNfQ-txnaS4M8LcbwURxQxFDLOVinxNvitUinrzm35Ft2FJFh63zhGB_Tq46tnx2AvhU-_EG1JKQ4Y25Y4XMSD44h1M_xdcNKHCqTq9KdPOBrDMstyrlRZUYvTQQWYxCQcvpmprEzpgqO39d2XS9b1G7Vq3VyiPzAZLVA2NZOafwe9JY2n44S2sPVE3V75GI4R39EploMP9Y=w1280)
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCRKu0HU3murqX4_wKGB5S8omw2FteNb0va3tgg1pmWou7f3cN8PZEi_vLBTFV9voCm8g7KAKJsjaau5jXnSP_Kep2kZeGJUes8Pk93rK1e_C4StYqki7erN8p6NGtnhRIdJPTgAz0UoniCve03tKcmphazIc2gaCa2kQDAbuIIHZ4mOC71nbY81LMx0YSsYJSbn5_mgrjtkrw=w1280)
 > # Image-10
 >
 > **圖片摘要：**
-> 八名男女站在 MÖVENPICK CAFÉ 莫凡彼咖啡館門口，面對鏡頭合影。
+> 八名男女站在莫凡彼咖啡館門口並排合影，背景為戶外購物中心走廊。
 >
 > **主要元素：**
-> 1. 實體: MÖVENPICK CAFÉ, 莫凡彼咖啡館, 合影人群
+> 1. 實體: 莫凡彼咖啡館, 購物中心, 門口, 行人
 > 2. OCR文字:
 > MÖVENPICK CAFÉ
 > 莫凡彼咖啡館
-> 3. 主題標籤: MÖVENPICK CAFÉ, 莫凡彼咖啡館, 合照, 聚會
+> 3. 主題標籤: 莫凡彼咖啡館, 聚會, 戶外購物中心
 >
 > **頁面關聯：**
-> 群體於 MÖVENPICK CAFÉ 莫凡彼咖啡館外合影，檢索錨點：MÖVENPICK CAFÉ。
-
+> 圖片展示參與莫凡彼咖啡館活動人員合影，檢索錨點為莫凡彼咖啡館。
 2020/7/18
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUDtfUeodLnZwSW2u03R3krtDEFKOy_UY-Ww9EUuClijCcw1aZhYLEspO3J7W57bdH3-BJWzl_rkjN53tF0rdLE8gLlnu4zoQlj_vrz1WABHBN2wZ8fRYvoM7_0eael5TadQCD2JvL9xIFaAjHlYUKr_hctAocnK-eKrBYcBuXMyl7QJO3dTwNLLvBTgwfTFvSREcoHKT_bP=w1280)
+
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUBjqx7GkrPIt2O4oMZz5iE-bhogVB_YowDNyT6CmNo4M77I0WpcRfsgTcWlaTWceTykeq_dejvusUouHQwvqX1f_toaqSXsAqoEQXXViOIUbT3WKLLjLPSThm3vixJX5Vx10XoTg1kHNnsCPLVG17RXdb64OghejG6n5YaaLPpIbxAqt4urjlTzHqchvaR5yYmfZiPm6c_D=w1280)
 > # Image-11
 >
 > **圖片摘要：**
-> 十三名男女學員與導師在會議室長桌前合影，後排站立七人，前排六人依序排列。
+> 十三人分兩排站立與坐在會議桌前，前方六人坐於桌旁，後方七人站立排列，背景為木紋牆面。
 >
 > **主要元素：**
-> 1. 實體: 學員, 導師, 會議室, 長桌
+> 1. 實體: 會議桌, 成員群像, 室內空間
 > 2. OCR文字:
 > のオリジ
 > SINCE EVER
 > FOREVER
 > ONCLE
 > DICKIES
-> 3. 主題標籤: 團體照, 師生合影, 研討會, 課堂活動
+> 3. 主題標籤: 團體合照, 團隊成員
 >
 > **頁面關聯：**
-> 圖片為學術交流或團體課程合影，記錄與會人員資訊，可作為活動紀錄檢索錨點。
-
+> 團隊合照，包含多名成員，為團隊成員介紹頁面之視覺錨點。
 2019/11/20
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUBS_3yeBd1J2p1SwiV7V_YhsJLx4l43OO2G6wiMfUCdCJqrBZO6HE8R39gCGxvYy48xSZ0gA9pACLUalH8f6vLF1vF7lZqDJoxtPPylYcBXmd82_cqulLh5KGjStDc2FD8cdFlbowQNagiRcTNNQB7zQ5iKEAFsLVSuiMity-i9nYdP4QcnHBMRX3X-9W44FA2TFUnb=w1280)
+
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUDl7tfo5Zo5eUs-xwLQVnp7WzD1rmaCvMK33FtYYYQRx9cUN1zZ2acEUZIhrPpfw2T3cLuWZ7HN1ZoxIAHGAVjYChV1secScCIAK2JrKP_Btb92HbF_RnCVCDTML7N-9NDP_yiSP6QP574qe_YcQWcNWuAOGLQadAg4qVxjfXxi4ocmEofjkrrL0usiFfxLefkh22xn=w1280)
 > # Image-12
 >
 > **圖片摘要：**
-> 一群男女學生站立於教室白板前比出手指愛心手勢，桌面上放置數盒披薩與外帶餐點。
+> 一群人排列在會議桌後方，桌上擺放多個披薩盒，眾人共同對鏡頭比出手指愛心手勢。
 >
 > **主要元素：**
-> 1. 實體: 學生, 白板, 披薩盒, 外帶餐點, 教室
+> 1. 實體: 會議桌, 披薩盒, 學生, 教師, 教室
 > 2. OCR文字:
 > Fresh baked
 > PIZZA
@@ -260,38 +266,39 @@
 > PIZZA
 > Fresh baked
 > PIZZA
-> 3. 主題標籤: 聚餐, 校園生活, 學生團體, 社交活動
+> 3. 主題標籤: 聚餐, 校園生活, 教室活動, 團體照
 >
 > **頁面關聯：**
-> 圖片顯示學生校園聚餐活動，作為記錄團體社交互動的檢索錨點。
-
+> 呈現校園社群或課程結束後的披薩聚餐活動，屬於團體活動紀錄。
 2017/7/14
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUCAQB1qjOo1xhDvGQ8bjtZpYq55sCWIb58jShDld6DhqZOyIy-MlzjGwBf5P3YR-IpqwbtduhY6Vx6hA_AZn3qpLNxJJoZDSuSxuSAYNy0e6vKsxG4bDLimfUrm6jiI07CrLL_X63Igbj9HqA8sQTfyZ8IEWBm3YigG6iJvF_HZszBiH7EJw8aqAguBKmpoVUbJdVaV=w1280)
+
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUCTPUwYcEHmcwPUbjXG2r4I_HN3ln_EcRHbC7mwIN1i7pZGFTd4RhpCujBc7WUYRU3YYggHAUrl37d2Vy1MzD2WMUP2A_OKDVQu7Z8VK9OHK719WoCjY4ozKOTm-vwhz_YIiCd69yc-aEnjntBuBWhlF7JxHhzmlvmAnFICQouQI0WRftZ7hqlEgUQ8Kc_ux47AL0mt=w1280)
 > # Image-13
 >
 > **圖片摘要：**
-> 十一人的群體合照，兩名女性位於中心各持一個生日蛋糕，背景為教室白板。
+> 十一人團體在教室內站立，中間兩人各手持一個蛋糕，背景為電子白板與書寫板。
 >
 > **主要元素：**
-> 1. 實體: 學生, 教師, 生日蛋糕, 白板, 教室
+> 1. 實體: 團體照, 蛋糕, 電子白板, 學生, 教師
 > 2. OCR文字:
-> Happy
-> NCU
-> CENTRAL UNIVERSITY
-> 3. 主題標籤: 國立中央大學, 慶生, 學術交流, 校園生活
+> Hp 140115
+> NCU CENTRAL UNIVERSITY
+> N D
+> INA AMPIO
+> 3. 主題標籤: 團體合影, 校園生活, 慶生, 中央大學
 >
 > **頁面關聯：**
-> 圖片為國立中央大學師生慶生活動照片，錨點包含NCU、CENTRAL UNIVERSITY。
-
+> 本圖為中央大學校園生活合影，包含學生與教職員，檢索錨點為NCU、中央大學。
 2017/4/4
-![2014/9/26](https://lh3.googleusercontent.com/sitesv/AA5AbUAiejdJrhFwzXIMqVdMocuBAqYYBTglCQv8jwgz9DttNPbIN1Frj8s6a5JFu2f3d0bH6qyCmeMIvyyaf9qloVclgmGWHcGHLKf7JuQrJyjS1psOVd4edeRw-CFkD8e1tLsxWu216De7uII9yZnQWERv17Pb3kUQJ93SMNSRET-soIfWH2FIAsaAHYq6DDla4dUp3Nne=w1280)
+
+![2014/9/26](https://lh3.googleusercontent.com/sitesv/AA5AbUCltPdJJB8tn51yIdkWl9SAHrMvGxw1YT5JcIHNSrA43AzWJAVh8xmq3RzIKX-4R9CiM_74ulS4SJNAplZlPAUWKmrgcz87hNLN3ukSQG8XvymVnyw3-ka-CXU-3xncI8B9gUjQVEe-8-m9deDu_f5SX__pqycR7F8Vi6VVGQdD6I2XKdk4ra7XhjPmM84NYALvgT98=w1280)
 > # Image-14
 >
 > **圖片摘要：**
-> ROCILING 2014 學術研討會參與者於國立中央大學活動背板前合影。
+> ROCILING 2014 研討會參與者站在活動背板前合影，背板顯示日期與地點資訊。
 >
 > **主要元素：**
-> 1. 實體: ROCLING 2014, 國立中央大學, 研討會參與者, 活動背板
+> 1. 實體: ROCLING 2014, 研討會, 參與者, 國立中央大學校徽
 > 2. OCR文字:
 > The 26th ROCLING 2014
 > Sep. 25-26, 2014, Jhongli, Taiwan
@@ -300,44 +307,44 @@
 > Con
 > 國立中央大學
 > ROCLING 2014
-> 3. 主題標籤: ROCLING, 語言學, 計算語言學, 學術研討會, 國立中央大學
+> 3. 主題標籤: 語言處理研討會, 學術會議, 國立中央大學, 中壢, 資訊科學
 >
 > **頁面關聯：**
-> 本圖為第 26 屆 ROCLING 2014 學術研討會活動紀錄，錨點包含 ROCLING 2014 與國立中央大學。
-
+> 圖片為第 26 屆 ROCLING 研討會合照，屬國立中央大學舉辦之學術活動。
 2014/9/26
-![2014年9月23日 ](https://lh3.googleusercontent.com/sitesv/AA5AbUDl_U03evGUjhXrPvMYuyThQwEql0pOMobthkktVkMe93fuV4SovwoXZxfH6FPwgAzZ-zdzC-akl1_2bkqSTdKXb-4dqsDH8dnR5-E0Bw8NXQr2Ly88eWDwSuUMz49hWQWj99aWSZ2lQWIi5oTPS7Emh_9QANC-SmOml7KQA3q2i2cjvF-EvjQM4szE1GPavGg4pPV4=w1280)
+
+![2014年9月23日 ](https://lh3.googleusercontent.com/sitesv/AA5AbUBDBlm3sn7u73wTtPP7Wme6AS0Jal2pa9HM88akQ3iqYTqqNJwutht3WZmg4LvVpMZiJwT2Kq9tdEUmA1Uym8zQui1nRDXbRjFtfKkbM5jKt1buHJbpXR2H6CYhUhc9nkiZSOQkmqtRVIFNh9Qap43zqEIPyT5qY57WzkaUTz3juLQWOTBctjDTGrJB_fj11-hSNSs1=w1280)
 > # Image-15
 >
 > **圖片摘要：**
-> 一群男女在餐廳聚餐合影，多人站在圓桌後方，室內掛有海尼根品牌旗幟。
+> 一群男女在室內餐廳聚餐，前方圓桌擺放餐具與菜餚，牆面懸掛海尼根旗幟。
 >
 > **主要元素：**
-> 1. 實體: 海尼根旗幟, 圓桌, 聚餐人群, 冷氣機, 餐廳
+> 1. 實體: 聚餐人群, 圓桌, 海尼根旗幟, 餐廳
 > 2. OCR文字:
->    Life style
->    ROTAL
->    Hangten
-> 3. 主題標籤: 聚餐, 團體合照, 海尼根, 餐廳環境
+> HEINEKEN
+> Life style
+> ROIAL
+> Hangten
+> 3. 主題標籤: 社交活動, 餐廳聚餐, 海尼根
 >
 > **頁面關聯：**
-> 本圖為群體聚會照片，屬社交活動紀錄，以海尼根旗幟作為環境錨點。
-
+> 本圖記錄聚餐活動，屬於餐廳社交場景，檢索錨點為海尼根。
 2014/9/23
-![2014年4月22日 ](https://lh3.googleusercontent.com/sitesv/AA5AbUA1oMtJ18sWaXi55G6d950p1dDv4IVUt9CiKmAvM9QczF069KNP-P5jwyf4a2cHrUX5pDSDCI3FZwEGJAeC7f-G8-wXKofGtFGV5J0BjGhyHGirMHBrwLXRG5t9N0viNq75eSZoNCAsW6liVbGhVPdWQ4uRFfAkI_kOK_kwLZv9HANcANPILCPP33tESQYbmVfsCvgM=w1280)
+
+![2014年4月22日 ](https://lh3.googleusercontent.com/sitesv/AA5AbUBmJcgRG6CQw7n_ITMkFc29yI_jdxW3OAM2iKWrAd7h3m7l26UePTD6YY0U7p1n9Qt6ErWTBaAedDXBhK_Az_o0Fc0ZxIaOIBn945Ncpx3UoD-QFtgyZDUM72aDYGHJeb51aHGmu0kuPif4RP9knI4bVORiIRM1elFqQgP5HRQSbvHqp1UmyQ5rA3zgI38D7Zsn3em6=w1280)
 > # Image-16
 >
 > **圖片摘要：**
-> 多位參與者圍繞會議桌站立與就座，桌上擺放披薩、蛋糕、飲料及印有 DENON 字樣的產品包裝。
+> 多位參與者圍繞會議桌站立與蹲坐，桌上擺放多盒披薩、蛋糕及飲料，後方設有投影幕。
 >
 > **主要元素：**
-> 1. 實體: 會議桌, 披薩, 蛋糕, 飲料, DENON包裝
+> 1. 實體: 會議桌, 披薩, 蛋糕, 飲料, 投影幕
 > 2. OCR文字:
 > Happy Together
 > DENON
-> 3. 主題標籤: 企業聚會, 團體活動, 產品展示, 會議室
+> 3. 主題標籤: 聚會, 活動紀錄, 團體照
 >
 > **頁面關聯：**
-> 圖片記錄團體聚會場景，出現 DENON 品牌產品，為相關活動與產品展示的影像記錄。
-
+> 圖片顯示參與者於會議室舉行的慶祝活動，該活動涉及 DENON 相關專案。
 2014/4/2

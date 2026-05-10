@@ -465,19 +465,19 @@ class WebpageImageSummarizer:
                     caption = self._image_captions.get(url, "")
                     if caption:
                         enhanced_parts.append(
-                            f"> # Image-{occurrence_index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                            f"> # Image-{occurrence_index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
                         )
 
-            enhanced_markdown = "".join(enhanced_parts)
+            enhanced_markdown = "".join(enhanced_parts).rstrip()
         elif self.image_source == "images":
             captions = ["---\n\n# Image\n\n"]
             for i, url in enumerate(image_urls, 1):
                 caption = self._image_captions.get(url, "")
                 if caption:
                     captions.append(
-                        f"# Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n\n"
+                        f"# Image-{i}\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
                     )
-            enhanced_markdown = markdown + "".join(captions)
+            enhanced_markdown = markdown + "".join(captions).rstrip()
 
         return enhanced_markdown
 

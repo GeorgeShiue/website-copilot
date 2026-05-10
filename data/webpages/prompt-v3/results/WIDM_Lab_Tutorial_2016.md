@@ -1,19 +1,15 @@
 # WIDM Lab Tutorial 2016
-Post date: Jul 27, 2016 4:06:25 AM
-歡迎WIDM新同學加入!
-為幫助新同學熟悉Web Mining相關的資料分析工具，
-實驗室成員於2016年暑期安排了一連串Tutorial，
-我們的初衷是讓同學們在資料處理上更上手，
-能夠更加專注於問題的探究與應用服務的設計。
-Agenda
-![](https://lh3.googleusercontent.com/sitesv/AA5AbUAFGn9Hxgrc-DplceAiyN6fcFp48kcdmyv4kp29bliI_AXpWxlDS9V54xWzt0VnTn3w7yThWwfaJFKtdsyLQl90b1OPfcdafiBsgur22VgJstzxwkv94fPpVFEg7htvP7W1NVGbDDK1Gb99i75YdK9GMqSWeghr7fv6S6FwTPxd-ux1wvaMIcwagUvlGnI1VuNPREzs=w1280)
+
+Post date: Jul 27, 2016 4:06:25 AM 歡迎WIDM新同學加入! 為幫助新同學熟悉Web Mining相關的資料分析工具， 實驗室成員於2016年暑期安排了一連串Tutorial， 我們的初衷是讓同學們在資料處理上更上手， 能夠更加專注於問題的探究與應用服務的設計。 Agenda
+
+![](https://lh3.googleusercontent.com/sitesv/AA5AbUAg-lbq23nOzLO8L3zLR9d8UqrMKV3Gs5kv0b1hBgBJjpQt4ALYqAb8xeY9VHNs8z0Nx-e7hE1mzzzGFD4tExH8KhR-ogI83iMhARQPsoIEqHiq3Kl-oDtGmUVBAvexyNHscyRREo5iXTG-TO2QM5vyuZmlGSyZYYCUYz4xD_dtoc0ZOwHSvzch7L7dv576xsj-LgpZ=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> WIDM Tutorial 2016 課程表顯示十一項數據處理技術主題，包含教學名稱、日期及對應講師。
+> WIDM Tutorial 2016 課程表列出 11 項教學主題、講師姓名與對應日期。
 >
 > **主要元素：**
-> 1. 實體: WIDM Tutorial 2016, 數據處理技術, 課程表, 技術教學
+> 1. 實體: WIDM Tutorial, 課程表, 教學主題, 講師, 日期
 > 2. OCR文字:
 > WIDM Tutorial 2016
 > 1 Ovi Weka for Data Mining 7月19日
@@ -27,9 +23,8 @@ Agenda
 > 9 圓皓 Master Thesis Presentation | Hadoop by Java 8月 日
 > 10 杰甫 Master Thesis Presentation | IR Toolkit - Solr 8月 日
 > 11 弘瑋 Master Thesis Presentation | CRF++ / CRF sharp 8月 日
-> 3. 主題標籤: 數據挖掘, 資料科學, 程式設計, 課程表, WIDM
+> 3. 主題標籤: 資料探勘, 軟體開發, 資訊檢索, 課程規劃, WIDM
 >
 > **頁面關聯：**
-> 圖片為 WIDM Tutorial 2016 官方課程表，提供講師名單、技術教學主題與時間軸檢索。
-
+> 本圖為 WIDM Tutorial 2016 活動時程表，記錄專案教學內容與講師資訊。
 Download Lectures & Watch Videos
