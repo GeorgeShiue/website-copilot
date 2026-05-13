@@ -1,14 +1,19 @@
 import json
 import os
+import time
 from typing import Any
 
-from llama_index.core import SimpleDirectoryReader
+import qdrant_client
+from dotenv import load_dotenv
+from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import (
     MarkdownNodeParser,
     SentenceSplitter,
 )
 from llama_index.core.schema import Document
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.vector_stores.qdrant import QdrantVectorStore
 
 from utils.rag_helper import (
     MarkdownHeadingMergeParser,
@@ -18,8 +23,8 @@ from utils.rag_helper import (
 DATA_FOLDER_PATH = "data/webpages/prompt-v3"
 MD_DOCS_FOLDER_PATH = os.path.join(DATA_FOLDER_PATH, "results")
 RESULTS_JSON_PATH = os.path.join(DATA_FOLDER_PATH, "results.json")
-RUNS_FOLER_PATH = "runs"
-PIPELINE_STORAGE_PATH = os.path.join(RUNS_FOLER_PATH, "pipeline_storage")
+RAG_FOLER_PATH = "data/rag"
+QDRANT_DB_PATH = os.path.join(RAG_FOLER_PATH, "qdrant_db")
 
 results_json = {}
 if os.path.exists(RESULTS_JSON_PATH):
@@ -55,7 +60,8 @@ def main():
         required_exts=[".md"],
         file_metadata=file_metadata,
         # num_files_limit=10, # test
-    ).load_data()
+    ).load_data(show_progress=True)
+
     print(f"Loading {len(md_docs)} Markdown Documents")
     print("-" * 50)
 
@@ -66,7 +72,6 @@ def main():
         "paragraph_separator": "\n\n",
     }
 
-    # TODO: embedding + vector store
     pipeline = IngestionPipeline(
         transformations=[
             MarkdownNodeParser.from_defaults(),
@@ -79,25 +84,69 @@ def main():
             MarkdownImageExtractor(),
         ],
     )
-    nodes = list(pipeline.run(documents=md_docs))
 
-    counter = 0
-    page_title = "Web_智慧與資料探勘實驗室"
-    for node in nodes:
-        if node.metadata.get("page_title") == page_title:
-            counter += 1
-            print("Node content:")
-            print(node.get_content())
-            print()
-            print("Node metadata:")
-            print(node.get_metadata_str())
-            print("-" * 50)
+    nodes = pipeline.run(documents=md_docs, show_progress=True)
+
+    # counter = 0
+    # page_title = "Web_智慧與資料探勘實驗室"
+    # for node in nodes:
+    #     if node.metadata.get("page_title") == page_title:
+    #         counter += 1
+    #         print("Node content:")
+    #         print(node.get_content())
+    #         print()
+    #         print("Node metadata:")
+    #         print(node.get_metadata_str())
+    #         print("-" * 50)
+    # print(f"Found {counter} nodes from {page_title}")
     print(f"Pipeline produced {len(nodes)} nodes")
-    print(f"Found {counter} nodes from {page_title}")
-
-    # print("=" * 50)
+    print("-" * 50)
 
     # ----- 向量索引 -----
+    load_dotenv()
+    api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
+    embed_model = OpenAIEmbedding(
+        model="text-embedding-3-small",
+        embed_batch_size=256,
+        api_key=api_key,
+    )
+
+    if os.path.exists(QDRANT_DB_PATH):
+        client = qdrant_client.QdrantClient(path=QDRANT_DB_PATH)
+        vector_store = QdrantVectorStore("webpages", client, index_doc_id=False)
+        print(f"Load vector store from {QDRANT_DB_PATH}")
+
+        index = VectorStoreIndex.from_vector_store(
+            vector_store=vector_store,
+            embed_model=embed_model,
+            show_progress=True,
+        )
+
+        print("Create index from vector store")
+        client.close()
+    else:
+        client = qdrant_client.QdrantClient(path=QDRANT_DB_PATH)
+        vector_store = QdrantVectorStore("webpages", client, index_doc_id=False)
+        print(f"Persist vector store to {QDRANT_DB_PATH}")
+
+        storage_context = StorageContext.from_defaults(
+            vector_store=vector_store,
+        )
+
+        start_time = time.time()
+        index = VectorStoreIndex(
+            nodes,
+            storage_context=storage_context,
+            embed_model=embed_model,
+            show_progress=True,
+        )
+        end_time = time.time()
+        print(f"Indexing time: {end_time - start_time:.2f} seconds")
+
+        print("Create index from nodes")
+        client.close()
+
+    print(f"Index summary: {index.summary}")  # debug
 
 
 if __name__ == "__main__":
