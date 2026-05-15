@@ -9,9 +9,7 @@ from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.utils import truncate_text
 
-DATA_FOLDER_PATH = "data/webpages/prompt-v3"
-RESULTS_JSON_PATH = os.path.join(DATA_FOLDER_PATH, "results.json")
-
+RESULTS_JSON_PATH = "data/webpages/prompt-v3/results.json"
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 

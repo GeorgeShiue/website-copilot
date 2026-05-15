@@ -29,33 +29,37 @@ from utils.rag_helper import (
     get_formatted_sources_with_scores,
 )
 
-DATA_FOLDER_PATH = "data/webpages/prompt-v3"
-MD_DOCS_FOLDER_PATH = os.path.join(DATA_FOLDER_PATH, "results")
-RAG_FOLER_PATH = "data/rag"
-QDRANT_DB_PATH = os.path.join(RAG_FOLER_PATH, "qdrant_db")
+MD_DOCS_FOLDER_PATH = "data/webpages/prompt-v3/results"
+QDRANT_DB_PATH = "data/rag/qdrant_db"
 
 
 # TODO: 重構以準備測試並調整 Query Engine 的參數
 def main():
-    # ----- 向量索引 -----
+    # ----- 資源設置 -----
     load_dotenv()
+
+    embed_model_name = "text-embedding-3-small"
     embedding_api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
     embed_model = OpenAIEmbedding(
-        model="text-embedding-3-small",
+        model=embed_model_name,
         embed_batch_size=256,
         api_key=embedding_api_key,
     )
 
+    query_engine_model_name = "gemini-3.1-flash-lite"
+    query_engine_api_key = os.getenv("GEMINI_RAG_QUERY_ENGINE_API_KEY")
+    llm = GoogleGenAI(model=query_engine_model_name, api_key=query_engine_api_key)
+
     if os.path.exists(QDRANT_DB_PATH):
+        # ----- 載入儲存和索引 -----
         client = qdrant_client.QdrantClient(path=QDRANT_DB_PATH)
         vector_store = QdrantVectorStore("webpages", client, index_doc_id=False)
         print(f"Load vector store from {QDRANT_DB_PATH}")
 
         index = VectorStoreIndex.from_vector_store(
-            vector_store=vector_store,
-            embed_model=embed_model,
-            show_progress=True,
+            vector_store, embed_model, show_progress=True
         )
+
         print("Create index from vector store")
     else:
         # ----- 載入資料 -----
@@ -96,15 +100,12 @@ def main():
         print(f"Pipeline produced {len(nodes)} nodes")
         print("-" * 90)
 
-        # ----- 儲存和索引 -----
+        # ----- 建立儲存和索引 -----
         client = qdrant_client.QdrantClient(path=QDRANT_DB_PATH)
         vector_store = QdrantVectorStore("webpages", client, index_doc_id=False)
         print(f"Persist vector store to {QDRANT_DB_PATH}")
 
-        storage_context = StorageContext.from_defaults(
-            vector_store=vector_store,
-        )
-
+        storage_context = StorageContext.from_defaults(vector_store=vector_store)
         index = VectorStoreIndex(
             nodes,
             storage_context=storage_context,
@@ -116,12 +117,6 @@ def main():
     print("=" * 90)
 
     # ----- 查詢引擎 -----
-    query_engine_api_key = os.getenv("GEMINI_RAG_QUERY_ENGINE_API_KEY")
-    llm = GoogleGenAI(
-        model="gemini-3.1-flash-lite",
-        api_key=query_engine_api_key,
-    )
-
     retriever = VectorIndexRetriever(
         index=index,
         similarity_top_k=5,  # 每次查詢返回的相關節點數量
@@ -130,7 +125,7 @@ def main():
         # embed_model: Optional[BaseEmbedding] = None, # 查詢時使用的嵌入模型（可與索引不同）
     )
     response_synthesizer = get_response_synthesizer(
-        llm=llm,
+        llm,
         # response_mode=ResponseMode.COMPACT, # 切換不同回答模式
     )
     similarity_postprocessor = SimilarityPostprocessor(
@@ -138,8 +133,8 @@ def main():
     )
 
     query_engine = RetrieverQueryEngine(
-        retriever=retriever,
-        response_synthesizer=response_synthesizer,
+        retriever,
+        response_synthesizer,
         node_postprocessors=[similarity_postprocessor],
     )
 
