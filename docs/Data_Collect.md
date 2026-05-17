@@ -1,53 +1,58 @@
-# 獲取網站資料
+# 網站爬蟲
 
-## 方案 A：網站爬蟲
-- 原則：從網站首頁啟動非同步爬取，遍歷網站內頁並將每一頁轉成 Markdown 格式。
-- 核心實作：`app/website_crawler.py`
-- 設定管理：`app/website_crawler_config.py`
-- 使用套件：`crawl4ai`，主要包含 `AsyncWebCrawler`、`BFSDeepCrawlStrategy`、`PruningContentFilter`。
+## 模組總覽
+此模組以**非同步方式**爬取網站頁面，依設定限制**爬取深度**與**頁數**，並將每頁內容整理成乾淨且格式化的**Markdown**。爬取後的資料會再經過**清理**、**標題整理**、**圖片連結擷取**與**去重**，最後以**頁面標題**作為識別，回傳整理後的頁面資訊並記錄**成功**、**錯誤**與**重複頁面**的統計。
 
-### 實作流程
-1. 可調整的爬取範圍與過濾
-   - `max_depth`：爬取最深層級。
-   - `max_pages`：限制最多回傳頁數。
-   - `url_patterns` / `allowed_domains`：可用字串、正則或列表限制只爬特定範圍。
+- **模組實作**
+	- `app/website_crawler.py`（**主爬蟲實作**，包含**爬取**、**過濾**、**Markdown 清洗**與**輸出邏輯**）
+	- `app/website_crawler_config.py`（**模組內部常數**與**預設設定**，例如**內容門檻**）
+	- `utils/log_helper.py`（**日誌**與**統計輸出輔助**）
 
-2. 內容過濾與 Markdown 生成
-   - 使用 `PruningContentFilter(threshold=content_threshold)` 控制保留的內容量。
-   - 將每頁內容轉成 `fit_markdown`。
+- **模組設定**
+	- `./config/website_crawler/{name}.toml`（**爬蟲執行設定**，透過 `app/website_crawler_config.py` 載入）
+	- 可在 `app/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
-3. 後處理：排除、去重與檔名生成
-   - `exclude_words`：剔除含指定字詞的行。
-   - 移除隱藏錨點空連結：`[](...#h...)`。
-   - 將空標題行提升為下一個可用文字標題。
-   - 取第一個 Markdown 標題作為檔名，非法字元移除並將空白轉成底線。
-   - 相同檔名視為重複，僅保留第一筆結果。
+- **模組環境**
+	- `Python >= 3.10`（程式使用**現代型別語法**如 `int | None`）
+	- **標準函式庫**：`asyncio`、`re`、`logging`
+	- **第三方套件**：`crawl4ai`（**爬蟲與 Markdown 生成**）、`mdformat`（**Markdown 格式化**）、`rich`（**輸出統計表格**）
 
-4. 輸出與統計
-   - 每頁輸出包含 `md_file_name`、`url`、`fit_markdown`、`images`。
-   - 統計項目包括 `success_pages`、`error_pages`、`repeat_pages`。
+## website_crawler.py
 
-5. 設定驗證與執行選項
-   - `app/website_crawler_config.py` 讀取 `./config/website_crawler/{name}.toml`。
-   - 驗證 `max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`。
-   - 驗證 `url`、`url_patterns`、`allowed_domains`、`exclude_words`。
-   - 若 `exclude_words` 以列表提供，會自動轉為 tuple。
+### 1. 網站爬取設定
+- 設定**爬取深度**與**頁數上限**。
+- 限制**特定網域**或**網址模式**。
+- 決定**實際爬取範圍**。
 
-###  補充說明
-- `WebsiteCrawler.crawl_website()` 會先執行 `_crawl_website_async()` 再做 `_filter_crawl_results()`。
-- `_crawl_website_async()` 中可根據 `max_pages` 決定是否將 `max_pages` 傳入 `BFSDeepCrawlStrategy`。
-- `BrowserConfig` 目前預設 headless 模式，可透過註解調整為可視瀏覽器模式。
-- 目前程式碼已保留 `images` 內容，但 `image_count` 統計尚未啟用。
+### 2. 爬取與內容整理
+- 從首頁開始**非同步爬取**，並保留較有價值的內容。
+- 將每頁轉成**Markdown**，並移除**雜訊**與不需要的**連結**。
+- 以**頁面標題**作為檔名，並避免**重複輸出**。
 
-## 方案B：上傳資料
-> 待更新
+### 3. 輸出與記錄結果
+- 回傳每頁的**網址**、整理後**內容**與**圖片資訊**。
+- 提供**成功**、**錯誤**與**重複頁面**的統計。
+- 方便後續檢查**爬取品質**與**覆蓋範圍**。
 
-# 當前進度
+## website_crawler_config.py
 
-- [x] 獲取網站資料
-  - [x] 網站爬蟲
-  - [x] 篩選網域、雜訊
-  - [x] 平行處理
+### 1. 讀取設定來源
+- 從 `./config/website_crawler/{name}.toml` 載入**爬蟲設定**。
+- 支援不同任務切換**不同設定檔**。
+- 由 `app/website_crawler_config.py` 統一管理。
 
-# 未來規劃
-- 獲取網站地圖
+### 2. 檢查可用設定
+- 驗證**爬取深度**、**頁數上限**與**內容門檻**。
+- 檢查**網址**、**網域**與**排除字詞**等條件。
+- 避免**設定格式不正確**而影響爬取。
+
+### 3. 套用與轉換參數
+- 將 `exclude_words` 由**列表**轉成 `tuple`。
+- 可搭配 `app/website_crawler.py` 調整**瀏覽**與**爬取行為**。
+- 讓設定內容直接對應**實際執行需求**。
+
+## 補充說明
+- `WebsiteCrawler.crawl_website()` 先設定**網址**與**篩選條件**，再執行**非同步爬取**與**結果整理**；任一階段失敗都會直接回傳 `None`。
+- `_crawl_website_async()` 組合**瀏覽器設定**、**內容過濾**、**網址/網域篩選**與**深層爬取策略**，並將結果整理成清單。
+- `WebsiteCrawlerConfig.from_toml()` 從 `./config/website_crawler/{name}.toml` 載入 `init` 與 `crawl` 設定，並在建立後立即驗證內容。
+- `exclude_words` 若以**列表**提供會自動轉成 `tuple`，`run_name` 則依 TOML 註解標記的欄位組合而成。
