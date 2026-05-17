@@ -2,11 +2,11 @@
 repo = "builtin"
 hooks = [
     # code style
-    { id = "end-of-file-fixer" },
+    { id = "end-of-file-fixer", exclude = '\.md$' },
     { id = "mixed-line-ending" },
     { id = "trailing-whitespace" },
     # git safety
-    { id = "check-added-large-files", args = ["--maxkb=1024"] },
+    { id = "check-added-large-files", args = ["--maxkb=5120"] },
     { id = "check-merge-conflict" },
     { id = "check-case-conflict" },
     { id = "detect-private-key" },

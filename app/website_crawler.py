@@ -3,6 +3,7 @@ import logging
 import re
 from typing import Pattern
 
+import mdformat
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
@@ -25,14 +26,35 @@ from utils.log_helper import log_session, print_log
 logger = logging.getLogger(__name__)
 
 
+# Markdown 清洗正則規則
+UNICODE_WHITESPACE_PATTERN = re.compile(r"[\u200b\xa0\u3000]+")
+TRAILING_WHITESPACE_PATTERN = re.compile(r"[ \t]+$", flags=re.MULTILINE)
 EMPTY_ANCHOR_LINK_PATTERN = re.compile(r"\[\]\(.*?#h\.[a-z0-9]+\)")
-
-HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
+EMPTY_LIST_NOISE_PATTERN = re.compile(r"^\s*\*\s*#{1,6}\s*$", flags=re.MULTILINE)
 EMPTY_HEADING_LINE_PATTERN = re.compile(r"^(\s{0,3}#{1,6})\s*$")
 SKIP_AS_HEADING_PATTERN = re.compile(r"^\s*!?\[.*?\]\(.*?\)\s*$")
+EXCESSIVE_NEWLINES_PATTERN = re.compile(r"\n{3,}")
+LIST_ITEM_SPACING_PATTERN = re.compile(
+    r"(^[ \t]*(?:[-*+]|\d+\.)[ \t]+.*)\n{2,}(?=[ \t]*(?:[-*+]|\d+\.)[ \t]+)",
+    flags=re.MULTILINE,
+)
+HEADING_BELOW_SPACING_PATTERN = re.compile(
+    r"(^[ \t]*#{1,6}[ \t]+.*)\n{2,}", flags=re.MULTILINE
+)
+HEADING_ABOVE_SPACING_PATTERN = re.compile(
+    r"([^\n])\n(?=[ \t]*#{1,6}[ \t]+)", flags=re.MULTILINE
+)
+IMAGE_ABOVE_SPACING_PATTERN = re.compile(
+    r"([^\n])\n(?=[ \t]*!\[.*?\]\()", flags=re.MULTILINE
+)
+IMAGE_FOLLOW_TEXT_PATTERN = re.compile(r"(!\[.*?\]\(.*?\))\s*(?=\S)")
 
+# 標題正則規則
+HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
 INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
 WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
+
+MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 
 
 class WebsiteCrawler:
@@ -66,7 +88,7 @@ class WebsiteCrawler:
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
         exclude_words: tuple[str, ...] | None = None,
-    ) -> list[dict] | None:
+    ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
         self.url_patterns = url_patterns
@@ -149,10 +171,10 @@ class WebsiteCrawler:
     def _filter_crawl_results(
         self,
         crawl_results: list,
-    ) -> list[dict]:
+    ) -> dict[str, dict]:
         """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
-        filtered_results = []
-        existed_md_file_names = set()
+        filtered_results = {}
+        existed_page_title = set()
 
         for crawl_result in crawl_results:
             logger.debug("-" * 30)
@@ -165,18 +187,7 @@ class WebsiteCrawler:
                 continue
 
             fit_markdown = crawl_result.markdown.fit_markdown
-
-            if self.exclude_words is not None:
-                fit_markdown = "".join(
-                    line
-                    for line in fit_markdown.splitlines(keepends=True)
-                    if not any(word in line for word in self.exclude_words)
-                )
-
-            # 移除 https://...#h.xxx 這類隱藏錨點空連結
-            fit_markdown = EMPTY_ANCHOR_LINK_PATTERN.sub("", fit_markdown)
-
-            fit_markdown = self._promote_empty_heading_line(fit_markdown)
+            fit_markdown = self._clean_markdown(fit_markdown)
 
             # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
             heading_match = HEADING_PATTERN.search(fit_markdown)
@@ -184,29 +195,29 @@ class WebsiteCrawler:
                 title = heading_match.group(1).strip()
                 safe_title = INVALID_FILENAME_CHARS_PATTERN.sub("", title)
                 safe_title = WHITESPACE_SEQUENCE_PATTERN.sub("_", safe_title)
-                md_file_name = safe_title
+                page_title = safe_title
             else:
-                md_file_name = crawl_result.url.split("/")[-1]
+                page_title = crawl_result.url.split("/")[-1]
 
-            if md_file_name in existed_md_file_names:
+            if page_title in existed_page_title:
                 self._crawl_stats["repeat_pages"] += 1
-                logger.debug(f"Webpage {md_file_name} already exists, skipping...")
+                logger.debug(f"Webpage {page_title} already exists, skipping...")
                 continue
-            existed_md_file_names.add(md_file_name)
+            existed_page_title.add(page_title)
 
-            # images = crawl_result.media.get("images", [])
+            image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
+            images = [{"url": url} for url in image_urls]
             # self._crawl_stats["image_count"] += len(images)
 
             filtered_result = {
-                "md_file_name": md_file_name,
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
-                "images": crawl_result.media.get("images", []),
+                "images": images,
             }
-            filtered_results.append(filtered_result)
+            filtered_results[page_title] = filtered_result
             self._crawl_stats["success_pages"] += 1
 
-            logger.debug(f"Successfully crawled webpage: {md_file_name}")
+            logger.debug(f"Successfully crawled webpage: {page_title}")
             logger.debug(f"*  URL: {crawl_result.url}")
             logger.debug(f"*  Depth: {crawl_result.metadata.get('depth', 0)}")
             # logger.debug("Images:")
@@ -214,6 +225,38 @@ class WebsiteCrawler:
             #     logger.debug(image)
 
         return filtered_results
+
+    def _clean_markdown(self, markdown: str) -> str:
+        """優化後的 Markdown 清理邏輯：混合 Regex 與 mdformat。"""
+        # --- 資料清洗 ---
+        if self.exclude_words is not None:
+            markdown = "".join(
+                line
+                for line in markdown.splitlines(keepends=True)
+                if not any(word in line for word in self.exclude_words)
+            )
+        markdown = EMPTY_ANCHOR_LINK_PATTERN.sub("", markdown)
+        markdown = EMPTY_LIST_NOISE_PATTERN.sub("", markdown)
+
+        # ----- 結構修復 (前) -----
+        markdown = self._promote_empty_heading_line(markdown)
+        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
+
+        # ----- 格式化 -----
+        try:
+            markdown = mdformat.text(
+                markdown,
+                options={"wrap": "no"},  # 避免強制換行
+                extensions={"gfm"},  # 支援表格
+            )
+        except Exception as e:
+            logger.error(f"Error during mdformat formatting: {e}")
+
+        # ----- 結構修復 (後) -----
+        markdown = IMAGE_FOLLOW_TEXT_PATTERN.sub(r"\1\n", markdown)
+        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
+
+        return markdown
 
     @staticmethod
     def _promote_empty_heading_line(fit_markdown: str) -> str:

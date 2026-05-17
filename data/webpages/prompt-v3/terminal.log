@@ -1,826 +1,341 @@
-───────────────────────────────────────────────────────── Webpage Image Summarizer (test) ─────────────────────────────────────────────────────────
-───────────────────────────────────────────────── WebpageImageSummarizer Config Loaded from toml ──────────────────────────────────────────────────
+────────────────────────────────────────── Webpage Image Summarizer (default) ───────────────────────────────────────────
+──────────────────────────────────── WebpageImageSummarizer Config Loaded from toml ─────────────────────────────────────
               init
 ┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Config                ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ cache_download_images │ True  │
+│ cache_image_captions  │ True  │
 │ download_timeout      │ 10.0  │
 │ max_retries           │ 6     │
 │ success_threshold     │ 0.8   │
 └───────────────────────┴───────┘
-                                                                     summarize
-┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Config          ┃ Value                                                                                                                         ┃
-┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ image_source    │ markdown                                                                                                                      │
-│ model           │ gemini/gemini-3.1-flash-lite-preview                                                                                          │
-│ prompt          │ 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。                                                             │
-│                 │                                                                                                                               │
-│                 │ 【核心規則】                                                                                                                  │
-│                 │ 1. 先在內部過濾低資訊字與重複內容，再進行圖片摘要與 OCR；低資訊字不得出現在最終輸出。                                         │
-│                 │ 2. 僅描述可見事實；禁止模板語、美術評論與推論。                                                                               │
-│                 │ 3. 優先保留實體名稱、完整 OCR 文字與頁面主題詞；實體僅收錄具獨立語義的名詞短語，且不得逐字重複 OCR。                          │
-│                 │ 4. 圖片摘要以實體優先，依主體實體、位置關係、功能或上下文撰寫，不先寫修飾詞。                                                 │
-│                 │ 5. 頁面關聯僅填可見且可驗證的頁面主題、所屬對象與檢索錨點，且至少包含 1                                                       │
-│                 │ 個可命名錨點（人名、組織名、專案名、產品名、活動名、頁面標題詞）；禁止使用代表、象徵、常作為、通常用於、應用於、適合作為等推… │
-│                 │ 6. 圖片缺乏可識別身份資訊時，優先以頁面標題或鄰近文字中的專有名詞補足，不得憑空推論。                                         │
-│                 │ 7. 圖片過度模糊、遮擋或僅有背景，或 OCR 無法辨識時，明確填寫無法辨識或無可辨識實體；局部不清楚以 [模糊] 標示。                │
-│                 │                                                                                                                               │
-│                 │ 【輸出格式】                                                                                                                  │
-│                 │ ## 圖片摘要                                                                                                                   │
-│                 │ 用一句話清晰描述圖片的實際內容、主要實體與結構。                                                                              │
-│                 │ 以實體優先，精確描述物件位置與關係，不包含風格修飾詞。                                                                        │
-│                 │                                                                                                                               │
-│                 │ ## 主要元素                                                                                                                   │
-│                 │ 1. 實體: 列出最多 5 個名詞短語，專有名詞優先，以逗號分隔                                                                      │
-│                 │ 2. OCR文字: 逐字逐句完整抽取圖片上所有可見的文字內容，保留原始版面與順序。若無文字填寫無                                      │
-│                 │ 3. 主題標籤: 最多 5 個與頁面主題直接相關的分類詞，只能使用專案名、功能名、領域名或明確主題詞，以逗號分隔                      │
-│                 │                                                                                                                               │
-│                 │ ## 頁面關聯                                                                                                                   │
-│                 │ 以短語或單句列出圖片的頁面角色、所屬對象與檢索錨點。                                                                          │
-│                 │ 優先使用可命名資訊：人名、組織名、專案名、產品名、活動名、頁面標題關鍵詞。                                                    │
-│                 │                                                                                                                               │
-│                 │ 【特別說明】                                                                                                                  │
-│                 │ - 圖片摘要控制在 50 字內                                                                                                      │
-│                 │ - 主要元素控制在 60 字內，不含 OCR文字                                                                                        │
-│                 │ - 頁面關聯控制在 40 字內                                                                                                      │
-│                 │ - 圖片摘要、主要元素與頁面關聯合計不超過 150 字，不含 OCR文字                                                                 │
-│                 │ - OCR文字 應完整保留所有可見文字，不受字數限制                                                                                │
-│                 │ - 多行文字按出現順序分行列出，並保留特殊符號、數字與日期等原始格式                                                            │
-│                 │ - 所有欄位均不使用括號，直接列出內容                                                                                          │
-│                 │ - 低資訊字只在內部過濾，不列入最終輸出                                                                                        │
-│                 │                                                                                                                               │
-│ vlm_max_workers │ 20                                                                                                                            │
-└─────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-──────────────────────────────────────────────────────────────────── Run Paths ────────────────────────────────────────────────────────────────────
+                                                        summarize
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                                                                               ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ image_source    │ markdown                                                                                            │
+│ model           │ gemini/gemini-3.1-flash-lite-preview                                                                │
+│ prompt          │ 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。                                   │
+│                 │                                                                                                     │
+│                 │ 【核心規則】                                                                                        │
+│                 │ 1. 先在內部過濾低資訊字與重複內容，再進行圖片摘要與 OCR；低資訊字不得出現在最終輸出。               │
+│                 │ 2. 僅描述可見事實；禁止模板語、美術評論與推論。                                                     │
+│                 │ 3. 優先保留實體名稱、完整 OCR 文字與頁面主題詞；實體僅收錄具獨立語義的名詞短語，且不得逐字重複      │
+│                 │ OCR。                                                                                               │
+│                 │ 4. 圖片摘要以實體優先，依主體實體、位置關係、功能或上下文撰寫，不先寫修飾詞。                       │
+│                 │ 5. 頁面關聯僅填可見且可驗證的頁面主題、所屬對象與檢索錨點，且至少包含 1                             │
+│                 │ 個可命名錨點（人名、組織名、專案名、產品名、活動名、頁面標題詞）；禁止使用代表、象徵、常作為、通常… │
+│                 │ 6. 圖片缺乏可識別身份資訊時，優先以頁面標題或鄰近文字中的專有名詞補足，不得憑空推論。               │
+│                 │ 7. 圖片過度模糊、遮擋或僅有背景，或 OCR 無法辨識時，明確填寫無法辨識或無可辨識實體；局部不清楚以    │
+│                 │ [模糊] 標示。                                                                                       │
+│                 │                                                                                                     │
+│                 │ 【輸出格式】                                                                                        │
+│                 │ **圖片摘要：**                                                                                      │
+│                 │ 用一句話清晰描述圖片的實際內容、主要實體與結構。                                                    │
+│                 │ 以實體優先，精確描述物件位置與關係，不包含風格修飾詞。                                              │
+│                 │                                                                                                     │
+│                 │ **主要元素：**                                                                                      │
+│                 │ 1. 實體: 列出最多 5 個名詞短語，專有名詞優先，以逗號分隔                                            │
+│                 │ 2. OCR文字: 逐字逐句完整抽取圖片上所有可見的文字內容，保留原始版面與順序。若無文字填寫無            │
+│                 │ 3. 主題標籤: 最多 5                                                                                 │
+│                 │ 個與頁面主題直接相關的分類詞，只能使用專案名、功能名、領域名或明確主題詞，以逗號分隔                │
+│                 │                                                                                                     │
+│                 │ **頁面關聯：**                                                                                      │
+│                 │ 以短語或單句列出圖片的頁面角色、所屬對象與檢索錨點。                                                │
+│                 │ 優先使用可命名資訊：人名、組織名、專案名、產品名、活動名、頁面標題關鍵詞。                          │
+│                 │                                                                                                     │
+│                 │ 【特別說明】                                                                                        │
+│                 │ - 圖片摘要控制在 50 字內                                                                            │
+│                 │ - 主要元素控制在 60 字內，不含 OCR文字                                                              │
+│                 │ - 頁面關聯控制在 40 字內                                                                            │
+│                 │ - 圖片摘要、主要元素與頁面關聯合計不超過 150 字，不含 OCR文字                                       │
+│                 │ - OCR文字 應完整保留所有可見文字，不受字數限制                                                      │
+│                 │ - 多行文字按出現順序分行列出，並保留特殊符號、數字與日期等原始格式                                  │
+│                 │ - 所有欄位均不使用括號，直接列出內容                                                                │
+│                 │ - 低資訊字只在內部過濾，不列入最終輸出                                                              │
+│                 │                                                                                                     │
+│ vlm_max_workers │ 20                                                                                                  │
+└─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+─────────────────────────────────────────────────────── Run Paths ───────────────────────────────────────────────────────
 
-  Type             Directory                                                                                        Status
- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Base             runs/20260508_012645                                                                             created
-  Module           runs/20260508_012645/webpage_image_summarizer                                                    created
-  Run              runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview                created
-  Results folder   runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/results        created
-  Results json     runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/results.json   wait for saving
-  Config toml      runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/config.toml    wait for saving
-  Log file         runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/terminal.log   wait for saving
+  Type             Directory                                                            Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base             runs/20260510_232811                                                 created
+  Module           runs/20260510_232811/webpage_image_summarizer                        created
+  Run              runs/20260510_232811/webpage_image_summarizer/default                created
+  Results folder   runs/20260510_232811/webpage_image_summarizer/default/results        created
+  Results json     runs/20260510_232811/webpage_image_summarizer/default/results.json   wait for saving
+  Config toml      runs/20260510_232811/webpage_image_summarizer/default/config.toml    wait for saving
+  Log file         runs/20260510_232811/webpage_image_summarizer/default/terminal.log   wait for saving
 
-───────────────────────────────────────────────────────────── Loading Latest Results ──────────────────────────────────────────────────────────────
-WARNING  Latest results JSON path is not set.
-INFO     Looking for run folders in ./runs...
-INFO     Latest crawl results found at: ./runs/20260508_011918/website_crawler/max_depth-2/results.json
-─────────────────────────────────────────────────────────────── Image Summarization ───────────────────────────────────────────────────────────────
-──────────────────────────────────────────────── Summarizing Images in [Web_智慧與資料探勘實驗室] ─────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 5
-DEBUG    Caption uncached URLs count: 5
+────────────────────────────────────────────────── Image Summarization ──────────────────────────────────────────────────
+─────────────────────────────────── Summarizing Images in [Web_智慧與資料探勘實驗室] ────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAJZpw124i2wjQPer0rkiC5_K_dQEN2agdItEajLKjr-VWVO9skRM3EpxQH-XrxowHnyAjqEsnqXlYhJ3f5d4DZ
-         yG0yOe4xv8v5sCU93wRkxwqTxYhRxTjqKjQpih7JV1IdjnyuJZXrZWYO7U4zCFUw-Br4sZGufnJImT2P0Ukzk7Y98cioR5u79IM=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAEEnpwrHvwHTE3MOaEglo994hpSO6t5Y3sGUV_QjjXWPUwpKc9URGcfNbwh_uX_gyvWSpptdulUY9h5KnGBW1r
-         vmhsL5tJMkSahwPmFWXrizrCqQU-T9-Df8kQbFc3pwMmI4AZ1PCf0GAocGuWYLd5cuNoFjXap7a9eMH9qVWReH89Y7T3bjqhHa7sOIGpEmxYAIBWJ1_Go452J0SwRX661nwGOhVg-I
-         XhgcU=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCbXND0m2Rlqw71nR4CTeCY71oKmyPIv1tGPTXyZgOf3nA05KP4KoDT7lRzHgTeYFTqGpv__tgeAQhwev3_hRJm
-         Zis6hdxtsU6-x2qFqYFbIAHtEvR7fqATSkN-CnFwmU94ff0MM-TtkBhF4tUvHNkyflWd_dR0aQpcfUaKmWXNgzR0bY3jogR7nmnqlXoehq11zYsql7iVD4VCuM4BiK7x9vMBncUtgS
-         5qjXw=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCHgpFPZJuN4vuyAcjOYT3m3Fvm6TTko3THalW7ay7HcQfD5Jn15un50_s34nMDJkRhpqaLAxIBO1k9c0FXNcqZ
-         1Do0NrcRa-CEzuVg6IrCjA3XIxmrsc1selDQoivw5Rt3NJNRDg7pfEeAikOnICp51rXLlnrGT_I6PPAR1QUQTkQs3nXzcIFcGEYjukfnT-OgZNBQEyWwQ_Y=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCZgZLzpZPkHLsvabiH7sbeLDhSqoPbLpcPv_SPcz_Bv5sgFNxLzhzy2JdAgPYcsTiGcHV8AtVnqysVmfDmpthz
-         YttmGLZBa1HHNofhM1tqMi2yFggMHweTk8MJKZPqtTvSiDuor4VQXqryW60Vcr5fbr4vuoUWY-Ne-9kQ0PT23D1hcktlctS-bPk=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.080s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.108s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 2.823s
-DEBUG    Caption generation succeeded (cost_usd=$0.000794 prompt_tokens=1785 completion_tokens=232 total_tokens=2017)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 2.823s
-DEBUG    Caption generation succeeded (cost_usd=$0.000763 prompt_tokens=1785 completion_tokens=211 total_tokens=1996)
-Generating captions... ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 3.025s
-DEBUG    Caption generation succeeded (cost_usd=$0.000779 prompt_tokens=1785 completion_tokens=222 total_tokens=2007)
-Generating captions... ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 3.025s
-DEBUG    Caption generation succeeded (cost_usd=$0.000782 prompt_tokens=1785 completion_tokens=224 total_tokens=2009)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 3.850s
-DEBUG    Caption generation succeeded (cost_usd=$0.000803 prompt_tokens=1785 completion_tokens=238 total_tokens=2023)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 3.920s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 2.856s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.003922 │
+│ cost_usd          │ $0.003112 │
 │ success           │ 5         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────────────────────────────── Summarizing Images in [Advisor] ─────────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+──────────────────────────────────────────── Summarizing Images in [Advisor] ────────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDSpMPUGH-xA_EsfTpJNULZAp2VRuJEwJoP1tCdR7MjLC9yHK-vAW4jpTz8YPw2l-kFQKHznaeAGybvldd5y7-T
-         iGzJZp9HY1kXZyhsHsb3JJRncvWyA1M-GfJuoBeO5DkL-DiCt3gFykT2bTxw5oU9l1peplARpyMnjUWUdSXjf98qhwTwXvyQaLM1mqTTPTjIJA1SGUujApIjSM5H_tdXA9fKHrHEHX
-         AUuTc=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.050s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.052s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 2.665s
-DEBUG    Caption generation succeeded (cost_usd=$0.000775 prompt_tokens=1784 completion_tokens=219 total_tokens=2003)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.686s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.538s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.000775 │
+│ cost_usd          │ $0.000663 │
 │ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────────────────────────────── Summarizing Images in [Members] ─────────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 17
-DEBUG    Caption uncached URLs count: 17
+───────────────────────────────── Summarizing Images in [感謝QSAN捐贈雙控網路儲存設備] ──────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/17 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDgifyq4V_g1_RpeU_Ig7eTAUYEYa2AqB9RO3nUrCO2nCFVnQZJ21QWj4uagVcGDed3EIqVFjTLC9ALKdy_w_di
-         EDmbX0N0zUtcIJ9q3qzUtPIrE7enBQEQvyoUwCgGy_uxxBvTMlsmLxr3VOPuaTXpLEgilofiHhxNKMj03yZqp4sDUPkQcIbvKN1pTOJiMlRu0hVJsnKp3MKDP85IBSjWynxVObtGO8
-         g7Mpk=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/17 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUD8YUqmkmN-88Z4GA1dG3n1LkOxJls0bjRLJpQcXoDmjTD_j1WVhd0mfoiMPBbuHCdn-dxm_l5lGrNeBnjT0-e1
-         4n6Uqf_cn36t-18wyYj66CG7RDrmfZo7Bwkkdr5xPF4mDsSi_a3-cSB3-kNtzOnVVXRROx3Iw5-opE8mdqkryozOKciZtNgx-UTa2PVWgdBzgNsJkjhD=w1280)
-Downloading images... ━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  2/17 0.100s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDdCGLCnh3kzFAadcNA3LOrm6midht3ee4BUvr5ILopB0wAnmoRNl-Wt6I_rQBj8zOXEbxhg2_mcIyhjcNSGRH1
-         0oJ5F-Bu20YLOubYaF5LCv2pzCUP1l2YSeCKW7PMI7VaeUPMGqn647ibXmQC4uc8YTeoWHxjPPCIlGGRZObwGo_Rdzo-LZn60ldVTrBaVr_oY9yxUkUpAzxYIHca3E0JLiwf9rGJln
-         rPnqE=w1280)
-Downloading images... ━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  2/17 0.100s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAgYHUFBxLNl4iY1d9xy_pTEakWmAo8e3mMdi3dLJJNYr8ZdwlbZSauWbUak64Vl91VlcCss4f1ytvCJUI_p5yg
-         h36ssg18kWN2gaZOY9tNOMbuZ40ZUIIgrQOj9AlX_4tJeEHk80_vv0h_i0KLCP-Teqgc8sLCTkgLMc-OmeALk9qa6BNL4MicmGI5Zm7oxqqy91bp98WjuKVjd7gpnVgOER8gOTNhyS
-         oPlf4=w1280)
-Downloading images... ━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  2/17 0.100s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBZODjVm1jx8wLrJ6BriNdIaaI-SMaFy1h5dhzaJTqPTdjAGoIEI78c6gw1S4_7nE0j9UmPC5ZAqFoLK9nG4jXY
-         43gKEd7Gq8uYbftiujk53CFBRxNH-8Ghcbi-Gv6ttZELKc1c5EHBgxVU2EaPFurEs6bT_ciCvFWHZtq5rMBplhASh7OFp0IOGC9NMOcQ3bt5bKx6QaLlWAWjy-qlCJH78l1EB-SkJn
-         sy0G8=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDqgjkaf82tbak7MFJwMQK5YeHqnFuIsaE0E97agGFzgJNLzi5lJRA7WxgCz_kKBF5-0rIGoI6B5QbzKJQhHpiy
-         IP_dNowlL5eSuYmSfCTC0Kbs24mb5S4A-q6KbbUgzkOb0M4ktb1upx5-oHxvVRt6F3D_y7zhAO_hcKekPNuAWcbKrodDAfyODU0paHANoO8daiM67K5sn4hBSZNWXB0cXYioc34bZf
-         zu=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCUjY0IZs58XM1EeZA8KdjU5VqnI43b-u_Ogw0NBCvWanaaGhZIRheWGWZkTbmV_WXUIo0vuEzSmAkmjzBvZV-g
-         9gDRM8_9qDBwzBinHbwFBuAkUQwuVENQv0w8_tX-dbYhY7GFCNyD0h53en8y-bo52KKaN8LHTedgP0ZVHghAesIS84t5522URCg=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDrpAI_5e_kFYzeyKhvdl1UXkONG7zbYe_ajmZwkSFgVrM9s7kcyes94uWb85dlvVRN6dEPhju904BLou1_323A
-         INXw4Tleaq_lJRzytztKeA-P0-5mis7vEBrS3QaEg4haGeDJm-A7bvGX2tS9jZ7TVmtGvM2cbvznu1Xi9DrtfF_rVcYtp3VrEgi0dkUeAEYFN2fIswORZPipsLFUw_iN9CM3E4GG3a
-         di=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUB4PK_fTz9dk9i-eOqW1LnpS4nNV_pVoYCgJsH8xK_whbuyh2AjYgewEIGj8S2sJ9Zy19YqSX3Hiu3GzMRiAzBF
-         JMT5vyxTQCcPFbrLaXXTU_hE8LyFd62DMyY79wHUYOow3-gMf94FUKWzZOysNH97W5DKfTXKP8iNL7dkfb4Z_HI1D9Te2Cl0NEvef_mPCcWGmwCmwhw5SdXbWBL1wthP6v1CdXn4XO
-         xp=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUB7pVHoRab5lInnIkULZsn73xTDONhCvZw2-e6EDbtoy9StYn-Ie4dLZ2g9EQENB0JxzKlWHwodaJLFQIeSY0_B
-         J53lFLb6yRCym4xrUZsz6zShQSfEV9feFU8DIsWo2sYGvAWCL7xus368q5AEcHbsuenCGTaaPtYkduIxpCImKk3XYPHgiYMtJGiObUbh6g_GaVyiBDqG9-lVFd1SmJpFJ8_AXucj6K
-         cd9OA=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCSxHBrwRdz1kxBI-UyqvTX7A5JByXTwjj1iYe8i-_nH1C8wg0D0QRIH343sKAk0HxZi_eSjUKYIOqJaYSKPOf7
-         myRswg-Ay2SytK4E1GnG-bPdUJwXUXy0QdqbCT50HNnM7tKBKsBEQkdII6gDwjp1D72B14DWtqiZHbKivXU_ZQpIOpqp0jUiM6TOeRFb66zH2Y2Gvu-LQZg1V1HEO1Be4IQdOVAtz_
-         Lz=w1280)
-Downloading images... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCzwVEXHRp-fVJ1KcWDzP11WNPT8kb75QrhDpUncC19Mwf1-R4Ec-7fvnrHjLCPszgyjpyQ9x6ibLuzrG2KP_C-
-         AUI_xH28HOYEtaXTmrtw70LJ2d6r-PNJgAbv5_RuxY2czjaRx_VAyDzegM5aV3Xtn9nsr81WQJhOzkngiWb7dDjn9PTpchEX1PUT438R0cCw51UzErP-ta9re-jqzOTPTDDzWfuXK4
-         l_yZY=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━ 12/17 0.303s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCcvGCp8d8x_Y9Cm1BHcorL-w_cp5lLAWIEWolp5yYkwK3SiEJ7ye8WSggLK80yErjv_SK1DpK8ARPmUq9eKKK3
-         YZnQuvAIAl9Sh0cGMViXm6Mdhh0yR3scnLuRoppQ4CINb9shuifYucU3LlxImsCTj6mf8IyUQ_oab0PR245Q5fYYv0OBSaKCHAz7TjsLv85cRhJQsrTeDOfFBq-Z6TN2-v6EUtXN92
-         KU=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━ 13/17 0.406s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBPnE9u61jNHk8ABiWwntZ2CRxHtrb9LYJe3CZUSmY1nyahxSC_lPQWB2BfWUoKSuOcFZYn8PpvG7GRkDhHMyWw
-         2MKqCaQGgDDwIwO30JjyGey8b9wk-4qSWj5gj2aRXT7pMak_jOIxGKdv3Z-2pbqajkir1aBmfPojKWYsFhtH-m_BgDA-u04dNa0=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━ 13/17 0.406s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUB5I6b0Smjb3dfHpo8ob7_EDsPstBjzV-ty7uAQgBDdA1UWl98tx2UoB7v7tv-nym-M2_gmqJI9iDu3fG6Q4jcw
-         NTt0z2_JtAS1nHZsZ4sTI1aHfAxMRPyw2HzsIbuJVsH6qhSIGv_66jzrh6oMM8sPyFYzeOFcBQvS0kYEey_kEIHzo1pA3-8A3Iy-z7b_EWvdtzqU_fOkJRed0oAMiOXOCZW9StgpHI
-         Qa=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━ 13/17 0.406s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDUcEwfjzCdQXQExFb7aKo10FA4fPekvpB4eUKb7W61Dxlx50V-aGMvq2CgvwPa0QnVP6-vOfHkHOrJUSKouhfa
-         JRnKA3G_exfZ-UtDGsNEdKc3SbJnQX2AVwrctluCVGoRTzRgWOfnltLPncjNKQaJERpXz4bRPP5AwN7EcAH_WAaWtPlLada2D5s2y4BTGP1OmkQPpaSyt4bGIKgwDDwgQ9hBuPHv8t
-         _iTk4=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━ 16/17 0.507s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBE-T4oNhZbqyuegLKdVj_FJ748QNN-VObUMMP9FbexXXKQZkzdO-0Z-uqmkkYhDmZVRRn4TJXR03CTbZomqQyi
-         NbJjZrLuOWdBrhUhxSOytYQ825PTgx4k2dSu9CWDDTjpefEyN2O-JGC8svwuGtVHi8SKLVqMh2myB4EphQHDqFoCoshAWmp9O49xEO1yn5_XjLgX0_f2rKGm-wo8TSnnMScxwVAdCr
-         rzsLI=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 0.511s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.223s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/17 2.134s
-DEBUG    Caption generation succeeded (cost_usd=$0.000745 prompt_tokens=1785 completion_tokens=199 total_tokens=1984)
-Generating captions... ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  1/17 2.336s
-DEBUG    Caption generation succeeded (cost_usd=$0.000806 prompt_tokens=1785 completion_tokens=240 total_tokens=2025)
-Generating captions... ━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  2/17 2.438s
-DEBUG    Caption generation succeeded (cost_usd=$0.000752 prompt_tokens=1785 completion_tokens=204 total_tokens=1989)
-Generating captions... ━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  3/17 2.539s
-DEBUG    Caption generation succeeded (cost_usd=$0.000782 prompt_tokens=1785 completion_tokens=224 total_tokens=2009)
-Generating captions... ━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  3/17 2.539s
-DEBUG    Caption generation succeeded (cost_usd=$0.000784 prompt_tokens=1785 completion_tokens=225 total_tokens=2010)
-Generating captions... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 2.642s
-DEBUG    Caption generation succeeded (cost_usd=$0.000772 prompt_tokens=1785 completion_tokens=217 total_tokens=2002)
-Generating captions... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 2.642s
-DEBUG    Caption generation succeeded (cost_usd=$0.000790 prompt_tokens=1785 completion_tokens=229 total_tokens=2014)
-Generating captions... ━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━  5/17 2.642s
-DEBUG    Caption generation succeeded (cost_usd=$0.000761 prompt_tokens=1785 completion_tokens=210 total_tokens=1995)
-Generating captions... ━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━  8/17 2.743s
-DEBUG    Caption generation succeeded (cost_usd=$0.000781 prompt_tokens=1785 completion_tokens=223 total_tokens=2008)
-Generating captions... ━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━  8/17 2.743s
-DEBUG    Caption generation succeeded (cost_usd=$0.000803 prompt_tokens=1785 completion_tokens=238 total_tokens=2023)
-Generating captions... ━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━  8/17 2.743s
-DEBUG    Caption generation succeeded (cost_usd=$0.000767 prompt_tokens=1785 completion_tokens=214 total_tokens=1999)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━ 11/17 3.150s
-DEBUG    Caption generation succeeded (cost_usd=$0.000910 prompt_tokens=1785 completion_tokens=309 total_tokens=2094)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━ 12/17 3.354s
-DEBUG    Caption generation succeeded (cost_usd=$0.000790 prompt_tokens=1785 completion_tokens=229 total_tokens=2014)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━ 13/17 3.457s
-DEBUG    Caption generation succeeded (cost_usd=$0.000782 prompt_tokens=1785 completion_tokens=224 total_tokens=2009)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━ 14/17 3.559s
-DEBUG    Caption generation succeeded (cost_usd=$0.000839 prompt_tokens=1785 completion_tokens=262 total_tokens=2047)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━ 15/17 3.661s
-DEBUG    Caption generation succeeded (cost_usd=$0.000779 prompt_tokens=1785 completion_tokens=222 total_tokens=2007)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━ 16/17 3.865s
-DEBUG    Caption generation succeeded (cost_usd=$0.000803 prompt_tokens=1785 completion_tokens=238 total_tokens=2023)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 3.874s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 7.179s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.013447 │
-│ success           │ 17        │
-│ download_failure  │ 0         │
-│ summarize_failure │ 0         │
-│ cache_reuse       │ 0         │
-└───────────────────┴───────────┘
-────────────────────────────────────────────── Summarizing Images in [感謝QSAN捐贈雙控網路儲存設備] ───────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 2
-DEBUG    Caption uncached URLs count: 2
-
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCSl6U-VZ2f1tUFlkYJRvfiDpkrm3HO24cD6WMtTLshJxIsSdQyoJm4nGJGCQM46P7DrCF218RfvSdjv0R8asIv
-         WBoHIkgRgCjilKQkvK8rL71a6wY423rQFUl8xiIL0Ect_ppRl8Fl5uMtpBaxXzW-CQRBd-JlQRMoleroWHUJZPBhnz8o9VpKSHLJhwKgwJ3ujA=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAUKiFS9Kmu5keXx5MHONFLEkA9AlHcMHG_TEXEsRwIAl5mR9f6MJrvRVK2zuG1Zw4QsuK1u513Bmi5qdC01Utj
-         nM1_EKLJVtJwbLz0gd8sZVEOZEvBtgEo6Mi_3aojLfBVwcXTVyvYe1zXqvikouOTDQgdz-kqI9xNF9KEbIjBRia74ieGpzXetJqKiN26zJatU38R=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.190s
-
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 2.839s
-DEBUG    Caption generation succeeded (cost_usd=$0.000813 prompt_tokens=1758 completion_tokens=249 total_tokens=2007)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 4.366s
-DEBUG    Caption generation succeeded (cost_usd=$0.001013 prompt_tokens=1760 completion_tokens=382 total_tokens=2142)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 4.430s
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric            ┃ Value     ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001826 │
+│ cost_usd          │ $0.001485 │
 │ success           │ 2         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-─────────────────────────────────────────────────────── Summarizing Images in [Activities] ────────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 16
-DEBUG    Caption uncached URLs count: 16
+─────────────────────────────────────────── Summarizing Images in [Projects] ────────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/16 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCVLic3GWern-CAewjFbHYN0fhHcVz8XUnjGiqXzn1iiD0XfNdKNuYUm8xSEs1HIVM8U2lRM2ij7MlUIjwVGx42
-         V08omBR1Lchx32f2L_b3LQ1eZeXrig49u0Tzs84Q-yzcWZU6NfLtK2YlZLpvsUrZZUz4CPY_rlIk4US0alQddWylxuDdpHcb9H98BZ33aKVmnVFwI-C5ofyaawLLICd05cK6HkGQpl
-         gUPd8=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/16 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUC5kv4qXM9tARPB2aGA-t9XTTEda29lOL1VExdVhDL3yQOYTMp2TuGR0HtY8fsGVJZfs5YbA1XNV0CrYm3SHtfm
-         dVYUH28suFR_TGqgVsV6xX9VwaaR7QHSmrmow1HmZGZbTisihQ_b1QUy0K8WOfmcjIZxGAq3Ea1355J4U13Cylb3EGouUA2Pv4fbPWeDUhYch4bbe04gMO5f5r1xbq_UOWg2gwa5uu
-         it=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/16 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCTeuBzeis8DC0OnFLxYSOSlQg-tY8he8mESKQKoxuL0T44O3RuQ09ywpmttFGQSSM3Ufm2eY7nT1gZMIlJ5dff
-         LqdwgE-aTHvTloJ-QCt80QykALGRV27VdtNKB1YfL6zZhsMK4XvJgAanHgku2K170jf2edoysrO5BzSWyHuXkWL4J58H9uSWhR7Ufl0EcNwmh5RQBv11bgwL666ujdGO97tSLPwWTp
-         LB=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/16 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDsfsn09X5NaDP-6RlSH3FC_D84GJ5fPtCMhAx4KaOYxDCwyjyv5QSmXtasCkdrJtcZydLoFR-r7PNtL9E11zM-
-         zMyArqFBlax8hT5ihYvoVHzG6ze8wVzPT3IjzI1qH_UAlg9_ZY7USNGYROhdo8RIQWBhPQmaejS4mUoMFkQ_ounYD8EEHSwi6V8ZPZyWP1tRcpFKnFeFbs1ndiOUX8mBBYkp-Q4-AU
-         bIRQ4=w1280)
-Downloading images... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 0.201s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUB2z90of5-_OshprqMrebvPjzVB6NX6sGYiHdALX-waGYvb41mR3KTYfp5PaRyVgC64uNo2bA_4aNo_BvRJ_zWA
-         UAI59xdqvsMeiQfeC0Yjjmhg9opX85mlUlSG-CX133feD2edoyO8y8fVPmJQFipm7gyPW7nDCbsP4cLZlKtMS4WSlFJcRTuLEUnypITOa1Mp1VGfFZwLBOINfpQZtaiCjbvYI8_Ho8
-         Y3=w1280)
-Downloading images... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 0.201s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUB6BdBMoBhTCnl93Af70Gk5vKS-Khk3k0Q_FjeeaJYigpeZ2VR0Ay9wthkGmkY3X61UtOlAdmt2N9rOQnZk_RWl
-         m2FiUQ7pnoHEpuMIqE5lTJuY5PZNIKw3PMVlvFBrQtazr8ntnEMTpgrzdRFKqxrdp4ejjMVNNjF8I8aJ8XAg9rhySYdS_KQKG4qM-l2h0GsfGVRK=w1280)
-Downloading images... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 0.201s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDJFh2KcFTrPC8G0Jgnb5N42MXNksvTFbHXxhkNtddOEVk_5S6kePcfnSuykU257VjkCO_Etxq_bYit5v8-jTbs
-         fCV04atXrva6nOff0TofcUtKov56GIeh9us775zqAEBXrZmlb8vA9yWyE8nAbXJGeWSnraryU4jWnoKqYXeyiOQTt1ko5UQhTynZybw_dTmct8HV3onl=w1280)
-Downloading images... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 0.201s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBdt-nrrTRo2ZGhzEO7V-x1LTfDn5n0kcz2xlzqKT8ge2-0iAezS0oiM8C9XThgiVoDPCCRdiuIxQZKocrmatLV
-         sYh4NnOckPdd3av16ZfTqB-qc3G9YekwksY0MqnEdOZF-FVvC2tdfAd3WmpJijLYYJyPtfuEJOypHpfN1q0bdHK8aHy9HLkF81EZefCOKEkSZCI_=w1280)
-Downloading images... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 0.201s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUC6htRSR2XfbVUn0NqWj53bwTIBpNFoqoWWOS2YiDQ_YksAPUOLoUoSxo41wa359wkB2UPVhG4hkin4gktYBVyD
-         mAeXoVxWFW5DUjHOlYTo9_jBavcw_zCc6h0eo_UBkmsj71b1kMZAOQWFj53xmgVWalhHwKIU7BEi59e7l86xDJdCepPU5pNxheEhoH-39Nt250u0i4tn1M7H_wPN6CBAY5pnTGK28C
-         miuCQ=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━  9/16 0.302s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAnkkyUIe268eGrQFUFNBU-cFdUFniWE4IiCkcak1hrB7C7lceQPPuW295Nh_9pBilX4gGCUV2kOQyENzl9_yg-
-         wopuicWxYDE_AZhIn9S0iatb83eiZcj6xRQ4Pi64JLLxbGiI5SGiHcSdaP3F00BVPQI5uWyoMsgjP-6hcNHRfEG1ljUQroYmSuNdDi7sX_a7RWB12sCIwhI=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━ 10/16 0.403s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCBVA42VjTx0CcJEr3pQVUnG_EmapDli-2rBZitFnNtq65Rl4U0wGtRF7FlxRXiiKHef9nSMuSmSkJuHeLthgKS
-         7zi9xXW2yLtj5jr6q2hvSaWFXgD_hdTrU9NZ29WRoizV7aZZCHXa_flujcf4_dZ7-QkZeR1s_afnM2U9YPpoLHxZcW-H6tyCozaUenZeaA4CJ5s9jOLjG5_7XXn8qCtKBOWTtPvqzA
-         =w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━ 10/16 0.403s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBlv4xxY8wXcJHWBymem0HW--EPw7FnTYyAOdaCAUoZksqtwD_87RMNdO_PGV276BKPST6x9xL8JV0Qq3KSMr9f
-         zJkHL3gq_FCzAZaAriSLdnKA325CfrZ5Z-NQpqHlxFMo9610d4mLii6NzmgdrGpN0-9zStRk873_Qgen6r80Ced71zbEKaV4yU042gZB-TV8Hbe6TiF7lTlgWmcSUen4D1AvzLAyQl
-         N0=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 0.505s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCE-uZXS5y0dXr58t2oCFyEScNvm3oLByppvbERddwJZ8emRZ5Oyw8au6NO9DJES2c1lAzi4XEulkgEV6xg-cNu
-         eRoEbM7fmmMO75wV5ehqp83nLfGMrfrBmfA5fEnO6Kz4V1OmSBgG2pZkQze92A03TWA-3qAeADwec3CC4MBD5A-s5W2-Tscx7YgiX-dTEdZf3e-J=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 0.505s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDjq_cjWqhfVP0oENVtLLdfK3q-WoI-uIIrLy5k8B_YV6BsZ_JDRvHFhDUc8sY657KqSkXNUUtFbV45A571RJWs
-         U79jb8d1ONl4Xl-X2YF5YGzhCiM7xIFoPBJQGg0mdINVRYQsecy1lqCJjSEaZHnbwbMaxC0IEPDLfCnB2fb251ixIQ5IOZ60p5sGwM7xZevRm_YVIOK0Lrs=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 0.505s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBXeWRTpj5hvcgLA78txjM1QEymOcf_Ok0dw2BDS8d89QYQf8kt1MIZ2wyMoitM6M7nk-g3ed1bNbiKUnvW9BeO
-         OQurpk0YTzhOK-uYLLeX9apwj75Z-Ukk0Y4tp6ER_qpanpMud2QO0D9hn_wtL6ZdJ-vtZEyjdMWzDlSuuK1bh_8AhIIMLkMLERlrdkqgB2GBpU6A=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 0.505s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCfGibh43j7JSg5zQWOWm6-wVEXA4ofnxBRfgxgfcq73AX_Dkt1x_B1HOLZaiddOsNVJbzWuqT9BDMJxmtEiBUe
-         ebY3SR14k03rOMHtWB2A6KRnM_n-lNOxmvgu57j9KGFyUJ7qfzyEDXNq6AStJsLQsXlqlLS6AqxDw4UyoPk8NIzbu5ygCKXji8Oj4Zy4RbWMqCyG=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 0.527s
-
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  0/16 2.446s
-DEBUG    Caption generation succeeded (cost_usd=$0.000802 prompt_tokens=1760 completion_tokens=241 total_tokens=2001)
-Generating captions... ━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  1/16 2.752s
-DEBUG    Caption generation succeeded (cost_usd=$0.000793 prompt_tokens=1760 completion_tokens=235 total_tokens=1995)
-Generating captions... ━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  1/16 2.752s
-DEBUG    Caption generation succeeded (cost_usd=$0.000839 prompt_tokens=1760 completion_tokens=266 total_tokens=2026)
-Generating captions... ━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  3/16 2.955s
-DEBUG    Caption generation succeeded (cost_usd=$0.000838 prompt_tokens=1760 completion_tokens=265 total_tokens=2025)
-Generating captions... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 3.057s
-DEBUG    Caption generation succeeded (cost_usd=$0.000806 prompt_tokens=1760 completion_tokens=244 total_tokens=2004)
-Generating captions... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  4/16 3.057s
-DEBUG    Caption generation succeeded (cost_usd=$0.000867 prompt_tokens=1760 completion_tokens=285 total_tokens=2045)
-Generating captions... ━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━  6/16 3.159s
-DEBUG    Caption generation succeeded (cost_usd=$0.000800 prompt_tokens=1760 completion_tokens=240 total_tokens=2000)
-Generating captions... ━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━  7/16 3.363s
-DEBUG    Caption generation succeeded (cost_usd=$0.000856 prompt_tokens=1760 completion_tokens=277 total_tokens=2037)
-Generating captions... ━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━  7/16 3.363s
-DEBUG    Caption generation succeeded (cost_usd=$0.000950 prompt_tokens=1776 completion_tokens=337 total_tokens=2113)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━━━━━  9/16 3.464s
-DEBUG    Caption generation succeeded (cost_usd=$0.000867 prompt_tokens=1760 completion_tokens=285 total_tokens=2045)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━ 10/16 3.566s
-DEBUG    Caption generation succeeded (cost_usd=$0.000940 prompt_tokens=1760 completion_tokens=333 total_tokens=2093)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━ 11/16 3.770s
-DEBUG    Caption generation succeeded (cost_usd=$0.000838 prompt_tokens=1760 completion_tokens=265 total_tokens=2025)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 3.872s
-DEBUG    Caption generation succeeded (cost_usd=$0.000822 prompt_tokens=1776 completion_tokens=252 total_tokens=2028)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 12/16 3.872s
-DEBUG    Caption generation succeeded (cost_usd=$0.000811 prompt_tokens=1760 completion_tokens=247 total_tokens=2007)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━ 14/16 3.973s
-DEBUG    Caption generation succeeded (cost_usd=$0.000974 prompt_tokens=1760 completion_tokens=356 total_tokens=2116)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━ 15/16 5.498s
-DEBUG    Caption generation succeeded (cost_usd=$0.000914 prompt_tokens=1760 completion_tokens=316 total_tokens=2076)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 5.567s
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric            ┃ Value     ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.013714 │
-│ success           │ 16        │
-│ download_failure  │ 0         │
-│ summarize_failure │ 0         │
-│ cache_reuse       │ 0         │
-└───────────────────┴───────────┘
-──────────────────────────────────────────────────────── Summarizing Images in [Projects] ─────────────────────────────────────────────────────────
-DEBUG    wow
-DEBUG    Image uncached URLs count: 5
-DEBUG    Collected download images from cache for 1/6 images
-DEBUG    Caption uncached URLs count: 5
-DEBUG    Collected image captions from cache for 1/6 images
-
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAZCSGRZvt3Sr6yBC-Il7BNwFYNZ9Aa9XLFGDiC1CMND7QGs-QUur4cPpRZ2L0B-KL2q_xpK37J0vRnrQ-nJVsN
-         iccUyKRzKIGYiXYpvnYk4XxwcdVqwMnIJwXw4pySvNQGsp-eKsRJOL5KzETx8QJSpjappNFwG50X63-a_DM9CMOuY7-6SjMd-nBKBOSrP_3qqIYH-LXNcbWu10DId6_AT7mMszUwyL
-         4hq-Q=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAJf9rl5xH5h91N-7PkJ3rovdihdEhARTnN9-bKCeaZRAo7lQohCMWi0WRH6TJldToY1t09m__BHb2jMuSEjSU8
-         JFATSpAJlcFgV39xJ7f93lCculQ4KHIbw9P0h3tzTC4K2hMHtYuRj8PJzjsFDUgS5hIP9e4OHYKi-9EtSXZzFv8qM7FUtkY1Z9dRuJI7r_wpZw-l9kjVDzqlFQs84YozWhhLHEtsjj
-         rEwsc=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAwb_xyuHSaxhCgY5Kcwhg0xnA4XTtLKwEEt22lE98glQbF3o0CQQG19uXXwG3-PzHO0dyOuEGOuvlnWv0rIbZo
-         jVBvrRZMrtJW8l2bSm5ccWxcWRYOrMDffRdpyCXY5UZlyj7hBeEwdJy9EQSVlkCfNy0LB9AggFREqyZRgUYa6Qcdx6Ukkf_x3mUzAqcqys65XrG3Hm83I1opXpZMtcqXLb6l9h8AHD
-         S1jtc=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCHHuRREkVI9R0uDxrVubVg9Hq7SRopqTvpmBwniJuKRMGLec1PibRvGBBMtOxJN1LkV6dKfRPFqgi_ya0RmCob
-         8cCI8SKZ-K3pR2CtG06S372UDZWTS2xsUBT5G_1bDNCJBHtDyRLOlgHl4DOZEpUUPcUaJOGLpH_wwt7rqpH02xHPP_b7EtSTvUvsGGhk54tvhiVkUD7QuFm-ytWlvwgQdwQGYpaIvd
-         IZUuU=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBEEu2aaSVBq1GK3pSHP-2p6rn4Z_4CmEkx6gHuQyl-qx6QIF8rq368XQjYGMWWfXpv5l9SLPesci8xC_IBryic
-         wXOF696jVdXdqNAV6QzekFf2E9W3JSRpBgz4IRUzLdhtRiLo3Q5gWvTbzkzNXjFjuSUHuotfchwCdzVhaCTgYJLlpFw2sMRrgVggp6uhKTwlFZ6lNFspURs2Ci0VS1Mu_crMPdazDI
-         z_=w1280)
 Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.076s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 1.223s
-DEBUG    Caption generation succeeded (cost_usd=$0.000799 prompt_tokens=1785 completion_tokens=235 total_tokens=2020)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 1.223s
-DEBUG    Caption generation succeeded (cost_usd=$0.000736 prompt_tokens=1785 completion_tokens=193 total_tokens=1978)
-Generating captions... ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 2.521s
-DEBUG    Caption generation succeeded (cost_usd=$0.000764 prompt_tokens=1785 completion_tokens=212 total_tokens=1997)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━ 3/5 2.623s
-DEBUG    Caption generation succeeded (cost_usd=$0.000805 prompt_tokens=1785 completion_tokens=239 total_tokens=2024)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 4.381s
-DEBUG    Caption generation succeeded (cost_usd=$0.000827 prompt_tokens=1785 completion_tokens=254 total_tokens=2039)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 4.388s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 2.611s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.003931 │
+│ cost_usd          │ $0.003123 │
 │ success           │ 5         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 1         │
 └───────────────────┴───────────┘
-─────────────────────────────────────────────────── Summarizing Images in [EventGo!(2020-2023)] ───────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+──────────────────────────────────────────── Summarizing Images in [Members] ────────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBmdQ5bxYzt-l69T1nX4oR8Wfczmbr6GNVrw2ktMPjMPmw_B_5EGASUw50H-n87-87EbN7gu8rSG8MEGZbiStEa
-         k01ozr8xLzcbgbIx08PtKT0QhHKuFJ3AK1xxr_MEwakRlfuvrtkoDg7CxVJizmlMMkF2gK75h0fln0f4ChY-VE-gqn2zv0ZP0tTDNBE3zFqCD1BB=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.106s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 0.538s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 4.700s
-DEBUG    Caption generation succeeded (cost_usd=$0.001393 prompt_tokens=1785 completion_tokens=631 total_tokens=2416)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 4.770s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 5.145s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001393 │
+│ cost_usd          │ $0.010507 │
+│ success           │ 17        │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────────── Summarizing Images in [Activities] ───────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 0.532s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 3.871s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.011018 │
+│ success           │ 16        │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────── Summarizing Images in [EventGo!(2020-2023)] ──────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.133s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.162s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001047 │
 │ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-──────────────────────────────────────────────────── Summarizing Images in [WiFi登入通Y5Pass] ─────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 2
-DEBUG    Caption uncached URLs count: 2
+─────────────────────────────────────────── Summarizing Images in [PowerPOI] ────────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAKdPdEaIss-DUBUalsBLq33FsiaF8W8uaNTvtWu_NxpoK9EcdsVQi1MarK4wpty2vHoHKPUzY6XV_rHjs50Yzk
-         gI9PCbDp6s9LUW90IKTAbFgRihBd3PqfKAqG43uDdif67Re4dZQ32YD6NzjI2q4zSg8JDD67MPd05QAk1kCb6z1HVE5ElrM-gMxC-eFGuR_DqWhY=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBV0PCVxLMdkOw_iaRp3jy7xyvjad-ttTeqF6tFup_LbieAJVEhoFI-Dgn1Iqoieq_TJBwLjQxMajyPF4yjUg8h
-         A_Y57mfbRzwX1rvjscZhgMXWQNSFT988o_hENGAd22VofaCE3idFXtEHLYZ6D87syAceTygMOUcQhQAVs5vYj6f-xJLK3qcLv0T_oQ2PvhfYzw=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.067s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.046s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 2.667s
-DEBUG    Caption generation succeeded (cost_usd=$0.000859 prompt_tokens=1781 completion_tokens=276 total_tokens=2057)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 3.278s
-DEBUG    Caption generation succeeded (cost_usd=$0.001109 prompt_tokens=1796 completion_tokens=440 total_tokens=2236)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 3.326s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.098s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001968 │
-│ success           │ 2         │
+│ cost_usd          │ $0.000830 │
+│ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────────────────────────────── Summarizing Images in [NCUFree] ─────────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 3
-DEBUG    Caption uncached URLs count: 3
+──────────────────────────────────────────── Summarizing Images in [NCUFree] ────────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/3 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBHFfv0xLuNAWcPjQuRim_54ss2juhXspwUq1lp7V3tsoWEOKg4qbX1TpVeQohNBeOaQelIs0TpnsZr06RVha9I
-         4grXpamKsjYoSaL_LJf6V08vh3j-wFCaGkHc2ZGypBDXY1sbNXLkpcSNS43fu0d1_SEl=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/3 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUD8DzhXK0b65qs5Xz0jN_eKNvUJONiiJnBE7dxfcTPrObXWMOL3uQoL0rqC5ZYDda0TONeTCOuVbrl_lHx7dh7j
-         pFHoz5B5MqCLI-kUUkP5ckLSWdR9kA0-HvK3ondD5G4-q-5DjZDd-EfPeM1tJid3C2CK=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/3 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAU3__kCpKw_lYlxzhM46oqTn0QoOdnsOMnNlF7VlISvlLjO1li6jASZl40k697OCKarXYjWCKW0BpdjjqUTECO
-         2G9cDWf-bdApuTOTfiYN4v3cXV-gCbgMyjQPevPr6Hvf7M8La6gQV-o0bwAA96VtV0JbDnbUVAGZECkYsBTYI1IwBl13gBQd77gG60uJbMPdmQ=w1280)
 Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 0.067s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/3 2.562s
-DEBUG    Caption generation succeeded (cost_usd=$0.000782 prompt_tokens=1785 completion_tokens=224 total_tokens=2009)
-Generating captions... ━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/3 2.664s
-DEBUG    Caption generation succeeded (cost_usd=$0.000809 prompt_tokens=1785 completion_tokens=242 total_tokens=2027)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━╸━━━━━━━━━━━━━ 2/3 8.178s
-DEBUG    Caption generation succeeded (cost_usd=$0.001048 prompt_tokens=1776 completion_tokens=403 total_tokens=2179)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 8.213s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 2.897s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.002640 │
+│ cost_usd          │ $0.002094 │
 │ success           │ 3         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-──────────────────────────────────────────────────────── Summarizing Images in [PowerPOI] ─────────────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+─────────────────────────────────────── Summarizing Images in [WiFi登入通Y5Pass] ────────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBVseJYX0IhQkW5XX_D8IPDmfZMbdUADtIRv6TpE07cZxnss_ZwQaalzbcZ1ODSIS4RvMfsFf-eG_sdbl6BthCk
-         JU0kHkiz5a1kf3pzF71gb2o8sNFYgHUjrfaH0CphezrL5T_Iwxtm70vDIenSoQVmwHL9Zltvnk-zgYJi0kork53xO-wXw3ocaZ-YywtYcaA=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.048s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.069s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 3.377s
-DEBUG    Caption generation succeeded (cost_usd=$0.001007 prompt_tokens=1791 completion_tokens=373 total_tokens=2164)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.388s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 2.735s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001007 │
-│ success           │ 1         │
-│ download_failure  │ 0         │
-│ summarize_failure │ 0         │
-│ cache_reuse       │ 0         │
-└───────────────────┴───────────┘
-─────────────────────────────────────────── Summarizing Images in [教育部4G行動寬頻創新應用服務研討會] ────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
-
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAaOZOwqukL0fwSlLRD-Oucnf8BtZWS1rN-inqhexI9wMOHXU11NPHVFMDSKIfcCYeIIqM2BMbSgxB-w5C8n_vQ
-         5DpbN94J2kungvn371QVRBYcB37Ss4BTdN0wUBrWMt-OEVx8AL44wWKLR49pc09akGO3iL4_6U2dbMSdog3yx-dmSK9vwr3BErPGAp4SCqy6KCBq=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.076s
-
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 4.375s
-DEBUG    Caption generation succeeded (cost_usd=$0.001705 prompt_tokens=1788 completion_tokens=839 total_tokens=2627)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 4.430s
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric            ┃ Value     ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001705 │
-│ success           │ 1         │
-│ download_failure  │ 0         │
-│ summarize_failure │ 0         │
-│ cache_reuse       │ 0         │
-└───────────────────┴───────────┘
-─────────────────────────────────── Summarizing Images in [賀!!_碩士在職專班學生廖勳_榮獲TANET_2021佳作論文奬] ────────────────────────────────────
-DEBUG    Image uncached URLs count: 2
-DEBUG    Caption uncached URLs count: 2
-
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUD99ZoRoK_1N-sFM5jpPDJJT9Bftuao93R66QOsjk3uSFRIMUI1x8-7_Yq1zY2UuRq_4HxELZhVadIapRgDBuKg
-         V-2JvPcPm8Z_y_LRLUmeYyjz4OAc_vhUDbti6SQhk7L0tgEbEy6eNmUUnaUH1b0SIgQ2-nUwmNdEuO_fS7SifoyGQMAda0PHtlBj4h5KYVq_rEgi9cz_g4IPJVAuftQZXKfQvGbOJ3
-         fs=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.101s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUA_S7JCOjeSqUInmHGroA9q_VQsVYZnY2qmij2uUGl4aMfMTNSX9wEE909zx6DB2PjVEa4wg0R-7rB_L3l5VH59
-         K6iKTMPRA01rKqUEuVXPmtwTDrRV3r_mhEmaQ0i1p_XTm8z8Lx1mnraphntmOL1fFkWcX40gxZSYh4-13P_ML-18wcTsjwcfZkjrvVyqeL_KNNKAgZeC7EbxIj2jQjjSgG0MUviCrI
-         toFnw=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.183s
-
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 3.570s
-DEBUG    Caption generation succeeded (cost_usd=$0.001133 prompt_tokens=1798 completion_tokens=456 total_tokens=2254)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 4.382s
-DEBUG    Caption generation succeeded (cost_usd=$0.000976 prompt_tokens=1798 completion_tokens=351 total_tokens=2149)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 4.690s
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric            ┃ Value     ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.002110 │
+│ cost_usd          │ $0.001598 │
 │ success           │ 2         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-────────────────────────────────────────── Summarizing Images in [恭賀林柏翰榮獲TCGA2015_最佳碩士論文獎] ──────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+─────────────── Summarizing Images in [賀！張嘉惠老師指導學生於103學年度第七屆大學部專題製作競賽榮獲佳作] ───────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCV9zkbkY6JVwc67BBUDI_3EDyUr9jUU_8pTzLaZpSRskALnXnKWXaVUNMI5q1Q7jdiwFHqjqlCDJCrHFl2xa6q
-         7AgQBda0KSBJVUDXiRD8NWVk-WS2u8rwJZlwILXZvpWaVzTQH-TKJcRMfmxN7E73fjpDh41Kp4hM3ZAR1Wt6xAgwpxJp0LB0PAo0XseyagEuWg=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.067s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.107s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 2.346s
-DEBUG    Caption generation succeeded (cost_usd=$0.000994 prompt_tokens=1788 completion_tokens=365 total_tokens=2153)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.380s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 3.018s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.000994 │
-│ success           │ 1         │
-│ download_failure  │ 0         │
-│ summarize_failure │ 0         │
-│ cache_reuse       │ 0         │
-└───────────────────┴───────────┘
-──────────────────────────── Summarizing Images in [賀！張嘉惠老師指導學生於103學年度第七屆大學部專題製作競賽榮獲佳作] ────────────────────────────
-DEBUG    Image uncached URLs count: 5
-DEBUG    Caption uncached URLs count: 5
-
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUACcSueHrhpdNFgGu8uJYOhWJClNX_kbWwO5E_TTnd2BZNSkM0-t8E7AHnyr9N-s5mps7fkD31Lkq17W8weYGJg
-         W4_6VhiMx1R02vye-LEfKYX9fRX6f6V7StKyjvSKyVcFXHnp2lceJRgjMvZkgmZmYf758-OoOUMdpH2YsyOtk9TkxU7JTHQQ8VXI7_oDqhkdIA=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAfFpCrcVwJ0Mmm0NHLNguzvirZ6ttuF-W1TejMWnlTFMkngk9k68gGlJE11NSBvk9YkTcXAARV4GdcyUlq5-nz
-         69C9Vl8rVmkXfix1kQOzCXeeQ-7_uv6zuagsgctyHfGzecGyZESaQel1voyIJe91owzcUFyk0qE0_vah2aqZJz5L21hio1HOBFfKD98jUG4oCpi6=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBCEZNnmI-hANerjiwnXDCEcX86JYcflr_yJiej_4WiKBCXzKYXnTWggbBIxz_bBP8WNOLRcASo6dr-l3qT_ATv
-         cqp33pNBwfq1Ly4oiLpBiIkMzdSWSvUyLiaES5T0wN20SKoss9LITupaCVUEkZNvz1NkyGFrZif2vXEIUvF_ZRNN0O0GNdpNCXSDmNDXnZKyWQJC=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUA08HPzSywyvK0rvFx-qPZWS_O5RZY2J9jcuR2gnqaPm4FEyRUbxusBZ1SZLqAWCRWYCDFgVk5BlSaWIusfa94b
-         3aY3g-Jfa4IreZGAvjrTtjyrdWDrn6O_80rmnLqezidzBIuGXXx79KypoxrZZtgzR84wYsB4yFG4hv0BgHWrzvC3FLYlyTadnJ5TnYCYWWkvXh8n=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDpAYm0zXv0BGJVQYtZ0qk9hpyy7X8okjrUImx8ys0Het-Wl_8RgCWVLH9J537C59EoGxnmzbmGHIJNDo0McmAK
-         PgxRH0vQel54NP4gXLXWmm-Nr7NaMZ9XY-1X_EJmwRzK42533auqmW1baWpwab5eySj-HiPXv-AVroa0cjnN9WtAdCGuLyuUyT3JSKNhMUePgA=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.091s
-
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 2.543s
-DEBUG    Caption generation succeeded (cost_usd=$0.000981 prompt_tokens=1788 completion_tokens=356 total_tokens=2144)
-Generating captions... ━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/5 3.053s
-DEBUG    Caption generation succeeded (cost_usd=$0.000987 prompt_tokens=1788 completion_tokens=360 total_tokens=2148)
-Generating captions... ━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/5 3.053s
-DEBUG    Caption generation succeeded (cost_usd=$0.000978 prompt_tokens=1788 completion_tokens=354 total_tokens=2142)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━ 3/5 3.966s
-DEBUG    Caption generation succeeded (cost_usd=$0.001062 prompt_tokens=1788 completion_tokens=410 total_tokens=2198)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 4.272s
-DEBUG    Caption generation succeeded (cost_usd=$0.000979 prompt_tokens=1788 completion_tokens=355 total_tokens=2143)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 4.372s
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric            ┃ Value     ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.004987 │
+│ cost_usd          │ $0.004091 │
 │ success           │ 5         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────────────────────── Summarizing Images in [WIDM_Lab_Tutorial_2016] ──────────────────────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+──────────────────── Summarizing Images in [賀鄭仲庭、莊秀敏獲2015人工智慧研討會國內議程論文奬佳作!] ────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.304s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUATejM68RT3Vf-HUaG1dEZEDVuDhXBEhMhB-jABlptepAG9IC1kMN7v2kaHXFnbh9uQleiwxnkSNqTcVTuW53yX
-         Bi5i7ncSsPdmE733HLAmhWrH13Xc8GNklzfhd5LhTh3DFRGjUecmzsBWHFKzUOSBPf0JNrxm-6whHmGgTt7wS1kwGf0Qx7nLCkgKlqLMkmFfTCKW=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.349s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.107s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 6.404s
-DEBUG    Caption generation succeeded (cost_usd=$0.001125 prompt_tokens=1752 completion_tokens=458 total_tokens=2210)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 6.407s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.461s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001125 │
+│ cost_usd          │ $0.000936 │
 │ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────── Summarizing Images in [賀陳天盛、陳明權獲2014人工智慧研討會國內議程最佳論文奬!] ─────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+───────────────────────────── Summarizing Images in [恭賀林柏翰榮獲TCGA2015_最佳碩士論文獎] ─────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDNuTaYJAMzcn04eE6GzsA8K_oMxOqTgaSCxPcS2LKvn9aWi_8t6bFs-26N6O418FVD8F0UrrCZF9REAErya6sK
-         MYC9INaUJYXpN25w3i5eTa43j3UdqemxnAFbu7QjBlNTOTmZK8-_PCBXubEg60gqnm_vQHt56DSAThoO5Jg7B_kMklLHzTdtn8-N8sGCQXvvIg=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.077s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.064s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 2.869s
-DEBUG    Caption generation succeeded (cost_usd=$0.001036 prompt_tokens=1788 completion_tokens=393 total_tokens=2181)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.898s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.527s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001036 │
+│ cost_usd          │ $0.000844 │
 │ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────── Summarizing Images in [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會] ─────────────────
-DEBUG    Image uncached URLs count: 4
-DEBUG    Caption uncached URLs count: 4
+──────────────────────────────────── Summarizing Images in [WIDM_Lab_Tutorial_2016] ─────────────────────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/4 0.100s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBVR_u4FemAlxm1ZHDyzeyU2BwaaLJbgeQEdDP_NkaQbxRUXPvI06mgQaSGA_J6A_X1GJ7TeFAa8qy3ILSrAQTb
-         pt3tUJQuLSANqUNOP24cOoAyG7YYVytYvt7h9_eaZ7vrzEcN_ni1MbyIRpkUWP155tQOxEsK60q3Ql-Ex9rYrapdxzI9baYIiQq19Ba5qXEyDprcIMdiMnc=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/4 0.100s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUA6wbyNEbgJ05LLpJBa4c9b-2OK3VhHmPF5xHdJe7voOm-BvQaVydPb1xYngYn0lN8c8YZ-Hi2zwPHhRJs-7TZS
-         4EvXlRO7Bsy_SxA1fwxVtpthGe894XhY7ltA9xuF4oB6igrrIwb3r5gBvZjZs6xWTef0ndYRGNrrCjKpXc5M9PKSC54zubfglGa4SySlolkU73Zpl1PyXKU=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 2/4 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBjHnmz-_3a9mUx66xXQV-gfClYyCNU2kFOpPScHvuYYQn6U5ZJb9YJUvYRj84JQFd_88z2fSrzM6kaL2imaIaY
-         ffX7FlByHi0z-0MbhCFbyKPym_D3D9j7LonNhx0x4_DV1kbRDidbTSMpgXVZeUAs15SBwMy1FBdA6MdN5dKI4TTFYrgKWCRw1CYDLAVviOncE4B54zVXx2k=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 2/4 0.202s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDgH8isSVtZubujVPUXewLbnnT5PmShNRvoqs7y3xovvqdMe9-fQwiCyDeUmInTcCQWdnmxYy6AsbscKdFAy1sg
-         _e_zcm0J1FZgREUqFPtYkkeYoUdzV9m2QE0CPeZKLXgT3pV7CgyI-NL4GXzKBakAAROdu1m9FPJ2d9qIH53tW9uCoIikXbqBCcN22bGpBRXAAalIqXr2ZhA=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 0.224s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.120s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/4 2.854s
-DEBUG    Caption generation succeeded (cost_usd=$0.001053 prompt_tokens=1788 completion_tokens=404 total_tokens=2192)
-Generating captions... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/4 3.262s
-DEBUG    Caption generation succeeded (cost_usd=$0.000938 prompt_tokens=1760 completion_tokens=332 total_tokens=2092)
-Generating captions... ━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/4 3.262s
-DEBUG    Caption generation succeeded (cost_usd=$0.001054 prompt_tokens=1788 completion_tokens=405 total_tokens=2193)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━ 3/4 3.667s
-DEBUG    Caption generation succeeded (cost_usd=$0.001061 prompt_tokens=1788 completion_tokens=409 total_tokens=2197)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 3.735s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.986s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.004106 │
+│ cost_usd          │ $0.000967 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────── Summarizing Images in [賀陳天盛、陳明權獲2014人工智慧研討會國內議程最佳論文奬!] ────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.073s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.080s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000875 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──── Summarizing Images in [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會] ────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 0.304s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 3.116s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.003522 │
 │ success           │ 4         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-───────────────────────────────── Summarizing Images in [賀鄭仲庭、莊秀敏獲2015人工智慧研討會國內議程論文奬佳作!] ─────────────────────────────────
-DEBUG    Image uncached URLs count: 1
-DEBUG    Caption uncached URLs count: 1
+────────────────────── Summarizing Images in [賀!!_碩士在職專班學生廖勳_榮獲TANET_2021佳作論文奬] ───────────────────────
 
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
-DEBUG    Image download succeeded
-         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBv1mf03-PgRocCKHsb-6q8sQW9VEO4TEe5M-HZPsDgNcogEfO49Eu7Xdqj7XGrwc2sl3_U6RmnUaNiOrmXCjzY
-         xZeydpTmyzQVOeSLCO_Drt8vhbV52eq3ODBeXN5-_KtTDZbBmf3XwTway7oj_OQXtLPspaxamaO3SY-bjeR_gBNCRDGIif0lcFG2wWAZXpeO5Eha=w1280)
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.069s
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.169s
 
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 3.265s
-DEBUG    Caption generation succeeded (cost_usd=$0.001177 prompt_tokens=1760 completion_tokens=491 total_tokens=2251)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.281s
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 3.273s
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric            ┃ Value     ┃
 ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd          │ $0.001177 │
+│ cost_usd          │ $0.001745 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────── Summarizing Images in [教育部4G行動寬頻創新應用服務研討會] ───────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.091s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.483s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001505 │
 │ success           │ 1         │
 │ download_failure  │ 0         │
 │ summarize_failure │ 0         │
 │ cache_reuse       │ 0         │
 └───────────────────┴───────────┘
-──────────────────────────────────────────────────────────── All Image Summarize Stats ────────────────────────────────────────────────────────────
+─────────────────────────────────────────────── All Image Summarize Stats ───────────────────────────────────────────────
 ┏━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ Metric   ┃ Value     ┃
 ┡━━━━━━━━━━╇━━━━━━━━━━━┩
-│ cost_usd │ $0.061863 │
+│ cost_usd │ $0.049963 │
 │ success  │ 69        │
 │ failure  │ 0         │
 └──────────┴───────────┘
-────────────────────────────────────────────────────────── Image Summarization Completed ──────────────────────────────────────────────────────────
+───────────────────────────────────────────── Image Summarization Completed ─────────────────────────────────────────────
 
-  Type           Directory                                                                                        Status
- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Results json   runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/results.json   saved
-  Config toml    runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/config.toml    saved
-  Log file       runs/20260508_012645/webpage_image_summarizer/model-gemini-3.1-flash-lite-preview/terminal.log   saved
+  Type           Directory                                                            Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Results json   runs/20260510_232811/webpage_image_summarizer/default/results.json   saved
+  Config toml    runs/20260510_232811/webpage_image_summarizer/default/config.toml    saved
+  Log file       runs/20260510_232811/webpage_image_summarizer/default/terminal.log   saved
 
-INFO     Image Summarization Completed in 79.783 seconds
+INFO     Image Summarization Completed in 64.073 seconds

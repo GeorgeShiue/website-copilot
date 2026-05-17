@@ -1,11 +1,13 @@
 [init]
-max_retries = 6
+success_threshold = 0.8
+cache_image_captions = true
 cache_download_images = true
 download_timeout = 10.0
-success_threshold = 0.8
+max_retries = 6
 
 [summarize]
-vlm_max_workers = 20
+model = "gemini/gemini-3.1-flash-lite-preview"
+image_source = "markdown"
 prompt = """
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。
 
@@ -19,16 +21,16 @@ prompt = """
 7. 圖片過度模糊、遮擋或僅有背景，或 OCR 無法辨識時，明確填寫無法辨識或無可辨識實體；局部不清楚以 [模糊] 標示。
 
 【輸出格式】
-## 圖片摘要
+**圖片摘要：**
 用一句話清晰描述圖片的實際內容、主要實體與結構。
 以實體優先，精確描述物件位置與關係，不包含風格修飾詞。
 
-## 主要元素
+**主要元素：**
 1. 實體: 列出最多 5 個名詞短語，專有名詞優先，以逗號分隔
 2. OCR文字: 逐字逐句完整抽取圖片上所有可見的文字內容，保留原始版面與順序。若無文字填寫無
 3. 主題標籤: 最多 5 個與頁面主題直接相關的分類詞，只能使用專案名、功能名、領域名或明確主題詞，以逗號分隔
 
-## 頁面關聯
+**頁面關聯：**
 以短語或單句列出圖片的頁面角色、所屬對象與檢索錨點。
 優先使用可命名資訊：人名、組織名、專案名、產品名、活動名、頁面標題關鍵詞。
 
@@ -42,5 +44,4 @@ prompt = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-model = "gemini/gemini-3.1-flash-lite-preview" # run name
-image_source = "markdown"
+vlm_max_workers = 20

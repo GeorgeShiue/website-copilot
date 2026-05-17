@@ -160,7 +160,7 @@ class RunManager:
         log_path = os.path.join(self.run_path, "terminal.log")
         self.log_path = log_path
 
-    def save_results_as_json(self, results: list[dict]) -> None:
+    def save_results_as_json(self, results: dict[str, dict]) -> None:
         """將爬取結果列表寫入 JSON 檔案。"""
         os.makedirs(os.path.dirname(self.results_json_path), exist_ok=True)
         with open(self.results_json_path, "w", encoding="utf-8") as f:
@@ -169,13 +169,13 @@ class RunManager:
 
     def save_results_as_md(
         self,
-        results: list[dict],
+        results: dict[str, dict],
         markdown_type: str,
         save_images: bool = False,
     ) -> None:
         """將爬取結果寫入 Markdown 檔案。"""
-        for result in results:
-            md_file_path = result["md_file_name"] + ".md"
+        for page_title, result in results.items():
+            md_file_path = page_title + ".md"
             markdown_file_path = os.path.join(self.results_folder_path, md_file_path)
             markdown = result[markdown_type]
             images = result["images"]
@@ -189,7 +189,7 @@ class RunManager:
                         f.write(f"![]({image['src']})\n")
                     f.write("\n" + "-" * 5 + "\n")
 
-    def load_latest_results_from_json(self) -> list[dict]:
+    def load_latest_results_from_json(self) -> dict[str, dict]:
         """從 JSON 檔案讀取爬取結果列表。"""
         latest_results = self._load_latest_results()
         if latest_results is not None:
@@ -229,7 +229,7 @@ class RunManager:
 
         return latest_results
 
-    def _load_latest_results(self) -> list[dict] | None:
+    def _load_latest_results(self) -> dict[str, dict] | None:
         """載入最新的爬取結果 JSON。"""
         if not self.latest_results_json_path:
             logger.warning("Latest results JSON path is not set.")

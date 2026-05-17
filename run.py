@@ -14,9 +14,12 @@ from utils.run_manager import RunManager
 def run_website_crawler(
     config_names: list[str] = ["default"],
     run_name_use_config_name: bool = False,
-) -> list[dict] | None:
-    run_manager = RunManager("website_crawler")
+    run_manager: RunManager | None = None,
+) -> dict[str, dict] | None:
+    if run_manager is None:
+        run_manager = RunManager("website_crawler")
     website_crawler = WebsiteCrawler(max_depth=0)
+
     crawl_results = None
     for config_name in config_names:
         # ----- 初始化設定和路徑 -----
@@ -71,10 +74,13 @@ def run_website_crawler(
 def run_webpage_image_summarizer(
     config_names: list[str] = ["default"],
     run_name_use_config_name: bool = False,
-    crawl_results: list[dict] | None = None,
+    run_manager: RunManager | None = None,
+    crawl_results: dict[str, dict] | None = None,
 ) -> None:
-    run_manager = RunManager("webpage_image_summarizer")
+    if run_manager is None:
+        run_manager = RunManager("webpage_image_summarizer")
     webpage_image_summarizer = WebpageImageSummarizer()
+
     for config_name in config_names:
         # ----- 初始化設定 -----
         config = WebpageImageSummarizerConfig.from_toml(config_name)
