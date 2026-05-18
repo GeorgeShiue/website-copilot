@@ -1,0 +1,24 @@
+[init]
+max_depth = 2
+content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD
+light_mode = true
+wait_for_images = true
+
+[crawl]
+url = "https://sites.google.com/site/nculab/labintro"
+url_patterns = ["*nculab*"]
+allowed_domains = ["sites.google.com"]
+exclude_words = [
+    "Search this site",
+    "Embedded Files",
+    "Skip to main content",
+    "Skip to navigation",
+    "Google Sites",
+    "Report abuse",
+    "搜尋這個協作平台",
+    "嵌入的檔案",
+    "跳到主要內容",
+    "跳到導覽列",
+    "Google 協作平台",
+    "檢舉濫用情形",
+]

@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.vscode/
+.venv/
+
+.env
+
+tmp/
+storage_context/
+ingestion_cache/
