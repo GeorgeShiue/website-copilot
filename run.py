@@ -1,3 +1,4 @@
+from app.rag import Rag
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.website_crawler import WebsiteCrawler
@@ -133,3 +134,22 @@ def run_webpage_image_summarizer(
             # ----- 輸出完成訊息 -----
             log_session("Image Summarization Completed", style="cyan")
             run_manager.log_run_paths("complete")
+
+
+def run_rag() -> None:
+    log_session("RAG", style="purple")
+    rag = Rag(
+        # force_rebuild=True, # test
+    )
+
+    log_session("Building Index", style="cyan")
+    rag.build_index()
+
+    log_session("Building Query Engine", style="cyan")
+    rag.build_query_engine()
+
+    log_session("Query & Response", style="cyan")
+    query = "介紹實驗室"
+    rag.query(query)
+
+    rag.close()
