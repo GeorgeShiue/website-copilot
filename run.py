@@ -1,4 +1,5 @@
 from app.rag import Rag
+from app.rag_config import RagConfig
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.website_crawler import WebsiteCrawler
@@ -136,20 +137,69 @@ def run_webpage_image_summarizer(
             run_manager.log_run_paths("complete")
 
 
-def run_rag() -> None:
-    log_session("RAG", style="purple")
-    rag = Rag(
-        # force_rebuild=True, # test
-    )
+def run_rag(
+    config_names: list[str] = ["default"],
+    run_name_use_config_name: bool = False,
+    run_manager: RunManager | None = None,
+) -> None:
+    if run_manager is None:
+        run_manager = RunManager("rag")
 
-    log_session("Building Index", style="cyan")
-    rag.build_index()
+    rag = Rag()
 
-    log_session("Building Query Engine", style="cyan")
-    rag.build_query_engine()
+    for config_name in config_names:
+        config = RagConfig.from_toml(config_name)
+        if run_name_use_config_name:
+            run_manager.set_run_path(config_name)
+        else:
+            run_manager.set_run_path(config.run_name)
+        run_manager.init_module_run_paths()
 
-    log_session("Query & Response", style="cyan")
-    query = "介紹實驗室"
-    rag.query(query)
+        with (
+            save_logging_file(run_manager.log_path),
+            log_execution_time("RAG"),
+        ):
+            # ----- 輸出開始訊息 -----
+            log_session(f"RAG ({config_name})", style="purple")
+            log_config("Rag Config Loaded from toml", config)
+
+            # ----- 初始化物件 -----
+            rag.override_init_config(
+                webpages_data_folder_path=config.webpages_data_folder_path,
+                force_rebuild=config.force_rebuild,
+            )
+
+            # ----- 建立 Vector Store -----
+            log_session("Building Vector Store", style="cyan")
+            rag.build_vector_store(
+                qdrant_db_folder_path=config.qdrant_db_folder_path,
+                collection_name=config.collection_name,
+            )
+
+            # ----- 建立 Index -----
+            log_session("Building Index", style="cyan")
+            rag.build_index(
+                embedding_model_name=config.embedding_model_name,
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+                paragraph_separator=config.paragraph_separator,
+            )
+
+            # ----- 建立 Query Engine -----
+            log_session("Building Query Engine", style="cyan")
+            rag.build_query_engine(
+                llm_model_name=config.llm_model_name,
+                top_k=config.top_k,
+                cutoff=config.cutoff,
+            )
+
+            # ----- 查詢與回應 -----
+            log_session("Query & Response", style="cyan")
+            query = "介紹實驗室"
+            rag.query(query)
+
+            # TODO: 加入 Query Response 評估機制
+
+            # TODO: 制定 Query Response 的儲存方式
 
     rag.close()

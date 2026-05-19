@@ -4,7 +4,6 @@ import os
 import shutil
 from typing import Any, Sequence
 
-import qdrant_client
 from llama_index.core import (
     SimpleDirectoryReader,
     StorageContext,
@@ -21,6 +20,7 @@ from llama_index.core.schema import BaseNode, Document
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 
 from app.rag_config import (
     DEFAULT_QDRANT_DB_FOLER_PATH,
@@ -40,48 +40,45 @@ class Rag:
     def __init__(
         self,
         webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH,
-        qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
-        vector_store_collection_name: str = "webpages",
         force_rebuild: bool = False,
     ) -> None:
-        # ----- init args -----
+        # ===== init args =====
         self.webpages_data_folder_path = webpages_data_folder_path
-        self.qdrant_db_folder_path = qdrant_db_folder_path
-        self.vector_store_collection_name = vector_store_collection_name
         self.force_rebuild = force_rebuild
 
-        # ----- internal state -----
-        self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
+        # ===== internal state =====
         self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")
+        self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
-        log_session("Building Vector Store", style="cyan")
-        self.client, self.vector_store = self.build_vector_store()
+
+        self.client: QdrantClient | None = None
+        self.vector_store: QdrantVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.query_engine: RetrieverQueryEngine | None = None
 
     def build_vector_store(
         self,
-    ) -> tuple[qdrant_client.QdrantClient, QdrantVectorStore]:
+        qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
+        collection_name: str = "webpages",
+    ) -> None:
         vector_store_exist = False
 
-        if os.path.exists(self.qdrant_db_folder_path):
+        if os.path.exists(qdrant_db_folder_path):
             vector_store_exist = True
             if self.force_rebuild:
                 vector_store_exist = False
-                shutil.rmtree(self.qdrant_db_folder_path)  # * 清理既存的 Vector Store
+                shutil.rmtree(qdrant_db_folder_path)  # * 清理既存的 Vector Store
                 logger.info("Successfully cleaned existing vector store")
 
-        client = qdrant_client.QdrantClient(path=self.qdrant_db_folder_path)
-        vector_store = QdrantVectorStore(
-            self.vector_store_collection_name, client, index_doc_id=False
+        self.client = QdrantClient(path=qdrant_db_folder_path)
+        self.vector_store = QdrantVectorStore(
+            collection_name, self.client, index_doc_id=False
         )
 
         if vector_store_exist:
             logger.info("Successfully loaded vector store")
         else:
             logger.info("Successfully built vector store")
-
-        return client, vector_store
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -110,9 +107,11 @@ class Rag:
         chunk_overlap: int = 100,
         paragraph_separator: str = "\n\n",
     ) -> None:
+        if self.vector_store is None:
+            raise RuntimeError("Vector store is not initialized, cannot build index")
         embed_model = self._set_embed_model(embedding_model_name)
 
-        if os.path.exists(self.qdrant_db_folder_path) and not self.force_rebuild:
+        if not self.force_rebuild:
             self.index = VectorStoreIndex.from_vector_store(
                 self.vector_store, embed_model, show_progress=True
             )
@@ -189,8 +188,8 @@ class Rag:
     def build_query_engine(
         self,
         llm_model_name: str = "gemini-3.1-flash-lite",
-        similarity_top_k: int = 5,
-        similarity_cutoff: float = 0.5,
+        top_k: int = 5,
+        cutoff: float = 0.5,
     ) -> None:
         if self.index is None:
             raise RuntimeError("Index is not initialized, cannot build query engine")
@@ -198,12 +197,10 @@ class Rag:
 
         retriever = VectorIndexRetriever(
             index=self.index,
-            similarity_top_k=similarity_top_k,
+            similarity_top_k=top_k,
         )
         response_synthesizer = get_response_synthesizer(llm)
-        similarity_postprocessor = SimilarityPostprocessor(
-            similarity_cutoff=similarity_cutoff
-        )
+        similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
         self.query_engine = RetrieverQueryEngine(
             retriever,
             response_synthesizer,
@@ -243,14 +240,49 @@ class Rag:
             logger.info(f"Response: {response.response}")
 
             log_session("Response Sources", style="blue")
+            logger.info(f"Retrieved {len(response.source_nodes)} sources")
             source_text = format_sources_text(
                 response.source_nodes, content_length=content_length
             )
             logger.info(source_text)
 
             log_session("Response Metadata", style="blue")
-            logger.info(response.metadata)
+            metadata_json = json.dumps(
+                response.metadata,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            logger.info("%s", metadata_json)
 
     def close(self) -> None:
-        if self.client:
-            self.client.close()
+        client = self.client
+        if client is not None:
+            client.close()
+
+        self.client = None
+        self.vector_store = None
+
+    def override_init_config(self, **init_kwargs) -> None:
+        """覆寫建構子參數並同步更新內部狀態（paths、vector store 等）。"""
+        self.webpages_data_folder_path = init_kwargs.get(
+            "webpages_data_folder_path", self.webpages_data_folder_path
+        )
+        self.force_rebuild = init_kwargs.get("force_rebuild", self.force_rebuild)
+
+        self.md_docs_folder_path = os.path.join(
+            self.webpages_data_folder_path, "results"
+        )
+        self.results_json_path = os.path.join(
+            self.webpages_data_folder_path, "results.json"
+        )
+        self.results_json = self._load_results_json()
+
+        client: QdrantClient | None = getattr(self, "client", None)
+        if client is not None:
+            client.close()
+
+        self.client = None
+        self.vector_store = None
+        self.index = None
+        self.query_engine = None

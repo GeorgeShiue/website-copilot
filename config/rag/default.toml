@@ -1,0 +1,18 @@
+[init]
+webpages_data_folder_path = "data/webpages/prompt-v3"
+force_rebuild = false
+
+[vector_store]
+qdrant_db_folder_path = "data/rag/qdrant_db"
+collection_name = "webpages"
+
+[index]
+embedding_model_name = "text-embedding-3-small"
+chunk_size = 800
+chunk_overlap = 100
+paragraph_separator = "\n\n"
+
+[query_engine]
+llm_model_name = "gemini-3.1-flash-lite"
+top_k = 5
+cutoff = 0.5

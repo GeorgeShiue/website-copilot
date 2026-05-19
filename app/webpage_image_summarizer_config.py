@@ -124,7 +124,6 @@ class WebpageImageSummarizerConfig:
     ) -> Self:
         """從 TOML 設定檔建立 WebpageImageSummarizerConfig。"""
         config_path = os.path.join(DEFAULT_CONFIG_FODER_PATH, f"{config_name}.toml")
-        cls.config_path = config_path
         init_config = _load_init_config_from_toml(config_path, init_config_section)
         summarize_config = _load_summarize_config_from_toml(
             config_path, summarize_config_section

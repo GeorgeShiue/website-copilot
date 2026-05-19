@@ -110,9 +110,9 @@ def format_sources_text(
         format_content = truncate_text(raw_content, content_length)
 
         try:
-            doc_id = source_node.node.node_id or "None"
+            id = source_node.node.node_id or "None"
         except Exception:
-            doc_id = "None"
+            id = "None"
 
         try:
             page_title = source_node.node.metadata.get("page_title", "Unknown")
@@ -121,7 +121,7 @@ def format_sources_text(
 
         score = source_node.get_score()
 
-        source_text = f"> Source (Page: {page_title}, Score: {score:0.3f}, Doc id: {doc_id}):\n{format_content}"
+        source_text = f"> Source (Page: {page_title}, Score: {score:0.3f}, ID: {id}):\n{format_content}"
         texts.append(source_text)
 
     return "\n\n".join(texts)

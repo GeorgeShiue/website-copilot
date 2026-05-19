@@ -28,7 +28,7 @@ class RunManager:
         self.run_path: str = ""
 
         self.results_folder_path: str = ""
-        self.results_json_path = ""
+        self.results_json_path: str = ""
         self.config_toml_path: str = ""
         self.log_path: str = ""
         self.latest_results_json_path: str = ""

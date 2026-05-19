@@ -13,4 +13,4 @@ def test_webpage_image_summarizer():
 
 
 def test_rag():
-    run_rag()
+    run_rag(config_names=["test"])
