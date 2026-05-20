@@ -1,6 +1,6 @@
 [init]
 webpages_data_folder_path = "data/webpages/prompt-v3"
-force_rebuild = false
+force_rebuild = true
 
 [vector_store]
 qdrant_db_folder_path = "data/rag/qdrant_db"

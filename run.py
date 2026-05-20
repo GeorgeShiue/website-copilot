@@ -185,11 +185,17 @@ def run_rag(
                 paragraph_separator=config.paragraph_separator,
             )
 
+            # TODO: 加入 Retriever 運作和評估機制
+            # ----- 建立 Retriever -----
+            log_session("Building Retriever", style="cyan")
+            rag.build_retriever(
+                top_k=config.top_k,
+            )
+
             # ----- 建立 Query Engine -----
             log_session("Building Query Engine", style="cyan")
             rag.build_query_engine(
                 llm_model_name=config.llm_model_name,
-                top_k=config.top_k,
                 cutoff=config.cutoff,
             )
 
@@ -203,3 +209,7 @@ def run_rag(
             # TODO: 制定 Query Response 的儲存方式
 
     rag.close()
+
+
+if __name__ == "__main__":
+    run_rag()

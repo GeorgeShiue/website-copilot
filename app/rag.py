@@ -50,10 +50,12 @@ class Rag:
         self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")
         self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
+        self.vector_store_exist = False
 
         self.client: QdrantClient | None = None
         self.vector_store: QdrantVectorStore | None = None
         self.index: VectorStoreIndex | None = None
+        self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
 
     def build_vector_store(
@@ -61,21 +63,19 @@ class Rag:
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
         collection_name: str = "webpages",
     ) -> None:
-        vector_store_exist = False
-
         if os.path.exists(qdrant_db_folder_path):
-            vector_store_exist = True
             if self.force_rebuild:
-                vector_store_exist = False
                 shutil.rmtree(qdrant_db_folder_path)  # * 清理既存的 Vector Store
                 logger.info("Successfully cleaned existing vector store")
+            else:
+                self.vector_store_exist = True
 
         self.client = QdrantClient(path=qdrant_db_folder_path)
         self.vector_store = QdrantVectorStore(
             collection_name, self.client, index_doc_id=False
         )
 
-        if vector_store_exist:
+        if self.vector_store_exist:
             logger.info("Successfully loaded vector store")
         else:
             logger.info("Successfully built vector store")
@@ -111,7 +111,7 @@ class Rag:
             raise RuntimeError("Vector store is not initialized, cannot build index")
         embed_model = self._set_embed_model(embedding_model_name)
 
-        if not self.force_rebuild:
+        if not self.force_rebuild and self.vector_store_exist:
             self.index = VectorStoreIndex.from_vector_store(
                 self.vector_store, embed_model, show_progress=True
             )
@@ -185,24 +185,30 @@ class Rag:
         )
         return embed_model
 
-    def build_query_engine(
-        self,
-        llm_model_name: str = "gemini-3.1-flash-lite",
-        top_k: int = 5,
-        cutoff: float = 0.5,
-    ) -> None:
+    def build_retriever(self, top_k: int = 5) -> None:
         if self.index is None:
-            raise RuntimeError("Index is not initialized, cannot build query engine")
-        llm = self._set_llm(llm_model_name)
-
-        retriever = VectorIndexRetriever(
+            raise RuntimeError("Index is not initialized, cannot build retriever")
+        self.retriever = VectorIndexRetriever(
             index=self.index,
             similarity_top_k=top_k,
         )
+        logger.info("Successfully built retriever")
+
+    def build_query_engine(
+        self,
+        llm_model_name: str = "gemini-3.1-flash-lite",
+        cutoff: float = 0.5,
+    ) -> None:
+        if self.retriever is None:
+            raise RuntimeError(
+                "Retriever is not initialized, cannot build query engine"
+            )
+
+        llm = self._set_llm(llm_model_name)
         response_synthesizer = get_response_synthesizer(llm)
         similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
         self.query_engine = RetrieverQueryEngine(
-            retriever,
+            self.retriever,
             response_synthesizer,
             node_postprocessors=[similarity_postprocessor],
         )
@@ -285,4 +291,5 @@ class Rag:
         self.client = None
         self.vector_store = None
         self.index = None
+        self.retriever = None
         self.query_engine = None
