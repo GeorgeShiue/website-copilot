@@ -1,4 +1,4 @@
-from run import run_webpage_image_summarizer
+from run import run_webpage_image_summarizer, run_rag
 from utils.log_helper import setup_logging
 
 setup_logging("debug")
@@ -27,6 +27,15 @@ def webpage_image_summarizer_prompt():
     )
 
 
+# TODO: 使用多 config 進行詳細測試
+def rag_query_engine():
+    cutoffs = ["cutoff-0.5", "cutoff-0.3"]
+    run_rag(
+        config_names=cutoffs,
+    )
+
+
 if __name__ == "__main__":
-    webpage_image_summarizer_model()
+    # webpage_image_summarizer_model()
     # webpage_image_summarizer_prompt()
+    rag_query_engine()

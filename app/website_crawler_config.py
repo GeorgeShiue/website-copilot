@@ -66,7 +66,6 @@ class WebsiteCrawlerConfig:
     ) -> Self:
         """從 TOML 設定檔建立 WebsiteCrawlerConfig。"""
         config_path = os.path.join(DEFAULT_CONFIG_FODER_PATH, f"{config_name}.toml")
-        cls.config_path = config_path
         init_config = _load_init_config_from_toml(config_path, init_config_section)
         crawl_config = _load_crawl_config_from_toml(config_path, crawl_config_section)
         return cls(**init_config, **crawl_config, config_path=config_path)

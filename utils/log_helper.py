@@ -73,6 +73,7 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
 
     logging.getLogger("app.website_crawler").setLevel(logging_level)
     logging.getLogger("app.webpage_image_summarizer").setLevel(logging_level)
+    logging.getLogger("app.rag").setLevel(logging_level)
     if logger is not None:
         logger.setLevel(logging_level)
 

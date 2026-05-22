@@ -188,6 +188,9 @@ def log_config(title: str, config: object) -> None:
                 value = config_dict[key]
                 if isinstance(value, set):
                     value = sorted(value)
-                table.add_row(str(key), str(value))
+                display_value = value
+                if isinstance(display_value, str) and "\n" in display_value:
+                    display_value = display_value.replace("\n", "\\n")
+                table.add_row(str(key), str(display_value))
 
             print_log(table)

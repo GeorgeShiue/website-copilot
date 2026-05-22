@@ -33,7 +33,6 @@ DEFAULT_CONFIG_NAME = "balanced_v1"
 BASE_PATH = "/home/george/website-copilot/data/test/rag_pipeline"
 STORAGE_CONTEXT_DIR = os.path.join(BASE_PATH, "storage_context")
 INGESTION_CACHE_DIR = os.path.join(BASE_PATH, "ingestion_cache")
-# TODO: 輸入語言會影響檢索結果
 QUESTION = "用中文介紹實驗室"
 # QUESTION = "Introduce the lab in English."
 CONTEXT_EXTRACT_MODEL = "gpt-4o-mini"

@@ -1,5 +1,3 @@
-import json
-import os
 import re
 from typing import Any, Dict, List, Sequence
 
@@ -9,47 +7,8 @@ from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.utils import truncate_text
 
-RESULTS_JSON_PATH = "data/webpages/prompt-v3/results.json"
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-
-results_json = {}
-if os.path.exists(RESULTS_JSON_PATH):
-    with open(RESULTS_JSON_PATH, "r", encoding="utf-8") as f:
-        results_json = json.load(f)
-else:
-    raise FileNotFoundError(f"Results JSON file not found at {RESULTS_JSON_PATH}")
-
-
-def file_metadata(file_path: str) -> dict[str, Any]:
-    """Extract file metadata for a given file path."""
-    page_title = os.path.basename(file_path).replace(".md", "")
-
-    images = []
-    for result_json_image in results_json[page_title]["images"]:
-        url = result_json_image["url"]
-        images.append({"url": url})
-
-    metadata = {
-        "page_title": page_title,
-        "page_url": results_json[page_title]["url"],
-    }
-
-    return metadata
-
-
-def log_page_node_info(nodes: Sequence[BaseNode], page_title: str) -> None:
-    counter = 0
-    for node in nodes:
-        if node.metadata.get("page_title") == page_title:
-            counter += 1
-            print("Node content:")
-            print(node.get_content())
-            print()
-            print("Node metadata:")
-            print(node.get_metadata_str())
-            print("-" * 90)
-    print(f"Found {counter} nodes from {page_title}")
 
 
 class MarkdownHeadingMergeParser(NodeParser):
@@ -138,7 +97,7 @@ class MarkdownImageExtractor(BaseExtractor):
         return metadata_list
 
 
-def get_formatted_sources_with_scores(
+def format_sources_text(
     source_nodes: Sequence[NodeWithScore], content_length: int = 100
 ) -> str:
     texts: List[str] = []
@@ -148,18 +107,21 @@ def get_formatted_sources_with_scores(
         except Exception:
             raw_content = ""
 
-        fmt_text_chunk = truncate_text(raw_content, content_length)
+        format_content = truncate_text(raw_content, content_length)
 
         try:
-            doc_id = source_node.node.node_id or "None"
+            id = source_node.node.node_id or "None"
         except Exception:
-            doc_id = "None"
+            id = "None"
+
+        try:
+            page_title = source_node.node.metadata.get("page_title", "Unknown")
+        except Exception:
+            page_title = "Unknown"
 
         score = source_node.get_score()
 
-        source_text = (
-            f"> Source (Doc id: {doc_id}, Score: {score:0.3f}): {fmt_text_chunk}"
-        )
+        source_text = f"> Source (Page: {page_title}, Score: {score:0.3f}, ID: {id}):\n{format_content}"
         texts.append(source_text)
 
     return "\n\n".join(texts)

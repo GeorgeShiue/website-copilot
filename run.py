@@ -1,3 +1,5 @@
+from app.rag import Rag
+from app.rag_config import RagConfig
 from app.webpage_image_summarizer import WebpageImageSummarizer
 from app.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.website_crawler import WebsiteCrawler
@@ -7,10 +9,12 @@ from utils.log_helper import (
     log_execution_time,
     log_session,
     save_logging_file,
+    setup_logging,
 )
 from utils.run_manager import RunManager
 
 
+# TODO: 將多 config 和 run_manager 的處理機制移出 run.py
 def run_website_crawler(
     config_names: list[str] = ["default"],
     run_name_use_config_name: bool = False,
@@ -133,3 +137,126 @@ def run_webpage_image_summarizer(
             # ----- 輸出完成訊息 -----
             log_session("Image Summarization Completed", style="cyan")
             run_manager.log_run_paths("complete")
+
+
+def run_rag(
+    config_names: list[str] = ["default"],
+    run_name_use_config_name: bool = False,
+    run_manager: RunManager | None = None,
+) -> None:
+    if run_manager is None:
+        run_manager = RunManager("rag")
+
+    rag = Rag()
+
+    for config_name in config_names:
+        config = RagConfig.from_toml(config_name)
+        if run_name_use_config_name:
+            run_manager.set_run_path(config_name)
+        else:
+            run_manager.set_run_path(config.run_name)
+        run_manager.init_module_run_paths()
+
+        with (
+            save_logging_file(run_manager.log_path),
+            log_execution_time("RAG"),
+        ):
+            # ----- 輸出開始訊息 -----
+            log_session(f"RAG ({config_name})", style="purple")
+            log_config("Rag Config Loaded from toml", config)
+
+            # ----- 初始化物件 -----
+            rag.override_init_config(
+                webpages_data_folder_path=config.webpages_data_folder_path,
+                force_rebuild=config.force_rebuild,
+            )
+
+            # ----- 建立 Nodes (可省略) -----
+            # log_session("Building Nodes", style="cyan")
+            # rag.build_nodes(
+            #     chunk_size=config.chunk_size,
+            #     chunk_overlap=config.chunk_overlap,
+            #     paragraph_separator=config.paragraph_separator,
+            # )
+
+            # ----- 建立 Dataset (可省略) -----
+            # rag.build_dataset()
+
+            # ----- 建立 Vector Store -----
+            log_session("Building Vector Store", style="cyan")
+            rag.build_vector_store(
+                qdrant_db_folder_path=config.qdrant_db_folder_path,
+                collection_name=config.collection_name,
+            )
+
+            # ----- 建立 Index -----
+            log_session("Building Index", style="cyan")
+            rag.build_index(
+                embedding_name=config.embedding_name,
+            )
+
+            # ----- 建立 Retriever -----
+            log_session("Building Retriever", style="cyan")
+            rag.build_retriever(
+                top_k=config.top_k,
+            )
+
+            # ----- Query -----
+            # query = "實驗室指導教授"
+            # query = "實驗室成員"
+            # query = "實驗室研究領域"
+            # query = "實驗室最新活動"
+            query = "實驗室發表過的論文"
+
+            # # ----- 檢索資料 -----
+            # log_session("Retrieval", style="cyan")
+            # rag.retrieve(query)
+
+            # ----- 建立 Query Engine -----
+            log_session("Building Query Engine", style="cyan")
+            rag.build_query_engine(
+                llm_name=config.llm_name,
+                cutoff=config.cutoff,
+            )
+
+            iterations = 10  # test
+            faithfulness_pass = 0
+            relevancy_pass = 0
+            for i in range(iterations):
+                # ----- 查詢與回應 -----
+                log_session(f"Query & Response {i + 1}", style="cyan")
+                response = rag.query(query, log_sources=True)
+
+                # ----- 回應評估 -----
+                # TODO: 改用 regas 或 deepeval 評估
+                log_session("Evaluation", style="cyan")
+                faithfulness_result, relevancy_result = rag.evaluate(
+                    query=query, response=response, llm_name=config.llm_name
+                )
+
+                if faithfulness_result.passing:
+                    faithfulness_pass += 1
+
+                if relevancy_result.passing:
+                    relevancy_pass += 1
+
+            log_session("Evaluation Summary", style="green")
+            faithfulness_pass_rate = faithfulness_pass / iterations * 100
+            relevancy_pass_rate = relevancy_pass / iterations * 100
+            print(f"Total Iterations: {iterations}")
+            print(
+                f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{iterations})"
+            )
+            print(
+                f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{iterations})"
+            )
+
+            # TODO: 制定 Query Response 的儲存方式
+            save_config_as_toml(config, run_manager.config_toml_path)
+
+    rag.close()
+
+
+if __name__ == "__main__":
+    setup_logging("debug")
+    run_rag(config_names=["test"])
