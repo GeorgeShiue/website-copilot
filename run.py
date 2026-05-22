@@ -9,10 +9,12 @@ from utils.log_helper import (
     log_execution_time,
     log_session,
     save_logging_file,
+    setup_logging,
 )
 from utils.run_manager import RunManager
 
 
+# TODO: 將多 config 和 run_manager 的處理機制移出 run.py
 def run_website_crawler(
     config_names: list[str] = ["default"],
     run_name_use_config_name: bool = False,
@@ -169,6 +171,17 @@ def run_rag(
                 force_rebuild=config.force_rebuild,
             )
 
+            # ----- 建立 Nodes (可省略) -----
+            # log_session("Building Nodes", style="cyan")
+            # rag.build_nodes(
+            #     chunk_size=config.chunk_size,
+            #     chunk_overlap=config.chunk_overlap,
+            #     paragraph_separator=config.paragraph_separator,
+            # )
+
+            # ----- 建立 Dataset (可省略) -----
+            # rag.build_dataset()
+
             # ----- 建立 Vector Store -----
             log_session("Building Vector Store", style="cyan")
             rag.build_vector_store(
@@ -179,37 +192,71 @@ def run_rag(
             # ----- 建立 Index -----
             log_session("Building Index", style="cyan")
             rag.build_index(
-                embedding_model_name=config.embedding_model_name,
-                chunk_size=config.chunk_size,
-                chunk_overlap=config.chunk_overlap,
-                paragraph_separator=config.paragraph_separator,
+                embedding_name=config.embedding_name,
             )
 
-            # TODO: 加入 Retriever 運作和評估機制
             # ----- 建立 Retriever -----
             log_session("Building Retriever", style="cyan")
             rag.build_retriever(
                 top_k=config.top_k,
             )
 
+            # ----- Query -----
+            # query = "實驗室指導教授"
+            # query = "實驗室成員"
+            # query = "實驗室研究領域"
+            # query = "實驗室最新活動"
+            query = "實驗室發表過的論文"
+
+            # # ----- 檢索資料 -----
+            # log_session("Retrieval", style="cyan")
+            # rag.retrieve(query)
+
             # ----- 建立 Query Engine -----
             log_session("Building Query Engine", style="cyan")
             rag.build_query_engine(
-                llm_model_name=config.llm_model_name,
+                llm_name=config.llm_name,
                 cutoff=config.cutoff,
             )
 
-            # ----- 查詢與回應 -----
-            log_session("Query & Response", style="cyan")
-            query = "介紹實驗室"
-            rag.query(query)
+            iterations = 10  # test
+            faithfulness_pass = 0
+            relevancy_pass = 0
+            for i in range(iterations):
+                # ----- 查詢與回應 -----
+                log_session(f"Query & Response {i + 1}", style="cyan")
+                response = rag.query(query, log_sources=True)
 
-            # TODO: 加入 Query Response 評估機制
+                # ----- 回應評估 -----
+                # TODO: 改用 regas 或 deepeval 評估
+                log_session("Evaluation", style="cyan")
+                faithfulness_result, relevancy_result = rag.evaluate(
+                    query=query, response=response, llm_name=config.llm_name
+                )
+
+                if faithfulness_result.passing:
+                    faithfulness_pass += 1
+
+                if relevancy_result.passing:
+                    relevancy_pass += 1
+
+            log_session("Evaluation Summary", style="green")
+            faithfulness_pass_rate = faithfulness_pass / iterations * 100
+            relevancy_pass_rate = relevancy_pass / iterations * 100
+            print(f"Total Iterations: {iterations}")
+            print(
+                f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{iterations})"
+            )
+            print(
+                f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{iterations})"
+            )
 
             # TODO: 制定 Query Response 的儲存方式
+            save_config_as_toml(config, run_manager.config_toml_path)
 
     rag.close()
 
 
 if __name__ == "__main__":
-    run_rag()
+    setup_logging("debug")
+    run_rag(config_names=["test"])

@@ -17,7 +17,9 @@ DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/qdrant_db"
 DEFAULT_CONFIG_FOLDER_PATH = "./config/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
+DEFAULT_NODES_CONFIG_SECTION = "nodes"
 DEFAULT_INDEX_CONFIG_SECTION = "index"
+DEFAULT_RETRIEVER_CONFIG_SECTION = "retriever"
 DEFAULT_QUERY_ENGINE_CONFIG_SECTION = "query_engine"
 
 INIT_KEYS = {
@@ -28,21 +30,27 @@ VECTOR_STORE_KEYS = {
     "qdrant_db_folder_path",
     "collection_name",
 }
-INDEX_KEYS = {
-    "embedding_model_name",
+NODES_KEYS = {
     "chunk_size",
     "chunk_overlap",
     "paragraph_separator",
 }
-QUERY_ENGINE_KEYS = {
-    "llm_model_name",
+INDEX_KEYS = {
+    "embedding_name",
+}
+RETRIEVER_KEYS = {
     "top_k",
+}
+QUERY_ENGINE_KEYS = {
+    "llm_name",
     "cutoff",
 }
 SECTIONS_TO_KEYS = {
     "init": INIT_KEYS,
     "vector_store": VECTOR_STORE_KEYS,
+    "nodes": NODES_KEYS,
     "index": INDEX_KEYS,
+    "retriever": RETRIEVER_KEYS,
     "query_engine": QUERY_ENGINE_KEYS,
 }
 
@@ -57,14 +65,16 @@ class RagConfig:
     # ----- vector store args -----
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     collection_name: str = "webpages"
-    # ----- index args -----
-    embedding_model_name: str = "text-embedding-3-small"
+    # ----- nodes args -----
     chunk_size: int = 800
     chunk_overlap: int = 100
     paragraph_separator: str = "\n\n"
-    # ----- query engine args -----
-    llm_model_name: str = "gemini-3.1-flash-lite"
+    # ----- index args -----
+    embedding_name: str = "text-embedding-3-small"
+    # ----- retriever args -----
     top_k: int = 5
+    # ----- query engine args -----
+    llm_name: str = "gemini-3.1-flash-lite"
     cutoff: float = 0.5
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(
@@ -80,15 +90,19 @@ class RagConfig:
             qdrant_db_folder_path=self.qdrant_db_folder_path,
             collection_name=self.collection_name,
         )
-        _validate_index_config(
-            embedding_model_name=self.embedding_model_name,
+        _validate_nodes_config(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
             paragraph_separator=self.paragraph_separator,
         )
-        _validate_query_engine_config(
-            llm_model_name=self.llm_model_name,
+        _validate_index_config(
+            embedding_name=self.embedding_name,
+        )
+        _validate_retriever_config(
             top_k=self.top_k,
+        )
+        _validate_query_engine_config(
+            llm_name=self.llm_name,
             cutoff=self.cutoff,
         )
 
@@ -98,7 +112,9 @@ class RagConfig:
         config_name: str = "default",
         init_config_section: str = DEFAULT_INIT_CONFIG_SECTION,
         vector_store_config_section: str = DEFAULT_VECTOR_STORE_CONFIG_SECTION,
+        nodes_config_section: str = DEFAULT_NODES_CONFIG_SECTION,
         index_config_section: str = DEFAULT_INDEX_CONFIG_SECTION,
+        retriever_config_section: str = DEFAULT_RETRIEVER_CONFIG_SECTION,
         query_engine_config_section: str = DEFAULT_QUERY_ENGINE_CONFIG_SECTION,
     ) -> Self:
         """從 TOML 設定檔建立 RagConfig。"""
@@ -107,14 +123,20 @@ class RagConfig:
         vector_store_config = _load_vector_store_config_from_toml(
             config_path, vector_store_config_section
         )
+        nodes_config = _load_nodes_config_from_toml(config_path, nodes_config_section)
         index_config = _load_index_config_from_toml(config_path, index_config_section)
+        retriever_config = _load_retriever_config_from_toml(
+            config_path, retriever_config_section
+        )
         query_engine_config = _load_query_engine_config_from_toml(
             config_path, query_engine_config_section
         )
         return cls(
             **init_config,
             **vector_store_config,
+            **nodes_config,
             **index_config,
+            **retriever_config,
             **query_engine_config,
             config_path=config_path,
         )
@@ -127,9 +149,17 @@ class RagConfig:
         """覆寫 vector store 參數並驗證。"""
         _override_vector_store_config(vars(self), **overrides)
 
+    def override_nodes_config(self, **overrides) -> None:
+        """覆寫 nodes 參數並驗證。"""
+        _override_nodes_config(vars(self), **overrides)
+
     def override_index_config(self, **overrides) -> None:
         """覆寫 index 參數並驗證。"""
         _override_index_config(vars(self), **overrides)
+
+    def override_retriever_config(self, **overrides) -> None:
+        """覆寫 retriever 參數並驗證。"""
+        _override_retriever_config(vars(self), **overrides)
 
     def override_query_engine_config(self, **overrides) -> None:
         """覆寫 query engine 參數並驗證。"""
@@ -201,24 +231,16 @@ def _validate_vector_store_config(
             raise ConfigValidationError("collection_name 不可為空字串")
 
 
-def _validate_index_config(index_config: dict[str, Any] = {}, **index_kwargs) -> None:
-    """驗證 index 參數型別與範圍。"""
-    if index_config:
-        embedding_model_name = index_config.get("embedding_model_name")
-        chunk_size = index_config.get("chunk_size")
-        chunk_overlap = index_config.get("chunk_overlap")
-        paragraph_separator = index_config.get("paragraph_separator")
+def _validate_nodes_config(nodes_config: dict[str, Any] = {}, **nodes_kwargs) -> None:
+    """驗證 nodes 參數型別與範圍。"""
+    if nodes_config:
+        chunk_size = nodes_config.get("chunk_size")
+        chunk_overlap = nodes_config.get("chunk_overlap")
+        paragraph_separator = nodes_config.get("paragraph_separator")
     else:
-        embedding_model_name = index_kwargs.get("embedding_model_name")
-        chunk_size = index_kwargs.get("chunk_size")
-        chunk_overlap = index_kwargs.get("chunk_overlap")
-        paragraph_separator = index_kwargs.get("paragraph_separator")
-
-    if embedding_model_name is not None:
-        if not isinstance(embedding_model_name, str):
-            raise ConfigValidationError("embedding_model_name 必須是字串")
-        if not embedding_model_name.strip():
-            raise ConfigValidationError("embedding_model_name 不可為空字串")
+        chunk_size = nodes_kwargs.get("chunk_size")
+        chunk_overlap = nodes_kwargs.get("chunk_overlap")
+        paragraph_separator = nodes_kwargs.get("paragraph_separator")
 
     for value, field_name in (
         (chunk_size, "chunk_size"),
@@ -234,30 +256,52 @@ def _validate_index_config(index_config: dict[str, Any] = {}, **index_kwargs) ->
         raise ConfigValidationError("paragraph_separator 必須是字串")
 
 
-def _validate_query_engine_config(
-    query_engine_config: dict[str, Any] = {}, **query_engine_kwargs
-) -> None:
-    """驗證 query engine 參數型別與範圍。"""
-    if query_engine_config:
-        llm_model_name = query_engine_config.get("llm_model_name")
-        top_k = query_engine_config.get("top_k")
-        cutoff = query_engine_config.get("cutoff")
+def _validate_index_config(index_config: dict[str, Any] = {}, **index_kwargs) -> None:
+    """驗證 index 參數型別與範圍。"""
+    if index_config:
+        embedding_name = index_config.get("embedding_name")
     else:
-        llm_model_name = query_engine_kwargs.get("llm_model_name")
-        top_k = query_engine_kwargs.get("top_k")
-        cutoff = query_engine_kwargs.get("cutoff")
+        embedding_name = index_kwargs.get("embedding_name")
 
-    if llm_model_name is not None:
-        if not isinstance(llm_model_name, str):
-            raise ConfigValidationError("llm_model_name 必須是字串")
-        if not llm_model_name.strip():
-            raise ConfigValidationError("llm_model_name 不可為空字串")
+    if embedding_name is not None:
+        if not isinstance(embedding_name, str):
+            raise ConfigValidationError("embedding_name 必須是字串")
+        if not embedding_name.strip():
+            raise ConfigValidationError("embedding_name 不可為空字串")
+
+
+def _validate_retriever_config(
+    retriever_config: dict[str, Any] = {}, **retriever_kwargs
+) -> None:
+    """驗證 retriever 參數型別與範圍。"""
+    if retriever_config:
+        top_k = retriever_config.get("top_k")
+    else:
+        top_k = retriever_kwargs.get("top_k")
 
     if top_k is not None:
         if not isinstance(top_k, int):
             raise ConfigValidationError("top_k 必須是整數")
         if top_k <= 0:
             raise ConfigValidationError("top_k 必須大於 0")
+
+
+def _validate_query_engine_config(
+    query_engine_config: dict[str, Any] = {}, **query_engine_kwargs
+) -> None:
+    """驗證 query engine 參數型別與範圍。"""
+    if query_engine_config:
+        llm_name = query_engine_config.get("llm_name")
+        cutoff = query_engine_config.get("cutoff")
+    else:
+        llm_name = query_engine_kwargs.get("llm_name")
+        cutoff = query_engine_kwargs.get("cutoff")
+
+    if llm_name is not None:
+        if not isinstance(llm_name, str):
+            raise ConfigValidationError("llm_name 必須是字串")
+        if not llm_name.strip():
+            raise ConfigValidationError("llm_name 不可為空字串")
 
     if cutoff is not None:
         if not isinstance(cutoff, (int, float)):
@@ -292,6 +336,19 @@ def _load_vector_store_config_from_toml(
     )
 
 
+def _load_nodes_config_from_toml(
+    config_path: str,
+    config_section: str,
+) -> dict[str, Any]:
+    """從 TOML 讀取 nodes 參數。"""
+    return load_config_section_from_toml(
+        config_path=config_path,
+        config_section=config_section,
+        allowed_keys=NODES_KEYS,
+        unknown_keys_warning="Unknown nodes config keys will be ignored: %s",
+    )
+
+
 def _load_index_config_from_toml(
     config_path: str,
     config_section: str,
@@ -302,6 +359,19 @@ def _load_index_config_from_toml(
         config_section=config_section,
         allowed_keys=INDEX_KEYS,
         unknown_keys_warning="Unknown index config keys will be ignored: %s",
+    )
+
+
+def _load_retriever_config_from_toml(
+    config_path: str,
+    config_section: str,
+) -> dict[str, Any]:
+    """從 TOML 讀取 retriever 參數。"""
+    return load_config_section_from_toml(
+        config_path=config_path,
+        config_section=config_section,
+        allowed_keys=RETRIEVER_KEYS,
+        unknown_keys_warning="Unknown retriever config keys will be ignored: %s",
     )
 
 
@@ -344,6 +414,19 @@ def _override_vector_store_config(
     return vector_store_config
 
 
+def _override_nodes_config(
+    nodes_config: dict[str, Any],
+    **overrides: dict[str, Any],
+) -> dict[str, Any]:
+    """套用 nodes overrides 並輸出更新後的設定。"""
+    for key, value in overrides.items():
+        if key in NODES_KEYS:
+            nodes_config[key] = value
+
+    _validate_nodes_config(nodes_config)
+    return nodes_config
+
+
 def _override_index_config(
     index_config: dict[str, Any],
     **overrides: dict[str, Any],
@@ -355,6 +438,19 @@ def _override_index_config(
 
     _validate_index_config(index_config)
     return index_config
+
+
+def _override_retriever_config(
+    retriever_config: dict[str, Any],
+    **overrides: dict[str, Any],
+) -> dict[str, Any]:
+    """套用 retriever overrides 並輸出更新後的設定。"""
+    for key, value in overrides.items():
+        if key in RETRIEVER_KEYS:
+            retriever_config[key] = value
+
+    _validate_retriever_config(retriever_config)
+    return retriever_config
 
 
 def _override_query_engine_config(

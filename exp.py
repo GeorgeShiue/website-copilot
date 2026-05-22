@@ -27,6 +27,7 @@ def webpage_image_summarizer_prompt():
     )
 
 
+# TODO: 使用多 config 進行詳細測試
 def rag_query_engine():
     cutoffs = ["cutoff-0.5", "cutoff-0.3"]
     run_rag(
