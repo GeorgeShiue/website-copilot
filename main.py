@@ -14,7 +14,7 @@ def main() -> None:
         return
 
     run_manager.set_module_path("webpage_image_summarizer")
-    run_webpage_image_summarizer(run_manager=run_manager, crawl_results=crawl_results)
+    run_webpage_image_summarizer(crawl_results=crawl_results, run_manager=run_manager)
 
 
 if __name__ == "__main__":

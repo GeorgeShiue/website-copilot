@@ -9,11 +9,11 @@ def test_main():
     run_manager = RunManager()
 
     run_manager.set_module_path("website_crawler")
-    crawl_results = run_website_crawler(config_names=["test"], run_manager=run_manager)
+    crawl_results = run_website_crawler(run_manager=run_manager, config_name="test")
     if crawl_results is None:
         return
 
     run_manager.set_module_path("webpage_image_summarizer")
     run_webpage_image_summarizer(
-        config_names=["test"], run_manager=run_manager, crawl_results=crawl_results
+        crawl_results=crawl_results, run_manager=run_manager, config_name="test"
     )

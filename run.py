@@ -9,254 +9,235 @@ from utils.log_helper import (
     log_execution_time,
     log_session,
     save_logging_file,
-    setup_logging,
 )
 from utils.run_manager import RunManager
 
 
-# TODO: 將多 config 和 run_manager 的處理機制移出 run.py
 def run_website_crawler(
-    config_names: list[str] = ["default"],
+    run_manager: RunManager = RunManager("website_crawler"),
+    config_name: str = "default",
     run_name_use_config_name: bool = False,
-    run_manager: RunManager | None = None,
 ) -> dict[str, dict] | None:
-    if run_manager is None:
-        run_manager = RunManager("website_crawler")
+    # ----- 初始化設定和路徑 -----
     website_crawler = WebsiteCrawler(max_depth=0)
+    config = WebsiteCrawlerConfig.from_toml(config_name)
+    if run_name_use_config_name:
+        run_manager.set_run_path(config_name)
+    else:
+        run_manager.set_run_path(config.run_name)
+    run_manager.init_module_run_paths()
 
     crawl_results = None
-    for config_name in config_names:
-        # ----- 初始化設定和路徑 -----
-        config = WebsiteCrawlerConfig.from_toml(config_name)
-        if run_name_use_config_name:
-            run_manager.set_run_path(config_name)
-        else:
-            run_manager.set_run_path(config.run_name)
-        run_manager.init_module_run_paths()
+    with (
+        save_logging_file(run_manager.log_path),
+        log_execution_time("Website Crawling"),
+    ):
+        # ----- 輸出開始訊息 -----
+        log_session(f"Website Crawler ({config_name})", style="purple")
+        log_config("WebsiteCrawler Config Loaded from toml", config)
+        log_session("Run Paths", style="cyan")
+        run_manager.log_run_paths("init")
 
-        with (
-            save_logging_file(run_manager.log_path),
-            log_execution_time("Website Crawling"),
-        ):
-            # ----- 輸出開始訊息 -----
-            log_session(f"Website Crawler ({config_name})", style="purple")
-            log_config("WebsiteCrawler Config Loaded from toml", config)
-            log_session("Run Paths", style="cyan")
-            run_manager.log_run_paths("init")
+        # ----- 初始化物件 -----
+        website_crawler.override_init_config(
+            max_depth=config.max_depth,
+            max_pages=config.max_pages,
+            content_threshold=config.content_threshold,
+            light_mode=config.light_mode,
+            wait_for_images=config.wait_for_images,
+        )
 
-            # ----- 初始化物件 -----
-            website_crawler.override_init_config(
-                max_depth=config.max_depth,
-                max_pages=config.max_pages,
-                content_threshold=config.content_threshold,
-                light_mode=config.light_mode,
-                wait_for_images=config.wait_for_images,
-            )
+        # ---- 執行網站爬蟲 -----
+        log_session("Website Crawling", style="cyan")
+        crawl_results = website_crawler.crawl_website(
+            url=config.url,
+            url_patterns=config.url_patterns,
+            allowed_domains=config.allowed_domains,
+            exclude_words=config.exclude_words,
+        )
 
-            # ---- 執行網站爬蟲 -----
-            log_session("Website Crawling", style="cyan")
-            crawl_results = website_crawler.crawl_website(
-                url=config.url,
-                url_patterns=config.url_patterns,
-                allowed_domains=config.allowed_domains,
-                exclude_words=config.exclude_words,
-            )
+        if crawl_results is not None:
+            # ----- 儲存設定和結果 -----
+            save_config_as_toml(config, run_manager.config_toml_path)
+            run_manager.save_results_as_json(crawl_results)
+            run_manager.save_results_as_md(crawl_results, "fit_markdown")
 
-            if crawl_results is not None:
-                # ----- 儲存設定和結果 -----
-                save_config_as_toml(config, run_manager.config_toml_path)
-                run_manager.save_results_as_json(crawl_results)
-                run_manager.save_results_as_md(crawl_results, "fit_markdown")
-
-                # ----- 輸出完成訊息 -----
-                log_session("Website Crawling Completed", style="cyan")
-                run_manager.log_run_paths("complete")
+            # ----- 輸出完成訊息 -----
+            log_session("Website Crawling Completed", style="cyan")
+            run_manager.log_run_paths("complete")
 
     return crawl_results
 
 
 def run_webpage_image_summarizer(
-    config_names: list[str] = ["default"],
-    run_name_use_config_name: bool = False,
-    run_manager: RunManager | None = None,
     crawl_results: dict[str, dict] | None = None,
-) -> None:
-    if run_manager is None:
-        run_manager = RunManager("webpage_image_summarizer")
-    webpage_image_summarizer = WebpageImageSummarizer()
-
-    for config_name in config_names:
-        # ----- 初始化設定 -----
-        config = WebpageImageSummarizerConfig.from_toml(config_name)
-        if run_name_use_config_name:
-            run_manager.set_run_path(config_name)
-        else:
-            run_manager.set_run_path(config.run_name)
-        run_manager.init_module_run_paths()
-
-        with (
-            save_logging_file(run_manager.log_path),
-            log_execution_time("Image Summarization"),
-        ):
-            # ----- 輸出開始訊息 -----
-            log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
-            log_config("WebpageImageSummarizer Config Loaded from toml", config)
-            log_session("Run Paths", style="cyan")
-            run_manager.log_run_paths("init")
-
-            # ----- 初始化物件 -----
-            webpage_image_summarizer.override_init_config(
-                download_timeout=config.download_timeout,
-                success_threshold=config.success_threshold,
-                max_retries=config.max_retries,
-                cache_download_images=config.cache_download_images,
-                cache_image_captions=config.cache_image_captions,
-            )
-
-            # ----- 獲取最近一次結果 -----
-            if crawl_results is None:
-                log_session("Loading Latest Results", style="cyan")
-                crawl_results = run_manager.load_latest_results_from_json()
-
-            # ---- 執行圖片摘要 -----
-            log_session("Image Summarization", style="cyan")
-            enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
-                crawl_results,
-                model=config.model,
-                prompt=config.prompt,
-                vlm_max_workers=config.vlm_max_workers,
-                image_source=config.image_source,
-                **config.litellm_kwargs,
-            )
-
-            # ----- 儲存設定和結果 -----
-            save_config_as_toml(config, run_manager.config_toml_path)
-            run_manager.save_results_as_json(enhanced_results)
-            run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
-
-            # ----- 輸出完成訊息 -----
-            log_session("Image Summarization Completed", style="cyan")
-            run_manager.log_run_paths("complete")
-
-
-def run_rag(
-    config_names: list[str] = ["default"],
+    run_manager: RunManager = RunManager("webpage_image_summarizer"),
+    config_name: str = "default",
     run_name_use_config_name: bool = False,
-    run_manager: RunManager | None = None,
 ) -> None:
-    if run_manager is None:
-        run_manager = RunManager("rag")
+    # ----- 初始化設定和路徑 -----
+    webpage_image_summarizer = WebpageImageSummarizer()
+    config = WebpageImageSummarizerConfig.from_toml(config_name)
+    if run_name_use_config_name:
+        run_manager.set_run_path(config_name)
+    else:
+        run_manager.set_run_path(config.run_name)
+    run_manager.init_module_run_paths()
 
+    with (
+        save_logging_file(run_manager.log_path),
+        log_execution_time("Image Summarization"),
+    ):
+        # ----- 輸出開始訊息 -----
+        log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
+        log_config("WebpageImageSummarizer Config Loaded from toml", config)
+        log_session("Run Paths", style="cyan")
+        run_manager.log_run_paths("init")
+
+        # ----- 初始化物件 -----
+        webpage_image_summarizer.override_init_config(
+            download_timeout=config.download_timeout,
+            success_threshold=config.success_threshold,
+            max_retries=config.max_retries,
+            cache_download_images=config.cache_download_images,
+            cache_image_captions=config.cache_image_captions,
+        )
+
+        # ----- 獲取最近一次結果 -----
+        if crawl_results is None:
+            log_session("Loading Latest Results", style="cyan")
+            crawl_results = run_manager.load_latest_results_from_json()
+
+        # ---- 執行圖片摘要 -----
+        log_session("Image Summarization", style="cyan")
+        enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
+            crawl_results,
+            model=config.model,
+            prompt=config.prompt,
+            vlm_max_workers=config.vlm_max_workers,
+            image_source=config.image_source,
+            **config.litellm_kwargs,
+        )
+
+        # ----- 儲存設定和結果 -----
+        save_config_as_toml(config, run_manager.config_toml_path)
+        run_manager.save_results_as_json(enhanced_results)
+        run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
+
+        # ----- 輸出完成訊息 -----
+        log_session("Image Summarization Completed", style="cyan")
+        run_manager.log_run_paths("complete")
+
+
+# TODO: 拆分從頭建構 RAG 和只測試 Query Engine 的功能
+def run_rag(
+    run_manager: RunManager = RunManager("rag"),
+    config_name: str = "default",
+    run_name_use_config_name: bool = False,
+    query_iterations: int = 1,
+):
+    # ----- 初始化設定和路徑 -----
     rag = Rag()
+    config = RagConfig.from_toml(config_name)
+    if run_name_use_config_name:
+        run_manager.set_run_path(config_name)
+    else:
+        run_manager.set_run_path(config.run_name)
+    run_manager.init_module_run_paths()
 
-    for config_name in config_names:
-        config = RagConfig.from_toml(config_name)
-        if run_name_use_config_name:
-            run_manager.set_run_path(config_name)
-        else:
-            run_manager.set_run_path(config.run_name)
-        run_manager.init_module_run_paths()
+    with (
+        save_logging_file(run_manager.log_path),
+        log_execution_time("RAG"),
+    ):
+        # ----- 輸出開始訊息 -----
+        log_session(f"RAG ({config_name})", style="purple")
+        log_config("Rag Config Loaded from toml", config)
 
-        with (
-            save_logging_file(run_manager.log_path),
-            log_execution_time("RAG"),
-        ):
-            # ----- 輸出開始訊息 -----
-            log_session(f"RAG ({config_name})", style="purple")
-            log_config("Rag Config Loaded from toml", config)
+        # ----- 初始化物件 -----
+        rag.override_init_config(
+            webpages_data_folder_path=config.webpages_data_folder_path,
+            force_rebuild=config.force_rebuild,
+        )
 
-            # ----- 初始化物件 -----
-            rag.override_init_config(
-                webpages_data_folder_path=config.webpages_data_folder_path,
-                force_rebuild=config.force_rebuild,
+        # ----- 建立 Nodes (可省略) -----
+        # log_session("Building Nodes", style="cyan")
+        # rag.build_nodes(
+        #     chunk_size=config.chunk_size,
+        #     chunk_overlap=config.chunk_overlap,
+        #     paragraph_separator=config.paragraph_separator,
+        # )
+
+        # ----- 建立 Dataset (可省略) -----
+        # rag.build_dataset()
+
+        # ----- 建立 Vector Store -----
+        log_session("Building Vector Store", style="cyan")
+        rag.build_vector_store(
+            qdrant_db_folder_path=config.qdrant_db_folder_path,
+            collection_name=config.collection_name,
+        )
+
+        # ----- 建立 Index -----
+        log_session("Building Index", style="cyan")
+        rag.build_index(
+            embedding_name=config.embedding_name,
+        )
+
+        # ----- 建立 Retriever -----
+        log_session("Building Retriever", style="cyan")
+        rag.build_retriever(
+            top_k=config.top_k,
+        )
+
+        # ----- Query -----
+        # query = "實驗室指導教授"
+        # query = "實驗室成員"
+        # query = "實驗室研究領域"
+        # query = "實驗室最新活動"
+        query = "實驗室發表過的論文"
+
+        # # ----- 檢索資料 -----
+        # log_session("Retrieval", style="cyan")
+        # rag.retrieve(query)
+
+        # ----- 建立 Query Engine -----
+        log_session("Building Query Engine", style="cyan")
+        rag.build_query_engine(
+            llm_name=config.llm_name,
+            cutoff=config.cutoff,
+        )
+
+        faithfulness_pass = 0
+        relevancy_pass = 0
+        for i in range(query_iterations):
+            # ----- 查詢與回應 -----
+            log_session(f"Query & Response {i + 1}", style="cyan")
+            response = rag.query(query, log_sources=True)
+
+            # ----- 回應評估 -----
+            # TODO: 改用 regas 或 deepeval 評估
+            log_session("Evaluation", style="cyan")
+            faithfulness_result, relevancy_result = rag.evaluate(
+                query=query, response=response, llm_name=config.llm_name
             )
+            if faithfulness_result.passing:
+                faithfulness_pass += 1
+            if relevancy_result.passing:
+                relevancy_pass += 1
 
-            # ----- 建立 Nodes (可省略) -----
-            # log_session("Building Nodes", style="cyan")
-            # rag.build_nodes(
-            #     chunk_size=config.chunk_size,
-            #     chunk_overlap=config.chunk_overlap,
-            #     paragraph_separator=config.paragraph_separator,
-            # )
+        faithfulness_pass_rate = faithfulness_pass / query_iterations * 100
+        relevancy_pass_rate = relevancy_pass / query_iterations * 100
 
-            # ----- 建立 Dataset (可省略) -----
-            # rag.build_dataset()
+        # ----- 輸出評估結果 -----
+        log_session("Evaluation Summary", style="green")
+        print(f"Total Iterations: {query_iterations}")
+        print(
+            f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_iterations})"
+        )
+        print(
+            f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_iterations})"
+        )
 
-            # ----- 建立 Vector Store -----
-            log_session("Building Vector Store", style="cyan")
-            rag.build_vector_store(
-                qdrant_db_folder_path=config.qdrant_db_folder_path,
-                collection_name=config.collection_name,
-            )
-
-            # ----- 建立 Index -----
-            log_session("Building Index", style="cyan")
-            rag.build_index(
-                embedding_name=config.embedding_name,
-            )
-
-            # ----- 建立 Retriever -----
-            log_session("Building Retriever", style="cyan")
-            rag.build_retriever(
-                top_k=config.top_k,
-            )
-
-            # ----- Query -----
-            # query = "實驗室指導教授"
-            # query = "實驗室成員"
-            # query = "實驗室研究領域"
-            # query = "實驗室最新活動"
-            query = "實驗室發表過的論文"
-
-            # # ----- 檢索資料 -----
-            # log_session("Retrieval", style="cyan")
-            # rag.retrieve(query)
-
-            # ----- 建立 Query Engine -----
-            log_session("Building Query Engine", style="cyan")
-            rag.build_query_engine(
-                llm_name=config.llm_name,
-                cutoff=config.cutoff,
-            )
-
-            iterations = 10  # test
-            faithfulness_pass = 0
-            relevancy_pass = 0
-            for i in range(iterations):
-                # ----- 查詢與回應 -----
-                log_session(f"Query & Response {i + 1}", style="cyan")
-                response = rag.query(query, log_sources=True)
-
-                # ----- 回應評估 -----
-                # TODO: 改用 regas 或 deepeval 評估
-                log_session("Evaluation", style="cyan")
-                faithfulness_result, relevancy_result = rag.evaluate(
-                    query=query, response=response, llm_name=config.llm_name
-                )
-
-                if faithfulness_result.passing:
-                    faithfulness_pass += 1
-
-                if relevancy_result.passing:
-                    relevancy_pass += 1
-
-            log_session("Evaluation Summary", style="green")
-            faithfulness_pass_rate = faithfulness_pass / iterations * 100
-            relevancy_pass_rate = relevancy_pass / iterations * 100
-            print(f"Total Iterations: {iterations}")
-            print(
-                f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{iterations})"
-            )
-            print(
-                f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{iterations})"
-            )
-
-            # TODO: 制定 Query Response 的儲存方式
-            save_config_as_toml(config, run_manager.config_toml_path)
-
-    rag.close()
-
-
-if __name__ == "__main__":
-    setup_logging("debug")
-    run_rag(config_names=["test"])
+        # TODO: 制定 Query Response 的儲存方式
+        # ----- 儲存設定和結果 -----
+        save_config_as_toml(config, run_manager.config_toml_path)
