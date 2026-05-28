@@ -55,7 +55,7 @@ jobs:
 
       - name: Set up environment variables
         run:  |
-          echo "OPENAI_WEBPAGE_IAMGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
           echo "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Run tests

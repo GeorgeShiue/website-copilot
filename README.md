@@ -86,7 +86,7 @@ playwright install
 | --- | --- | --- |
 | `OPENAI_RAG_EMBEDDING_API_KEY` | `app/rag.py` | 向量索引的嵌入模型金鑰。 |
 | `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/rag.py` | 用於回答生成的 Gemini 金鑰。 |
-| `OPENAI_WEBPAGE_IAMGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
 | `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
 
 > 目前程式碼庫中 GPT 圖片摘要環境變數拼寫為 `IAMGE`。除非你更新實作，否則請使用上述完整名稱。
