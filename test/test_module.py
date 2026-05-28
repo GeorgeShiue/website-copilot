@@ -1,4 +1,4 @@
-from run import run_rag, run_webpage_image_summarizer, run_website_crawler
+from run import run_rag_build, run_webpage_image_summarizer, run_website_crawler
 from utils.log_helper import setup_logging
 
 setup_logging("debug")
@@ -13,4 +13,4 @@ def test_webpage_image_summarizer():
 
 
 def test_rag():
-    run_rag(config_name="test")
+    run_rag_build(config_name="test")

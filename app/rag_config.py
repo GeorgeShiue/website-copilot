@@ -24,7 +24,6 @@ DEFAULT_QUERY_ENGINE_CONFIG_SECTION = "query_engine"
 
 INIT_KEYS = {
     "webpages_data_folder_path",
-    "force_rebuild",
 }
 VECTOR_STORE_KEYS = {
     "qdrant_db_folder_path",
@@ -61,7 +60,6 @@ class RagConfig:
     config_path: str
     # ----- init args -----
     webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
-    force_rebuild: bool = False
     # ----- vector store args -----
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     collection_name: str = "webpages"
@@ -82,10 +80,7 @@ class RagConfig:
     )
 
     def __post_init__(self) -> None:
-        _validate_init_config(
-            webpages_data_folder_path=self.webpages_data_folder_path,
-            force_rebuild=self.force_rebuild,
-        )
+        _validate_init_config(webpages_data_folder_path=self.webpages_data_folder_path)
         _validate_vector_store_config(
             qdrant_db_folder_path=self.qdrant_db_folder_path,
             collection_name=self.collection_name,
@@ -192,19 +187,14 @@ def _validate_init_config(init_config: dict[str, Any] = {}, **init_kwargs) -> No
     """驗證 init 參數型別與範圍。"""
     if init_config:
         webpages_data_folder_path = init_config.get("webpages_data_folder_path")
-        force_rebuild = init_config.get("force_rebuild")
     else:
         webpages_data_folder_path = init_kwargs.get("webpages_data_folder_path")
-        force_rebuild = init_kwargs.get("force_rebuild")
 
     if webpages_data_folder_path is not None:
         if not isinstance(webpages_data_folder_path, str):
             raise ConfigValidationError("webpages_data_folder_path 必須是字串")
         if not webpages_data_folder_path.strip():
             raise ConfigValidationError("webpages_data_folder_path 不可為空字串")
-
-    if force_rebuild is not None and not isinstance(force_rebuild, bool):
-        raise ConfigValidationError("force_rebuild 必須是布林值")
 
 
 def _validate_vector_store_config(

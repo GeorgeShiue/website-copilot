@@ -12,7 +12,12 @@ from utils.log_helper import print_log
 RUNS_FOLDER_PATH = "./runs"
 os.makedirs(RUNS_FOLDER_PATH, exist_ok=True)
 RESULTS_JSON_NAME = "results.json"
-RUN_PATH_COMPLETE = ["Results json", "Config toml", "Log file"]
+RUN_PATH_COMPLETE = [
+    "Results json",
+    "Module config toml",
+    "Run config toml",
+    "Log file",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +34,8 @@ class RunManager:
 
         self.results_folder_path: str = ""
         self.results_json_path: str = ""
-        self.config_toml_path: str = ""
+        self.module_config_toml_path: str = ""
+        self.run_config_toml_path: str = ""
         self.log_path: str = ""
         self.latest_results_json_path: str = ""
 
@@ -73,7 +79,8 @@ class RunManager:
 
         self._set_results_json_path()
         self._set_results_folder_path()
-        self._set_config_toml_path()
+        self._set_module_config_toml_path()
+        self._set_run_config_toml_path()
         self._set_log_path()
 
     def log_run_paths(self, usage: str) -> None:
@@ -84,7 +91,8 @@ class RunManager:
             ("Run", self.run_path),
             ("Results folder", self.results_folder_path),
             ("Results json", self.results_json_path),
-            ("Config toml", self.config_toml_path),
+            ("Module config toml", self.module_config_toml_path),
+            ("Run config toml", self.run_config_toml_path),
             ("Log file", self.log_path),
         ]
 
@@ -150,10 +158,15 @@ class RunManager:
         os.makedirs(results_folder_path, exist_ok=True)
         self.results_folder_path = results_folder_path
 
-    def _set_config_toml_path(self) -> None:
-        """設定 TOML 設定檔路徑。"""
-        config_toml_path = os.path.join(self.run_path, "config.toml")
-        self.config_toml_path = config_toml_path
+    def _set_module_config_toml_path(self) -> None:
+        """設定 module TOML 設定檔路徑。"""
+        module_config_toml_path = os.path.join(self.run_path, "module_config.toml")
+        self.module_config_toml_path = module_config_toml_path
+
+    def _set_run_config_toml_path(self) -> None:
+        """設定 run TOML 設定檔路徑。"""
+        run_config_toml_path = os.path.join(self.run_path, "run_config.toml")
+        self.run_config_toml_path = run_config_toml_path
 
     def _set_log_path(self) -> None:
         """設定實驗 log 檔案路徑。"""

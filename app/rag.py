@@ -131,18 +131,14 @@ class Rag:
     def __init__(
         self,
         webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH,
-        force_rebuild: bool = False,
     ) -> None:
         # ===== init args =====
         self.webpages_data_folder_path = webpages_data_folder_path
-        self.force_rebuild = force_rebuild
-
-        # ===== internal state =====
         self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")
         self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
-        self.vector_store_exist = False
 
+        # ===== internal state =====
         self.client: QdrantClient | None = None
         self.vector_store: QdrantVectorStore | None = None
         self.index: VectorStoreIndex | None = None
@@ -150,27 +146,21 @@ class Rag:
         self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
 
+    def clean_vector_store(
+        self, qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
+    ) -> None:
+        shutil.rmtree(qdrant_db_folder_path)
+        logger.info("Successfully cleaned existing vector store")
+
     def build_vector_store(
         self,
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
         collection_name: str = "webpages",
     ) -> None:
-        if os.path.exists(qdrant_db_folder_path):
-            if self.force_rebuild:
-                shutil.rmtree(qdrant_db_folder_path)  # * 清理既存的 Vector Store
-                logger.info("Successfully cleaned existing vector store")
-            else:
-                self.vector_store_exist = True
-
         self.client = QdrantClient(path=qdrant_db_folder_path)
         self.vector_store = QdrantVectorStore(
             collection_name, self.client, index_doc_id=False
         )
-
-        if self.vector_store_exist:
-            logger.info("Successfully loaded vector store")
-        else:
-            logger.info("Successfully built vector store")
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -192,24 +182,26 @@ class Rag:
 
         return metadata
 
+    def load_index(self, embedding_name: str = "text-embedding-3-small") -> None:
+        if self.vector_store is None:
+            raise RuntimeError("Vector store have not been built, cannot load index")
+
+        embed_model = self._set_embed_model(embedding_name)
+        self.index = VectorStoreIndex.from_vector_store(
+            self.vector_store, embed_model, show_progress=True
+        )
+        logger.info("Successfully loaded index from vector store")
+
     def build_index(
         self,
         embedding_name: str = "text-embedding-3-small",
     ) -> None:
         if self.vector_store is None:
             raise RuntimeError("Vector store have not been built, cannot build index")
-
-        embed_model = self._set_embed_model(embedding_name)
-        if not self.force_rebuild and self.vector_store_exist:
-            self.index = VectorStoreIndex.from_vector_store(
-                self.vector_store, embed_model, show_progress=True
-            )
-            logger.info("Successfully built index from vector store")
-            return
-
         if self.nodes is None:
             raise RuntimeError("Nodes have not been built, cannot build index")
 
+        embed_model = self._set_embed_model(embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(
             self.nodes,
@@ -237,7 +229,6 @@ class Rag:
         # return
 
         logger.info(f"Loading {len(md_docs)} Markdown Documents")
-        logger.info("-" * 90)
 
         pipeline = IngestionPipeline(
             transformations=[
@@ -253,9 +244,7 @@ class Rag:
         )
         self.nodes = pipeline.run(documents=md_docs, show_progress=True)
         logger.info(f"Pipeline produced {len(self.nodes)} nodes")
-        logger.info("-" * 90)
         # self._log_page_node_info(self.nodes, page_title="Prospective_Students") # debug
-        # print("-" * 90)
 
     @staticmethod
     def _log_page_node_info(
@@ -291,6 +280,7 @@ class Rag:
         )
         logger.info("Successfully built retriever")
 
+    # 暫時不需要
     def retrieve(self, query: str, log: bool = True) -> None:
         if self.retriever is None:
             raise RuntimeError("Retriever have not been built, cannot retrieve")
@@ -371,8 +361,9 @@ class Rag:
         )
         return llm
 
-    # TODO: 新增 content_length 參數
-    def query(self, query: str, log_sources: bool = False) -> Response:
+    def query(
+        self, query: str, log_sources: bool = False, content_length: int = 1000
+    ) -> Response:
         if self.query_engine is None:
             raise RuntimeError("RAG service have not been built, cannot execute query")
 
@@ -381,7 +372,7 @@ class Rag:
         if isinstance(response, Response):
             logger.info(f"Response: {response.response}")
             if log_sources:
-                self._log_sources(response.source_nodes)
+                self._log_sources(response.source_nodes, content_length)
             return response
         else:
             raise TypeError(
@@ -442,7 +433,6 @@ class Rag:
         self.webpages_data_folder_path = init_kwargs.get(
             "webpages_data_folder_path", self.webpages_data_folder_path
         )
-        self.force_rebuild = init_kwargs.get("force_rebuild", self.force_rebuild)
 
         self.md_docs_folder_path = os.path.join(
             self.webpages_data_folder_path, "results"

@@ -155,8 +155,8 @@ def disable_logging_file() -> None:
 
 
 @contextmanager
-def log_execution_time(title: str = ""):
-    """Context manager that logs elapsed execution time in finally block."""
+def log_run_time(title: str = ""):
+    """Context manager that logs elapsed run time in finally block."""
     start_time = time.perf_counter()
     try:
         yield

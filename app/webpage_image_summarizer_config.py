@@ -77,7 +77,6 @@ VLM_MODEL_TO_API_KEY: dict[str, str] = {
 }
 
 
-# arg parse 可以改用 tyro
 @dataclass
 class WebpageImageSummarizerConfig:
     # ----- metadata (no default values)-----

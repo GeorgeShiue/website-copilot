@@ -86,7 +86,7 @@ def load_config_section_from_toml(
     return filtered_config
 
 
-def save_config_as_toml(
+def save_module_config_as_toml(
     config: object,
     toml_file_path: str,
 ):
@@ -106,6 +106,24 @@ def save_config_as_toml(
             if config_value is not None:
                 section_table[section_key] = config_value
         toml_doc[section_name] = section_table
+
+    with Path(toml_file_path).open("w") as file:
+        dump(toml_doc, file)
+
+
+def save_run_config_as_toml(
+    config: object,
+    toml_file_path: str,
+) -> None:
+    """Persist all config values into a flat run config TOML document."""
+    config_dict = vars(config)
+    toml_doc = document()
+
+    for key, value in config_dict.items():
+        if key in {"config_path", "sections_to_keys"}:
+            continue
+        if value is not None:
+            toml_doc[key] = value
 
     with Path(toml_file_path).open("w") as file:
         dump(toml_doc, file)
