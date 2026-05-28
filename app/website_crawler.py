@@ -60,7 +60,7 @@ MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 class WebsiteCrawler:
     def __init__(
         self,
-        max_depth: int,
+        max_depth: int | None = None,
         max_pages: int | None = None,
         content_threshold: float = KEEP_IMAGE_CONTENT_THRESHOLD,
         light_mode: bool = True,
@@ -77,7 +77,7 @@ class WebsiteCrawler:
         self.url: str
         self.url_patterns: str | Pattern | list[str | Pattern] | None = None
         self.allowed_domains: str | list[str] | None = None
-        self.exclude_words: tuple[str, ...] | None = None
+        self.exclude_words: list[str] | None = None
 
         # ===== internal state =====
         self._crawl_stats: dict[str, int] = self._new_crawl_stats()
@@ -87,7 +87,7 @@ class WebsiteCrawler:
         url: str,
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
-        exclude_words: tuple[str, ...] | None = None,
+        exclude_words: list[str] | None = None,
     ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
@@ -137,17 +137,13 @@ class WebsiteCrawler:
             )
         filter_chain = FilterChain(filters)
 
+        bfs_deep_crawl_strategy_kwargs = {}
+        bfs_deep_crawl_strategy_kwargs["filter_chain"] = filter_chain
+        if self.max_depth is not None:
+            bfs_deep_crawl_strategy_kwargs["max_depth"] = self.max_depth
         if self.max_pages is not None:
-            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
-                max_depth=self.max_depth,
-                filter_chain=filter_chain,
-                max_pages=self.max_pages,
-            )
-        else:
-            bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(
-                max_depth=self.max_depth,
-                filter_chain=filter_chain,
-            )
+            bfs_deep_crawl_strategy_kwargs["max_pages"] = self.max_pages
+        bfs_deep_crawl_strategy = BFSDeepCrawlStrategy(**bfs_deep_crawl_strategy_kwargs)
 
         crawler_run_config = CrawlerRunConfig(
             markdown_generator=DefaultMarkdownGenerator(

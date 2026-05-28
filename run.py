@@ -22,7 +22,7 @@ def run_website_crawler(
     run_name_use_config_name: bool = False,
 ) -> dict[str, dict] | None:
     # ----- 初始化設定和路徑 -----
-    website_crawler = WebsiteCrawler(max_depth=0)
+    website_crawler = WebsiteCrawler()
     config = WebsiteCrawlerConfig.from_toml(config_name)
     if run_manager is None:
         run_manager = RunManager("website_crawler")

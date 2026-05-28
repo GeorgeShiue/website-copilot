@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+import os
 import random
 import re
 import time
@@ -8,13 +9,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 from urllib.request import Request, urlopen
 
+from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 from rich.table import Table
 
 from app.webpage_image_summarizer_config import (
     DEFAULT_PROMPT,
-    get_summarizer_model_api_key,
+    VLM_MODEL_TO_API_KEY,
 )
+from utils.config_helper import EnvironmentVariableError
 from utils.log_helper import TaskCountProgress, log_session, print_log
 
 logger = logging.getLogger(__name__)
@@ -412,7 +415,7 @@ class WebpageImageSummarizer:
                 ],
             }
         ]
-        api_key = get_summarizer_model_api_key(self.model)
+        api_key = self._get_api_key()
         litellm_kwargs: dict[str, Any] = {}
         litellm_kwargs["api_key"] = api_key  # 避免 api key 洩漏
         litellm_kwargs.update(self.litellm_kwargs)
@@ -442,6 +445,29 @@ class WebpageImageSummarizer:
                     image_caption = msg_content.strip()
 
         return image_caption, "success", cost_usd
+
+    def _get_api_key(self) -> str:
+        """根據模型名稱推斷環境變數，並傳回有效的 API 金鑰。"""
+        api_key_name: str | None = None
+        for keyword, key_var in VLM_MODEL_TO_API_KEY.items():
+            if keyword.lower() in self.model.lower():
+                api_key_name = key_var
+                break
+
+        if api_key_name is None:
+            raise EnvironmentVariableError(
+                f"無法根據模型名稱 '{self.model}' 推斷 API key 變數。"
+                f"請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
+            )
+
+        load_dotenv()
+        api_key = os.getenv(api_key_name)
+        if api_key is None:
+            raise EnvironmentVariableError(
+                f"環境變數 {api_key_name} 未設定。請檢查 .env 或系統環境變數。"
+            )
+
+        return api_key
 
     def _enhance_markdown(
         self,

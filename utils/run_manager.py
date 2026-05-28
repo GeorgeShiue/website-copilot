@@ -92,7 +92,7 @@ class RunManager:
             ("Results folder", self.results_folder_path),
             ("Results json", self.results_json_path),
             ("Module config toml", self.module_config_toml_path),
-            ("Run config toml", self.run_config_toml_path),
+            # ("Run config toml", self.run_config_toml_path), # FIXME: 補齊所有模組的 run config 機制後再顯示路徑
             ("Log file", self.log_path),
         ]
 
