@@ -4,8 +4,9 @@
 - [x] webpage_image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
 - [x] 調整 website_crawler 的 參數型態和預設值 (max_depth 改成 0 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
-- [ ] 保留建置 vector store 的 config 到 data/rag/qdrant_db
-- [ ] 設計 run config class
+- [x] 保留建置 vector store 的 config 到 data/rag/qdrant_db
+- [x] 設計 run config class
+- [x] 提供 CLI 參數覆寫 config 功能
 - [ ] 使用 yaml + pydantic 取代 toml + dataclass
 
 ## 一、config 架構

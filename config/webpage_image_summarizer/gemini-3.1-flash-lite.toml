@@ -6,7 +6,7 @@ cache_download_images = true
 cache_image_captions = false
 
 [summarize]
-model = "gemini/gemini-3.1-flash-lite" # run name # 使用 Gemini API key 模型名稱要加上 "gemini/" 前綴
+model = "gemini-3.1-flash-lite" # run name
 vlm_max_workers = 10
 image_source = "markdown"
 prompt = """

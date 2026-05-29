@@ -4,7 +4,7 @@ download_timeout = 10.0
 max_retries = 6
 
 [summarize]
-model = "gemini/gemini-2.5-flash-lite"
+model = "gemini-2.5-flash-lite"
 image_source = "markdown"
 prompt = """
 用繁體中文描述圖片，作為網頁補充說明。

@@ -13,7 +13,7 @@
 ┃ Config          ┃ Value                                                                     ┃
 ┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ image_source    │ markdown                                                                  │
-│ model           │ gemini/gemini-3.1-flash-lite-preview                                      │
+│ model           │ gemini-3.1-flash-lite-preview                                      │
 │ prompt          │ 用繁體中文描述圖片，作為網頁補充說明。                                    │
 │                 │                                                                           │
 │                 │ 依序輸出：                                                                │

@@ -62,7 +62,7 @@ class WebpageImageSummarizer:
     def summarize_crawl_results_images(
         self,
         crawl_results: dict[str, dict[str, Any]],
-        model: str = "gemini/gemini-3-flash-preview",
+        model: str = "gemini-3-flash-preview",
         prompt: str = DEFAULT_PROMPT,
         vlm_max_workers: int = 10,
         image_source: Literal["images", "markdown"] = "markdown",
@@ -403,6 +403,12 @@ class WebpageImageSummarizer:
         image_base64_url: str,
     ) -> tuple[str, str, float]:
         """呼叫 VLM 取得圖片描述。"""
+        model = self.model
+        if (
+            "gemini" in self.model.lower()
+        ):  # lite llm 使用 gemini 模型要加上 "gemini/" 前綴
+            model = f"gemini/{model}"
+
         messages = [
             {
                 "role": "user",
@@ -423,7 +429,7 @@ class WebpageImageSummarizer:
 
         try:
             response = await acompletion(
-                model=self.model,
+                model=model,
                 messages=messages,
                 stream=False,
                 **litellm_kwargs,

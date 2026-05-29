@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 
 from app.rag import Rag
 from app.rag_config import RagConfig
@@ -20,10 +19,11 @@ def run_website_crawler(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
+    **config_overrides,
 ) -> dict[str, dict] | None:
     # ----- 初始化設定和路徑 -----
     website_crawler = WebsiteCrawler()
-    config = WebsiteCrawlerConfig.from_toml(config_name)
+    config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("website_crawler")
     if run_name_use_config_name:
@@ -69,20 +69,20 @@ def run_website_crawler(
 
             # ----- 輸出完成訊息 -----
             log_session("Website Crawling Completed", style="cyan")
-            run_manager.log_run_paths("complete")
 
     return crawl_results
 
 
 def run_webpage_image_summarizer(
-    crawl_results: dict[str, dict] | None = None,
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
+    crawl_results: dict[str, dict] | None = None,
+    **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
     webpage_image_summarizer = WebpageImageSummarizer()
-    config = WebpageImageSummarizerConfig.from_toml(config_name)
+    config = WebpageImageSummarizerConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("webpage_image_summarizer")
     if run_name_use_config_name:
@@ -133,17 +133,17 @@ def run_webpage_image_summarizer(
 
         # ----- 輸出完成訊息 -----
         log_session("Image Summarization Completed", style="cyan")
-        run_manager.log_run_paths("complete")
 
 
 def run_rag_build(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
+    **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
     rag = Rag()
-    config = RagConfig.from_toml(config_name)
+    config = RagConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_build")
     if run_name_use_config_name:
@@ -201,11 +201,16 @@ def run_rag_build(
         )
 
         # ----- Query & Response -----
+        log_session("Query & Response", style="cyan")
         query = "實驗室發表過的論文"
         rag.query(query, log_sources=True, content_length=2000)
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        vector_store_config_path = os.path.join(
+            config.qdrant_db_folder_path, "config.toml"
+        )
+        save_module_config_as_toml(config, vector_store_config_path)
 
     rag.close()
 
@@ -216,10 +221,11 @@ def run_rag_query(
     run_name_use_config_name: bool = False,
     force_rebuild: bool = False,
     query_iterations: int = 1,
+    **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
     rag = Rag()
-    config = RagConfig.from_toml(config_name)
+    config = RagConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_query")
     if run_name_use_config_name:
@@ -253,14 +259,14 @@ def run_rag_query(
                 rag.clean_vector_store(
                     qdrant_db_folder_path=config.qdrant_db_folder_path
                 )
-            rag.build_vector_store(
-                qdrant_db_folder_path=config.qdrant_db_folder_path,
-                collection_name=config.collection_name,
-            )
             rag.build_nodes(
                 chunk_size=config.chunk_size,
                 chunk_overlap=config.chunk_overlap,
                 paragraph_separator=config.paragraph_separator,
+            )
+            rag.build_vector_store(
+                qdrant_db_folder_path=config.qdrant_db_folder_path,
+                collection_name=config.collection_name,
             )
             rag.build_index(
                 embedding_name=config.embedding_name,
@@ -321,52 +327,69 @@ def run_rag_query(
         # TODO: 制定 Query Response 的儲存方式
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        vector_store_config_path = os.path.join(
+            config.qdrant_db_folder_path, "config.toml"
+        )
+        save_module_config_as_toml(config, vector_store_config_path)
 
     if rebuild:
         rag.close()
 
 
-@dataclass
-class RagBuild:
-    config_name: str = "default"
-    run_name_use_config_name: bool = False
-
-
-@dataclass
-class RagQuery:
-    config_name: str = "default"
-    run_name_use_config_name: bool = False
-    force_rebuild: bool = False
-    query_iterations: int = 1
-
-
 if __name__ == "__main__":
     import tyro
 
+    from run_config import (
+        RunRagBuild,
+        RunRagQuery,
+        RunWebpageImageSummarizer,
+        RunWebsiteCrawler,
+    )
     from utils.config_helper import save_run_config_as_toml
     from utils.log_helper import setup_logging
 
     setup_logging("debug")
 
-    run_configs = RagBuild | RagQuery
+    run_configs = (
+        RunWebsiteCrawler | RunWebpageImageSummarizer | RunRagBuild | RunRagQuery
+    )
     run_config = tyro.cli(run_configs)
     run_manager = RunManager()
 
-    if isinstance(run_config, RagBuild):
+    if isinstance(run_config, RunWebsiteCrawler):
+        run_manager.set_module_path("website_crawler")
+        run_website_crawler(
+            run_manager,
+            run_config.config_name,
+            run_config.run_name_use_config_name,
+            max_pages=run_config.max_pages,
+        )
+    elif isinstance(run_config, RunWebpageImageSummarizer):
+        run_manager.set_module_path("webpage_image_summarizer")
+        run_webpage_image_summarizer(
+            run_manager,
+            run_config.config_name,
+            run_config.run_name_use_config_name,
+            model=run_config.model,
+        )
+    elif isinstance(run_config, RunRagBuild):
         run_manager.set_module_path("rag_build")
         run_rag_build(
-            run_manager=run_manager,
-            config_name=run_config.config_name,
-            run_name_use_config_name=run_config.run_name_use_config_name,
+            run_manager,
+            run_config.config_name,
+            run_config.run_name_use_config_name,
+            chunk_size=run_config.chunk_size,
         )
-    elif isinstance(run_config, RagQuery):
+    elif isinstance(run_config, RunRagQuery):
         run_manager.set_module_path("rag_query")
         run_rag_query(
-            run_manager=run_manager,
-            config_name=run_config.config_name,
-            run_name_use_config_name=run_config.run_name_use_config_name,
-            force_rebuild=run_config.force_rebuild,
-            query_iterations=run_config.query_iterations,
+            run_manager,
+            run_config.config_name,
+            run_config.run_name_use_config_name,
+            run_config.force_rebuild,
+            run_config.query_iterations,
+            top_k=run_config.top_k,
         )
 
     save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+    run_manager.log_run_paths("complete")

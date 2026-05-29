@@ -15,5 +15,5 @@ def test_main():
 
     run_manager.set_module_path("webpage_image_summarizer")
     run_webpage_image_summarizer(
-        crawl_results=crawl_results, run_manager=run_manager, config_name="test"
+        run_manager=run_manager, config_name="test", crawl_results=crawl_results
     )

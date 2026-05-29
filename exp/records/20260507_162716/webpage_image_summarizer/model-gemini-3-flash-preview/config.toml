@@ -43,4 +43,4 @@ prompt = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-model = "gemini/gemini-3-flash-preview" # run name # 使用 Gemini API key 模型名稱要加上 "gemini/" 前綴
+model = "gemini-3-flash-preview" # run name

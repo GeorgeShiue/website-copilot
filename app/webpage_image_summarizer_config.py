@@ -92,7 +92,7 @@ class WebpageImageSummarizerConfig:
     cache_download_images: bool = False
     cache_image_captions: bool = False
     # ----- summarize config -----
-    model: str = "gemini/gemini-3-flash-preview"
+    model: str = "gemini-3-flash-preview"
     prompt: str = DEFAULT_PROMPT
     image_source: Literal["images", "markdown"] = "markdown"
     vlm_max_workers: int = 10
@@ -137,10 +137,6 @@ class WebpageImageSummarizerConfig:
             if value is not None:
                 run_name += f"{config}-{value}_"
         run_name = run_name.rstrip("_").replace("/", "-")
-
-        # 刪除模型名稱中多餘的 "-gemini"
-        if run_name.find("-gemini") > 1:
-            run_name = run_name.replace("-gemini", "", 1)
 
         return run_name
 

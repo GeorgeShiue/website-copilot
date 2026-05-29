@@ -6,7 +6,7 @@ download_timeout = 10.0
 max_retries = 6
 
 [summarize]
-model = "gemini/gemini-3.1-flash-lite-preview"
+model = "gemini-3.1-flash-lite-preview"
 image_source = "markdown"
 prompt = """
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。

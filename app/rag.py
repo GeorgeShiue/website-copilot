@@ -139,7 +139,7 @@ class Rag:
         self.results_json: dict[str, Any] = self._load_results_json()
 
         # ===== internal state =====
-        self.client: QdrantClient | None = None
+        self.qdrant_client: QdrantClient | None = None
         self.vector_store: QdrantVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.nodes: Sequence[BaseNode] | None = None
@@ -157,10 +157,11 @@ class Rag:
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
         collection_name: str = "webpages",
     ) -> None:
-        self.client = QdrantClient(path=qdrant_db_folder_path)
+        self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
         self.vector_store = QdrantVectorStore(
-            collection_name, self.client, index_doc_id=False
+            collection_name, self.qdrant_client, index_doc_id=False
         )
+        logger.info("Successfully built vector store")
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -421,11 +422,11 @@ class Rag:
         logger.info(f"Reason: {reason}")
 
     def close(self) -> None:
-        client = self.client
+        client = self.qdrant_client
         if client is not None:
             client.close()
 
-        self.client = None
+        self.qdrant_client = None
         self.vector_store = None
 
     def override_init_config(self, **init_kwargs) -> None:
@@ -446,7 +447,7 @@ class Rag:
         if client is not None:
             client.close()
 
-        self.client = None
+        self.qdrant_client = None
         self.vector_store = None
         self.index = None
         self.retriever = None
