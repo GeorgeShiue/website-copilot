@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 KEEP_TITLE_CONTENT_THRESHOLD = 0.45
 KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
-DEFAULT_CONFIG_FOLDER_PATH = "./config/website_crawler"
+DEFAULT_CONFIG_FOLDER_PATH = "configs/website_crawler"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_CRAWL_CONFIG_SECTION = "crawl"
 INIT_KEYS = {

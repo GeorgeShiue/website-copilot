@@ -20,7 +20,7 @@ from crawl4ai.deep_crawling.filters import (
 )
 from rich.table import Table
 
-from app.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
+from app.configs.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
 from utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)

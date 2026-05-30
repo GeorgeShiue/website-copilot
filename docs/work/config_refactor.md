@@ -1,4 +1,4 @@
-# config refactor
+# Config Refactor (2026/5/29)
 
 本文整理這一輪對 [utils/config_helper.py](utils/config_helper.py) 與 [app/website_crawler_config.py](app/website_crawler_config.py) 的重構設計，重點是把「載入、覆寫、驗證、留檔」拆成可重用的共用流程，並讓 website crawler 的 config 變成更薄的 dataclass 外殼。
 

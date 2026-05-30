@@ -6,8 +6,8 @@ qdrant_db_folder_path = "data/rag/qdrant_db"
 collection_name = "webpages"
 
 [nodes]
-paragraph_separator = "\n\n"
 chunk_overlap = 100
+paragraph_separator = "\n\n"
 chunk_size = 800
 
 [index]

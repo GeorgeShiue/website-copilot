@@ -48,7 +48,7 @@ DEFAULT_PROMPT = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-DEFAULT_CONFIG_FOLDER_PATH = "./config/webpage_image_summarizer"
+DEFAULT_CONFIG_FOLDER_PATH = "configs/webpage_image_summarizer"
 DEFAULT_CONFIG_NAME = "default"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"

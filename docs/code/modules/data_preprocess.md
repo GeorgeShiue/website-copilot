@@ -4,12 +4,12 @@
 此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程會先從爬取結果收集圖片來源，再進行下載、快取、摘要與重試，最後產生包含圖片說明的 `enhanced_markdown` 與統計資訊。
 
 - **模組實作**
-	- `app/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
-	- `app/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
+	- `app/modules/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
+	- `app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
 	- `utils/log_helper.py`（**日誌**、**進度**與**統計輸出**輔助）
 
 - **模組設定**
-	- `./config/webpage_image_summarizer/{name}.toml`（**摘要設定檔**，透過 `app/webpage_image_summarizer_config.py` 載入）
+	- `./configs/webpage_image_summarizer/{name}.toml`（**摘要設定檔**，透過 `app/configs/webpage_image_summarizer_config.py` 載入）
 	- 可在 `WebpageImageSummarizerConfig` 或執行參數中覆寫 **model**、**prompt**、**image_source**、**vlm_max_workers** 與 **litellm_kwargs**
 	- `get_summarizer_model_api_key()` 會依模型名稱推斷對應的環境變數，並從 `.env` 或系統環境讀取
 

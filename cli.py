@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from run_config import (
+from app.workflow.workflow_config import (
     RagBuildRunConfig,
     RagQueryRunConfig,
     WebpageImageSummarizerRunConfig,
@@ -55,7 +55,7 @@ class RagQueryCLI:
 if __name__ == "__main__":
     import tyro
 
-    from run import (
+    from app.workflow.workflow import (
         run_rag_build,
         run_rag_query,
         run_webpage_image_summarizer,
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     )
     from utils.config_helper import save_run_config_as_toml
     from utils.log_helper import setup_logging
-    from utils.run_manager import RunManager
+    from app.workflow.workflow_manager import RunManager
 
     setup_logging("debug")
 

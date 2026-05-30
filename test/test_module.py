@@ -1,4 +1,8 @@
-from run import run_rag_build, run_webpage_image_summarizer, run_website_crawler
+from app.workflow.workflow import (
+    run_rag_build,
+    run_webpage_image_summarizer,
+    run_website_crawler,
+)
 from utils.log_helper import setup_logging
 
 setup_logging("debug")

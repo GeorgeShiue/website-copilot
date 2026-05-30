@@ -1,6 +1,6 @@
-from run import run_webpage_image_summarizer
+from app.workflow.workflow import run_webpage_image_summarizer
 from utils.log_helper import setup_logging
-from utils.run_manager import RunManager
+from app.workflow.workflow_manager import RunManager
 
 setup_logging("debug")
 

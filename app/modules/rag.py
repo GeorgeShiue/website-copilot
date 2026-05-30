@@ -30,7 +30,7 @@ from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
-from app.rag_config import (
+from app.configs.rag_config import (
     DEFAULT_QDRANT_DB_FOLER_PATH,
     WEBPAGES_DATA_FOLDER_PATH,
 )
@@ -343,9 +343,7 @@ class Rag:
 
         llm = self._set_llm(llm_name)
         response_synthesizer = get_response_synthesizer(llm)
-        similarity_postprocessor = SimilarityPostprocessor(
-            # similarity_cutoff=cutoff # test
-        )
+        similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
         self.query_engine = RetrieverQueryEngine(
             self.retriever,
             response_synthesizer,

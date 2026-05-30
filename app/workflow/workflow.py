@@ -1,18 +1,18 @@
 import os
 
-from app.rag import Rag
-from app.rag_config import RagConfig
-from app.webpage_image_summarizer import WebpageImageSummarizer
-from app.webpage_image_summarizer_config import WebpageImageSummarizerConfig
-from app.website_crawler import WebsiteCrawler
-from app.website_crawler_config import WebsiteCrawlerConfig
+from app.modules.rag import Rag
+from app.configs.rag_config import RagConfig
+from app.modules.webpage_image_summarizer import WebpageImageSummarizer
+from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
+from app.modules.website_crawler import WebsiteCrawler
+from app.configs.website_crawler_config import WebsiteCrawlerConfig
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import (
     log_run_time,
     log_session,
     save_logging_file,
 )
-from utils.run_manager import RunManager
+from app.workflow.workflow_manager import RunManager
 
 
 def run_website_crawler(

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 from rich.table import Table
 
-from app.webpage_image_summarizer_config import (
+from app.configs.webpage_image_summarizer_config import (
     DEFAULT_PROMPT,
     VLM_MODEL_TO_API_KEY,
 )
