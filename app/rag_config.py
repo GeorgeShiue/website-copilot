@@ -58,20 +58,20 @@ SECTIONS_TO_KEYS = {
 class RagConfig:
     # ----- metadata (no default values)-----
     config_name: str
-    # ----- init args -----
+    # ----- init config -----
     webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
-    # ----- vector store args -----
+    # ----- vector store config -----
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     collection_name: str = "webpages"
-    # ----- nodes args -----
+    # ----- nodes config -----
     chunk_size: int = 800
     chunk_overlap: int = 100
     paragraph_separator: str = "\n\n"
-    # ----- index args -----
+    # ----- index config -----
     embedding_name: str = "text-embedding-3-small"
-    # ----- retriever args -----
+    # ----- retriever config -----
     top_k: int = 5
-    # ----- query engine args -----
+    # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
     cutoff: float = 0.5
     # ----- metadata -----

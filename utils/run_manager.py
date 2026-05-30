@@ -141,7 +141,8 @@ class RunManager:
 
         path_obj = Path(raw_path)
         if not path_obj.exists():
-            raise NotADirectoryError(f"{path_key}:{raw_path} has not been saved.")
+            path_value = "..."
+            status = "[red]not saved[/red]"
         else:
             path_value = str(path_obj)
             status = "[green]saved[/green]"
