@@ -25,4 +25,4 @@ class RagBuildRunConfig(BaseRunConfig):
 @dataclass
 class RagQueryRunConfig(BaseRunConfig):
     force_rebuild: bool = False
-    query_iterations: int = 1
+    query_times: int = 1

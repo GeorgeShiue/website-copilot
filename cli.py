@@ -26,6 +26,7 @@ class RagConfigCLI:
     top_k: int | None = None
     # ----- query engine config -----
     cutoff: float | None = None
+    query: str | None = None
 
 
 @dataclass
@@ -61,9 +62,9 @@ if __name__ == "__main__":
         run_webpage_image_summarizer,
         run_website_crawler,
     )
+    from app.workflow.workflow_manager import RunManager
     from utils.config_helper import save_run_config_as_toml
     from utils.log_helper import setup_logging
-    from app.workflow.workflow_manager import RunManager
 
     setup_logging("debug")
 

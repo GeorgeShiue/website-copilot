@@ -1,18 +1,18 @@
 import os
 
-from app.modules.rag import Rag
 from app.configs.rag_config import RagConfig
-from app.modules.webpage_image_summarizer import WebpageImageSummarizer
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
-from app.modules.website_crawler import WebsiteCrawler
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
+from app.modules.rag import Rag
+from app.modules.webpage_image_summarizer import WebpageImageSummarizer
+from app.modules.website_crawler import WebsiteCrawler
+from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import (
     log_run_time,
     log_session,
     save_logging_file,
 )
-from app.workflow.workflow_manager import RunManager
 
 
 def run_website_crawler(
@@ -202,8 +202,7 @@ def run_rag_build(
 
         # ----- Query & Response -----
         log_session("Query & Response", style="cyan")
-        query = "實驗室發表過的論文"
-        rag.query(query, log_sources=True, content_length=2000)
+        rag.query(config.query, log_sources=True)
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
@@ -220,7 +219,7 @@ def run_rag_query(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     force_rebuild: bool = False,
-    query_iterations: int = 1,
+    query_times: int = 1,
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
@@ -287,50 +286,47 @@ def run_rag_query(
         )
 
         # ----- Query -----
-        # query = "實驗室指導教授"
-        # query = "實驗室成員"
-        # query = "實驗室研究領域"
-        # query = "實驗室最新活動"
-        query = "實驗室發表過的論文"
-
         faithfulness_pass = 0
         relevancy_pass = 0
-        for i in range(query_iterations):
+        for i in range(query_times):
             # ----- 查詢與回應 -----
             log_session(f"Query & Response {i + 1}", style="cyan")
-            response = rag.query(query, log_sources=True, content_length=2000)
+            response = rag.query(config.query, log_sources=True)
 
             # ----- 回應評估 -----
             # TODO: 改用 regas 或 deepeval 評估
             log_session("Evaluation", style="cyan")
             faithfulness_result, relevancy_result = rag.evaluate(
-                query=query, response=response, llm_name=config.llm_name
+                query=config.query, response=response, llm_name=config.llm_name
             )
             if faithfulness_result.passing:
                 faithfulness_pass += 1
             if relevancy_result.passing:
                 relevancy_pass += 1
 
-        faithfulness_pass_rate = faithfulness_pass / query_iterations * 100
-        relevancy_pass_rate = relevancy_pass / query_iterations * 100
+        faithfulness_pass_rate = faithfulness_pass / query_times * 100
+        relevancy_pass_rate = relevancy_pass / query_times * 100
 
         # ----- 輸出評估結果 -----
         log_session("Evaluation Summary", style="green")
-        print(f"Total Iterations: {query_iterations}")
+        print(f"Query times: {query_times}")
         print(
-            f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_iterations})"
+            f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_times})"
         )
-        print(
-            f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_iterations})"
-        )
+        print(f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})")
 
         # TODO: 制定 Query Response 的儲存方式
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        vector_store_config_path = os.path.join(
-            config.qdrant_db_folder_path, "config.toml"
-        )
-        save_module_config_as_toml(config, vector_store_config_path)
+
+        if rebuild:
+            vector_store_config_path = os.path.join(
+                config.qdrant_db_folder_path, "config.toml"
+            )
+            save_module_config_as_toml(config, vector_store_config_path)
+
+        # ----- 輸出完成訊息 -----
+        log_session("RAG Query Completed", style="cyan")
 
     if rebuild:
         rag.close()

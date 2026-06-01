@@ -43,6 +43,7 @@ RETRIEVER_KEYS = {
 QUERY_ENGINE_KEYS = {
     "llm_name",
     "cutoff",
+    "query",
 }
 SECTIONS_TO_KEYS = {
     DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
@@ -74,6 +75,7 @@ class RagConfig:
     # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
     cutoff: float = 0.5
+    query: str = "實驗室發表過的論文"
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(
         default_factory=lambda: SECTIONS_TO_KEYS
@@ -183,6 +185,7 @@ def _validate_config(config: dict[str, Any]) -> None:
     # ----- query engine config -----
     llm_name = config.get("llm_name")
     cutoff = config.get("cutoff")
+    query = config.get("query")
 
     if llm_name is not None:
         if not isinstance(llm_name, str):
@@ -195,3 +198,9 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("cutoff 必須是數字")
         if not 0 <= float(cutoff) <= 1:
             raise ConfigValidationError("cutoff 必須介於 0 到 1")
+
+    if query is not None:
+        if not isinstance(query, str):
+            raise ConfigValidationError("query 必須是字串")
+        if not query.strip():
+            raise ConfigValidationError("query 不可為空字串")

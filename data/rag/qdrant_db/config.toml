@@ -6,9 +6,9 @@ qdrant_db_folder_path = "data/rag/qdrant_db"
 collection_name = "webpages"
 
 [nodes]
-chunk_overlap = 100
-paragraph_separator = "\n\n"
 chunk_size = 800
+paragraph_separator = "\n\n"
+chunk_overlap = 100
 
 [index]
 embedding_name = "text-embedding-3-small"
@@ -17,5 +17,5 @@ embedding_name = "text-embedding-3-small"
 top_k = 5
 
 [query_engine]
-cutoff = 0.5
-llm_name = "gemini-3.1-flash-lite" # run name
+llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.4                       # run name

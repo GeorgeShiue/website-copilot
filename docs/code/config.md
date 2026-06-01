@@ -71,7 +71,8 @@
 
 - `vector_store`：`qdrant_db_folder_path`、`collection_name`（預設 collection 為 `webpages`，持久化路徑預設 `data/rag/qdrant_db`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
-- `retriever`：`top_k`，`query_engine`：`llm_name`、`cutoff`。
+- `retriever`：`top_k`，`query_engine`：`llm_name`、`cutoff`、`query`。
+- `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
 ## 三、共用載入、覆寫與驗證機制
 

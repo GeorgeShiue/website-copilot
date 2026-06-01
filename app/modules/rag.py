@@ -323,12 +323,10 @@ class Rag:
             logger.info(f"  Answer: {dataset.qr_pairs[i][1]}")
             logger.info("-" * 90)
 
-    def _log_sources(
-        self, source_nodes: Sequence[NodeWithScore], content_length: int = 1000
-    ) -> None:
+    def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
         logger.info(f"Retrieved {len(source_nodes)} sources")
-        source_text = format_sources_text(source_nodes, content_length=content_length)
+        source_text = format_sources_text(source_nodes)
         logger.info(source_text)
 
     def build_query_engine(
@@ -360,9 +358,7 @@ class Rag:
         )
         return llm
 
-    def query(
-        self, query: str, log_sources: bool = False, content_length: int = 1000
-    ) -> Response:
+    def query(self, query: str, log_sources: bool = False) -> Response:
         if self.query_engine is None:
             raise RuntimeError("RAG service have not been built, cannot execute query")
 
@@ -371,7 +367,7 @@ class Rag:
         if isinstance(response, Response):
             logger.info(f"Response: {response.response}")
             if log_sources:
-                self._log_sources(response.source_nodes, content_length)
+                self._log_sources(response.source_nodes)
             return response
         else:
             raise TypeError(
