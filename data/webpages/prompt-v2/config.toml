@@ -36,4 +36,4 @@ prompt = """
 [基於上述分析，用 2 到 3 個流暢的段落描述圖片的佈局、細節與整體情境]
 """
 vlm_max_workers = 10
-model = "gemini/gemini-3-flash-preview"
+model = "gemini-3-flash-preview"

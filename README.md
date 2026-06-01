@@ -21,23 +21,66 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ## 檔案結構
 
+下面範例列出本專案的根目錄與主要子目錄（以實際檔案為準）：
+
 ```text
 .
-├── main.py                      # 協調先爬取網站再執行圖片摘要的流程
-├── run.py                       # 執行爬蟲與摘要器的共用輔助函式
+├── cli.py                       # CLI 入口
+├── exp.py                       # 實驗或快速測試入口
+├── main.py                      # 協調爬蟲與圖片摘要的主流程
+├── prek.toml                    # ruff/prek 設定
+├── pyproject.toml               # Python 專案設定與依賴
+├── README.md
+├── uv.lock
 ├── app/
-│   ├── website_crawler.py       # 爬取網站、清理 Markdown，並擷取圖片
-│   ├── webpage_image_summarizer.py  # 下載圖片、呼叫 VLM，並寫入增強 Markdown
-│   └── rag.py                   # 建立或載入向量索引，並執行示範查詢
-├── config/
-│   ├── website_crawler/         # 爬蟲執行的 TOML 設定
-│   └── webpage_image_summarizer/ # 圖片摘要執行的 TOML 設定
+│   ├── configs/
+│   │   ├── rag_config.py
+│   │   ├── webpage_image_summarizer_config.py
+│   │   └── website_crawler_config.py
+│   ├── modules/
+│   │   ├── rag.py
+│   │   ├── webpage_image_summarizer.py
+│   │   └── website_crawler.py
+│   └── workflow/
+│       ├── workflow.py
+│       ├── workflow_config.py
+│       └── workflow_manager.py
+├── configs/
+│   ├── rag/
+│   │   ├── default.toml
+│   │   └── test.toml
+│   ├── webpage_image_summarizer/
+│   │   ├── default.toml
+│   │   ├── test.toml
+│   │   └── ...
+│   └── website_crawler/
+│       ├── default.toml
+│       └── test.toml
 ├── data/
-│   ├── webpages/                # 用於檢索的已生成 Markdown 頁面
-│   └── rag/qdrant_db/           # 向量索引的本地 Qdrant persistence
-├── runs/                        # 時間戳執行輸出、設定和日誌
-├── docs/                        # 專案筆記、進度文件與模組文件
-└── test/                        # 主流程與單一模組的 smoke tests
+│   ├── rag/
+│   │   └── qdrant_db/            # 本地 Qdrant persistence（如果已建立）
+│   └── webpages/
+│       ├── prompt-v2/
+│       └── prompt-v3/
+├── dev/
+├── docs/
+│   ├── cli.md
+│   ├── config.md
+│   ├── project.md
+│   ├── exp/
+│   │   ├── memo/
+│   │   └── records/
+│   ├── modules/
+│   ├── progress_report/
+│   └── work/
+├── runs/                         # 執行輸出（以時間戳資料夾儲存）
+├── test/
+│   ├── test_main.py
+│   └── test_module.py
+└── utils/
+    ├── config_helper.py
+    ├── log_helper.py
+    └── rag_helper.py
 ```
 
 ## 需求
@@ -46,14 +89,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 - 可正常執行的 Playwright / 瀏覽器環境，用於爬取。
 - 嵌入、查詢與圖片摘要模型的 API 金鑰。
 
-- 專案依賴已在 `pyproject.toml` 中聲明，包括：
-    - `crawl4ai`
-    - `playwright`
-    - `llama-index` 以及 OpenAI、Google GenAI 和 Qdrant 的 LlamaIndex 整合。
-    - `litellm`
-    - `rich`
-    - `python-dotenv`
-    - `mdformat` 和 `mdformat-gfm`
+專案依賴已在 `pyproject.toml` 中聲明，包含常見的套件（例如 `crawl4ai`, `playwright`,
+`llama-index` 與其外部整合、`litellm`, `rich`, `python-dotenv`, `mdformat` 等）。
 
 ## 安裝
 
@@ -86,10 +123,8 @@ playwright install
 | --- | --- | --- |
 | `OPENAI_RAG_EMBEDDING_API_KEY` | `app/rag.py` | 向量索引的嵌入模型金鑰。 |
 | `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/rag.py` | 用於回答生成的 Gemini 金鑰。 |
-| `OPENAI_WEBPAGE_IAMGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
 | `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
-
-> 目前程式碼庫中 GPT 圖片摘要環境變數拼寫為 `IAMGE`。除非你更新實作，否則請使用上述完整名稱。
 
 ## 使用方式
 

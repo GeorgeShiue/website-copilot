@@ -13,7 +13,7 @@
 ## 一、 網站知識庫
 > **提高檢索效率、降低幻覺率**
 ### 1. 資料獲取
-> docs/modules/Data_Collect.md
+> docs/modules/data_collect.md
 
 **實作進度**
 - [x] **網站爬蟲**
@@ -29,7 +29,7 @@
 - [ ] 讀取網站**後端資料庫**
 
 ### 2. 資料前處理
-> docs/modules/Data_Preprocess.md
+> docs/modules/data_preprocess.md
 
 **實作進度**
 - [x] **圖片處理**
@@ -53,7 +53,7 @@
 - [ ] **文件處理**
 
 ### 3. 資料查詢 (當前進度)
-> docs/modules/Rag.md
+> docs/modules/data_retrieve.md
 
 **實作進度**
 - [ ] **向量資料庫檢索** (基本方案)

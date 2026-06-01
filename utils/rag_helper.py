@@ -98,7 +98,7 @@ class MarkdownImageExtractor(BaseExtractor):
 
 
 def format_sources_text(
-    source_nodes: Sequence[NodeWithScore], content_length: int = 100
+    source_nodes: Sequence[NodeWithScore], content_length: int = 500
 ) -> str:
     texts: List[str] = []
     for source_node in source_nodes:

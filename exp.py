@@ -1,5 +1,6 @@
-from run import run_webpage_image_summarizer, run_rag
+from app.workflow.workflow import run_webpage_image_summarizer
 from utils.log_helper import setup_logging
+from app.workflow.workflow_manager import RunManager
 
 setup_logging("debug")
 
@@ -12,30 +13,29 @@ def webpage_image_summarizer_model():
     #     "gemini-3-pro",
     # ]
     models = ["gemini-3.1-flash-lite", "gemini-3-flash"]  # temp
+    run_manager = RunManager()
 
-    run_webpage_image_summarizer(
-        config_names=models,
-    )
+    for model in models:
+        run_webpage_image_summarizer(
+            run_manager=run_manager,
+            config_name=model,
+            run_name_use_config_name=True,
+        )
 
 
 def webpage_image_summarizer_prompt():
     # all_prompts = ["prompt-v1", "prompt-v2", "prompt-v3"]
     prompts = ["prompt-v3"]  # temp
-    run_webpage_image_summarizer(
-        config_names=prompts,
-        run_name_use_config_name=True,
-    )
+    run_manager = RunManager()
 
-
-# TODO: 使用多 config 進行詳細測試
-def rag_query_engine():
-    cutoffs = ["cutoff-0.5", "cutoff-0.3"]
-    run_rag(
-        config_names=cutoffs,
-    )
+    for prompt in prompts:
+        run_webpage_image_summarizer(
+            run_manager=run_manager,
+            config_name=prompt,
+            run_name_use_config_name=True,
+        )
 
 
 if __name__ == "__main__":
     # webpage_image_summarizer_model()
-    # webpage_image_summarizer_prompt()
-    rag_query_engine()
+    webpage_image_summarizer_prompt()
