@@ -10,4 +10,4 @@ tmp/
 storage_context/
 ingestion_cache/
 
-runs/
+/runs/
