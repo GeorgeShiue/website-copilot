@@ -297,7 +297,7 @@ def run_rag_query(
             # TODO: 改用 regas 或 deepeval 評估
             log_session("Evaluation", style="cyan")
             faithfulness_result, relevancy_result = rag.evaluate(
-                query=config.query, response=response, llm_name=config.llm_name
+                query=config.query, response=response
             )
             if faithfulness_result.passing:
                 faithfulness_pass += 1

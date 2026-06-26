@@ -6,24 +6,43 @@
 
 > **目前穩定值：5**
 
-- 初始值是 `top_k=2`，在 `cutoff=0.6` 時容易出現 `Empty Response`
-- 提升到 `top_k=5` 後，檢索到的來源數明顯增加，且在 `cutoff=0.4` 時可穩定取回內容
-- 目前 `top_k=5` 已足夠支撐多數問題，單純把 `top_k` 再往上加的收益不大——針對名單型問題（如「實驗室的成員有哪些人？」）將 `top_k` 提高至 10 仍無法 recall `Members.md`，因為問題是 embedding 語義比對的局限而非 recall 不足。
+- **`top_k=2` 不足**：搭配 `cutoff=0.6` 時，多數查詢檢索不到足夠來源，容易出現 `Empty Response`
+- **`top_k=5` 已夠用**：提升後檢索來源數明顯增加，對流程型、時間範圍型等題型皆能穩定 recall 所需頁面
+- **拉升無收益**：針對名單型問題將 `top_k` 提高至 10 仍無法 recall `Members.md`——瓶頸是 embedding 語義比對的局限，而非 recall 不足
 
 ## Query Engine
 
 ### LLM
 
-> **目前穩定值：gemini 3.1 flash lite**
+> **目前穩定值：gemini-3.1-flash-lite**
+
+- **Relevancy 最高**：在三種問題類型（時間範圍、名單、跨頁面整合）皆取得 100% Relevancy，唯一在所有題型上滿分的模型
+- **Latency 最快**：平均 59s／次，不到次佳模型（gemini-3.5-flash, 120s）的一半
+- **拒答最誠實**：面對檢索不足的時間範圍題，正確指出資料不足而非硬湊答案；其他模型則將論文獎項誤答為論文發表
+- **邊際效益極低**：gemini-3.5-flash 耗時 2 倍、gemini-2.5-pro 耗時 3.3 倍，Relevancy 反而更低 — 強模型的能力優勢在 RAG query engine 場景下被檢索瓶頸抵消
 
 ### Cutoff
 
 > **目前穩定值：0.45**
 
-- `cutoff=0.6` 會導致部分查詢（例如時間範圍題）出現 Empty Response；`top_k=5, cutoff=0.4` 為先前穩定的 baseline。
-- 針對「實驗室的成員有哪些人？」實驗：將 `cutoff` 提高至 `0.45`（維持 `top_k=5`）使 retrieved sources 從 5 減至 4，Faithfulness / Relevancy 分別由 20%/10% 提升到 70%/30%。
+- **`cutoff=0.6` 過嚴**：時間範圍題等召回較弱的查詢容易出現 `Empty Response`，不適合作為固定值
+- **`cutoff=0.4` 過寬**：檢索回較多來源但混入噪音，名單型問題易將公告姓名外推為完整名單，Faithfulness / Relevancy 僅 20%/10%
+- **`cutoff=0.45` 最佳平衡**：以名單型問題為例，retrieved sources 從 5 減至 4，排除最低分噪音來源，Faithfulness / Relevancy 提升至 70%/30%
 
 # 5 種問題實驗 (2026/6/26)
+
+## 實驗設計
+
+- **測試問題**（5 題，涵蓋三種問題類型）
+  - `實驗室近三年發表過哪些論文？` — **時間範圍型**：測試 query 中的時間表述能否被正確理解與回應
+  - `實驗室的成員有哪些人？` — **名單型**：測試純向量檢索對結構化列表的召回能力
+  - `實驗室在2024年有哪些活動？` — **時間範圍型**：測試具體年份的檢索與摘要
+  - `加入實驗室需要準備哪些資料？` — **流程型**：測試明確可驗證資訊的穩定度
+  - `如何聯絡研究室指導教授？` — **流程型**：測試聯絡方式這類高確定性查詢
+- **測試配置**：`top_k=5, cutoff=0.45, gemini-3.1-flash-lite`
+- **評估方式**：FaithfulnessEvaluator + RelevancyEvaluator（使用相同 LLM 作為 evaluator）
+- **每題測試次數**：10 次 query
+- **資料來源**：`data/webpages/prompt-v3`（同一個 vector store）
 
 ## 實驗記錄
 
@@ -73,3 +92,70 @@ RAG 的瓶頸不是單一參數，而是 **「檢索精準度 × 召回率 × �
 | **P0** | 改善檢索策略 | 導入 hybrid search（向量 + BM25 keyword）；對特定 query 搭配 query expansion 或 page_type routing | 名單型問題的召回瓶頸、時間範圍題的頁型混淆 |
 | **P1** | 生成階段約束 | 對名單型 / 時間範圍類查詢強制 provenance 出處標示，避免外推 | 生成層的過度推論 |
 | **P2** | cutoff 彈性化 | 保留 `cutoff=0.45` 為預設；對低召回題型（如時間範圍題）加入降閾值或 fallback 機制 | 避免 `Empty Response`
+
+# 語言模型實驗 (2026/6/26)
+
+## 實驗設計
+
+- **測試問題**（3 題，各測不同 LLM 能力維度）
+  - Q1 `實驗室近三年發表過哪些論文？` — 時間理解 + 摘要 + 推理（核心鑑別題）
+  - Q2 `實驗室的成員有哪些人？` — 檢索失敗時的生成品質（邊界測試）
+  - Q3 `實驗室開發過哪些與 AI 相關的應用？` — 跨 chunk 整合推理（補充推理題）
+- **測試模型**：`gemini-3.1-flash-lite`（對照組）、`gemini-3-flash-preview`、`gemini-3.5-flash`、`gemini-2.5-pro-preview`
+- **控制變數**：`top_k=5, cutoff=0.45`，共用同一份 vector store（不 rebuild）
+- **評估模型**：`gpt-5.4`（獨立 OpenAI 模型，與被測模型脫鉤）
+- **每組合次數**：10 次 query
+
+## 實驗記錄
+
+### Faithfulness / Relevancy
+
+| 模型 | Q1 Faith | Q1 Rel | Q2 Faith | Q2 Rel | Q3 Faith | Q3 Rel | Avg Faith | Avg Rel | Avg Latency |
+|------|:-------:|:------:|:-------:|:------:|:-------:|:------:|:---------:|:-------:|:----------:|
+| `gemini-3.1-flash-lite` | 100% | **100%** | 100% | **100%** | 100% | **100%** | **100%** | **100%** | **59s** 🚀 |
+| `gemini-3.5-flash` | 100% | 50% | 100% | 100% | 100% | 100% | 100% | 83.3% | 120s |
+| `gemini-3-flash-preview` | 100% | 0% | 100% | 100% | 100% | 100% | 100% | 66.7% | 132s |
+| `gemini-2.5-pro-preview` | 100% | 0% | 100% | 80% | 100% | 100% | 100% | 60% | 197s 🐢 |
+
+### Latency
+
+| 模型 | Q1 | Q2 | Q3 | Avg |
+|------|:--:|:--:|:--:|:---:|
+| `gemini-3.1-flash-lite` | 53s | 54s | 71s | **59s** |
+| `gemini-3.5-flash` | 128s | 90s | 143s | 120s |
+| `gemini-3-flash-preview` | 155s | 89s | 153s | 132s |
+| `gemini-2.5-pro-preview` | 192s | 156s | 243s | 197s |
+
+## 實驗總結
+
+### 關鍵發現
+
+1. **所有模型 Faithfulness 皆為 100%** — 所有模型都正確反映了檢索到的來源資訊，沒有 hallucination。`gpt-5.4` 作為 evaluator 運作正常，且同一份 vector store 提供了一致的檢索基礎。
+
+2. **鑑別力完全來自 Relevancy** — 真正的差異在於模型是否理解問題、是否正確判斷「該回答什麼」。
+
+3. **Q1（時間範圍題）是唯一有鑑別力的題目**：
+   - `gemini-3.1-flash-lite` **唯一滿分**：正確告知「提供的資料中並未包含實驗室發表的論文列表，僅列出了校外獎項」，誠實且精確。
+   - `gemini-3.5-flash` **50%**：部分回答正確指出資料不足，但混入了 2015 年等非近三年的獎項資訊。
+   - `gemini-3-flash-preview` 與 `gemini-2.5-pro-preview` **0%**：直接將論文獎項當作論文發表，完全偏離題意。
+
+4. **Q2（名單題）大多數模型表現良好**，僅 `gemini-2.5-pro` 加入「助教」等來源未明確提及的角色，Relevancy 降至 80%。
+
+5. **Q3（AI 應用整合題）所有模型皆滿分** — 天花板效應，問題難度不足以區分模型能力。
+
+### 定性觀察
+
+- **拒答誠實度**：`gemini-3.1-flash-lite` 在 Q1 中誠實指出資料不足，而非硬湊答案。這是與其他模型最顯著的定性差異。
+- **回答長度**：`gemini-3.1-flash-lite` 回覆最簡潔精準；`gemini-2.5-pro` 最冗長。
+- **邏輯連貫性**：`gemini-3.5-flash` 在 Q1 中會先說「無相關清單紀錄」，卻又列出獎項，前後矛盾。
+
+### 結論
+
+> **維持 `gemini-3.1-flash-lite` 為預設 LLM。**
+
+| 面向 | 結論 |
+|------|------|
+| **效能** | `gemini-3.1-flash-lite` 在三個問題上皆取得最高 Relevancy（100%），且 Latency 最短（avg 59s） |
+| **誠實度** | 面對檢索不足時，唯一能正確拒答而非硬湊的模型 |
+| **成本效益** | 最便宜的模型（tier 3）卻拿到最好的結果，邊際收益遞減曲線極陡 |
+| **升級必要性** | `gemini-3.5-flash` 耗時 2x、`gemini-2.5-pro` 耗時 3.3x，但 Relevancy 反而更低 — 在 RAG query engine 場景下，強模型的能力優勢被檢索瓶頸抵消 |

@@ -1,0 +1,611 @@
+───────────────────────────────────────────── RAG Query (gemini-2.5-pro) ──────────────────────────────────────────────
+───────────────────────────────────────────── Rag Config Loaded from toml ─────────────────────────────────────────────
+                         init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages/prompt-v3 │
+└───────────────────────────┴─────────────────────────┘
+                 vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value              ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages           │
+│ qdrant_db_folder_path │ data/rag/qdrant_db │
+└───────────────────────┴────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+    retriever
+┏━━━━━━━━┳━━━━━━━┓
+┃ Config ┃ Value ┃
+┡━━━━━━━━╇━━━━━━━┩
+│ top_k  │ 5     │
+└────────┴───────┘
+            query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                  ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.45                   │
+│ llm_name │ gemini-2.5-pro         │
+│ query    │ 實驗室的成員有哪些人？ │
+└──────────┴────────────────────────┘
+─────────────────────────────────────────────── Building All Resources ────────────────────────────────────────────────
+INFO     Successfully built vector store
+INFO     Successfully loaded index from vector store
+INFO     Successfully built retriever
+INFO     Successfully built query engine
+───────────────────────────────────────────────── Query & Response 1 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資料，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授 (Prof. Chang)
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **其他**：助教
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.503, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.503, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.484, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.450, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙、大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，以及助教。
+INFO     Retrying request to /chat/completions in 0.403330 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的人名與身分類別皆可由內容推知，雖然「助教」未具名，但上下文確有提及助教。
+───────────────────────────────────────────────── Query & Response 2 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授 (Professor Chang)
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部學生**：李倬安、葉展維
+         *   **專題生**：張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙、大學部李倬安/葉展維、專題生張勛皓/孫詠淳，且也有提到助教。
+INFO     Retrying request to /chat/completions in 0.440275 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的教授、研究生、大學生與專題生姓名皆可從內容中對應找到，且「助教」也與面試政策中的描述一致。
+───────────────────────────────────────────────── Query & Response 3 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授 (Prof. Chang)
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸簡資烜張彣謙，以及大學部/專題生李倬安葉展維張勛皓孫詠淳，且也有提到助教。
+INFO     Retrying request to /chat/completions in 0.417035 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的教授、研究生與專題生成員姓名皆可在提供的內容中找到，雖然「助教」未具名但上下文確有提及。
+───────────────────────────────────────────────── Query & Response 4 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.503, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.503, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.484, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.450, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸等人，以及大學部/專題生李倬安、葉展維、張勛皓、孫詠淳，並出現助教。
+INFO     Retrying request to /chat/completions in 0.487702 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: False
+INFO     Reason: 內容多數與脈絡相符，但回覆額外加入了「助教」作為成員，原文並未明確列出助教姓名或確認其為成員。
+───────────────────────────────────────────────── Query & Response 5 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **其他成員**：助教
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙、大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，以及助教。
+INFO     Retrying request to /chat/completions in 0.439103 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的教授、研究生與專題生姓名皆可由內容推得，且「助教」也在面試政策中被提及。
+───────────────────────────────────────────────── Query & Response 6 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資料，實驗室的成員包括：
+
+         *   **教授：** 張嘉惠 (Prof. Chang)
+         *   **研究生：** 廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生：** 李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙，以及大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，且也提到助
+         教。
+INFO     Retrying request to /chat/completions in 0.407087 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的教授、研究生與專題生成員姓名皆可從內容中對應找到，雖然「助教」未列姓名但上下文確有提及助教。
+───────────────────────────────────────────────── Query & Response 7 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.503, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.503, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.484, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.450, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙，以及大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，並出現「助
+         教」一詞。
+INFO     Retrying request to /chat/completions in 0.485083 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         回應列出的研究生、大學部／專題生與指導教授姓名皆可從內容對應找到，僅「助教」雖未具名但與上下文描述一致。
+───────────────────────────────────────────────── Query & Response 8 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，實驗室的成員包括：
+
+         *   **教授**：張嘉惠教授
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.503, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.503, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.484, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.450, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙，以及大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，並且也出現
+         助教。
+INFO     Retrying request to /chat/completions in 0.410341 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的教授、研究生與大學部/專題生成員姓名皆可由內容支持，雖然「助教」未列姓名但情境上與內容相符。
+───────────────────────────────────────────────── Query & Response 9 ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資料，實驗室的成員包括：
+
+         *   **教授：** 張嘉惠教授 (Prof. Chang)
+         *   **研究生：** 廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生：** 李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸／簡資烜／張彣謙，以及大學部或專題生李倬安／葉展維／張勛皓／孫詠淳，且也有
+         出現助教。
+INFO     Retrying request to /chat/completions in 0.375982 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: False
+INFO     Reason: 內容加入了「助教」且把公告中提及的人物直接概括為完整成員名單，與提供脈絡不完全相符。
+───────────────────────────────────────────────── Query & Response 10 ─────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的資訊，實驗室的成員包括：
+
+         *   **指導教授**：張嘉惠教授 (Prof. Chang)
+         *   **研究生**：廖梓逸、簡資烜、張彣謙
+         *   **大學部/專題生**：李倬安、葉展維、張勛皓、孫詠淳
+         *   **助教**
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 4 sources
+INFO     > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.504, ID: c3a6ff64-e1e3-4c37-a9a6-33a2e7af4a45):
+         # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](h
+         ttps://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1
+         %8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites
+         .google.com/ ...
+
+         > Source (Page: Prospective_Students, Score: 0.504, ID: 43990512-0e48-41c8-a3a6-0bd61b8549ed):
+         ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+
+         > Source (Page: 歡迎加入WIDM_實驗室, Score: 0.485, ID: b94d460a-f21b-4292-b267-e59caa1afbd9):
+         ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume
+         (CV), academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to
+         schedule an interview. Priority will be given to students who have taken Professor Chang's courses. Post date:
+         Sep 3, 2017 12:46:12 AM
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.451, ID: 4ff8096e-093d-4d1c-a788-8294ecd85f2a):
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6
+         %E5%AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E
+         5%90%88%E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmb
+         omtcx ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason:
+         內容明確提到張嘉惠教授、研究生廖梓逸/簡資烜/張彣謙，以及大學部或專題生李倬安/葉展維/張勛皓/孫詠淳，且有提到助
+         教。
+INFO     Retrying request to /chat/completions in 0.389917 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中的人員名單皆可由內容推知，但「助教」未提供具體姓名且屬概括描述。
+───────────────────────────────────────────────── Evaluation Summary ──────────────────────────────────────────────────
+Query times: 10
+Faithfulness: 100.00% (10/10)
+Relevancy: 80.00% (8/10)
+───────────────────────────────────────────────── RAG Query Completed ─────────────────────────────────────────────────
+INFO     RAG Query (gemini-2.5-pro) Completed in 155.970 seconds

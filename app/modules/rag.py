@@ -12,12 +12,10 @@ from llama_index.core import (
 )
 from llama_index.core.base.response.schema import Response
 from llama_index.core.evaluation import (
-    DatasetGenerator,
     FaithfulnessEvaluator,
     RelevancyEvaluator,
 )
 from llama_index.core.evaluation.base import EvaluationResult
-from llama_index.core.evaluation.dataset_generation import QueryResponseDataset
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 from llama_index.core.postprocessor import SimilarityPostprocessor
@@ -27,6 +25,7 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, Document, NodeWithScore
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
@@ -281,47 +280,47 @@ class Rag:
         )
         logger.info("Successfully built retriever")
 
-    # 暫時不需要
-    def retrieve(self, query: str, log: bool = True) -> None:
-        if self.retriever is None:
-            raise RuntimeError("Retriever have not been built, cannot retrieve")
+    # # 暫時不需要
+    # def retrieve(self, query: str, log: bool = True) -> None:
+    #     if self.retriever is None:
+    #         raise RuntimeError("Retriever have not been built, cannot retrieve")
 
-        retrieved_nodes: list[NodeWithScore] = self.retriever.retrieve(query)
-        if log:
-            logger.info(f"Query: {query}")
-            self._log_sources(retrieved_nodes)
+    #     retrieved_nodes: list[NodeWithScore] = self.retriever.retrieve(query)
+    #     if log:
+    #         logger.info(f"Query: {query}")
+    #         self._log_sources(retrieved_nodes)
 
-    # 暫時不需要
-    def build_dataset(
-        self,
-        llm_name: str = "gemini-3.1-flash-lite",
-        num_questions_per_chunk: int = 10,
-    ) -> None:
-        if self.nodes is None:
-            raise RuntimeError(
-                "Nodes have not been built, cannot build evaluation dataset"
-            )
+    # # 暫時不需要
+    # def build_dataset(
+    #     self,
+    #     llm_name: str = "gemini-3.1-flash-lite",
+    #     num_questions_per_chunk: int = 10,
+    # ) -> None:
+    #     if self.nodes is None:
+    #         raise RuntimeError(
+    #             "Nodes have not been built, cannot build evaluation dataset"
+    #         )
 
-        llm = self._set_llm(llm_name)
-        dataset_generator = DatasetGenerator(
-            nodes=list(self.nodes),
-            llm=llm,
-            num_questions_per_chunk=num_questions_per_chunk,
-            show_progress=True,
-        )
-        dataset: QueryResponseDataset = dataset_generator.generate_dataset_from_nodes(
-            num=10  # test
-        )
+    #     llm = self._set_llm(llm_name)
+    #     dataset_generator = DatasetGenerator(
+    #         nodes=list(self.nodes),
+    #         llm=llm,
+    #         num_questions_per_chunk=num_questions_per_chunk,
+    #         show_progress=True,
+    #     )
+    #     dataset: QueryResponseDataset = dataset_generator.generate_dataset_from_nodes(
+    #         num=10  # test
+    #     )
 
-        logger.info("-" * 90)
-        # for i in range(len(dataset.questions)):
-        #     logger.info(f"Question {i+1}: {dataset.questions[i]}")
-        #     logger.info("-" * 90)
-        for i in range(len(dataset.qr_pairs)):
-            logger.info(f"Q&A Pair {i + 1}:")
-            logger.info(f"  Question: {dataset.qr_pairs[i][0]}")
-            logger.info(f"  Answer: {dataset.qr_pairs[i][1]}")
-            logger.info("-" * 90)
+    #     logger.info("-" * 90)
+    #     # for i in range(len(dataset.questions)):
+    #     #     logger.info(f"Question {i+1}: {dataset.questions[i]}")
+    #     #     logger.info("-" * 90)
+    #     for i in range(len(dataset.qr_pairs)):
+    #         logger.info(f"Q&A Pair {i + 1}:")
+    #         logger.info(f"  Question: {dataset.qr_pairs[i][0]}")
+    #         logger.info(f"  Answer: {dataset.qr_pairs[i][1]}")
+    #         logger.info("-" * 90)
 
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
@@ -339,7 +338,14 @@ class Rag:
                 "Retriever have not been built, cannot build query engine"
             )
 
-        llm = self._set_llm(llm_name)
+        if "gemini" in llm_name:
+            api_key_name = "GEMINI_RAG_QUERY_ENGINE_API_KEY"
+        elif "gpt" in llm_name:
+            api_key_name = "OPENAI_RAG_QUERY_ENGINE_API_KEY"
+        else:
+            raise ValueError(f"Unsupported LLM name: {llm_name}")
+
+        llm = self._set_llm(llm_name, api_key_name)
         response_synthesizer = get_response_synthesizer(llm)
         similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
         self.query_engine = RetrieverQueryEngine(
@@ -350,12 +356,20 @@ class Rag:
 
         logger.info("Successfully built query engine")
 
-    def _set_llm(self, llm_name: str) -> GoogleGenAI:
-        api_key = os.getenv("GEMINI_RAG_QUERY_ENGINE_API_KEY")
-        llm = GoogleGenAI(
-            model=llm_name,
-            api_key=api_key,
-        )
+    def _set_llm(self, llm_name: str, api_key_name: str) -> GoogleGenAI | OpenAI:
+        api_key = os.getenv(api_key_name)
+
+        if "gemini" in llm_name:
+            llm = GoogleGenAI(
+                model=llm_name,
+                api_key=api_key,
+            )
+        elif "gpt" in llm_name:
+            llm = OpenAI(
+                model=llm_name,
+                api_key=api_key,
+            )
+
         return llm
 
     def query(self, query: str, log_sources: bool = False) -> Response:
@@ -378,10 +392,16 @@ class Rag:
         self,
         query: str,
         response: Response,
-        llm_name: str = "gemini-3.1-flash-lite",
+        llm_name: str = "gpt-5.4",  # gemini-3.1-pro-preview 每日限額太低
     ) -> tuple[EvaluationResult, EvaluationResult]:
-        llm = self._set_llm(llm_name)
+        if "gemini" in llm_name:
+            api_key_name = "GEMINI_RAG_EVALUATOR_API_KEY"
+        elif "gpt" in llm_name:
+            api_key_name = "OPENAI_RAG_EVALUATOR_API_KEY"
+        else:
+            raise ValueError(f"Unsupported LLM name: {llm_name}")
 
+        llm = self._set_llm(llm_name, api_key_name)
         faithfulness_evaluator = FaithfulnessEvaluator(
             llm=llm,
             eval_template=FAITHFULNESS_EVAL_TEMPLATE,

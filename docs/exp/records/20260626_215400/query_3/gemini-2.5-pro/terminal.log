@@ -1,0 +1,1057 @@
+───────────────────────────────────────────── RAG Query (gemini-2.5-pro) ──────────────────────────────────────────────
+───────────────────────────────────────────── Rag Config Loaded from toml ─────────────────────────────────────────────
+                         init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages/prompt-v3 │
+└───────────────────────────┴─────────────────────────┘
+                 vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value              ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages           │
+│ qdrant_db_folder_path │ data/rag/qdrant_db │
+└───────────────────────┴────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+    retriever
+┏━━━━━━━━┳━━━━━━━┓
+┃ Config ┃ Value ┃
+┡━━━━━━━━╇━━━━━━━┩
+│ top_k  │ 5     │
+└────────┴───────┘
+                  query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                              ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.45                               │
+│ llm_name │ gemini-2.5-pro                     │
+│ query    │ 實驗室開發過哪些與 AI 相關的應用？ │
+└──────────┴────────────────────────────────────┘
+─────────────────────────────────────────────── Building All Resources ────────────────────────────────────────────────
+INFO     Successfully built vector store
+INFO     Successfully loaded index from vector store
+INFO     Successfully built retriever
+INFO     Successfully built query engine
+───────────────────────────────────────────────── Query & Response 1 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的資訊，該實驗室開發或研究的 AI 相關應用與系統包括：
+
+         *   **代理人 AI 系統 (Agentic AI Systems)**：此計畫旨在創造 AI
+         賦能的人機互動，開發更直覺、人性化的使用者體驗。
+             *   **WebPilot**：透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與檢索增強生成 (RAG) 技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：藉由語音互動來釐清使用者需求，並創建機器人流程自動化 (RPA) 工作流程。
+             *   **CrossAPP PCPilot**：使用 API 和 AutoHotkey 等腳本，自動化執行跨應用程式的桌面操作。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   車禍處理指南聊天機器人 (Collision Care Guide chatbot)。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   聊故事機器人 (Storybot / Story Chatbots)。
+
+         *   **Web 智慧與資訊擷取**：
+             *   **EventGo**：一個從社群媒體貼文中擷取事件並建構的事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構系統。
+             *   **Mobile Web Creator**。
+             *   **Data API Creator**。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確提到代理人AI、法律AI、教育AI，以及 EventGo、人物關係擷取、網路輿情分析、Mobile Web
+         Creator、Data API Creator 等多項系統與應用。
+INFO     Retrying request to /chat/completions in 0.414964 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應所列多數 AI 應用（如 Agentic AI、法律 AI、教育
+         AI、EventGo、人物關係擷取等）皆可在提供的內容中找到對應資訊，整體與上下文相符。
+───────────────────────────────────────────────── Query & Response 2 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據資訊，該實驗室開發或研究的 AI 相關應用與系統包括：
+
+         *   **代理式 AI (Agentic AI) 與自動化系統：**
+             *   **WebPilot:** 透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot:** 結合資訊系統手冊與檢索增強生成 (RAG) 技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent:** 利用語音互動釐清使用者需求，並建立自動化工作流程 (RPA)。
+             *   **CrossAPP PCPilot:** 自動化操作電腦桌面上的跨應用程式。
+             *   **DS4NER:** 一項基於知識圖譜與蒙地卡羅樹策略的網頁自動化代理研究。
+
+         *   **法律 AI (Legal AI)：**
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   車禍關懷導引聊天機器人 (Collision Care Guide chatbot)。
+             *   訴訟視覺化 (Legigation Visualization)。
+
+         *   **教育 AI (AI for Education)：**
+             *   EduACT。
+             *   聊故事機器人 (Storybot / Story Chatbots)。
+
+         *   **資訊擷取與探勘：**
+             *   **EventGo:** 一個透過從社群媒體貼文中擷取資訊來建構的事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出該實驗室的 Agentic AI、Legal AI、教育 AI，以及
+         EventGo、人物關係擷取、網路輿情分析等多項相關應用與系統。
+INFO     Retrying request to /chat/completions in 0.422449 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的 AI 相關應用大多都能在提供的內容中找到對應項目，與實驗室脈絡基本一致。
+───────────────────────────────────────────────── Query & Response 3 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據資料，該實驗室致力於研究和開發智慧系統，以應對複雜的現實世界問題。其開發的 AI
+         相關應用與研究領域包括：
+
+         *   **代理式 AI (Agentic AI) 與圖形化介面自動化 (GUI Automation)**：
+             *   **WebPilot**：透過自然語言指令自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與檢索增強生成 (RAG) 技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：藉由語音互動釐清使用者需求，以創建自動化工作流程 (RPA)。
+             *   **CrossAPP PCPilot**：使用 API 和腳本自動化跨應用程式的桌面操作。
+             *   **DS4NER**：一項基於知識圖譜與蒙地卡羅樹策略的網頁自動化代理研究。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   Collision Care Guide chatbot。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   Storybot (聊故事機器人)。
+
+         *   **網路智慧與資訊擷取**：
+             *   **EventGo**：從社群媒體貼文中擷取事件，以建構事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構。
+             *   Mobile Web Creator。
+             *   Data API Creator。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確提到該實驗室致力於研究智慧系統解決真實世界複雜問題，且列出的多個 AI
+         應用與研究項目大多可在上下文中找到對應。
+INFO     Retrying request to /chat/completions in 0.402157 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的多數 AI 應用如 WebPilot、MRAG-powered WebPilot、Interactive Voice RPA Agent、CrossAPP
+         PCPilot、DS4NER、法律 AI、EduACT、Storybot、EventGo 等皆可在提供的內容中找到對應資訊。
+───────────────────────────────────────────────── Query & Response 4 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，該實驗室開發過多種與 AI
+         相關的應用，涵蓋人機互動、法律、教育、網路資訊擷取等多個領域。
+
+         **AI 代理人系統 (Agentic AI Systems):**
+         此計畫旨在透過大型語言模型，結合視覺、語音及電腦操作，以實現複雜任務的自動化。
+         *   **WebPilot:** 透過自然語言指令，自動化操作中文網站。
+         *   **MRAG-powered WebPilot:** 運用資訊系統手冊與檢索增強生成技術 (RAG)，自動操作網頁資訊系統。
+         *   **Interactive Voice RPA Agent:** 藉由語音互動來釐清使用者需求，並創建自動化工作流程 (RPA)。
+         *   **CrossAPP PCPilot:** 利用 API 和 AutoHotkey 等腳本，自動化執行跨應用程式的桌面操作。
+
+         **法律 AI (Legal AI):**
+         *   法律判決預測 (Legal Judgement Predication)
+         *   車禍指南聊天機器人 (Collision Care Guide chatbot)
+
+         **教育 AI (AI for Education):**
+         *   EduACT
+         *   聊故事機器人 (Storybot / Story Chatbot)
+
+         **網路智慧與資訊擷取:**
+         *   **EventGo:** 一個事件搜尋引擎，能從社群媒體貼文中擷取事件資訊。
+         *   **DS4NER:** 基於知識圖譜與蒙地卡羅樹策略的網頁自動化代理研究。
+         *   人物關係擷取 (Character Relation Extraction)
+         *   網路輿情面向分析與知識圖譜建構系統
+         *   Mobile Web Creator
+         *   Data API Creator
+         *   IEPAD
+         *   FiVaTech
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出該實驗室在人機互動、法律、教育與網路資訊擷取等多個 AI 應用與研究計畫。
+INFO     Retrying request to /chat/completions in 0.483590 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的 AI 應用如 WebPilot、法律 AI、EduACT、Storybot、EventGo、DS4NER、IEPAD、FiVaTech
+         等皆可在提供的內容中找到對應或類別支持。
+───────────────────────────────────────────────── Query & Response 5 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，該實驗室開發或研究的 AI 相關應用與系統包括：
+
+         *   **Agentic AI 系統**：
+             *   **WebPilot**：透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與RAG技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：透過語音互動來釐清使用者需求，並創建自動化工作流程（RPA）。
+             *   **CrossAPP PCPilot**：使用API和腳本（如AutoHotkey）自動化桌面上的跨應用程式操作。
+             *   **DS4NER**：一項基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   Collision Care Guide chatbot (車禍指南聊天機器人)。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   Storybot (聊故事機器人)。
+
+         *   **資訊擷取與探勘**：
+             *   **EventGo**：一個透過從社群媒體貼文中擷取事件來建構的事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構。
+             *   Meetup Event Extraction。
+
+         *   **其他應用**：
+             *   Mobile Web Creator。
+             *   Data API Creator。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出 WebPilot、MRAG-powered WebPilot、Interactive Voice RPA Agent、CrossAPP
+         PCPilot、DS4NER、法律 AI、EduACT、Storybot、EventGo、人物關係擷取、網路輿情面向分析、Meetup Event
+         Extraction、Mobile Web Creator 與 Data API Creator。
+INFO     Retrying request to /chat/completions in 0.425193 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的多數 AI 應用如 WebPilot、MRAG-powered WebPilot、Interactive Voice RPA Agent、CrossAPP
+         PCPilot、DS4NER、法律 AI、EduACT、Storybot、EventGo 等皆可在內容中找到對應資訊。
+───────────────────────────────────────────────── Query & Response 6 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的資訊，該實驗室開發過的 AI 相關應用與研究方向包括：
+
+         *   **代理式 AI 系統 (Agentic AI Systems)**：
+             *   **WebPilot**：透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與檢索增強生成（RAG）技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：透過語音互動來建立自動化工作流程（RPA）。
+             *   **CrossAPP PCPilot**：自動化執行跨應用程式的桌面操作。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測。
+             *   Collision Care Guide chatbot (車禍關懷導引聊天機器人)。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   Storybot (聊故事機器人)。
+
+         *   **資訊擷取與探勘**：
+             *   **EventGo**：從社群媒體貼文建構事件搜尋引擎。
+             *   **人物關係擷取 (Character Relation Extraction)**。
+             *   網頁資料擷取工具，如 IEPAD、FiVaTech 及 Data API Creator。
+
+         *   **其他應用**：
+             *   **Mobile Web Creator**。
+             *   智慧校園相關應用，如 NCUFree 和 WiFiPass。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出該實驗室的 Agentic AI、法律 AI、教育 AI、資訊擷取與探勘，以及 Mobile Web
+         Creator、NCUFree、WiFiPass 等相關應用與研究方向。
+INFO     Retrying request to /chat/completions in 0.393287 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的多項 AI
+         應用大多都能在內容中找到對應描述，雖然加入了少數未明確出現在脈絡中的細節，但整體仍符合實驗室已開發之 AI
+         相關應用範圍。
+───────────────────────────────────────────────── Query & Response 7 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據資訊，該實驗室致力於研究與開發智慧系統，以解決真實世界中的複雜問題。其開發過的 AI
+         相關應用與研究領域包括：
+
+         *   **Agentic AI 與自動化 (Agentic AI & Automation):**
+             *   **WebPilot:** 透過自然語言指令自動化操作中文網站。
+             *   **MRAG-powered WebPilot:** 結合資訊系統手冊與檢索增強生成(RAG)技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent:** 利用語音互動技術，釐清使用者需求以創建自動化工作流程(RPA)。
+             *   **CrossAPP PCPilot:** 自動化操作電腦桌面上的跨應用程式。
+             *   **DS4NER:** 一項基於知識圖譜與蒙地卡羅樹策略的網頁自動化代理研究。
+
+         *   **法律 AI (Legal AI):**
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   車禍輔助諮詢聊天機器人 (Collision Care Guide chatbot)。
+
+         *   **教育 AI (AI for Education):**
+             *   EduACT。
+             *   聊故事機器人 (Storybot / Story Chatbots)。
+
+         *   **資訊擷取與探勘 (Information Extraction & Mining):**
+             *   **EventGo:** 一個透過從社群媒體貼文中擷取事件來建構的事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構。
+             *   網頁資訊擷取與文字探勘，例如 Mobile Web Creator 和 Data API Creator。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確提到該實驗室致力於研發智慧系統解決真實問題，且列出了 WebPilot、MRAG-powered
+         WebPilot、Interactive Voice RPA Agent、CrossAPP PCPilot、DS4NER、法律判決預測、Storybot、EventGo
+         等相關應用與研究領域。
+INFO     Retrying request to /chat/completions in 0.483335 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的多數 AI 應用如 WebPilot、MRAG-powered WebPilot、Interactive Voice RPA Agent、CrossAPP
+         PCPilot、DS4NER、法律 AI、EduACT、Storybot、EventGo 等皆可在內容中找到對應資訊。
+───────────────────────────────────────────────── Query & Response 8 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據資料，該實驗室開發或正在開發的 AI 相關應用與系統包括：
+
+         *   **Agentic AI
+         系統**：此計畫旨在透過大型語言模型結合視覺、語音及電腦操作，以實現複雜任務的自動化。其中包含四個系統：
+             *   **WebPilot**：透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與 RAG 技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：藉由語音互動來釐清使用者需求，並創建自動化工作流程（RPA）。
+             *   **CrossAPP PCPilot**：使用 API 和腳本工具（如 AutoHotkey）自動化桌面上的跨應用程式操作。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   Collision Care Guide 聊天機器人。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   Storybot（聊故事機器人）。
+
+         *   **網路智慧與資訊擷取**：
+             *   **EventGo**：一個透過從社群媒體貼文擷取資訊來建構的事件搜尋引擎。
+             *   **Character Relation Extraction** (人物關係擷取)。
+             *   **DS4NER**：一項基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究。
+             *   網路輿情面向分析與知識圖譜建構系統。
+             *   Mobile Web Creator。
+             *   Data API Creator。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容中明確列出 Agentic AI、法律 AI、教育 AI、EventGo、人物關係擷取、DS4NER、網路輿情分析、Mobile Web
+         Creator 與 Data API Creator 等多項相關系統與應用。
+INFO     Retrying request to /chat/completions in 0.443096 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應列出的多數 AI 應用（如 Agentic AI、Legal
+         AI、EduACT、Storybot、EventGo、人物關係擷取、網路輿情分析、Mobile Web Creator、Data API
+         Creator）皆可在內容中找到對應資訊。
+───────────────────────────────────────────────── Query & Response 9 ──────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，該實驗室開發過多種與 AI 相關的應用，涵蓋了人機互動、法律、教育、資訊擷取等多個領域。
+
+         **AI 代理人系統 (Agentic AI Systems):**
+         此計畫旨在透過大型語言模型結合視覺、語音及電腦操作，開發能自動化複雜任務的 AI 系統。
+         *   **WebPilot:** 透過自然語言指令，自動化操作中文網站。
+         *   **MRAG-powered WebPilot:** 藉由資訊系統手冊與檢索增強生成 (RAG) 技術，自動操作網頁資訊系統。
+         *   **Interactive Voice RPA Agent:** 利用語音互動來釐清使用者需求，並創建機器人流程自動化 (RPA) 工作流程。
+         *   **CrossAPP PCPilot:** 透過 API 和 AutoHotkey 等腳本，自動化執行跨應用程式的桌面操作。
+
+         **其他 AI 相關應用與研究領域：**
+         *   **法律 AI (Legal AI):** 包括法律判決預測和車禍引導問答機器人 (Collision Care Guide chatbot)。
+         *   **教育 AI (AI for Education):** 包括 EduACT 和故事機器人 (Storybot)。
+         *   **資訊擷取與資料探勘:**
+             *   **EventGo:** 一個透過從社群媒體貼文中擷取資訊來建構的事件搜尋引擎。
+             *   **人物關係擷取 (Character Relation Extraction):** 一項進行中的研究計畫。
+             *   **面向情感分析 (Aspect-based Sentiment Analysis):** 開發網路輿情面向分析與知識圖譜建構系統。
+             *   **網頁智慧 (Web intelligence):** 例如 Mobile Web Creator 和針對社會研究的意見探勘。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出該實驗室在人機互動、法律、教育、資訊擷取與網頁智慧等多個 AI 相關應用與研究計畫。
+INFO     Retrying request to /chat/completions in 0.397651 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應內容所列的 AI 應用如 WebPilot、法律
+         AI、EduACT、Storybot、EventGo、人物關係擷取與面向情感分析等，大致都能在提供的內容中找到對應資訊。
+───────────────────────────────────────────────── Query & Response 10 ─────────────────────────────────────────────────
+INFO     Query: 實驗室開發過哪些與 AI 相關的應用？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資訊，該實驗室開發的 AI 相關應用與研究方向包括：
+
+         *   **Agentic AI
+         系統**：此計畫旨在透過大型語言模型，結合視覺、語音及電腦操作，實現複雜任務的自動化。其中包含四個具體的系統：
+             *   **WebPilot**：透過自然語言指令，自動化操作中文網站。
+             *   **MRAG-powered WebPilot**：利用資訊系統手冊與檢索增強生成（RAG）技術，自動操作網頁資訊系統。
+             *   **Interactive Voice RPA Agent**：藉由語音互動來釐清使用者需求，並創建機器人流程自動化（RPA）工作流程。
+             *   **CrossAPP PCPilot**：使用 API 和 AutoHotkey 等腳本，自動化執行跨應用程式的桌面操作。
+
+         *   **法律 AI (Legal AI)**：
+             *   法律判決預測 (Legal Judgement Predication)。
+             *   車禍處理指南聊天機器人 (Collision Care Guide chatbot)。
+
+         *   **教育 AI (AI for Education)**：
+             *   EduACT。
+             *   聊故事機器人 (Storybot / Story Chatbots)。
+
+         *   **Web 智慧與資訊擷取**：
+             *   **EventGo**：一個從社群媒體貼文中擷取事件並建構的事件搜尋引擎。
+             *   人物關係擷取 (Character Relation Extraction)。
+             *   網路輿情面向分析與知識圖譜建構系統。
+             *   Mobile Web Creator。
+             *   Data API Creator。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+INFO     > Source (Page: Projects, Score: 0.624, ID: 961e0b68-27ee-4de1-9788-0ecb1a8bfb6e):
+         我們也將訓練地端的模型, 確保資料的收集以及主權的AI.
+         我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙,
+         提升台灣使用者在AI powered資訊發展的優勢。
+
+         This project investigates the application and future trends of AI in human-computer interfaces. Centered on
+         large language models, it integrates visual models, voice input, and computer operations to automate complex
+         tasks. From command-line interactions (Gorilla CLI) and browser agent operations (WebVoyager) to
+         cross-application desktop operations (Claude Computer Use), recent st ...
+
+         > Source (Page: Projects, Score: 0.617, ID: 83b56fdd-249c-4ce2-8895-7d178c3abc16):
+         OCR文字: 無
+         > 3. 主題標籤: 資訊管理, 資料處理, 文件系統, 空間定位
+         >
+         > **頁面關聯：**
+         > 呈現文件資訊與實體物件的關聯，用於文件歸檔系統檢索錨點。
+         [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner)
+         基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31)
+         這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦
+         操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager),
+         以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI
+         PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器,
+         自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資 ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.573, ID: 04c39f8d-3c81-43ca-9615-da8d458244dd):
+         ## Web 智慧與資料探勘實驗室
+         ## Web Intelligence and Data Mining Laboratory
+         ### 【Research Interests】
+
+         The Web Intelligence and Data Mining Laboratory at National Central University is dedicated to researching and
+         developing intelligent systems to address complex real-world problems. Our research spans Web information
+         extraction, machine learning, data mining, conversational agents, and knowledge graphs, with applications in
+         web intelligence, information integration, legal AI, human-computer interaction ...
+
+         > Source (Page: Web_智慧與資料探勘實驗室, Score: 0.539, ID: 6b679bac-cbbb-4460-b283-53deff40462c):
+         賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83
+         %A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+
+
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 機器人頭像主體位於畫面中央，方型顯示幕內有笑臉，底部標示 AI 文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 機器人, 顯示幕, 笑臉, AI
+         > 2. OCR文字: AI
+         > 3. 主題標籤: 人工智慧, 機器人技術, 圖示, 虛擬助理
+         >
+         > **頁面關聯：**
+         > 本圖為人工智慧相關服務頁面的功能圖示，用於標示 AI 技術或自動化系統。
+         [EduACT](https://eduact.csie.ncu.edu.tw)
+
+         > Source (Page: Publication, Score: 0.523, ID: d5b09f3c-3276-4686-b9fb-76ec923fd006):
+         Vol. 40, p. 31-43. 2024.
+         1. Kuo-Chun Chien, Chia-Hui Chang, R. D. Sun:[Legal Knowledge Management for Prosecutors based on Judgement
+         Prediction and Error Analysis from
+         Indictments](https://www.sciencedirect.com/science/article/abs/pii/S0267364923001127), Computer Law & Security
+         Review: The International Journal of Technology Law and Practice. Nov. 2023.
+         1. Yu-Xiang Hong, Chia-Hui Chang: [Improving Colloquial Case Legal Judgment Prediction via Abstractive Text
+         Summarization](https://www.scien ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出 Agentic AI、Legal AI、AI for Education 與 Web 智慧/資訊擷取中的多個對應系統與研究項目。
+INFO     Retrying request to /chat/completions in 0.488407 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應所列多數項目如 Agentic AI、Legal AI、EduACT、Storybot、EventGo、人物關係擷取、網路輿情分析、Mobile
+         Web Creator 與 Data API Creator 皆可在內容中找到對應。
+───────────────────────────────────────────────── Evaluation Summary ──────────────────────────────────────────────────
+Query times: 10
+Faithfulness: 100.00% (10/10)
+Relevancy: 100.00% (10/10)
+───────────────────────────────────────────────── RAG Query Completed ─────────────────────────────────────────────────
+INFO     RAG Query (gemini-2.5-pro) Completed in 242.537 seconds

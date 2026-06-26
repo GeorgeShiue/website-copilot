@@ -1,0 +1,22 @@
+[init]
+webpages_data_folder_path = "data/webpages/prompt-v3"
+
+[vector_store]
+collection_name = "webpages"
+qdrant_db_folder_path = "data/rag/qdrant_db"
+
+[nodes]
+chunk_size = 800
+paragraph_separator = "\n\n"
+chunk_overlap = 100
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+top_k = 5
+
+[query_engine]
+cutoff = 0.45
+llm_name = "gemini-3-flash-preview"  # run name
+query = "實驗室近三年發表過哪些論文？"
