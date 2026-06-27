@@ -44,18 +44,21 @@
 > docs/code/modules/data_retrieve.md
 
 **實作進度**
-- [ ] **向量資料庫檢索** (基本方案)
-    - [x] **載入資料**（SimpleDirectoryReader）
-    - [x] **轉換資料**（SentenceSplitter / ImageExtractor）
+- [x] **向量資料庫檢索** (基本方案)
+    - [x] **載入資料**（SimpleDirectoryReader + results.json）
+    - [x] **轉換資料**（MarkdownNodeParser / SentenceSplitter / MarkdownHeadingMergeParser / MarkdownImageExtractor）
     - [x] **向量索引**（OpenAI **text-embedding-3-small** + **Qdrant** 本地持久化）
-    - [ ] **查詢引擎**（RetrieverQueryEngine + **Gemini** 回答生成）
-    - [ ] **成效評估**
+    - [x] **查詢引擎**（RetrieverQueryEngine + **Gemini** / **GPT** 回答生成）
+    - [x] **成效評估**（FaithfulnessEvaluator + RelevancyEvaluator）
 
 **已知問題**
-- [ ] 基本方案檢索可能不夠精準
-    1. 優化 **Chunking 策略**
-    2. 更換**嵌入模型** & **向量資料庫**
-    3. 調整**檢索策略**（混和檢索）
+- [ ] **檢索精準度**因問題類型而異（依實驗結果）
+    1. **時間範圍型**（如「近三年發表論文」）— 時間表述未轉為明確年份，檢索易混入不同頁型，難以精準召回
+    2. **名單型**（如「實驗室成員有哪些人」）— 來源頁面含大量 VLM 圖片描述導致語義向量偏移，純向量檢索對結構化列表有本質局限
+- [ ] **基本方案瓶頸**：檢索精準度、召回率與生成約束三者不可偏廢
+    1. **改善檢索**：導入混合檢索（向量 + BM25 關鍵字），搭配查詢擴展或頁面類型路由
+    2. **生成約束**：對名單型、時間範圍類查詢強制要求來源追溯標示，避免模型過度推論
+    3. **閾值彈性化**：保留預設閾值，對低召回題型加入動態降閾或備援機制
 
 **未來規劃**
 - [ ] 資料庫檢索工具
