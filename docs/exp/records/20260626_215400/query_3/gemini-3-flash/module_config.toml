@@ -1,0 +1,22 @@
+[init]
+webpages_data_folder_path = "data/webpages/prompt-v3"
+
+[vector_store]
+qdrant_db_folder_path = "data/rag/qdrant_db"
+collection_name = "webpages"
+
+[nodes]
+paragraph_separator = "\n\n"
+chunk_overlap = 100
+chunk_size = 800
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+top_k = 5
+
+[query_engine]
+cutoff = 0.45
+query = "實驗室開發過哪些與 AI 相關的應用？"
+llm_name = "gemini-3-flash-preview"  # run name

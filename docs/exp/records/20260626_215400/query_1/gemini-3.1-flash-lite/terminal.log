@@ -1,0 +1,1287 @@
+────────────────────────────────────────── RAG Query (gemini-3.1-flash-lite) ──────────────────────────────────────────
+───────────────────────────────────────────── Rag Config Loaded from toml ─────────────────────────────────────────────
+                         init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages/prompt-v3 │
+└───────────────────────────┴─────────────────────────┘
+                 vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value              ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages           │
+│ qdrant_db_folder_path │ data/rag/qdrant_db │
+└───────────────────────┴────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+    retriever
+┏━━━━━━━━┳━━━━━━━┓
+┃ Config ┃ Value ┃
+┡━━━━━━━━╇━━━━━━━┩
+│ top_k  │ 5     │
+└────────┴───────┘
+               query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                        ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.45                         │
+│ llm_name │ gemini-3.1-flash-lite        │
+│ query    │ 實驗室近三年發表過哪些論文？ │
+└──────────┴──────────────────────────────┘
+─────────────────────────────────────────────── Building All Resources ────────────────────────────────────────────────
+INFO     Successfully built vector store
+INFO     Successfully loaded index from vector store
+INFO     Successfully built retriever
+INFO     Successfully built query engine
+───────────────────────────────────────────────── Query & Response 1 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資料中並未包含實驗室發表的論文列表，僅列出了實驗室成員獲得的校外獎項。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實只列出實驗室成員獲得的校外獎項，未見任何實驗室發表論文列表。
+INFO     Retrying request to /chat/completions in 0.410555 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實只看到校外獎項與最佳論文獎等資訊，沒有列出近三年論文清單。
+───────────────────────────────────────────────── Query & Response 2 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資訊中並未提及實驗室近三年發表論文的相關紀錄。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容只列出獎項與公告，未見實驗室近三年發表論文紀錄的相關資訊。
+INFO     Retrying request to /chat/completions in 0.490457 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容僅列出獎項與公告，未提供近三年論文清單，因此該回應與上下文相符。
+───────────────────────────────────────────────── Query & Response 3 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response:
+         提供的資訊中並未提及實驗室近三年發表的具體論文列表。現有資料僅記錄了部分研究人員與學生獲得的校外獎項。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實未提供近三年具體論文清單，只列出部分校外獎項與相關榮譽。
+INFO     Retrying request to /chat/completions in 0.390477 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 提供的內容確實只有校外獎項與最佳論文獎等資訊，未列出實驗室近三年的具體論文清單。
+───────────────────────────────────────────────── Query & Response 4 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的資料，無法得知實驗室近三年發表過哪些論文。文件中僅列出實驗室成員獲得的校外獎項紀錄。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-66' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-67' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-68' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實只列出校外獎項與獲獎紀錄，未提供近三年發表論文清單。
+INFO     Retrying request to /chat/completions in 0.494420 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 提供的內容確實只有校外獎項與得獎資訊，沒有列出實驗室近三年論文，因此該回覆與上下文相符。
+───────────────────────────────────────────────── Query & Response 5 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資訊中並未提及實驗室近三年發表過的論文清單，僅列出了部分研究人員所獲得的校外獎項紀錄。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容只列出部分校外獎項與榮譽，未見近三年論文清單。
+INFO     Retrying request to /chat/completions in 0.408900 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容只列出校外獎項與最佳論文獎等消息，未提供近三年論文清單，因此該回應與上下文相符。
+───────────────────────────────────────────────── Query & Response 6 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response:
+         提供的資訊中並未提及實驗室近三年發表的論文清單。目前的資料僅記錄了實驗室成員獲得的校外獎項，包括產學合作計畫成
+         果海報展示優良獎、自然語言與語音處理研討會最佳論文獎、黑客松競賽獎項以及人工智慧研討會論文佳作。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-107' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實未提及近三年論文清單，且只列出實驗室成員獲得的多項校外獎項。
+INFO     Retrying request to /chat/completions in 0.377418 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應正確指出內容未提供近三年論文清單，且所列皆為校外獎項與得獎資訊，與上下文一致。
+───────────────────────────────────────────────── Query & Response 7 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資訊中並未包含實驗室發表的論文列表，僅列出實驗室成員獲得校外獎項的相關紀錄。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實是在列實驗室成員的校外獎項紀錄，且未見實驗室發表論文列表。
+INFO     Retrying request to /chat/completions in 0.420121 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容僅顯示校外獎項與最佳論文獎等紀錄，未提供近三年論文清單，因此回應符合上下文。
+───────────────────────────────────────────────── Query & Response 8 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資訊中並未包含實驗室近三年發表論文的相關列表。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容列出的是獲獎與公告資訊，未見近三年發表論文列表。
+INFO     Retrying request to /chat/completions in 0.392480 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容僅列出獎項與公告，未提供近三年論文清單，因此該回應符合上下文。
+───────────────────────────────────────────────── Query & Response 9 ──────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 提供的資訊中並未提及實驗室近三年內發表過的論文清單。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-165' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+ERROR    Task exception was never retrieved
+         future: <Task finished name='Task-166' coro=<AsyncClient.aclose() done, defined at
+         /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1978>
+         exception=RuntimeError('Event loop is closed')>
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/llama_index/core/async_utils.py:46 in      │
+         │ asyncio_run                                                                                                │
+         │                                                                                                            │
+         │    43 │   """                                                                                              │
+         │    44 │   try:                                                                                             │
+         │    45 │   │   # Check if there's an existing event loop                                                    │
+         │ ❱  46 │   │   loop = asyncio.get_event_loop()                                                              │
+         │    47 │   │                                                                                                │
+         │    48 │   │   # Check if the loop is already running                                                       │
+         │    49 │   │   if loop.is_running():                                                                        │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/events.py:716  │
+         │ in get_event_loop                                                                                          │
+         │                                                                                                            │
+         │   713 │   │   │   self.set_event_loop(self.new_event_loop())                                               │
+         │   714 │   │                                                                                                │
+         │   715 │   │   if self._local._loop is None:                                                                │
+         │ ❱ 716 │   │   │   raise RuntimeError('There is no current event loop in thread %r.'                        │
+         │   717 │   │   │   │   │   │   │      % threading.current_thread().name)                                    │
+         │   718 │   │                                                                                                │
+         │   719 │   │   return self._local._loop                                                                     │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: There is no current event loop in thread 'MainThread'.
+
+         During handling of the above exception, another exception occurred:
+
+         ╭──────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_client.py:1985 in aclose            │
+         │                                                                                                            │
+         │   1982 │   │   if self._state != ClientState.CLOSED:                                                       │
+         │   1983 │   │   │   self._state = ClientState.CLOSED                                                        │
+         │   1984 │   │   │                                                                                           │
+         │ ❱ 1985 │   │   │   await self._transport.aclose()                                                          │
+         │   1986 │   │   │   for proxy in self._mounts.values():                                                     │
+         │   1987 │   │   │   │   if proxy is not None:                                                               │
+         │   1988 │   │   │   │   │   await proxy.aclose()                                                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpx/_transports/default.py:406 in aclose │
+         │                                                                                                            │
+         │   403 │   │   )                                                                                            │
+         │   404 │                                                                                                    │
+         │   405 │   async def aclose(self) -> None:                                                                  │
+         │ ❱ 406 │   │   await self._pool.aclose()                                                                    │
+         │   407                                                                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:353 in  │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   350 │   │   with self._optional_thread_lock:                                                             │
+         │   351 │   │   │   closing_connections = list(self._connections)                                            │
+         │   352 │   │   │   self._connections = []                                                                   │
+         │ ❱ 353 │   │   await self._close_connections(closing_connections)                                           │
+         │   354 │                                                                                                    │
+         │   355 │   async def __aenter__(self) -> AsyncConnectionPool:                                               │
+         │   356 │   │   return self                                                                                  │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:345 in  │
+         │ _close_connections                                                                                         │
+         │                                                                                                            │
+         │   342 │   │   # Close connections which have been removed from the pool.                                   │
+         │   343 │   │   with AsyncShieldCancellation():                                                              │
+         │   344 │   │   │   for connection in closing:                                                               │
+         │ ❱ 345 │   │   │   │   await connection.aclose()                                                            │
+         │   346 │                                                                                                    │
+         │   347 │   async def aclose(self) -> None:                                                                  │
+         │   348 │   │   # Explicitly close the connection pool.                                                      │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/connection.py:173 in       │
+         │ aclose                                                                                                     │
+         │                                                                                                            │
+         │   170 │   async def aclose(self) -> None:                                                                  │
+         │   171 │   │   if self._connection is not None:                                                             │
+         │   172 │   │   │   async with Trace("close", logger, None, {}):                                             │
+         │ ❱ 173 │   │   │   │   await self._connection.aclose()                                                      │
+         │   174 │                                                                                                    │
+         │   175 │   def is_available(self) -> bool:                                                                  │
+         │   176 │   │   if self._connection is None:                                                                 │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_async/http11.py:258 in aclose    │
+         │                                                                                                            │
+         │   255 │   │   # Note that this method unilaterally closes the connection, and does                         │
+         │   256 │   │   # not have any kind of locking in place around it.                                           │
+         │   257 │   │   self._state = HTTPConnectionState.CLOSED                                                     │
+         │ ❱ 258 │   │   await self._network_stream.aclose()                                                          │
+         │   259 │                                                                                                    │
+         │   260 │   # The AsyncConnectionInterface methods provide information about the state of                    │
+         │   261 │   # the connection, allowing for a connection pooling implementation to                            │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/httpcore/_backends/anyio.py:53 in aclose   │
+         │                                                                                                            │
+         │    50 │   │   │   │   await self._stream.send(item=buffer)                                                 │
+         │    51 │                                                                                                    │
+         │    52 │   async def aclose(self) -> None:                                                                  │
+         │ ❱  53 │   │   await self._stream.aclose()                                                                  │
+         │    54 │                                                                                                    │
+         │    55 │   async def start_tls(                                                                             │
+         │    56 │   │   self,                                                                                        │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/streams/tls.py:236 in aclose         │
+         │                                                                                                            │
+         │   233 │   │   │   │   await aclose_forcefully(self.transport_stream)                                       │
+         │   234 │   │   │   │   raise                                                                                │
+         │   235 │   │                                                                                                │
+         │ ❱ 236 │   │   await self.transport_stream.aclose()                                                         │
+         │   237 │                                                                                                    │
+         │   238 │   async def receive(self, max_bytes: int = 65536) -> bytes:                                        │
+         │   239 │   │   data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)                   │
+         │                                                                                                            │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1344 in aclose │
+         │                                                                                                            │
+         │   1341 │   │   │   except OSError:                                                                         │
+         │   1342 │   │   │   │   pass                                                                                │
+         │   1343 │   │   │                                                                                           │
+         │ ❱ 1344 │   │   │   self._transport.close()                                                                 │
+         │   1345 │   │   │   await sleep(0)                                                                          │
+         │   1346 │   │   │   self._transport.abort()                                                                 │
+         │   1347                                                                                                     │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:1216 in close                                                                                         │
+         │                                                                                                            │
+         │   1213 │                                                                                                   │
+         │   1214 │   def close(self):                                                                                │
+         │   1215 │   │   self._read_ready_cb = None                                                                  │
+         │ ❱ 1216 │   │   super().close()                                                                             │
+         │   1217                                                                                                     │
+         │   1218                                                                                                     │
+         │   1219 class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):                 │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/selector_event │
+         │ s.py:869 in close                                                                                          │
+         │                                                                                                            │
+         │    866 │   │   if not self._buffer:                                                                        │
+         │    867 │   │   │   self._conn_lost += 1                                                                    │
+         │    868 │   │   │   self._loop._remove_writer(self._sock_fd)                                                │
+         │ ❱  869 │   │   │   self._loop.call_soon(self._call_connection_lost, None)                                  │
+         │    870 │                                                                                                   │
+         │    871 │   def __del__(self, _warn=warnings.warn):                                                         │
+         │    872 │   │   if self._sock is not None:                                                                  │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :833 in call_soon                                                                                          │
+         │                                                                                                            │
+         │    830 │   │   Any positional arguments after the callback will be passed to                               │
+         │    831 │   │   the callback when it is called.                                                             │
+         │    832 │   │   """                                                                                         │
+         │ ❱  833 │   │   self._check_closed()                                                                        │
+         │    834 │   │   if self._debug:                                                                             │
+         │    835 │   │   │   self._check_thread()                                                                    │
+         │    836 │   │   │   self._check_callback(callback, 'call_soon')                                             │
+         │                                                                                                            │
+         │ /home/george/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py │
+         │ :556 in _check_closed                                                                                      │
+         │                                                                                                            │
+         │    553 │                                                                                                   │
+         │    554 │   def _check_closed(self):                                                                        │
+         │    555 │   │   if self._closed:                                                                            │
+         │ ❱  556 │   │   │   raise RuntimeError('Event loop is closed')                                              │
+         │    557 │                                                                                                   │
+         │    558 │   def _check_default_executor(self):                                                              │
+         │    559 │   │   if self._executor_shutdown_called:                                                          │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         RuntimeError: Event loop is closed
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容只有獲獎與公告資訊，未列出實驗室近三年內發表的論文清單。
+INFO     Retrying request to /chat/completions in 0.428653 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 提供的上下文只有獲獎與公告資訊，未列出實驗室近三年發表論文清單，因此該回應符合內容。
+───────────────────────────────────────────────── Query & Response 10 ─────────────────────────────────────────────────
+INFO     Query: 實驗室近三年發表過哪些論文？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response:
+         目前提供的資訊中並未包含實驗室發表論文的清單。僅記載了實驗室成員近期獲得的校外獎項，包括研究論文獎、產學成果獎
+         以及黑客松競賽獎項。
+─────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 1 sources
+INFO     > Source (Page: 校外奬項, Score: 0.452, ID: 063eef55-3f4f-414b-b267-a2d9bae97475):
+         27, 2021
+         -
+         [賀！張嘉惠老師指導實驗室團隊邱威誠同學榮獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎
+         ](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85/%E8%B3%80%E9%82%B1%E5%A8%81%E
+         8%AA%A0%E5%90%8C%E5%AD%B8%E7%8D%B2%E7%A7%91%E6%8A%80%E9%83%A8108%E5%B9%B4%E5%BA%A6%E7%94%A2%E5%AD%B8%E5%90%88%
+         E4%BD%9C%E8%A8%88%E7%95%AB%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8%E6%9A%A8%E7%B8%BE%E6%95%88%E8%80%83%E8%A9%95%E6
+         %9C%83%E7%94%A2%E5%AD%B8%E6%88%90%E6%9E%9C%E6%B5%B7%E5%A0%B1%E5%B1%95%E7%A4%BA%E5%84%AA%E8%89%AF%E ...
+───────────────────────────────────────────────────── Evaluation ──────────────────────────────────────────────────────
+───────────────────────────────────────────────── Faithfulness Result ─────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實只有列出實驗室成員近期校外獎項，未見實驗室發表論文清單。
+INFO     Retrying request to /chat/completions in 0.456801 seconds
+────────────────────────────────────────────────── Relevancy Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實未提供近三年論文清單，僅列出校外獎項與相關榮譽，因此回應與上下文一致。
+───────────────────────────────────────────────── Evaluation Summary ──────────────────────────────────────────────────
+Query times: 10
+Faithfulness: 100.00% (10/10)
+Relevancy: 100.00% (10/10)
+───────────────────────────────────────────────── RAG Query Completed ─────────────────────────────────────────────────
+INFO     RAG Query (gemini-3.1-flash-lite) Completed in 53.054 seconds
