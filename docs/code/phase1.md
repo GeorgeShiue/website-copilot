@@ -1,3 +1,6 @@
+# Survey
+> [docs/code/survey/data_process_method.md](survey/data_process_method.md)
+
 # 1. 資料獲取
 > [docs/code/modules/data_collect.md](modules/data_collect.md)
 
