@@ -331,7 +331,7 @@ class Rag:
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",
-        cutoff: float = 0.5,
+        cutoff: float = 0.45,
     ) -> None:
         if self.retriever is None:
             raise RuntimeError(
