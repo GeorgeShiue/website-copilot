@@ -12,7 +12,7 @@ from utils.config_helper import (
 
 logger = logging.getLogger(__name__)
 
-WEBPAGES_DATA_FOLDER_PATH = "data/webpages/prompt-v3"
+WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
 DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/qdrant_db"
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"

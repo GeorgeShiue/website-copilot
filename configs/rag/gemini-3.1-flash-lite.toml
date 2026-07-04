@@ -1,5 +1,5 @@
 [init]
-webpages_data_folder_path = "data/webpages/prompt-v3"
+webpages_data_folder_path = "data/webpages"
 
 [nodes]
 chunk_size = 800
