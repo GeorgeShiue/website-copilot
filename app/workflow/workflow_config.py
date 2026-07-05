@@ -19,7 +19,7 @@ class WebpageImageSummarizerRunConfig(BaseRunConfig):
 
 @dataclass
 class RagBuildRunConfig(BaseRunConfig):
-    pass
+    webpages_data_use_latest_results: bool = False
 
 
 @dataclass

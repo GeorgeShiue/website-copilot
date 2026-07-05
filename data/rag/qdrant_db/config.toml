@@ -17,6 +17,6 @@ embedding_name = "text-embedding-3-small"
 top_k = 10
 
 [query_engine]
-cutoff = 0.4
-query = "加入實驗室需要準備哪些資料？"
 llm_name = "gemini-3.1-flash-lite"
+query = "加入實驗室需要準備哪些資料？"
+cutoff = 0.4

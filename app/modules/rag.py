@@ -280,48 +280,6 @@ class Rag:
         )
         logger.info("Successfully built retriever")
 
-    # # 暫時不需要
-    # def retrieve(self, query: str, log: bool = True) -> None:
-    #     if self.retriever is None:
-    #         raise RuntimeError("Retriever have not been built, cannot retrieve")
-
-    #     retrieved_nodes: list[NodeWithScore] = self.retriever.retrieve(query)
-    #     if log:
-    #         logger.info(f"Query: {query}")
-    #         self._log_sources(retrieved_nodes)
-
-    # # 暫時不需要
-    # def build_dataset(
-    #     self,
-    #     llm_name: str = "gemini-3.1-flash-lite",
-    #     num_questions_per_chunk: int = 10,
-    # ) -> None:
-    #     if self.nodes is None:
-    #         raise RuntimeError(
-    #             "Nodes have not been built, cannot build evaluation dataset"
-    #         )
-
-    #     llm = self._set_llm(llm_name)
-    #     dataset_generator = DatasetGenerator(
-    #         nodes=list(self.nodes),
-    #         llm=llm,
-    #         num_questions_per_chunk=num_questions_per_chunk,
-    #         show_progress=True,
-    #     )
-    #     dataset: QueryResponseDataset = dataset_generator.generate_dataset_from_nodes(
-    #         num=10  # test
-    #     )
-
-    #     logger.info("-" * 90)
-    #     # for i in range(len(dataset.questions)):
-    #     #     logger.info(f"Question {i+1}: {dataset.questions[i]}")
-    #     #     logger.info("-" * 90)
-    #     for i in range(len(dataset.qr_pairs)):
-    #         logger.info(f"Q&A Pair {i + 1}:")
-    #         logger.info(f"  Question: {dataset.qr_pairs[i][0]}")
-    #         logger.info(f"  Answer: {dataset.qr_pairs[i][1]}")
-    #         logger.info("-" * 90)
-
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
         logger.info(f"Retrieved {len(source_nodes)} sources")

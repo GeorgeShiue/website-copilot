@@ -61,14 +61,17 @@ def run_website_crawler(
             exclude_words=config.exclude_words,
         )
 
-        if crawl_results is not None:
-            # ----- 儲存設定和結果 -----
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
-            run_manager.save_results_as_json(crawl_results)
-            run_manager.save_results_as_md(crawl_results, "fit_markdown")
+        if crawl_results is None:
+            log_session("Website Crawling Failed", style="red")
+            return None
 
-            # ----- 輸出完成訊息 -----
-            log_session("Website Crawling Completed", style="cyan")
+        # ----- 儲存設定和結果 -----
+        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        run_manager.save_results_as_json(crawl_results)
+        run_manager.save_results_as_md(crawl_results, "fit_markdown")
+
+        # ----- 輸出完成訊息 -----
+        log_session("Website Crawling Completed", style="cyan")
 
     return crawl_results
 
@@ -79,7 +82,7 @@ def run_webpage_image_summarizer(
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
     **config_overrides,
-) -> None:
+) -> dict[str, dict] | None:
     # ----- 初始化設定和路徑 -----
     webpage_image_summarizer = WebpageImageSummarizer()
     config = WebpageImageSummarizerConfig.from_toml(config_name, **config_overrides)
@@ -126,6 +129,10 @@ def run_webpage_image_summarizer(
             **config.litellm_kwargs,
         )
 
+        if enhanced_results is None:
+            log_session("Image Summarization Failed", style="red")
+            return None
+
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         run_manager.save_results_as_json(enhanced_results)
@@ -134,11 +141,14 @@ def run_webpage_image_summarizer(
         # ----- 輸出完成訊息 -----
         log_session("Image Summarization Completed", style="cyan")
 
+    return enhanced_results
+
 
 def run_rag_build(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
+    webpages_data_use_latest_results: bool = False,
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
@@ -162,8 +172,13 @@ def run_rag_build(
         log_config("Rag Config Loaded from toml", config)
 
         # ----- 初始化物件 -----
+        if webpages_data_use_latest_results:
+            log_session("Finding Latest Webpages Data", style="cyan")
+            webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
+        else:
+            webpages_data_folder_path = config.webpages_data_folder_path
         rag.override_init_config(
-            webpages_data_folder_path=config.webpages_data_folder_path,
+            webpages_data_folder_path=webpages_data_folder_path,
         )
 
         # ----- 建立 Nodes -----
@@ -177,7 +192,9 @@ def run_rag_build(
         # ----- 建立 Vector Store -----
         log_session("Building Vector Store", style="cyan")
         rag.build_vector_store(
-            qdrant_db_folder_path=config.qdrant_db_folder_path,
+            qdrant_db_folder_path=os.path.join(
+                run_manager.results_folder_path, "qdrant_db"
+            ),
             collection_name=config.collection_name,
         )
 
