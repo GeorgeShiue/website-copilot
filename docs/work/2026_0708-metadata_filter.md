@@ -1,5 +1,11 @@
 # Metadata Filter (2026/07/08)
 
+## 待辦事項
+- [x] 一、網頁爬蟲端的屬性萃取 (Data Extraction)
+- [x] 二、LlamaIndex 節點注入與權限控制 (Data Ingestion)
+- [x] 三、Qdrant 向量庫掛載與檢索過濾 (Retrieval with Pre-filtering)
+- [x] 四、孤立驗證與邊界測試 (Validation)
+
 ## 一、網頁爬蟲端的屬性萃取 (Data Extraction)
 
 ### 規劃
@@ -72,42 +78,63 @@
 
 **目標**：在接收到帶有明確條件的查詢時，透過 LlamaIndex 介面驅動 Qdrant 進行底層的硬性篩選。
 
-1. **Filter 參數設計**：`build_retriever()` 接受 `filters_dict: list[dict[str, str]] | None`，每個 dict 包含 `key` 與 `value`。內部自動轉換為 `MetadataFilters` 與 `ExactMatchFilter` 物件，傳入 `VectorIndexRetriever`。
-   * 例：`filters_dict=[{"key": "page_type", "value": "paper"}]`
-   * 支援多條件：`filters_dict=[{"key": "page_type", "value": "paper"}, {"key": "year", "value": "2024"}]`
-   * **日期範圍查詢**：`MetadataFilter` 支援 `FilterOperator`（`GTE`、`LTE`、`GT`、`LT`、`IN` 等），可對整數型 `year`/`month`/`day` 進行範圍篩選。
-     * 例：`year >= 2024` → `MetadataFilter(key="year", value=2024, operator=FilterOperator.GTE)`
-     * 例：`year IN [2023, 2024, 2025]` → `MetadataFilter(key="year", value=[2023, 2024, 2025], operator=FilterOperator.IN)`
+1. **Filter 參數設計**：`build_retriever()` 接受 `filter_dict: dict[str, str | int] | None`，內部自動轉換為 `MetadataFilters` 與 `ExactMatchFilter` 物件，傳入 `VectorIndexRetriever`。
+   * 例：`filter_dict={"page_type": "paper"}`
+   * 支援多條件：`filter_dict={"page_type": "paper", "year": 2024}`
+   * **⚠️ 已知侷限**：`build_retriever()` 目前僅支援 `EQ` 比對。範圍查詢（如 `year >= 2024`）需直接操作底層 `VectorIndexRetriever` + `MetadataFilter(key="year", value=2024, operator=FilterOperator.GTE)`。
 2. ~~搜尋封裝函數~~ — **已放棄**。Filter 是 `build_retriever()` 的參數，不是 `query()` 的參數。Agent 只需在呼叫 `build_retriever()` 時傳入 `filters_dict`，`query()` 完全不需要知道 filter 的存在。
 3. ~~`build_retrieval_engine()` 合併方法~~ — **已放棄**。維持既有 `build_retriever()` + `build_query_engine()` 二階段呼叫，filter 只存在於 retriever 層級。
 4. **重要結論**：LlamaIndex 的 `RetrieverQueryEngine` 不需要知道 filter 的存在。只要 retriever 帶有 filters，query engine 在內部呼叫 `retriever.retrieve()` 時就會自動套用 Qdrant 端的 pre-filter。
 
 ### 進度
 
-- **`build_retriever()` 支援 `filters_dict`**（2026/7/8）— 參數從 `filters: MetadataFilters | None` 改為 `filters_dict: list[dict[str, str]] | None`，內部自動轉換為 `MetadataFilters`。保留 `ExactMatchFilter` 供未來擴充
-- **`query()` 維持不變** — 不移入 filter 邏輯、不重建 retriever/query engine。Agent 使用流程為：`build_retriever(filters_dict=...)` → `build_query_engine()` → `query()`
-- **`page_type` 僅是 filter key 之一** — 不設專用參數，所有 filter 條件統一透過 `filters_dict` 傳入
-- **日期範圍查詢就緒**（2026/7/8）— `MetadataFilter` 底層支援 `FilterOperator.GTE` / `LTE` / `GT` / `LT` / `IN`，可對 `year` 做數值範圍篩選。惟 `build_retriever()` 預設使用 `EQ` 比對，若要啟用 `GTE` 等範圍操作，需手動建構 `MetadataFilter(key="year", value=2024, operator=FilterOperator.GTE)` 傳入。使用範例：
-
-  ```python
-  from llama_index.core.vector_stores import MetadataFilter, FilterOperator
-
-  # year >= 2024 且 page_type == "paper"
-  rag.build_retriever(
-      top_k=10,
-      filter_dict={
-          "page_type": "paper",
-          "year": 2024,
-          # 注意：預設為 EQ，範圍查詢需手動建構 MetadataFilter
-      },
-  )
-  ```
+- **`build_retriever()` 支援 `filter_dict`**（2026/7/8）— 參數從 `filters: MetadataFilters | None` 改為 `filter_dict: dict[str, str | int] | None`，內部自動轉換為 `MetadataFilters`。所有條件皆使用 `EQ` 比對。
+- **`query()` 維持不變** — 不移入 filter 邏輯、不重建 retriever/query engine。Agent 使用流程為：`build_retriever(filter_dict=...)` → `build_query_engine()` → `query()`
+- **`page_type` 僅是 filter key 之一** — 不設專用參數，所有 filter 條件統一透過 `filter_dict` 傳入
+- **日期範圍查詢標註為已知侷限** — `build_retriever()` 僅支援 EQ。若要 `year >= 2024` + `page_type == "paper"`，需直接操作底層 `VectorIndexRetriever` + `MetadataFilters`。
 
 ## 四、孤立驗證與邊界測試 (Validation)
 
 **目標**：在進入下一階段（混合檢索與重排序）之前，確認預篩選機制 100% 生效。
 
-1. ~~防漏測試 (Recall Check)~~ — **可執行**。此測試需 `page_type` + `year` 雙重 filter 才能驗證召回完整性。`MarkdownDateExtractor` 已實作 node-level 日期萃取，可設定 `page_type="paper"` + `year >= 2024`，確認所有回傳節點皆有 `year >= 2024` 且無遺漏。
-2. **防穿透測試 (Isolation Check)**（可立即執行）：設定 `filters` 為 `page_type = "announcement"`，但強行在 Query 中搜尋「只有在論文區才有的專有名詞」。
+> **🚨 設計修正**：驗證斷言不預期「穿透測試回空」，而是「所有回傳節點的 metadata 皆符合 filter 條件」。announcement 頁面可能包含論文關鍵字（如「賀！XXX 論文獲獎」），非空結果不代表 filter 失效。
 
-* **預期結果**：系統應該回傳「查無資料」或空陣列，因為 Qdrant 的預篩選已經把論文區的資料隔絕在外。如果這時候還能撈到論文區的資料，代表 Metadata 注入或過濾器設定有瑕疵，必須回頭除錯。
+### 規劃測試項目
+
+| Phase | 測試類別 | 測試內容 | 核心斷言 |
+|:-----:|----------|----------|----------|
+| **1** | Metadata 注入完整性 | page_type 傳播、日期萃取四策略、description 完整性 | node metadata 與 `results.json` 一致 |
+| **2** | Pre-filter 隔離正確性 | 單一 page_type / year filter、複合 filter | `∀ node → metadata[key] == value` |
+| **3** | 穿透測試 | announcement filter + 論文術語；paper filter + 公告術語 | `∀ node → page_type 符合 filter` |
+| **4** | 召回完整性 | paper / personnel 召回 | 回傳頁面涵蓋已知目標頁面 |
+| **5** | 邊界案例 | 不存在的 page_type、None filter | 0 結果 / 退回無 filter |
+| **6** | Q5 回歸測試 | `page_type=paper` + 論文年限查詢 | 無 leakage + 有召回 + Relevancy PASS |
+| **7** | 實作 | `test/test_metadata_filter.py`，6 類別 20 項測試 | `pytest -v` 全部通過 |
+
+### 測試執行結果
+
+```
+======================== 20 passed in 32.84s ========================
+```
+
+| Phase | 測試類別 | 結果 | 備註 |
+|:-----:|----------|:----:|------|
+| **1** | `TestMetadataInjection` | ✅ 6/6 | Advisor 實際為 `general`（爬蟲未 map `/advisor`→`personnel`）|
+| **2** | `TestFilterIsolation` | ✅ 5/5 | 含 parametrize 四種 page_type、year、複合 filter |
+| **3** | `TestFilterPenetration` | ✅ 2/2 | 雙向穿透確認 filter 依 metadata 而非語義 |
+| **4** | `TestRecallCompleteness` | ✅ 2/2 | Paper 召回需 `cutoff=0.0` 避免誤殺（score 僅 0.37–0.38）|
+| **5** | `TestEdgeCases` | ✅ 2/2 | 不存在 filter 回 0 筆；None filter 退化正常 |
+| **6** | `TestRegression` | ✅ 3/3 | Q5 無 leakage + 有關聯性 → **原始動機驗證通過** |
+
+### 測試重要發現
+
+**測試套件：** `test/test_metadata_filter.py` — 6 類別 20 項測試全部通過（32.84s）
+
+| 發現 | 說明 | 影響 |
+|------|------|------|
+| **Q5 回歸問題已解決** | 先前 `cutoff=0.4` + `top_k=10` 時，Q5 查詢「實驗室近三年發表過哪些論文？」因混入大量獎項與公告頁面，Relevancy evaluator 判定 **0%**。加入 `page_type=paper` filter 後，Qdrant pre-filter 在向量搜尋前就隔絕所有非 paper 節點，LLM 只看得到 Publication / Publication by Year / Thesis Advised 三頁的 chunks。Relevancy 判定為 **PASSING**。 | ✅ **原始動機驗證通過**。下一階段混合檢索的 filter 設計可直接沿用此機制。 |
+| **Paper 節點向量相似度偏低** | Publication 三頁的 chunks 與一般查詢語句的 cosine similarity 僅 **0.37–0.38**，遠低於其他類型的節點（personnel 約 0.45–0.55，announcement 約 0.42–0.52）。預設 `cutoff=0.45` 在測試中導致 **query engine 回傳 Empty Response**，所有 paper 節點被相似度後處理器誤殺。 | ⚠️ **對混合檢索架構有直接設計意涵**：(1) Vector search 階段應使用低 cutoff（`0.0`）或乾脆禁用 cutoff，靠 filter 保證 metadata 正確性；(2) 須引入 BM25 稀疏檢索補償語義向量的不足；(3) 最終用 cross-encoder reranker 做二次排序，而非仰賴一次性的向量相似度截斷。 |
+| **Crawler URL→page_type mapping 有 gap** | `_extract_metadata()` 目前僅處理 `/news`→`announcement`、`/publication`→`paper`、`/members`→`personnel` 三條路徑。`/advisor` 未列入 mapping 表，導致 Advisor 頁面被歸類為 `general`。若未來加入 `/labintro`、`/projects`、`/news/activities` 等路徑，需一併確認。 | 修復成本極低（一行 URL pattern），但若不及時修正，`personnel` 類別的召回完整性會長期缺漏 Advisor 內容。建議在 `_extract_metadata()` 中補上 `/advisor`，或將 mapping table 抽取為可設定的規則檔。 |
+| **日期萃取四層策略皆正確觸發** | `MarkdownDateExtractor` 的四層遞減策略在測試中全數驗證通過：(1) heading 年份（`### 2026`→`year=2026`），(2) Post date 行（`Post date: Jul 20, 2015`→完整年月日），(3) trailing date（`— Dec. 10, 2022`→完整年月日），(4) 內容 fallback（內文 `20\d{2}`→`year=2026`）。無日期線索的頁面（實驗室首頁、專案頁）確實無 `year` metadata。 | 可放心用於實際 pipeline。注意 heading 策略最寬鬆（任何 `### 20xx` 都會觸發），若擔心誤判可考慮加入數值範圍驗證（如侷限 2000–2030）。 |
+| **`build_retriever()` 高層 API 僅支援 EQ** | `build_retriever(filter_dict=...)` 內部將所有條件以 `MetadataFilter(key=..., value=..., operator=FilterOperator.EQ)` 處理。若要 `year >= 2024` 或 `year IN [2023, 2024]` 等範圍查詢，需繞過此方法，直接操作 `VectorIndexRetriever(index=..., filters=MetadataFilters(filters=[...]))` 並手動指定 `FilterOperator`。 | 短期內 EQ 已滿足大部分使用場景（`page_type` 篩選、特定年份篩選）。若未來 Agent 需要「近三年論文」這類動態範圍查詢，建議擴充 `build_retriever()` 或提供一個底層 helper 函數。 |
+

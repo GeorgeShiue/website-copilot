@@ -1,12 +1,18 @@
 # RAG Upgrade (2026/07/01)
 
+## 待辦事項
+- [x] 一、 Metadata 擴展與資料庫預篩選 (Metadata Filter)
+- [ ] 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
+- [ ] 三、 知識圖譜檢索 (Graph RAG)
+- [ ] 四、 多步推理代理化 (Agentic RAG)
+
 ## 一、 Metadata 擴展與資料庫預篩選 (Metadata Filter)
 
-**核心目標：** 從資料輸入端建立絕對防線，透過硬性邊界徹底消除跨類別（如把公告當作名單）與跨時空（如混淆歷年計畫）的 AI 幻覺。
+**核心目標：** 從資料輸入端建立硬性邊界，消除跨類別（如把公告當作論文）與跨時空（如混淆歷年資料）的 AI 幻覺。
 
-1. **擴充網頁爬蟲萃取邏輯**：修改 `app/website_crawler.py`。在解析原始 HTML 時，直接從 URL 路徑特徵、`<meta>` 標籤或 Breadcrumbs 中，萃取出結構化標籤（例如：`page_type: "publications"`, `year: 2025`）。
-2. **LlamaIndex 節點元數據注入**：修改 `app/modules/rag.py`。在文件切塊（Chunking）階段，利用回呼函式（如 `self._file_metadata()`）將上述萃取出的標籤，強制綁定到每一個 Node 的 Payload 中，存入 Qdrant 向量庫。
-3. **實作資料庫級預篩選 (Pre-filtering)**：在 LlamaIndex 的 Retriever 中，導入 `MetadataFilters` 介面。確保當接收到帶有明確屬性的查詢時，系統能在進行任何語意計算「之前」，就先利用如 `ExactMatchFilter` 將搜索範圍鎖定在正確的資料夾內。
+1. **爬蟲端屬性萃取 — URL 路徑解析**：修改 `app/modules/website_crawler.py`，在 `_extract_metadata()` 中解析 URL sub-path 決定 `page_type`（`/news`→`announcement`、`/publication`→`paper`、`/members`→`personnel`，其餘為 `general`）。日期萃取經實驗評估後放棄（Google Sites 無標準 meta，LLM 萃取成本過高、覆蓋率僅 54%）。
+2. **LlamaIndex Metadata 注入**：修改 `app/modules/rag.py` 的 `_file_metadata()`，從 `results.json` 的巢狀 metadata 子物件提取 `page_type` 與 `description`，寫入 `Document` 後經 `IngestionPipeline` 自動繼承給所有 child `Node`。另新增 `MarkdownDateExtractor`（`utils/rag_helper.py`），以四層遞減策略從 Markdown 內容補償 `year`/`month`/`day`，置於 `SentenceSplitter` 之前確保 chunk 繼承。
+3. **Qdrant Pre-filtering**：在 `build_retriever()` 中新增 `filter_dict: dict[str, str | int]` 參數，自動轉換為 LlamaIndex `MetadataFilters` 傳入 `VectorIndexRetriever`。所有條件採 `EQ` 比對；範圍查詢（`year >= 2024`）需直接操作底層 API，標註為已知侷限。經 20 項 pytest 驗證，Q5 論文查詢混入獎項的問題已解決。
 
 ## 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
 

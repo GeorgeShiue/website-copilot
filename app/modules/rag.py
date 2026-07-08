@@ -289,7 +289,7 @@ class Rag:
     def build_retriever(
         self,
         top_k: int = 5,
-        filter_dict: dict[str, str] | None = None,
+        filter_dict: dict[str, str | int] | None = None,
     ) -> None:
         """建立 retriever，支援選擇性 metadata filter（Qdrant pre-filter）。
 
