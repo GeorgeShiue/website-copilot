@@ -3,7 +3,7 @@ webpages_data_folder_path = "data/webpages"
 
 [vector_store]
 collection_name = "webpages"
-qdrant_db_folder_path = "data/rag/qdrant_db"
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
 
 [nodes]
 chunk_overlap = 100
@@ -17,6 +17,6 @@ embedding_name = "text-embedding-3-small"
 top_k = 10
 
 [query_engine]
+cutoff = 0.4
 llm_name = "gemini-3.1-flash-lite"
 query = "加入實驗室需要準備哪些資料？"
-cutoff = 0.4

@@ -223,10 +223,6 @@ def run_rag_build(
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        vector_store_config_path = os.path.join(
-            config.qdrant_db_folder_path, "config.toml"
-        )
-        save_module_config_as_toml(config, vector_store_config_path)
 
     rag.close()
 
@@ -294,8 +290,10 @@ def run_rag_query(
             )
             rag.load_index(embedding_name=config.embedding_name)
 
+        # 可篩選類別和年份
         # filter_dict = {
         #     "page_type": "paper",
+        #     "year": 2023,
         # }
 
         rag.build_retriever(
@@ -342,10 +340,7 @@ def run_rag_query(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
         if rebuild:
-            vector_store_config_path = os.path.join(
-                config.qdrant_db_folder_path, "config.toml"
-            )
-            save_module_config_as_toml(config, vector_store_config_path)
+            save_module_config_as_toml(config, "data/rag/module_config.toml")
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")

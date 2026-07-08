@@ -40,6 +40,7 @@ from app.configs.rag_config import (
 )
 from utils.log_helper import log_session, log_source_title
 from utils.rag_helper import (
+    MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
     extract_sources_info,
@@ -246,6 +247,7 @@ class Rag:
         pipeline = IngestionPipeline(
             transformations=[
                 MarkdownNodeParser.from_defaults(),
+                MarkdownDateExtractor(),
                 SentenceSplitter.from_defaults(
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
@@ -338,6 +340,8 @@ class Rag:
 
             logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
 
+    # ? filter 在 retriever, 還有需要 query engine 嗎
+    # TODO: 新增 retrieve method，retriever + similarity postprocessor
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",

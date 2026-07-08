@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, ClassVar, Dict, List, Sequence
 
 from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
@@ -94,6 +94,106 @@ class MarkdownImageExtractor(BaseExtractor):
             metadata_list.append(metadata_dict)
 
         return metadata_list
+
+
+# TODO: 支援更多擷取日期的方式
+class MarkdownDateExtractor(BaseExtractor):
+    """從 node content 萃取日期資訊寫入 metadata (year/month/day)。
+
+    必須放在 SentenceSplitter 之前，確保 child chunks 繼承日期 metadata。
+    支援四層遞減優先級：
+      1. Section heading 年份 (### 2026)
+      2. Post date 行 (Post date: Mon DD, YYYY)
+      3. 列表結尾日期標記 (— Mon. DD, YYYY)
+      4. 內容年份回落 (第一個 20\d{2})
+    """
+
+    is_text_node_only: bool = False
+
+    MONTH_MAP: ClassVar[dict[str, int]] = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
+
+    # Pattern 1: ### 2026
+    heading_year_pattern: re.Pattern = Field(
+        default=re.compile(r"^#{1,6}\s+(20\d{2})\s*$", re.MULTILINE),
+        description="匹配章節 heading 中的四位數年份",
+    )
+
+    # Pattern 2: Post date: Feb 15, 2011 3:16:55 AM
+    post_date_pattern: re.Pattern = Field(
+        default=re.compile(
+            r"Post date:\s*"
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+            r"[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})",
+            re.IGNORECASE,
+        ),
+        description="匹配 Google Sites Post date 行",
+    )
+
+    # Pattern 3: — Dec. 5, 2024  or  — Mar 5, 2020 2:25:00 PM
+    trailing_date_pattern: re.Pattern = Field(
+        default=re.compile(
+            r"—\s*"
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+            r"[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})",
+        ),
+        description="匹配列表項目結尾的日期標記 (— Mon. DD, YYYY)",
+    )
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "MarkdownDateExtractor"
+
+    async def aextract(self, nodes: Sequence[BaseNode]) -> List[Dict]:
+        """對每個 node 執行日期萃取。"""
+        return [self._extract_date(node) for node in nodes]
+
+    def _extract_date(self, node: BaseNode) -> Dict[str, Any]:
+        content = node.get_content()
+
+        # Strategy 1: Section heading 年份 (### 2026)
+        match = self.heading_year_pattern.search(content)
+        if match:
+            return {"year": int(match.group(1))}
+
+        # Strategy 2: Post date 行 (Post date: Mon DD, YYYY)
+        match = self.post_date_pattern.search(content)
+        if match:
+            month = self.MONTH_MAP[match.group(1).lower()[:3]]
+            return {
+                "year": int(match.group(3)),
+                "month": month,
+                "day": int(match.group(2)),
+            }
+
+        # Strategy 3: 列表結尾日期標記 (— Mon. DD, YYYY)
+        match = self.trailing_date_pattern.search(content)
+        if match:
+            month = self.MONTH_MAP[match.group(1).lower()[:3]]
+            return {
+                "year": int(match.group(3)),
+                "month": month,
+                "day": int(match.group(2)),
+            }
+
+        # Strategy 4: 內容年份回落 (第一個 20\d{2})
+        match = re.search(r"20\d{2}", content)
+        if match:
+            return {"year": int(match.group(0))}
+
+        return {}
 
 
 def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
