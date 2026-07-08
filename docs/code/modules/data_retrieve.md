@@ -72,7 +72,7 @@ Rag()
 
 #### 3a. 建立向量儲存（必要前驟）
 - `build_vector_store()` 透過 `QdrantClient(path=qdrant_db_folder_path)` 初始化 Qdrant，並以 `QdrantVectorStore(collection_name, client, index_doc_id=False)` 建立向量儲存。
-- 預設 collection 名稱為 `webpages`，持久化路徑為 `data/rag/qdrant_db`。
+- 預設 collection 名稱為 `webpages`，持久化路徑為 `data/rag/results/qdrant_db`。
 
 #### 3b. 載入或新建索引
 - **既有資料庫載入**：`load_index()` 使用 `VectorStoreIndex.from_vector_store(vector_store, embed_model)`，僅需提供 embedding 模型。

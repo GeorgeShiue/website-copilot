@@ -1,11 +1,10 @@
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, ClassVar, Dict, List, Sequence
 
 from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
-from llama_index.core.utils import truncate_text
 
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -97,31 +96,117 @@ class MarkdownImageExtractor(BaseExtractor):
         return metadata_list
 
 
-def format_sources_text(
-    source_nodes: Sequence[NodeWithScore], content_length: int = 500
-) -> str:
-    texts: List[str] = []
-    for source_node in source_nodes:
-        try:
-            raw_content = source_node.node.get_content()
-        except Exception:
-            raw_content = ""
+# TODO: 支援更多擷取日期的方式
+class MarkdownDateExtractor(BaseExtractor):
+    """從 node content 萃取日期資訊寫入 metadata (year/month/day)。
 
-        format_content = truncate_text(raw_content, content_length)
+    必須放在 SentenceSplitter 之前，確保 child chunks 繼承日期 metadata。
+    支援四層遞減優先級：
+      1. Section heading 年份 (### 2026)
+      2. Post date 行 (Post date: Mon DD, YYYY)
+      3. 列表結尾日期標記 (— Mon. DD, YYYY)
+      4. 內容年份回落 (第一個 20\d{2})
+    """
 
-        try:
-            id = source_node.node.node_id or "None"
-        except Exception:
-            id = "None"
+    is_text_node_only: bool = False
 
-        try:
-            page_title = source_node.node.metadata.get("page_title", "Unknown")
-        except Exception:
-            page_title = "Unknown"
+    MONTH_MAP: ClassVar[dict[str, int]] = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
 
-        score = source_node.get_score()
+    # Pattern 1: ### 2026
+    heading_year_pattern: re.Pattern = Field(
+        default=re.compile(r"^#{1,6}\s+(20\d{2})\s*$", re.MULTILINE),
+        description="匹配章節 heading 中的四位數年份",
+    )
 
-        source_text = f"> Source (Page: {page_title}, Score: {score:0.3f}, ID: {id}):\n{format_content}"
-        texts.append(source_text)
+    # Pattern 2: Post date: Feb 15, 2011 3:16:55 AM
+    post_date_pattern: re.Pattern = Field(
+        default=re.compile(
+            r"Post date:\s*"
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+            r"[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})",
+            re.IGNORECASE,
+        ),
+        description="匹配 Google Sites Post date 行",
+    )
 
-    return "\n\n".join(texts)
+    # Pattern 3: — Dec. 5, 2024  or  — Mar 5, 2020 2:25:00 PM
+    trailing_date_pattern: re.Pattern = Field(
+        default=re.compile(
+            r"—\s*"
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+            r"[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})",
+        ),
+        description="匹配列表項目結尾的日期標記 (— Mon. DD, YYYY)",
+    )
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "MarkdownDateExtractor"
+
+    async def aextract(self, nodes: Sequence[BaseNode]) -> List[Dict]:
+        """對每個 node 執行日期萃取。"""
+        return [self._extract_date(node) for node in nodes]
+
+    def _extract_date(self, node: BaseNode) -> Dict[str, Any]:
+        content = node.get_content()
+
+        # Strategy 1: Section heading 年份 (### 2026)
+        match = self.heading_year_pattern.search(content)
+        if match:
+            return {"year": int(match.group(1))}
+
+        # Strategy 2: Post date 行 (Post date: Mon DD, YYYY)
+        match = self.post_date_pattern.search(content)
+        if match:
+            month = self.MONTH_MAP[match.group(1).lower()[:3]]
+            return {
+                "year": int(match.group(3)),
+                "month": month,
+                "day": int(match.group(2)),
+            }
+
+        # Strategy 3: 列表結尾日期標記 (— Mon. DD, YYYY)
+        match = self.trailing_date_pattern.search(content)
+        if match:
+            month = self.MONTH_MAP[match.group(1).lower()[:3]]
+            return {
+                "year": int(match.group(3)),
+                "month": month,
+                "day": int(match.group(2)),
+            }
+
+        # Strategy 4: 內容年份回落 (第一個 20\d{2})
+        match = re.search(r"20\d{2}", content)
+        if match:
+            return {"year": int(match.group(0))}
+
+        return {}
+
+
+def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
+    try:
+        page_title = source_node.node.metadata.get("page_title", "Unknown")
+    except Exception:
+        page_title = "Unknown"
+
+    score = source_node.get_score()
+
+    try:
+        page_type = source_node.node.metadata.get("page_type", "Unknown")
+    except Exception:
+        page_type = "Unknown"
+
+    return page_title, score, page_type

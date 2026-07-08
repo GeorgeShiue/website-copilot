@@ -38,7 +38,9 @@ class RunManager:
         self.module_config_toml_path: str = ""
         self.run_config_toml_path: str = ""
         self.log_path: str = ""
+
         self.latest_results_json_path: str = ""
+        self.latest_run_path: str = ""
 
         # 預先檢查允許初始化時不用提供 module_name
         if module_name:
@@ -206,7 +208,7 @@ class RunManager:
 
     def load_latest_results_from_json(self) -> dict[str, dict]:
         """從 JSON 檔案讀取爬取結果列表。"""
-        latest_results = self._load_latest_results()
+        latest_results = self._load_latest_results_json()
         if latest_results is not None:
             return latest_results
 
@@ -236,15 +238,59 @@ class RunManager:
             raise FileNotFoundError("No crawl results found")
 
         self.latest_results_json_path = latest_results_json_path
-        latest_results = self._load_latest_results()
+        latest_results = self._load_latest_results_json()
         if latest_results is None:
+            self.latest_results_json_path = ""
             raise FileNotFoundError(
                 f"Failed to load crawl results from {latest_results_json_path}."
             )
 
         return latest_results
 
-    def _load_latest_results(self) -> dict[str, dict] | None:
+    def load_latest_summarizer_run_path(self) -> str:
+        """回傳最新 webpage_image_summarizer 的 run path（results 的上一層）。"""
+        # 1. 若 latest_run_path 已指向 webpage_image_summarizer 則直接回傳
+        if self.latest_run_path and "webpage_image_summarizer" in self.latest_run_path:
+            logger.info(
+                f"Latest summarizer run path already set: {self.latest_run_path}"
+            )
+            return self.latest_run_path
+
+        # 2. 由新到舊尋找第一份 webpage_image_summarizer 子目錄中的 results 資料夾，回傳其 parent
+        logger.info(
+            f"Looking for webpage_image_summarizer run path in {RUNS_FOLDER_PATH}..."
+        )
+        run_folder_names = self._filter_run_folders()
+
+        latest_run_path = ""
+        for folder_name in sorted(run_folder_names, reverse=True):
+            webpage_image_summarizer_folder_path = os.path.join(
+                RUNS_FOLDER_PATH, folder_name, "webpage_image_summarizer"
+            )
+            if not os.path.isdir(webpage_image_summarizer_folder_path):
+                continue
+
+            for root, dirs, files in os.walk(webpage_image_summarizer_folder_path):
+                dirs.sort()
+                files.sort()
+                if os.path.basename(root) == "results":
+                    latest_run_path = os.path.dirname(root)
+                    break
+
+            if latest_run_path:
+                break
+
+        if not latest_run_path:
+            raise FileNotFoundError(
+                "No webpage_image_summarizer run path found in any run."
+            )
+
+        self.latest_run_path = latest_run_path
+        logger.info(f"Found latest summarizer run path at: {self.latest_run_path}")
+
+        return self.latest_run_path
+
+    def _load_latest_results_json(self) -> dict[str, dict] | None:
         """載入最新的爬取結果 JSON。"""
         if not self.latest_results_json_path:
             logger.warning("Latest results JSON path is not set.")

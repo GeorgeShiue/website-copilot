@@ -71,9 +71,10 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
     if level.lower() == "debug":
         logging_level = logging.DEBUG
 
-    logging.getLogger("app.website_crawler").setLevel(logging_level)
-    logging.getLogger("app.webpage_image_summarizer").setLevel(logging_level)
-    logging.getLogger("app.rag").setLevel(logging_level)
+    logging.getLogger("app.modules.website_crawler").setLevel(logging_level)
+    logging.getLogger("app.modules.webpage_image_summarizer").setLevel(logging_level)
+    logging.getLogger("app.modules.rag").setLevel(logging_level)
+
     if logger is not None:
         logger.setLevel(logging_level)
 
@@ -188,6 +189,15 @@ def print_log(content: object) -> None:
 def log_session(title: str, style: str) -> None:
     """Log a visually distinct section header for a module session using Rich styling."""
     print_log(Rule(f"[bold {style}]{title}[/bold {style}]", style=style))
+
+
+def log_source_title(page_title, score, page_type):
+    parts = [
+        f"[bold green]Page: {page_title}[/bold green]",
+        f"[bold yellow]Score: {score:0.3f}[/bold yellow]",
+        f"[bold cyan]Type: {page_type}[/bold cyan]",
+    ]
+    print_log(Rule("  [dim white]|[/dim white]  ".join(parts), style="blue"))
 
 
 class FlexibleTimeElapsedColumn(ProgressColumn):

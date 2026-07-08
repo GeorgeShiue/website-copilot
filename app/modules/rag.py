@@ -23,6 +23,12 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, Document, NodeWithScore
+from llama_index.core.utils import truncate_text
+from llama_index.core.vector_stores import (
+    FilterOperator,
+    MetadataFilter,
+    MetadataFilters,
+)
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
@@ -33,11 +39,12 @@ from app.configs.rag_config import (
     DEFAULT_QDRANT_DB_FOLER_PATH,
     WEBPAGES_DATA_FOLDER_PATH,
 )
-from utils.log_helper import log_session
+from utils.log_helper import log_session, log_source_title
 from utils.rag_helper import (
+    MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
-    format_sources_text,
+    extract_sources_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,13 +178,21 @@ class Rag:
         )
 
     def _file_metadata(self, file_path: str) -> dict[str, Any]:
-        """Extract file metadata for a given file path using instance results JSON."""
+        """Extract file metadata for a given file path using instance results JSON.
+
+        Injects ``page_type`` and ``description`` from the results.json ``metadata``
+        sub-dictionary into the LlamaIndex Document metadata, so they are persisted
+        to Qdrant and available for both pre-filtering and LLM context.
+        """
         page_title = os.path.basename(file_path).replace(".md", "")
         page_info = self.results_json.get(page_title, {})
+        page_metadata: dict[str, Any] = page_info.get("metadata", {})
 
         metadata: dict[str, Any] = {
             "page_title": page_title,
             "page_url": page_info.get("url", ""),
+            "page_type": page_metadata.get("page_type", "general"),
+            "description": page_metadata.get("description", ""),
         }
 
         return metadata
@@ -233,6 +248,7 @@ class Rag:
         pipeline = IngestionPipeline(
             transformations=[
                 MarkdownNodeParser.from_defaults(),
+                MarkdownDateExtractor(),
                 SentenceSplitter.from_defaults(
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
@@ -271,63 +287,49 @@ class Rag:
         )
         return embed_model
 
-    def build_retriever(self, top_k: int = 5) -> None:
+    def build_retriever(
+        self,
+        top_k: int = 5,
+        filter_dict: dict[str, str | int | tuple] | None = None,
+    ) -> None:
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
+
+        filters: MetadataFilters | None = None
+        if filter_dict:
+            filter_list = []
+            for key, entry in filter_dict.items():
+                if isinstance(entry, tuple):
+                    value, operator = entry
+                else:
+                    value, operator = entry, FilterOperator.EQ
+                filter_list.append(
+                    MetadataFilter(key=key, value=value, operator=operator)
+                )
+            filters = MetadataFilters(filters=filter_list)
+
         self.retriever = VectorIndexRetriever(
             index=self.index,
             similarity_top_k=top_k,
+            filters=filters,
         )
         logger.info("Successfully built retriever")
-
-    # # 暫時不需要
-    # def retrieve(self, query: str, log: bool = True) -> None:
-    #     if self.retriever is None:
-    #         raise RuntimeError("Retriever have not been built, cannot retrieve")
-
-    #     retrieved_nodes: list[NodeWithScore] = self.retriever.retrieve(query)
-    #     if log:
-    #         logger.info(f"Query: {query}")
-    #         self._log_sources(retrieved_nodes)
-
-    # # 暫時不需要
-    # def build_dataset(
-    #     self,
-    #     llm_name: str = "gemini-3.1-flash-lite",
-    #     num_questions_per_chunk: int = 10,
-    # ) -> None:
-    #     if self.nodes is None:
-    #         raise RuntimeError(
-    #             "Nodes have not been built, cannot build evaluation dataset"
-    #         )
-
-    #     llm = self._set_llm(llm_name)
-    #     dataset_generator = DatasetGenerator(
-    #         nodes=list(self.nodes),
-    #         llm=llm,
-    #         num_questions_per_chunk=num_questions_per_chunk,
-    #         show_progress=True,
-    #     )
-    #     dataset: QueryResponseDataset = dataset_generator.generate_dataset_from_nodes(
-    #         num=10  # test
-    #     )
-
-    #     logger.info("-" * 90)
-    #     # for i in range(len(dataset.questions)):
-    #     #     logger.info(f"Question {i+1}: {dataset.questions[i]}")
-    #     #     logger.info("-" * 90)
-    #     for i in range(len(dataset.qr_pairs)):
-    #         logger.info(f"Q&A Pair {i + 1}:")
-    #         logger.info(f"  Question: {dataset.qr_pairs[i][0]}")
-    #         logger.info(f"  Answer: {dataset.qr_pairs[i][1]}")
-    #         logger.info("-" * 90)
 
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
         logger.info(f"Retrieved {len(source_nodes)} sources")
-        source_text = format_sources_text(source_nodes)
-        logger.info(source_text)
+        for source_node in source_nodes:
+            page_title, score, page_type = extract_sources_info(source_node)
+            log_source_title(page_title, score, page_type)
 
+            raw_content = source_node.node.get_content()
+            format_content = truncate_text(raw_content, max_length=500)
+            logger.info(format_content)
+
+            logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
+
+    # ? filter 在 retriever, 還有需要 query engine 嗎
+    # TODO: 新增 retrieve method，retriever + similarity postprocessor
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",
@@ -444,7 +446,6 @@ class Rag:
         self.vector_store = None
 
     def override_init_config(self, **init_kwargs) -> None:
-        """覆寫建構子參數並同步更新內部狀態（paths、vector store 等）。"""
         self.webpages_data_folder_path = init_kwargs.get(
             "webpages_data_folder_path", self.webpages_data_folder_path
         )

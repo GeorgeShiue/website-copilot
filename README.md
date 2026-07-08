@@ -142,7 +142,7 @@ python main.py
 python -m app.rag
 ```
 
-檢索示範會載入 `data/webpages/prompt-v3/results`，建立或重用 `data/rag/qdrant_db` 中的本地 Qdrant 索引，並使用 Gemini 執行範例查詢。
+檢索示範會載入 `data/webpages/prompt-v3/results`，建立或重用 `data/rag/results/qdrant_db` 中的本地 Qdrant 索引，並使用 Gemini 執行範例查詢。
 
 ### 執行 smoke tests
 
@@ -160,7 +160,7 @@ pytest
 - `runs/<timestamp>/website_crawler/<run_name>/results/*.md`
 - `runs/<timestamp>/webpage_image_summarizer/<run_name>/results.json`
 - `runs/<timestamp>/webpage_image_summarizer/<run_name>/results/*.md`
-- `data/rag/qdrant_db/`
+- `data/rag/results/qdrant_db/`
 
 ## 開發
 

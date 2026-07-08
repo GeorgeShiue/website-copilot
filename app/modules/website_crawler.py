@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from typing import Pattern
+from urllib.parse import urlparse
 
 import mdformat
 from crawl4ai import (
@@ -49,12 +50,16 @@ IMAGE_ABOVE_SPACING_PATTERN = re.compile(
 )
 IMAGE_FOLLOW_TEXT_PATTERN = re.compile(r"(!\[.*?\]\(.*?\))\s*(?=\S)")
 
-# 標題正則規則
-HEADING_PATTERN = re.compile(r"^#+\s*(.+)", flags=re.MULTILINE)
-INVALID_FILENAME_CHARS_PATTERN = re.compile(r"[\\/:\"*?<>|]")
-WHITESPACE_SEQUENCE_PATTERN = re.compile(r"\s+")
-
 MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
+
+# URL sub-path → page_type 映射規則
+PAGE_TYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"/news"), "announcement"),
+    (re.compile(r"/publication|/paper"), "paper"),
+    (re.compile(r"/members|/people|/advisor"), "personnel"),
+    (re.compile(r"/blog"), "blog"),
+    (re.compile(r"/events"), "event"),
+]
 
 
 class WebsiteCrawler:
@@ -108,9 +113,15 @@ class WebsiteCrawler:
             logger.error(f"Error during filtering crawl results: {e}")
             return None
 
+        try:
+            enriched_results = self._extract_crawl_results_data(filtered_results)
+        except Exception as e:
+            logger.error(f"Error during enriching crawl results: {e}")
+            return None
+
         self._log_stats(self._crawl_stats)
 
-        return filtered_results
+        return enriched_results
 
     async def _crawl_website_async(
         self,
@@ -151,10 +162,6 @@ class WebsiteCrawler:
             ),
             deep_crawl_strategy=bfs_deep_crawl_strategy,
             wait_for_images=self.wait_for_images,
-            # process_iframes=True,
-            # cache_mode=CacheMode.ENABLED,
-            # stream=True
-            # excluded_tags=["header"],
         )
 
         async with AsyncWebCrawler(config=browser_config) as crawler:
@@ -168,12 +175,11 @@ class WebsiteCrawler:
         self,
         crawl_results: list,
     ) -> dict[str, dict]:
-        """過濾爬取結果內容並統計資訊後儲存可用頁面資料。"""
+        """過濾爬取結果：排除 404 與重複頁面，回傳中間資料。"""
         filtered_results = {}
         existed_page_title = set()
 
         for crawl_result in crawl_results:
-            logger.debug("-" * 30)
             if crawl_result.status_code == 404:
                 self._crawl_stats["error_pages"] += 1
                 logger.debug(
@@ -185,15 +191,8 @@ class WebsiteCrawler:
             fit_markdown = crawl_result.markdown.fit_markdown
             fit_markdown = self._clean_markdown(fit_markdown)
 
-            # 取內文的第一個標題作為檔名，若無則使用 URL 的最後一段
-            heading_match = HEADING_PATTERN.search(fit_markdown)
-            if heading_match:
-                title = heading_match.group(1).strip()
-                safe_title = INVALID_FILENAME_CHARS_PATTERN.sub("", title)
-                safe_title = WHITESPACE_SEQUENCE_PATTERN.sub("_", safe_title)
-                page_title = safe_title
-            else:
-                page_title = crawl_result.url.split("/")[-1]
+            title = crawl_result.metadata.get("title")
+            page_title = title.split(" - ")[-1].replace("/", "_")
 
             if page_title in existed_page_title:
                 self._crawl_stats["repeat_pages"] += 1
@@ -201,24 +200,12 @@ class WebsiteCrawler:
                 continue
             existed_page_title.add(page_title)
 
-            image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
-            images = [{"url": url} for url in image_urls]
-            # self._crawl_stats["image_count"] += len(images)
-
-            filtered_result = {
+            filtered_results[page_title] = {
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
-                "images": images,
+                "crawl_result": crawl_result,
             }
-            filtered_results[page_title] = filtered_result
             self._crawl_stats["success_pages"] += 1
-
-            logger.debug(f"Successfully crawled webpage: {page_title}")
-            logger.debug(f"*  URL: {crawl_result.url}")
-            logger.debug(f"*  Depth: {crawl_result.metadata.get('depth', 0)}")
-            # logger.debug("Images:")
-            # for image in images:
-            #     logger.debug(image)
 
         return filtered_results
 
@@ -284,6 +271,69 @@ class WebsiteCrawler:
                 i += 1
 
         return "".join(fixed_lines)
+
+    def _extract_crawl_results_data(
+        self, filtered_results: dict[str, dict]
+    ) -> dict[str, dict]:
+        """從過濾後的中間資料萃取影像、metadata、crawl_info，產出最終結構。"""
+        enriched_results = {}
+        for page_title, data in filtered_results.items():
+            logger.debug("-" * 30)
+
+            fit_markdown = data["fit_markdown"]
+            crawl_result = data["crawl_result"]
+            url: str = crawl_result.url
+            raw_metadata: dict = crawl_result.metadata
+
+            enriched_results[page_title] = {
+                "url": url,
+                "fit_markdown": fit_markdown,
+                "images": self._extract_images(fit_markdown),
+                "metadata": self._extract_metadata(url, raw_metadata),
+                "crawl_info": self._extract_crawl_info(raw_metadata),
+            }
+
+            logger.debug(f"Successfully crawled webpage: {page_title}")
+            logger.debug(f"*  URL: {url}")
+            logger.debug(f"*  Depth: {raw_metadata.get('depth', 0)}")
+
+        return enriched_results
+
+    @staticmethod
+    def _extract_metadata(url: str, raw_metadata: dict) -> dict:
+        """萃取內容屬性（給 LLM 閱讀 + DB pre-filter 使用）。"""
+        path = urlparse(url).path
+
+        metadata = {
+            "description": raw_metadata.get("description")
+            or raw_metadata.get("og:description"),
+            "page_type": "general",
+        }
+
+        # page_type — 從 URL sub-path 匹配
+        for pattern, label in PAGE_TYPE_PATTERNS:
+            if pattern.search(path):
+                metadata["page_type"] = label
+                break
+
+        return metadata
+
+    @staticmethod
+    def _extract_images(fit_markdown: str) -> list[dict[str, str]]:
+        """萃取 Markdown 內的影像 URL。"""
+        image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
+        images = [{"url": url} for url in image_urls]
+        return images
+
+    @staticmethod
+    def _extract_crawl_info(raw_metadata: dict) -> dict:
+        """萃取爬蟲環境資訊（僅供除錯／調度，不進 LLM）。"""
+        crawl_info = {
+            "depth": raw_metadata.get("depth"),
+            "parent_url": raw_metadata.get("parent_url"),
+        }
+
+        return crawl_info
 
     @staticmethod
     def _new_crawl_stats() -> dict[str, int]:

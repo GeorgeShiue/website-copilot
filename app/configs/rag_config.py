@@ -12,8 +12,8 @@ from utils.config_helper import (
 
 logger = logging.getLogger(__name__)
 
-WEBPAGES_DATA_FOLDER_PATH = "data/webpages/prompt-v3"
-DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/qdrant_db"
+WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
+DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/results/qdrant_db"
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
