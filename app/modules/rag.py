@@ -25,6 +25,7 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, Document, NodeWithScore
 from llama_index.core.utils import truncate_text
 from llama_index.core.vector_stores import (
+    FilterOperator,
     MetadataFilter,
     MetadataFilters,
 )
@@ -289,35 +290,22 @@ class Rag:
     def build_retriever(
         self,
         top_k: int = 5,
-        filter_dict: dict[str, str | int] | None = None,
+        filter_dict: dict[str, str | int | tuple] | None = None,
     ) -> None:
-        """建立 retriever，支援選擇性 metadata filter（Qdrant pre-filter）。
-
-        ``filter_dict`` 接受篩選條件字典，例如：
-
-        .. code-block:: python
-
-            filter_dict=[
-                {"page_type": "personnel", "description": "faculty"},
-            ]
-
-        內部會自動轉換為 LlamaIndex 的 ``MetadataFilters`` 物件。
-        """
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
 
         filters: MetadataFilters | None = None
         if filter_dict:
-            # filters = MetadataFilters(
-            #     filters=[
-            #         MetadataFilter(key=item["key"], value=item["value"])
-            #         for item in filters_dict
-            #     ]
-            # )
             filter_list = []
-            for key, value in filter_dict.items():
-                filter = MetadataFilter(key=key, value=value)
-                filter_list.append(filter)
+            for key, entry in filter_dict.items():
+                if isinstance(entry, tuple):
+                    value, operator = entry
+                else:
+                    value, operator = entry, FilterOperator.EQ
+                filter_list.append(
+                    MetadataFilter(key=key, value=value, operator=operator)
+                )
             filters = MetadataFilters(filters=filter_list)
 
         self.retriever = VectorIndexRetriever(
@@ -458,7 +446,6 @@ class Rag:
         self.vector_store = None
 
     def override_init_config(self, **init_kwargs) -> None:
-        """覆寫建構子參數並同步更新內部狀態（paths、vector store 等）。"""
         self.webpages_data_folder_path = init_kwargs.get(
             "webpages_data_folder_path", self.webpages_data_folder_path
         )

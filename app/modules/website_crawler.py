@@ -56,7 +56,7 @@ MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 PAGE_TYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"/news"), "announcement"),
     (re.compile(r"/publication|/paper"), "paper"),
-    (re.compile(r"/members|/people"), "personnel"),
+    (re.compile(r"/members|/people|/advisor"), "personnel"),
     (re.compile(r"/blog"), "blog"),
     (re.compile(r"/events"), "event"),
 ]

@@ -133,8 +133,53 @@
 | 發現 | 說明 | 影響 |
 |------|------|------|
 | **Q5 回歸問題已解決** | 先前 `cutoff=0.4` + `top_k=10` 時，Q5 查詢「實驗室近三年發表過哪些論文？」因混入大量獎項與公告頁面，Relevancy evaluator 判定 **0%**。加入 `page_type=paper` filter 後，Qdrant pre-filter 在向量搜尋前就隔絕所有非 paper 節點，LLM 只看得到 Publication / Publication by Year / Thesis Advised 三頁的 chunks。Relevancy 判定為 **PASSING**。 | ✅ **原始動機驗證通過**。下一階段混合檢索的 filter 設計可直接沿用此機制。 |
-| **Paper 節點向量相似度偏低** | Publication 三頁的 chunks 與一般查詢語句的 cosine similarity 僅 **0.37–0.38**，遠低於其他類型的節點（personnel 約 0.45–0.55，announcement 約 0.42–0.52）。預設 `cutoff=0.45` 在測試中導致 **query engine 回傳 Empty Response**，所有 paper 節點被相似度後處理器誤殺。 | ⚠️ **對混合檢索架構有直接設計意涵**：(1) Vector search 階段應使用低 cutoff（`0.0`）或乾脆禁用 cutoff，靠 filter 保證 metadata 正確性；(2) 須引入 BM25 稀疏檢索補償語義向量的不足；(3) 最終用 cross-encoder reranker 做二次排序，而非仰賴一次性的向量相似度截斷。 |
-| **Crawler URL→page_type mapping 有 gap** | `_extract_metadata()` 目前僅處理 `/news`→`announcement`、`/publication`→`paper`、`/members`→`personnel` 三條路徑。`/advisor` 未列入 mapping 表，導致 Advisor 頁面被歸類為 `general`。若未來加入 `/labintro`、`/projects`、`/news/activities` 等路徑，需一併確認。 | 修復成本極低（一行 URL pattern），但若不及時修正，`personnel` 類別的召回完整性會長期缺漏 Advisor 內容。建議在 `_extract_metadata()` 中補上 `/advisor`，或將 mapping table 抽取為可設定的規則檔。 |
 | **日期萃取四層策略皆正確觸發** | `MarkdownDateExtractor` 的四層遞減策略在測試中全數驗證通過：(1) heading 年份（`### 2026`→`year=2026`），(2) Post date 行（`Post date: Jul 20, 2015`→完整年月日），(3) trailing date（`— Dec. 10, 2022`→完整年月日），(4) 內容 fallback（內文 `20\d{2}`→`year=2026`）。無日期線索的頁面（實驗室首頁、專案頁）確實無 `year` metadata。 | 可放心用於實際 pipeline。注意 heading 策略最寬鬆（任何 `### 20xx` 都會觸發），若擔心誤判可考慮加入數值範圍驗證（如侷限 2000–2030）。 |
+| **Crawler URL→page_type mapping 有 gap** | `_extract_metadata()` 目前僅處理 `/news`→`announcement`、`/publication`→`paper`、`/members`→`personnel` 三條路徑。`/advisor` 未列入 mapping 表，導致 Advisor 頁面被歸類為 `general`。若未來加入 `/labintro`、`/projects`、`/news/activities` 等路徑，需一併確認。 | 修復成本極低（一行 URL pattern），但若不及時修正，`personnel` 類別的召回完整性會長期缺漏 Advisor 內容。建議在 `_extract_metadata()` 中補上 `/advisor`，或將 mapping table 抽取為可設定的規則檔。 |
 | **`build_retriever()` 高層 API 僅支援 EQ** | `build_retriever(filter_dict=...)` 內部將所有條件以 `MetadataFilter(key=..., value=..., operator=FilterOperator.EQ)` 處理。若要 `year >= 2024` 或 `year IN [2023, 2024]` 等範圍查詢，需繞過此方法，直接操作 `VectorIndexRetriever(index=..., filters=MetadataFilters(filters=[...]))` 並手動指定 `FilterOperator`。 | 短期內 EQ 已滿足大部分使用場景（`page_type` 篩選、特定年份篩選）。若未來 Agent 需要「近三年論文」這類動態範圍查詢，建議擴充 `build_retriever()` 或提供一個底層 helper 函數。 |
+| **Paper 節點向量相似度偏低** | Publication 三頁的 chunks 與一般查詢語句的 cosine similarity 僅 **0.37–0.38**，遠低於其他類型的節點（personnel 約 0.45–0.55，announcement 約 0.42–0.52）。預設 `cutoff=0.45` 在測試中導致 **query engine 回傳 Empty Response**，所有 paper 節點被相似度後處理器誤殺。 | ⚠️ **對混合檢索架構有直接設計意涵**：(1) Vector search 階段應使用低 cutoff（`0.0`）或乾脆禁用 cutoff，靠 filter 保證 metadata 正確性；(2) 須引入 BM25 稀疏檢索補償語義向量的不足；(3) 最終用 cross-encoder reranker 做二次排序，而非仰賴一次性的向量相似度截斷。 |
 
+## 五、後續修正
+
+根據測試發現，當日對爬蟲與檢索層進行了兩項修正：
+
+### 5.1 爬蟲 `PAGE_TYPE_PATTERNS` 補上 `/advisor`
+
+**檔案**：`app/modules/website_crawler.py`
+
+**變更**：`personnel` 映射正則從 `(re.compile(r"/members|/people"), "personnel")` 改為 `(re.compile(r"/members|/people|/advisor"), "personnel")`。
+
+**動機**：Advisor 頁面網址包含 `/advisor` sub-path，但未列入 mapping 表，導致被歸類為 `general`，`personnel` 類別的召回完整性長期缺漏。
+
+**影響範圍**：爬蟲重新執行後，`results.json` 中 Advisor 頁面的 `page_type` 將從 `general` 變為 `personnel`；測試斷言 `EXPECTED_PAGE_TYPES["Advisor"]` 同步更新為 `"personnel"`。
+
+### 5.2 `build_retriever()` 支援自訂 FilterOperator (方案 A)
+
+**檔案**：`app/modules/rag.py`
+
+**變更摘要**：
+
+1. 新增 `FilterOperator` import
+2. `filter_dict` 型別從 `dict[str, str | int]` 擴充為 `dict[str, str | int | tuple]`
+3. value 為 `tuple` 時解包為 `(value, operator)`；純值時自動使用 `FilterOperator.EQ`
+
+**動機**：測試發現文件指出高層 API 僅支援 EQ，若要 `year >= 2024` 或 `year IN [2023, 2024]` 等範圍查詢，需繞過 `build_retriever()` 操作底層 API。方案 A 以最小變動滿足此需求。
+
+**使用範例**：
+
+```python
+# EQ — 純值寫法，向後完全相容
+rag.build_retriever(filter_dict={"page_type": "paper"})
+
+# GTE — tuple 寫法
+rag.build_retriever(filter_dict={
+    "page_type": "paper",
+    "year": (2024, FilterOperator.GTE),
+})
+
+# IN — 多值查詢
+rag.build_retriever(filter_dict={
+    "page_type": (["paper", "announcement"], FilterOperator.IN),
+})
+```
+
+**驗證**：既有 20 項測試全部通過（33.93s），向後相容零破損。
