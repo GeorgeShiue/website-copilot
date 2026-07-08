@@ -5,7 +5,6 @@ from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
-from llama_index.core.utils import truncate_text
 
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -97,31 +96,17 @@ class MarkdownImageExtractor(BaseExtractor):
         return metadata_list
 
 
-def format_sources_text(
-    source_nodes: Sequence[NodeWithScore], content_length: int = 500
-) -> str:
-    texts: List[str] = []
-    for source_node in source_nodes:
-        try:
-            raw_content = source_node.node.get_content()
-        except Exception:
-            raw_content = ""
+def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
+    try:
+        page_title = source_node.node.metadata.get("page_title", "Unknown")
+    except Exception:
+        page_title = "Unknown"
 
-        format_content = truncate_text(raw_content, content_length)
+    score = source_node.get_score()
 
-        try:
-            id = source_node.node.node_id or "None"
-        except Exception:
-            id = "None"
+    try:
+        page_type = source_node.node.metadata.get("page_type", "Unknown")
+    except Exception:
+        page_type = "Unknown"
 
-        try:
-            page_title = source_node.node.metadata.get("page_title", "Unknown")
-        except Exception:
-            page_title = "Unknown"
-
-        score = source_node.get_score()
-
-        source_text = f"> Source (Page: {page_title}, Score: {score:0.3f}, ID: {id}):\n{format_content}"
-        texts.append(source_text)
-
-    return "\n\n".join(texts)
+    return page_title, score, page_type

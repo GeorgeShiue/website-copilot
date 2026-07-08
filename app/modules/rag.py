@@ -23,6 +23,11 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, Document, NodeWithScore
+from llama_index.core.utils import truncate_text
+from llama_index.core.vector_stores import (
+    MetadataFilter,
+    MetadataFilters,
+)
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
@@ -33,11 +38,11 @@ from app.configs.rag_config import (
     DEFAULT_QDRANT_DB_FOLER_PATH,
     WEBPAGES_DATA_FOLDER_PATH,
 )
-from utils.log_helper import log_session
+from utils.log_helper import log_session, log_source_title
 from utils.rag_helper import (
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
-    format_sources_text,
+    extract_sources_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -279,20 +284,59 @@ class Rag:
         )
         return embed_model
 
-    def build_retriever(self, top_k: int = 5) -> None:
+    def build_retriever(
+        self,
+        top_k: int = 5,
+        filter_dict: dict[str, str] | None = None,
+    ) -> None:
+        """建立 retriever，支援選擇性 metadata filter（Qdrant pre-filter）。
+
+        ``filter_dict`` 接受篩選條件字典，例如：
+
+        .. code-block:: python
+
+            filter_dict=[
+                {"page_type": "personnel", "description": "faculty"},
+            ]
+
+        內部會自動轉換為 LlamaIndex 的 ``MetadataFilters`` 物件。
+        """
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
+
+        filters: MetadataFilters | None = None
+        if filter_dict:
+            # filters = MetadataFilters(
+            #     filters=[
+            #         MetadataFilter(key=item["key"], value=item["value"])
+            #         for item in filters_dict
+            #     ]
+            # )
+            filter_list = []
+            for key, value in filter_dict.items():
+                filter = MetadataFilter(key=key, value=value)
+                filter_list.append(filter)
+            filters = MetadataFilters(filters=filter_list)
+
         self.retriever = VectorIndexRetriever(
             index=self.index,
             similarity_top_k=top_k,
+            filters=filters,
         )
         logger.info("Successfully built retriever")
 
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
         logger.info(f"Retrieved {len(source_nodes)} sources")
-        source_text = format_sources_text(source_nodes)
-        logger.info(source_text)
+        for source_node in source_nodes:
+            page_title, score, page_type = extract_sources_info(source_node)
+            log_source_title(page_title, score, page_type)
+
+            raw_content = source_node.node.get_content()
+            format_content = truncate_text(raw_content, max_length=500)
+            logger.info(format_content)
+
+            logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
 
     def build_query_engine(
         self,

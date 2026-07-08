@@ -294,8 +294,13 @@ def run_rag_query(
             )
             rag.load_index(embedding_name=config.embedding_name)
 
+        # filter_dict = {
+        #     "page_type": "paper",
+        # }
+
         rag.build_retriever(
             top_k=config.top_k,
+            # filter_dict=filter_dict, # * 留給 agent 工具參數
         )
         rag.build_query_engine(
             llm_name=config.llm_name,

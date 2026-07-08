@@ -49,13 +49,22 @@
 
 ## 三、Qdrant 向量庫掛載與檢索過濾 (Retrieval with Pre-filtering)
 
+### 規劃
+
 **目標**：在接收到帶有明確條件的查詢時，透過 LlamaIndex 介面驅動 Qdrant 進行底層的硬性篩選。
 
-1. **建構 MetadataFilters 物件**：在呼叫 Retriever 之前，根據查詢需求動態組裝過濾條件。
-   * 使用 `ExactMatchFilter` 處理絕對分類（例：`key="page_type", value="paper"`）。
-   * ~~範圍過濾暫緩~~（例：`key="year", operator=">=", value=2024`），因爬蟲端已移除日期萃取，需待 node-level 內容年份萃取實作後恢復此功能。
-2. **套用至 Retriever**：將組裝好的 `MetadataFilters` 物件傳入 `VectorIndexRetriever` 的 `filters` 參數中。
-3. **封裝檢索介面**：寫一個 Python 封裝函數（例如 `search_with_filters(query, page_type=None)`），讓這個 Retriever 具備接收外部參數的能力，這是為了未來銜接 Agent 路由做準備。
+1. **Filter 參數設計**：`build_retriever()` 接受 `filters_dict: list[dict[str, str]] | None`，每個 dict 包含 `key` 與 `value`。內部自動轉換為 `MetadataFilters` 與 `ExactMatchFilter` 物件，傳入 `VectorIndexRetriever`。
+   * 例：`filters_dict=[{"key": "page_type", "value": "paper"}]`
+   * 支援多條件：`filters_dict=[{"key": "page_type", "value": "paper"}, {"key": "year", "value": "2024"}]`
+2. ~~搜尋封裝函數~~ — **已放棄**。Filter 是 `build_retriever()` 的參數，不是 `query()` 的參數。Agent 只需在呼叫 `build_retriever()` 時傳入 `filters_dict`，`query()` 完全不需要知道 filter 的存在。
+3. ~~`build_retrieval_engine()` 合併方法~~ — **已放棄**。維持既有 `build_retriever()` + `build_query_engine()` 二階段呼叫，filter 只存在於 retriever 層級。
+4. **重要結論**：LlamaIndex 的 `RetrieverQueryEngine` 不需要知道 filter 的存在。只要 retriever 帶有 filters，query engine 在內部呼叫 `retriever.retrieve()` 時就會自動套用 Qdrant 端的 pre-filter。
+
+### 進度
+
+- **`build_retriever()` 支援 `filters_dict`**（2026/7/8）— 參數從 `filters: MetadataFilters | None` 改為 `filters_dict: list[dict[str, str]] | None`，內部自動轉換為 `MetadataFilters`。保留 `ExactMatchFilter` 供未來擴充
+- **`query()` 維持不變** — 不移入 filter 邏輯、不重建 retriever/query engine。Agent 使用流程為：`build_retriever(filters_dict=...)` → `build_query_engine()` → `query()`
+- **`page_type` 僅是 filter key 之一** — 不設專用參數，所有 filter 條件統一透過 `filters_dict` 傳入
 
 ## 四、孤立驗證與邊界測試 (Validation)
 

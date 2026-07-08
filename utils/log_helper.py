@@ -191,6 +191,15 @@ def log_session(title: str, style: str) -> None:
     print_log(Rule(f"[bold {style}]{title}[/bold {style}]", style=style))
 
 
+def log_source_title(page_title, score, page_type):
+    parts = [
+        f"[bold green]Page: {page_title}[/bold green]",
+        f"[bold yellow]Score: {score:0.3f}[/bold yellow]",
+        f"[bold cyan]Type: {page_type}[/bold cyan]",
+    ]
+    print_log(Rule("  [dim white]|[/dim white]  ".join(parts), style="blue"))
+
+
 class FlexibleTimeElapsedColumn(ProgressColumn):
     def render(self, task) -> Text:
         default_time_text = "-:--:--"
