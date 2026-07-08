@@ -5,7 +5,7 @@
 - [x] webpage_image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
 - [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 0 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
-- [x] 保留建置 vector store 的 config 到 data/rag/qdrant_db
+- [x] 保留建置 vector store 的 config 到 data/rag/results/qdrant_db
 - [x] 設計 run config class
 - [x] 提供 CLI 參數覆寫 config 功能
 - [ ] 使用 yaml + pydantic 取代 toml + dataclass
@@ -69,7 +69,7 @@
 
 欄位摘要：
 
-- `vector_store`：`qdrant_db_folder_path`、`collection_name`（預設 collection 為 `webpages`，持久化路徑預設 `data/rag/qdrant_db`）。
+- `vector_store`：`qdrant_db_folder_path`、`collection_name`（預設 collection 為 `webpages`，持久化路徑預設 `data/rag/results/qdrant_db`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
 - `retriever`：`top_k`，`query_engine`：`llm_name`、`cutoff`、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。

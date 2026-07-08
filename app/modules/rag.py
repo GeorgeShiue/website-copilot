@@ -171,13 +171,21 @@ class Rag:
         )
 
     def _file_metadata(self, file_path: str) -> dict[str, Any]:
-        """Extract file metadata for a given file path using instance results JSON."""
+        """Extract file metadata for a given file path using instance results JSON.
+
+        Injects ``page_type`` and ``description`` from the results.json ``metadata``
+        sub-dictionary into the LlamaIndex Document metadata, so they are persisted
+        to Qdrant and available for both pre-filtering and LLM context.
+        """
         page_title = os.path.basename(file_path).replace(".md", "")
         page_info = self.results_json.get(page_title, {})
+        page_metadata: dict[str, Any] = page_info.get("metadata", {})
 
         metadata: dict[str, Any] = {
             "page_title": page_title,
             "page_url": page_info.get("url", ""),
+            "page_type": page_metadata.get("page_type", "general"),
+            "description": page_metadata.get("description", ""),
         }
 
         return metadata

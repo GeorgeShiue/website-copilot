@@ -29,6 +29,8 @@
 
 ## 二、LlamaIndex 節點注入與權限控制 (Data Ingestion)
 
+### 規劃
+
 **目標**：將爬蟲萃取出的標籤（目前僅 `page_type`），無縫綁定到 LlamaIndex 的 `Document` 與切塊後的 `Node` 中，同時避免不必要的標籤浪費大模型的 Token。
 
 1. **載入與綁定**：在讀取 `results.json` 建立 LlamaIndex `Document` 物件時，將爬蟲的 `metadata` 字典傳入 `Document` 的 `metadata` 參數。目前僅有 `page_type` 與 `description` 兩個欄位。
@@ -38,6 +40,12 @@
 3. **切塊繼承**：執行 Text Splitter 時，確認這些 Metadata 都有正確地被所有子 `Node` 繼承。
 
 > **關於 `year` 的替代方案**：爬蟲端已放棄日期萃取，但可於 ingestion 階段從 Markdown 內容補償。`MarkdownHeadingMergeParser` 已將 heading 資訊 merge 進 node 中，可在 `_file_metadata()` 或自訂 Extractor 中以 regex（`20\d{2}`）從 node 的 section heading 或檔名萃取年份，寫入 node metadata。這不會污染 embedding，且對 `Publication_by_Year` 等頁面效果顯著。此作法可視為 P1 優先級。
+
+### 進度
+
+- **`_file_metadata()` 注入 `page_type` 與 `description`**（2026/7/8）— 從 `results.json` 的巢狀 `metadata` 子物件提取兩個欄位，寫入 Document metadata，再透過 IngestionPipeline 自動繼承給所有 child Node
+- **`page_type` 保留給 LLM** — 不設 `excluded_llm_metadata_keys`，因僅 1–3 tokens，且對 `general` 類型邊界案例有助益；反而不建議排除
+- **`year` 暫不實作** — node-level 內容年份萃取歸為 P1，推遲到後續階段
 
 ## 三、Qdrant 向量庫掛載與檢索過濾 (Retrieval with Pre-filtering)
 
