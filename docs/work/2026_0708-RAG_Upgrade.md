@@ -2,7 +2,7 @@
 
 ## 待辦事項
 - [x] 一、 Metadata 擴展與資料庫預篩選 (Metadata Filter)
-- [ ] 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
+- [x] 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking) — ✅ 規劃完成
 - [ ] 三、 知識圖譜檢索 (Graph RAG)
 - [ ] 四、 多步推理代理化 (Agentic RAG)
 
@@ -48,13 +48,40 @@
      ```
      既有 20 項測試全部通過（33.93s），向後相容零破損
 
-## 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
+## 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking) — ✅ 規劃完成
 
 **核心目標：** 在第一階段畫出的「安全範圍」內，解決特定名詞、人名或法規查無資料的召回率瓶頸，並萃取最高純度的上下文。
 
-1. **啟用 Qdrant 雙軌混合檢索 (Hybrid Retriever)**：在初始化 `QdrantVectorStore` 時啟用 `enable_hybrid=True`。讓系統同時建立稠密向量（語意）與稀疏向量（BM25 關鍵字）索引，並透過調整 `alpha` 值來平衡兩者的搜尋權重。
-2. **放寬召回與精準重排序 (Cross-Encoder Reranker)**：將 Retriever 的初步撈取量（`similarity_top_k`）大幅放寬至 15~20 筆。接著，在管線中掛載 `NodePostprocessor`，使用如 `CohereRerank` 或開源的 BGE-Reranker 針對這 20 筆資料進行交叉比對與重新計分，精準截斷保留最相關的 Top-5 筆。
-3. **Prompt 生成約束與防幻覺**：覆寫 `rag_config.py` 中的 `text_qa_template`。加入嚴格溯源指令（「只能使用 Context 回答，若名單不全必須明確告知，絕不允許外推」），並要求模型在生成事實時必須附上來源連結。將此管線封裝為 `HybridQueryEngine`。
+### 關鍵問題：Phase 1 留下的 Paper 低分瓶頸
+
+| Phase 1 發現 | Phase 2 策略 |
+|---|---|
+| Paper cosine score 僅 0.37–0.38，`cutoff=0.4` 會誤殺 | BM25 稀疏檢索補回語意漏網之魚 |
+| 放寬 `cutoff=0.0` 可召回但混入雜訊 | BGE Reranker 二次排序精準截斷 |
+| **解決方案**：語意+關鍵字雙軌 → 寬進嚴出 |
+
+### Phase 2 四大改動摘要
+
+1. **Qdrant 雙軌混合檢索 (Hybrid Retriever)**：`build_vector_store()` 傳入 `enable_hybrid=True` + `fastembed_sparse_model="Qdrant/bm25"`，讓 collection 同時儲存稠密向量（語意）與稀疏向量（BM25 關鍵字）。`build_retriever()` 新增 `vector_store_query_mode="hybrid"`、`sparse_top_k`、`hybrid_top_k`、`alpha=0.5` 等參數。Metadata filter 與 hybrid mode 可同時作用（Qdrant pre-filter 層級不受模式影響）。
+
+2. **BGE Reranker 精準重排序**：採用 **`BAAI/bge-reranker-v2-m3`**（本地、免費、支援中英文）而非 Cohere API。`build_query_engine()` 在 `node_postprocessors` 中先後掛載 `SimilarityPostprocessor(cutoff=0.0)` + `SentenceTransformerRerank(top_n=5)`。管道流程：`Retriever (hybrid, top_k=15) → cutoff=0.0 → BGE Rerank (top_n=5) → LLM`。放寬 cutoff 至 0.0，讓 reranker 而非向量截斷負責精準過濾。
+
+3. **Prompt 模板防幻覺與強制溯源**：覆寫 `text_qa_template`，加入嚴格指令：「只能使用 Context 回答；附上來源連結 `[頁面名稱](url)`；名單不全須明確告知；嚴禁推測外推」。確保 LLM 生成品質不受混合檢索帶入的雜訊影響。
+
+4. **Config Schema 擴充**：`app/configs/rag_config.py` 的 `RagConfig` 新增 `[retriever]` 擴充參數（`vector_store_query_mode`、`sparse_top_k`、`hybrid_top_k`、`alpha`、`enable_hybrid`）與全新 `[reranker]` section（`reranker_model`、`reranker_top_n`）。TOML 設定檔同步擴充。向後相容：`enable_hybrid=False` 或 `reranker_model=""` 時退化為既有 dense-only 行為。
+
+### 依賴套件新增
+- `fastembed>=0.6.0`（Qdrant BM25 稀疏向量本地生成）
+- `sentence-transformers>=3.4.0`（BGE Cross-Encoder Reranker）
+
+### 測試計畫（預估 11 項）
+- `TestHybridRetrieval`（3）：hybrid 召回率 > dense-only，Paper 低分節點被 BM25 補回
+- `TestRerankerOrdering`（2）：reranker 後 top-5 相關性提升、score 重新排序正確
+- `TestFilterCompatibility`（2）：metadata filter + hybrid mode 同時運作無衝突
+- `TestRegression`（2）：Q5 回歸 hybrid + filter + reranker 仍維持 PASSING
+- `TestEdgeCases`（2）：退化模式（reranker_model="" / enable_hybrid=False）正常
+
+詳細完整內容請參考 [`docs/work/2026_0709-hybrid-search.md`](2026_0709-hybrid-search.md)。
 
 ## 三、 知識圖譜檢索 (Graph RAG)
 
