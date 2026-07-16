@@ -208,6 +208,9 @@ def run_rag_build(
         log_session("Building Retriever", style="cyan")
         rag.build_retriever(
             top_k=config.top_k,
+            query_mode=config.query_mode,
+            sparse_top_k=config.sparse_top_k,
+            alpha=config.alpha,
         )
 
         # ----- 建立 Query Engine -----
@@ -298,6 +301,9 @@ def run_rag_query(
 
         rag.build_retriever(
             top_k=config.top_k,
+            query_mode=config.query_mode,
+            sparse_top_k=config.sparse_top_k,
+            alpha=config.alpha,
             # filter_dict=filter_dict, # * 留給 agent 工具參數
         )
         rag.build_query_engine(

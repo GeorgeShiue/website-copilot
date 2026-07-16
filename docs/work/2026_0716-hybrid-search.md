@@ -1,7 +1,5 @@
-# Hybrid Search + Node Re-ranking 實作計畫
-
+# Hybrid Search (2026/7/16)
 > 對應 `2026_0708-RAG_Upgrade.md` 第二部分（二、混合檢索與重排序）
-> 建立日期：2026/07/09 | 最後修正：2026/07/16（根據 Qdrant Hybrid Search 官方 API 文件校正、重組為兩大部分）
 
 ## 前置回顧：Phase 1 對 Phase 2 的關鍵影響
 
@@ -38,12 +36,16 @@ Hybrid Search 的核心優勢在於同時利用兩者的互補性：語義理解
 
 | Section | 欄位 | 類型 | 預設值 | 說明 |
 |---------|------|------|--------|------|
-| `[vector_store]` | `batch_size` | `int` | `20` | 稀疏向量批次編碼的節點數 |
-| `[retriever]` | `top_k` | `int` | `15` | 最終回傳的節點數（fusion 後） |
-| `[retriever]` | `vector_store_query_mode` | `str` | `"hybrid"` | `"hybrid"` 或 `"default"` |
+| `[retriever]` | `top_k` | `int` | `5` | 最終回傳的節點數（fusion 後） |
+| `[retriever]` | `query_mode` | `str` | `"hybrid"` | `"hybrid"` 或 `"default"` |
 | `[retriever]` | `sparse_top_k` | `int` | `15` | 每種向量各取回 N 筆候選 |
 | `[retriever]` | `alpha` | `float` | `0.5` | 稠密/稀疏權重（數值越低越偏稀疏） |
-| `[retriever]` | `enable_hybrid` | `bool` | `True` | 是否啟用 hybrid 索引 |
+
+> **實際實作差異**：
+> - `batch_size` 已移除，使用 `QdrantVectorStore` 預設值 `64`
+> - `enable_hybrid` 已從 config 層移除，於 `build_vector_store()` 中**硬編碼為 `True`**
+> - `fastembed_sparse_model` 已從 config 層移除，於 `build_vector_store()` 中**硬編碼為 `"Qdrant/bm25"`**
+> - 參數名稱 `vector_store_query_mode` → `query_mode`（更簡潔）
 
 > **API 校正**：官方 `QdrantVectorStore` **無** `hybrid_top_k` 參數。候選總數由 `sparse_top_k`（各取 N 筆）控制，最終輸出由 `similarity_top_k`（即 `top_k`）控制。
 
@@ -51,41 +53,38 @@ Hybrid Search 的核心優勢在於同時利用兩者的互補性：語義理解
 
 ```python
 VECTOR_STORE_KEYS = {
-    # ...既有 keys...
-    "batch_size",  # 新增
+    "qdrant_db_folder_path",
+    "collection_name",
 }
 
 RETRIEVER_KEYS = {
     "top_k",
-    "vector_store_query_mode",  # 新增
-    "sparse_top_k",             # 新增
-    "alpha",                    # 新增
-    "enable_hybrid",            # 新增
+    "query_mode",          # 新增
+    "sparse_top_k",        # 新增
+    "alpha",               # 新增
 }
 ```
 
 ### `_validate_config()` 新增驗證
 
 ```python
-# vector_store_query_mode: 僅接受 "hybrid" 或 "default"
+# query_mode: 僅接受 "hybrid" 或 "default"
 # alpha: 必須為數值且介於 0.0 到 1.0 之間
-# enable_hybrid: 必須為布林值
 # sparse_top_k: 必須為大於 0 的整數
-# batch_size: 必須為大於 0 的整數
 ```
 
-### 設定檔範例（`configs/rag/default.toml`）
+### 設定檔範例（`configs/rag/test.toml`）
 
 ```toml
 [vector_store]
-batch_size = 20
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
+collection_name = "webpages"
 
 [retriever]
-top_k = 15
-vector_store_query_mode = "hybrid"
+top_k = 10  # run name
+query_mode = "hybrid"
 sparse_top_k = 15
 alpha = 0.5
-enable_hybrid = true
 ```
 
 ## 1.4 Vector Store 改造：啟用 Hybrid 索引
@@ -97,9 +96,6 @@ def build_vector_store(
     self,
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
     collection_name: str = "webpages",
-    enable_hybrid: bool = True,
-    fastembed_sparse_model: str = "Qdrant/bm25",
-    batch_size: int = 20,
 ) -> None:
     self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
     self.aqdrant_client = AsyncQdrantClient(path=qdrant_db_folder_path)
@@ -108,20 +104,19 @@ def build_vector_store(
         self.qdrant_client,
         aclient=self.aqdrant_client,
         index_doc_id=False,
-        enable_hybrid=enable_hybrid,
-        fastembed_sparse_model=fastembed_sparse_model,
-        batch_size=batch_size,
+        enable_hybrid=True,                         # 硬編碼永遠啟用
+        fastembed_sparse_model="Qdrant/bm25",       # 硬編碼 BM25 模型
     )
-    logger.info(f"Successfully built vector store (hybrid={enable_hybrid})")
+    logger.info("Successfully built vector store")
 ```
 
 ### 關鍵考量
 
-- `enable_hybrid=True` 後，**新建立的 collection** 會同時包含稠密向量 + BM25 稀疏向量
-- `batch_size` 控制每次傳入稀疏向量模型的節點數，防止大資料集 OOM
+- `enable_hybrid=True` 硬編碼，**新建立的 collection** 會同時包含稠密向量 + BM25 稀疏向量
 - `Qdrant/bm25` 是 Qdrant 官方預訓練的 BM25 稀疏向量模型，不需額外訓練
 - `AsyncQdrantClient`（`aclient`）支援非同步查詢（`await query_engine.aquery()`）
 - 既有 collection 無 sparse vectors 需重建索引（詳見 §Workflow）
+- `batch_size` 使用 `QdrantVectorStore` 預設值 `64`（非同步批次上傳的點數），不需額外設定
 
 ## 1.5 Retriever 改造：混合檢索 + Metadata Filter 共存
 
@@ -132,7 +127,7 @@ def build_retriever(
     self,
     top_k: int = 5,
     filter_dict: dict[str, str | int | tuple] | None = None,
-    vector_store_query_mode: str = "hybrid",
+    query_mode: str = "hybrid",  # "default" or "hybrid"
     sparse_top_k: int = 15,
     alpha: float = 0.5,
 ) -> None:
@@ -142,8 +137,8 @@ def build_retriever(
 
 1. **Metadata filter 轉換邏輯不變**（Phase 1 的 `filter_dict` → `MetadataFilters`）
 2. **判斷檢索模式**：
-   - `"hybrid"` → 傳入 `vector_store_query_mode="hybrid"`、`sparse_top_k`、`alpha`
-   - `"default"` → 只設 `vector_store_query_mode="default"`，退化為純稠密檢索
+   - `"hybrid"` → 傳入 `VectorStoreQueryMode.HYBRID`、`sparse_top_k`、`alpha`
+   - `"default"` → 傳入 `VectorStoreQueryMode.DEFAULT`，退化為純稠密檢索
 3. **解包傳入 `VectorIndexRetriever`**，並 log 輸出檢索模式與所有參數值
 
 ### 重要說明
@@ -315,8 +310,8 @@ HYBRID_TEXT_QA_TEMPLATE = PromptTemplate(
 
 | 呼叫方法 | 傳入的新參數 |
 |---------|-------------|
-| `build_vector_store()` | `config.enable_hybrid`（啟用 hybrid 索引） |
-| `build_retriever()` | `config.top_k`、`config.vector_store_query_mode`、`config.sparse_top_k`、`config.alpha` |
+| `build_vector_store()` | 無（`enable_hybrid` 已在方法內硬編碼為 `True`） |
+| `build_retriever()` | `config.top_k`、`config.query_mode`、`config.sparse_top_k`、`config.alpha` |
 | `build_query_engine()` | `config.cutoff`、`config.reranker_model`、`config.reranker_top_n` |
 
 `build_index()` 不需更動 — 稠密向量由 `embed_model` 處理，稀疏向量由 `QdrantVectorStore` 內部處理。
@@ -329,13 +324,11 @@ HYBRID_TEXT_QA_TEMPLATE = PromptTemplate(
 
 | 場景 | 處理方式 |
 |---|---|
-| 既有 collection 無 sparse vectors | 偵測後自動 clean + rebuild，或提示使用者執行 force_rebuild |
-| `enable_hybrid=False` | 完全退化為目前 dense-only 行為，零破損 |
+| 既有 collection 無 sparse vectors | 偵測後自動 clean + rebuild，或提示使用者執行 `force_rebuild` |
 | `reranker_model=""` | 跳過 reranker 初始化，只保留 SimilarityPostprocessor |
-| `vector_store_query_mode="default"` | 跳過 hybrid 參數，使用傳統 dense-only 檢索 |
+| `query_mode="default"` | 使用傳統 dense-only 檢索 |
 | 舊 config TOML 無 hybrid/reranker section | 透過 `RagConfig` 預設值自動補齊 |
 | `top_k` 維持既有值（5） | 仍可正常執行，僅無 hybrid+reranker 帶來的效益 |
-| `batch_size` 不存在於舊版 config | 透過 `RagConfig.__post_init__` 補上預設值 `20` |
 
 ## 測試計畫
 
@@ -347,7 +340,7 @@ HYBRID_TEXT_QA_TEMPLATE = PromptTemplate(
 | `TestRerankerOrdering` | Part 2 | 2 | Reranker 後 top-5 均為真正相關節點，分數重新排序正確 |
 | `TestFilterCompatibility` | Part 1 | 2 | Metadata filter + hybrid mode 同時運作 |
 | `TestRegression` | 共同 | 2 | Hybrid + filter + reranker 不破壞 Q5 既有通過條件 |
-| `TestEdgeCases` | 共同 | 2 | 退化模式：`reranker_model=""`、`enable_hybrid=False` |
+| `TestEdgeCases` | 共同 | 1 | 退化模式：`reranker_model=""` |
 
 ### 預期評估指標
 
@@ -363,11 +356,11 @@ HYBRID_TEXT_QA_TEMPLATE = PromptTemplate(
 
 ```
 [Step 1] 依賴安裝: pyproject.toml 新增 fastembed + sentence-transformers
-[Step 2] Config 擴充: rag_config.py 新增 hybrid + reranker 參數與驗證
-[Step 3] Vector Store: rag.py build_vector_store 新增 enable_hybrid
+[Step 2] Config 擴充: rag_config.py 新增 hybrid 參數（query_mode, sparse_top_k, alpha）與驗證
+[Step 3] Vector Store: rag.py build_vector_store 硬編碼 enable_hybrid=True
 [Step 4] Retriever:    rag.py build_retriever 新增 hybrid 檢索模式           ← Part 1
 [Step 5] Query Engine: rag.py build_query_engine 新增 Reranker + Prompt     ← Part 2
-[Step 6] 設定檔:      default.toml / test.toml 擴充
+[Step 6] 設定檔:      test.toml 加入 query_mode, sparse_top_k, alpha
 [Step 7] Workflow:    workflow.py 將新參數傳入對應方法
 [Step 8] 測試:        test/test_hybrid_rerank.py 撰寫
 [Step 9] 回歸測試:    確保既有 20 項 metadata filter 測試不受影響

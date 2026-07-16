@@ -39,6 +39,9 @@ INDEX_KEYS = {
 }
 RETRIEVER_KEYS = {
     "top_k",
+    "query_mode",
+    "sparse_top_k",
+    "alpha",
 }
 QUERY_ENGINE_KEYS = {
     "llm_name",
@@ -72,6 +75,9 @@ class RagConfig:
     embedding_name: str = "text-embedding-3-small"
     # ----- retriever config -----
     top_k: int = 5
+    query_mode: str = "hybrid"
+    sparse_top_k: int = 15
+    alpha: float = 0.5
     # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
     cutoff: float = 0.5
@@ -175,12 +181,31 @@ def _validate_config(config: dict[str, Any]) -> None:
 
     # ----- retriever config -----
     top_k = config.get("top_k")
+    query_mode = config.get("query_mode")
+    sparse_top_k = config.get("sparse_top_k")
+    alpha = config.get("alpha")
 
     if top_k is not None:
         if not isinstance(top_k, int):
             raise ConfigValidationError("top_k 必須是整數")
         if top_k <= 0:
             raise ConfigValidationError("top_k 必須大於 0")
+
+    if query_mode is not None:
+        if query_mode not in ("hybrid", "default"):
+            raise ConfigValidationError("query_mode 必須是 'hybrid' 或 'default'")
+
+    if sparse_top_k is not None:
+        if not isinstance(sparse_top_k, int):
+            raise ConfigValidationError("sparse_top_k 必須是整數")
+        if sparse_top_k <= 0:
+            raise ConfigValidationError("sparse_top_k 必須大於 0")
+
+    if alpha is not None:
+        if not isinstance(alpha, (int, float)):
+            raise ConfigValidationError("alpha 必須是數值")
+        if not 0.0 <= float(alpha) <= 1.0:
+            raise ConfigValidationError("alpha 必須介於 0.0 到 1.0")
 
     # ----- query engine config -----
     llm_name = config.get("llm_name")

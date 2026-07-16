@@ -29,6 +29,7 @@ from llama_index.core.vector_stores import (
     MetadataFilter,
     MetadataFilters,
 )
+from llama_index.core.vector_stores.types import VectorStoreQueryMode
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
@@ -133,6 +134,7 @@ RELEVANCY_REFINE_TEMPLATE = PromptTemplate(
 )
 
 
+# TODO: Qdrant/bm25 不支援中文，改用 milvus vector store
 class Rag:
     def __init__(
         self,
@@ -165,7 +167,11 @@ class Rag:
     ) -> None:
         self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
         self.vector_store = QdrantVectorStore(
-            collection_name, self.qdrant_client, index_doc_id=False
+            collection_name,
+            self.qdrant_client,
+            index_doc_id=False,
+            enable_hybrid=True,
+            fastembed_sparse_model="Qdrant/bm25",
         )
         logger.info("Successfully built vector store")
 
@@ -291,6 +297,9 @@ class Rag:
         self,
         top_k: int = 5,
         filter_dict: dict[str, str | int | tuple] | None = None,
+        query_mode: str = "hybrid",  # "default" or "hybrid"
+        sparse_top_k: int = 15,
+        alpha: float = 0.5,
     ) -> None:
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
@@ -308,12 +317,20 @@ class Rag:
                 )
             filters = MetadataFilters(filters=filter_list)
 
+        vector_store_query_mode = (
+            VectorStoreQueryMode.HYBRID
+            if query_mode == "hybrid"
+            else VectorStoreQueryMode.DEFAULT
+        )
         self.retriever = VectorIndexRetriever(
             index=self.index,
             similarity_top_k=top_k,
             filters=filters,
+            vector_store_query_mode=vector_store_query_mode,
+            sparse_top_k=sparse_top_k,
+            alpha=alpha,
         )
-        logger.info("Successfully built retriever")
+        logger.info(f"Successfully built retriever (query mode={query_mode})")
 
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
