@@ -13,7 +13,11 @@ from utils.config_helper import (
 logger = logging.getLogger(__name__)
 
 WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
-DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/results/qdrant_db"
+RAG_RESULTS_FOLDER_PATH = "data/rag/results"
+DEFAULT_VECTOR_STORE_TYPE = "qdrant"
+DEFALULT_COLLECTION_NAME = "webpages"
+DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
+DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
@@ -28,6 +32,8 @@ INIT_KEYS = {
 VECTOR_STORE_KEYS = {
     "qdrant_db_folder_path",
     "collection_name",
+    "vector_store_type",
+    "milvus_uri",
 }
 NODES_KEYS = {
     "chunk_size",
@@ -38,9 +44,9 @@ INDEX_KEYS = {
     "embedding_name",
 }
 RETRIEVER_KEYS = {
-    "top_k",
+    "similarity_top_k",
     "query_mode",
-    "sparse_top_k",
+    "hybrid_top_k",
     "alpha",
 }
 QUERY_ENGINE_KEYS = {
@@ -65,8 +71,10 @@ class RagConfig:
     # ----- init config -----
     webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
     # ----- vector store config -----
+    vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
-    collection_name: str = "webpages"
+    milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
+    collection_name: str = DEFALULT_COLLECTION_NAME
     # ----- nodes config -----
     chunk_size: int = 800
     chunk_overlap: int = 100
@@ -74,13 +82,13 @@ class RagConfig:
     # ----- index config -----
     embedding_name: str = "text-embedding-3-small"
     # ----- retriever config -----
-    top_k: int = 5
     query_mode: str = "hybrid"
-    sparse_top_k: int = 15
+    similarity_top_k: int = 10
+    hybrid_top_k: int = 10
     alpha: float = 0.5
     # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
-    cutoff: float = 0.5
+    cutoff: float = 0.4
     query: str = "實驗室發表過的論文"
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(
@@ -139,6 +147,10 @@ def _validate_config(config: dict[str, Any]) -> None:
     # ----- vector store config -----
     qdrant_db_folder_path = config.get("qdrant_db_folder_path")
     collection_name = config.get("collection_name")
+    vector_store_type = config.get("vector_store_type")
+
+    if vector_store_type is not None and vector_store_type not in ("qdrant", "milvus"):
+        raise ConfigValidationError("vector_store_type 必須是 'qdrant' 或 'milvus'")
 
     if qdrant_db_folder_path is not None:
         if not isinstance(qdrant_db_folder_path, str):
@@ -180,26 +192,26 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("embedding_name 不可為空字串")
 
     # ----- retriever config -----
-    top_k = config.get("top_k")
+    similarity_top_k = config.get("similarity_top_k")
     query_mode = config.get("query_mode")
-    sparse_top_k = config.get("sparse_top_k")
+    hybrid_top_k = config.get("hybrid_top_k")
     alpha = config.get("alpha")
 
-    if top_k is not None:
-        if not isinstance(top_k, int):
-            raise ConfigValidationError("top_k 必須是整數")
-        if top_k <= 0:
-            raise ConfigValidationError("top_k 必須大於 0")
+    if similarity_top_k is not None:
+        if not isinstance(similarity_top_k, int):
+            raise ConfigValidationError("similarity_top_k 必須是整數")
+        if similarity_top_k <= 0:
+            raise ConfigValidationError("similarity_top_k 必須大於 0")
 
     if query_mode is not None:
         if query_mode not in ("hybrid", "default"):
             raise ConfigValidationError("query_mode 必須是 'hybrid' 或 'default'")
 
-    if sparse_top_k is not None:
-        if not isinstance(sparse_top_k, int):
-            raise ConfigValidationError("sparse_top_k 必須是整數")
-        if sparse_top_k <= 0:
-            raise ConfigValidationError("sparse_top_k 必須大於 0")
+    if hybrid_top_k is not None:
+        if not isinstance(hybrid_top_k, int):
+            raise ConfigValidationError("hybrid_top_k 必須是整數")
+        if hybrid_top_k <= 0:
+            raise ConfigValidationError("hybrid_top_k 必須大於 0")
 
     if alpha is not None:
         if not isinstance(alpha, (int, float)):

@@ -23,9 +23,9 @@ class WebpageImageSummarizerConfigCLI:
 @dataclass
 class RagConfigCLI:
     # ----- retriever config -----
-    top_k: int | None = None
+    similarity_top_k: int | None = None
     query_mode: str | None = None
-    sparse_top_k: int | None = None
+    hybrid_top_k: int | None = None
     alpha: float | None = None
     # ----- query engine config -----
     cutoff: float | None = None

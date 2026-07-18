@@ -33,11 +33,18 @@ from llama_index.core.vector_stores.types import VectorStoreQueryMode
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
+from llama_index.vector_stores.milvus import MilvusVectorStore
+from llama_index.vector_stores.milvus.utils import (
+    BGEM3SparseEmbeddingFunction,
+)
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
 from app.configs.rag_config import (
+    DEFALULT_COLLECTION_NAME,
+    DEFAULT_MILVUS_DB_FOLDER_PATH,
     DEFAULT_QDRANT_DB_FOLER_PATH,
+    DEFAULT_VECTOR_STORE_TYPE,
     WEBPAGES_DATA_FOLDER_PATH,
 )
 from utils.log_helper import log_session, log_source_title
@@ -49,6 +56,12 @@ from utils.rag_helper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+EMBEDDING_DIM_MAP: dict[str, int] = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+}
 
 
 FAITHFULNESS_EVAL_TEMPLATE = PromptTemplate(
@@ -134,7 +147,7 @@ RELEVANCY_REFINE_TEMPLATE = PromptTemplate(
 )
 
 
-# TODO: Qdrant/bm25 不支援中文，改用 milvus vector store
+# TODO: 優化 milvus vector store
 class Rag:
     def __init__(
         self,
@@ -148,32 +161,61 @@ class Rag:
 
         # ===== internal state =====
         self.qdrant_client: QdrantClient | None = None
-        self.vector_store: QdrantVectorStore | None = None
+        self.vector_store: QdrantVectorStore | MilvusVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.nodes: Sequence[BaseNode] | None = None
         self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
 
     def clean_vector_store(
-        self, qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
+        self,
+        qdrant_db_folder_path: str | None = None,
+        milvus_uri: str | None = None,
     ) -> None:
-        shutil.rmtree(qdrant_db_folder_path)
-        logger.info("Successfully cleaned existing vector store")
+        if qdrant_db_folder_path and os.path.exists(qdrant_db_folder_path):
+            shutil.rmtree(qdrant_db_folder_path)
+            logger.info("Cleaned Qdrant vector store")
+
+        if milvus_uri and os.path.exists(milvus_uri):
+            shutil.rmtree(milvus_uri)
+            logger.info("Cleaned Milvus vector store")
 
     def build_vector_store(
         self,
+        vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE,
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
-        collection_name: str = "webpages",
+        milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH,
+        collection_name: str = DEFALULT_COLLECTION_NAME,
+        embedding_name: str = "text-embedding-3-small",
+        overwrite: bool = True,
     ) -> None:
-        self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
-        self.vector_store = QdrantVectorStore(
-            collection_name,
-            self.qdrant_client,
-            index_doc_id=False,
-            enable_hybrid=True,
-            fastembed_sparse_model="Qdrant/bm25",
-        )
-        logger.info("Successfully built vector store")
+        if vector_store_type == "qdrant":
+            os.makedirs(qdrant_db_folder_path, exist_ok=True)
+            self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
+            self.vector_store = QdrantVectorStore(
+                collection_name,
+                self.qdrant_client,
+                index_doc_id=False,
+                enable_hybrid=True,
+                fastembed_sparse_model="Qdrant/bm25",
+            )
+        elif vector_store_type == "milvus":
+            dim = EMBEDDING_DIM_MAP.get(embedding_name)
+
+            # * MilvusLite search 須明確指定 output_fields 才能回傳節點完整資料
+            self.vector_store = MilvusVectorStore(
+                milvus_uri,
+                collection_name=collection_name,
+                overwrite=overwrite,
+                dim=dim,
+                output_fields=["_node_content", "_node_type"],
+                enable_sparse=True,
+                sparse_embedding_function=BGEM3SparseEmbeddingFunction(),
+            )
+        else:
+            raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
+
+        logger.info(f"Successfully built vector store (type={vector_store_type})")
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -211,6 +253,7 @@ class Rag:
         self.index = VectorStoreIndex.from_vector_store(
             self.vector_store, embed_model, show_progress=True
         )
+
         logger.info("Successfully loaded index from vector store")
 
     def build_index(
@@ -295,10 +338,10 @@ class Rag:
 
     def build_retriever(
         self,
-        top_k: int = 5,
-        filter_dict: dict[str, str | int | tuple] | None = None,
         query_mode: str = "hybrid",  # "default" or "hybrid"
-        sparse_top_k: int = 15,
+        filter_dict: dict[str, str | int | tuple] | None = None,
+        similarity_top_k: int = 10,
+        hybrid_top_k: int = 10,
         alpha: float = 0.5,
     ) -> None:
         if self.index is None:
@@ -324,10 +367,10 @@ class Rag:
         )
         self.retriever = VectorIndexRetriever(
             index=self.index,
-            similarity_top_k=top_k,
+            similarity_top_k=similarity_top_k,
             filters=filters,
             vector_store_query_mode=vector_store_query_mode,
-            sparse_top_k=sparse_top_k,
+            hybrid_top_k=hybrid_top_k,
             alpha=alpha,
         )
         logger.info(f"Successfully built retriever (query mode={query_mode})")
@@ -351,6 +394,7 @@ class Rag:
         self,
         llm_name: str = "gemini-3.1-flash-lite",
         cutoff: float = 0.45,
+        query_mode: str = "hybrid",
     ) -> None:
         if self.retriever is None:
             raise RuntimeError(
@@ -366,11 +410,17 @@ class Rag:
 
         llm = self._set_llm(llm_name, api_key_name)
         response_synthesizer = get_response_synthesizer(llm)
-        similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
+
+        node_postprocessors = []
+        if query_mode != "hybrid":
+            node_postprocessors.append(
+                SimilarityPostprocessor(similarity_cutoff=cutoff)
+            )
+
         self.query_engine = RetrieverQueryEngine(
             self.retriever,
             response_synthesizer,
-            node_postprocessors=[similarity_postprocessor],
+            node_postprocessors=node_postprocessors,
         )
 
         logger.info("Successfully built query engine")
@@ -455,9 +505,8 @@ class Rag:
         logger.info(f"Reason: {reason}")
 
     def close(self) -> None:
-        client = self.qdrant_client
-        if client is not None:
-            client.close()
+        if self.qdrant_client is not None:
+            self.qdrant_client.close()
 
         self.qdrant_client = None
         self.vector_store = None
@@ -475,7 +524,7 @@ class Rag:
         )
         self.results_json = self._load_results_json()
 
-        client: QdrantClient | None = getattr(self, "client", None)
+        client: QdrantClient | None = self.qdrant_client
         if client is not None:
             client.close()
 

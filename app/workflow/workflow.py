@@ -1,6 +1,10 @@
 import os
 
-from app.configs.rag_config import RagConfig
+from app.configs.rag_config import (
+    DEFAULT_MILVUS_DB_FOLDER_PATH,
+    DEFAULT_QDRANT_DB_FOLER_PATH,
+    RagConfig,
+)
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
 from app.modules.rag import Rag
@@ -192,10 +196,13 @@ def run_rag_build(
         # ----- 建立 Vector Store -----
         log_session("Building Vector Store", style="cyan")
         rag.build_vector_store(
+            vector_store_type=config.vector_store_type,
             qdrant_db_folder_path=os.path.join(
                 run_manager.results_folder_path, "qdrant_db"
             ),
+            milvus_uri=os.path.join(run_manager.results_folder_path, "milvus.db"),
             collection_name=config.collection_name,
+            embedding_name=config.embedding_name,
         )
 
         # ----- 建立 Index -----
@@ -207,9 +214,9 @@ def run_rag_build(
         # ----- 建立 Retriever -----
         log_session("Building Retriever", style="cyan")
         rag.build_retriever(
-            top_k=config.top_k,
+            similarity_top_k=config.similarity_top_k,
             query_mode=config.query_mode,
-            sparse_top_k=config.sparse_top_k,
+            hybrid_top_k=config.hybrid_top_k,
             alpha=config.alpha,
         )
 
@@ -218,6 +225,7 @@ def run_rag_build(
         rag.build_query_engine(
             llm_name=config.llm_name,
             cutoff=config.cutoff,
+            query_mode=config.query_mode,
         )
 
         # ----- Query & Response -----
@@ -266,30 +274,45 @@ def run_rag_query(
         # ----- 建立所有資源 -----
         log_session("Building All Resources", style="cyan")
         rebuild = False
-        if force_rebuild or not os.path.exists(config.qdrant_db_folder_path):
+        store_path = (
+            config.milvus_uri
+            if config.vector_store_type == "milvus"
+            else config.qdrant_db_folder_path
+        )
+        if force_rebuild or not os.path.exists(store_path):
             rebuild = True
 
-        if rebuild:
-            if os.path.exists(config.qdrant_db_folder_path):
+        # * Milvus Vector Store 必須重建
+        if rebuild or config.vector_store_type == "milvus":
+            if config.vector_store_type == "qdrant":
                 rag.clean_vector_store(
                     qdrant_db_folder_path=config.qdrant_db_folder_path
                 )
+            elif config.vector_store_type == "milvus":
+                rag.clean_vector_store(milvus_uri=config.milvus_uri)
             rag.build_nodes(
                 chunk_size=config.chunk_size,
                 chunk_overlap=config.chunk_overlap,
                 paragraph_separator=config.paragraph_separator,
             )
             rag.build_vector_store(
+                vector_store_type=config.vector_store_type,
                 qdrant_db_folder_path=config.qdrant_db_folder_path,
+                milvus_uri=config.milvus_uri,
                 collection_name=config.collection_name,
+                embedding_name=config.embedding_name,
             )
             rag.build_index(
                 embedding_name=config.embedding_name,
             )
         else:
             rag.build_vector_store(
+                vector_store_type=config.vector_store_type,
                 qdrant_db_folder_path=config.qdrant_db_folder_path,
+                milvus_uri=config.milvus_uri,
                 collection_name=config.collection_name,
+                embedding_name=config.embedding_name,
+                overwrite=False,
             )
             rag.load_index(embedding_name=config.embedding_name)
 
@@ -300,15 +323,16 @@ def run_rag_query(
         # }
 
         rag.build_retriever(
-            top_k=config.top_k,
+            similarity_top_k=config.similarity_top_k,
             query_mode=config.query_mode,
-            sparse_top_k=config.sparse_top_k,
+            hybrid_top_k=config.hybrid_top_k,
             alpha=config.alpha,
             # filter_dict=filter_dict, # * 留給 agent 工具參數
         )
         rag.build_query_engine(
             llm_name=config.llm_name,
             cutoff=config.cutoff,
+            query_mode=config.query_mode,
         )
 
         # ----- Query -----
@@ -346,7 +370,15 @@ def run_rag_query(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
         if rebuild:
-            save_module_config_as_toml(config, "data/rag/module_config.toml")
+            module_config_folder_path = ""
+            if config.vector_store_type == "qdrant":
+                module_config_folder_path = DEFAULT_QDRANT_DB_FOLER_PATH
+            elif config.vector_store_type == "milvus":
+                module_config_folder_path = DEFAULT_MILVUS_DB_FOLDER_PATH
+            save_module_config_as_toml(
+                config,
+                os.path.join(module_config_folder_path, "module_config.toml"),
+            )
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
