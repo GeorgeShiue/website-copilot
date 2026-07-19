@@ -5,6 +5,7 @@ from app.workflow.workflow_manager import RunManager
 setup_logging("debug")
 
 
+# TODO: 支援使用 CLI 控制實驗
 def webpage_image_summarizer_model():
     # gemini_flash_lite_models = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
     # gemini_3_all_tier_models = [
@@ -36,7 +37,6 @@ def webpage_image_summarizer_prompt():
         )
 
 
-# TODO: 測試 gemini 3.1 pro
 def rag_model():
     run_manager = RunManager()
     queries = [
@@ -49,7 +49,7 @@ def rag_model():
         # "gemini-3-flash",
         # "gemini-3.5-flash",
         # "gemini-2.5-pro",
-        "gemini-3.1-pro",  # 待測試
+        "gemini-3.1-pro",
     ]
 
     for i in range(len(queries)):
@@ -80,6 +80,24 @@ def rag_hybrid_ranker():
         )
 
 
+def rag_hybrid_ranker_weights():
+    run_manager = RunManager()
+    run_manager.set_module_path("rag_hybrid_ranker_weights")
+
+    hybrid_ranker_weights = [
+        "milvus-weight",
+        "milvus-weight-1.0_0.5",
+        "milvus-weight-0.9_0.3",
+    ]
+
+    for hybrid_ranker_weight in hybrid_ranker_weights:
+        run_rag_query(
+            run_manager=run_manager,
+            config_name=hybrid_ranker_weight,
+            run_name_use_config_name=True,
+        )
+
+
 if __name__ == "__main__":
     import asyncio
 
@@ -88,4 +106,5 @@ if __name__ == "__main__":
     # webpage_image_summarizer_model()
     # webpage_image_summarizer_prompt()
     # rag_model()
-    rag_hybrid_ranker()
+    # rag_hybrid_ranker()
+    rag_hybrid_ranker_weights()

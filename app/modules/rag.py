@@ -147,7 +147,7 @@ RELEVANCY_REFINE_TEMPLATE = PromptTemplate(
 )
 
 
-# TODO: 優化 milvus vector store
+# TODO: 測試 milvus vector store
 class Rag:
     def __init__(
         self,
@@ -188,7 +188,8 @@ class Rag:
         collection_name: str = DEFALULT_COLLECTION_NAME,
         embedding_name: str = "text-embedding-3-small",
         overwrite: bool = True,
-        hybrid_ranker: str = "RRFRanker",
+        hybrid_ranker: str = "WeightedRanker",
+        hybrid_ranker_params: dict | None = None,
     ) -> None:
         if vector_store_type == "qdrant":
             os.makedirs(qdrant_db_folder_path, exist_ok=True)
@@ -203,13 +204,13 @@ class Rag:
         elif vector_store_type == "milvus":
             dim = EMBEDDING_DIM_MAP.get(embedding_name)
 
-            # 依 hybrid_ranker 類型決定硬編碼參數（實驗 A/B）
-            if hybrid_ranker == "RRFRanker":
-                hybrid_ranker_params = {"k": 60}
-            elif hybrid_ranker == "WeightedRanker":
-                hybrid_ranker_params = {"weights": [1.0, 0.3]}
-            else:
-                raise ValueError(f"Unsupported hybrid_ranker: {hybrid_ranker}")
+            if hybrid_ranker_params is None:
+                if hybrid_ranker == "RRFRanker":
+                    hybrid_ranker_params = {"k": 60}
+                elif hybrid_ranker == "WeightedRanker":
+                    hybrid_ranker_params = {"weights": [1.0, 0.5]}
+                else:
+                    raise ValueError(f"Unsupported hybrid_ranker: {hybrid_ranker}")
 
             # * MilvusLite search 須明確指定 output_fields 才能回傳節點完整資料
             self.vector_store = MilvusVectorStore(
@@ -401,7 +402,7 @@ class Rag:
             format_content = truncate_text(raw_content, max_length=500)
             logger.info(format_content)
 
-            logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
+            # logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
 
     # ? filter 在 retriever, 還有需要 query engine 嗎
     # TODO: 新增 retrieve method，retriever + similarity postprocessor

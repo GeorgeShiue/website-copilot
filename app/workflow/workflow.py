@@ -204,6 +204,7 @@ def run_rag_build(
             collection_name=config.collection_name,
             embedding_name=config.embedding_name,
             hybrid_ranker=config.hybrid_ranker,
+            hybrid_ranker_params=config.hybrid_ranker_params,
         )
 
         # ----- 建立 Index -----
@@ -303,6 +304,7 @@ def run_rag_query(
                 collection_name=config.collection_name,
                 embedding_name=config.embedding_name,
                 hybrid_ranker=config.hybrid_ranker,
+                hybrid_ranker_params=config.hybrid_ranker_params,
             )
             rag.build_index(
                 embedding_name=config.embedding_name,
@@ -316,6 +318,7 @@ def run_rag_query(
                 embedding_name=config.embedding_name,
                 overwrite=False,
                 hybrid_ranker=config.hybrid_ranker,
+                hybrid_ranker_params=config.hybrid_ranker_params,
             )
             rag.load_index(embedding_name=config.embedding_name)
 

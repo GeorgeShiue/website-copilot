@@ -5,12 +5,14 @@ from typing import Any, Self
 
 from utils.config_helper import (
     ConfigValidationError,
+    _normalize_toml_types,
     filter_commented_configs,
     load_config_from_toml,
     override_config,
 )
 
 logger = logging.getLogger(__name__)
+
 
 WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
 RAG_RESULTS_FOLDER_PATH = "data/rag/results"
@@ -35,6 +37,7 @@ VECTOR_STORE_KEYS = {
     "vector_store_type",
     "milvus_uri",
     "hybrid_ranker",
+    "hybrid_ranker_params",
 }
 NODES_KEYS = {
     "chunk_size",
@@ -76,7 +79,8 @@ class RagConfig:
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
     collection_name: str = DEFALULT_COLLECTION_NAME
-    hybrid_ranker: str = "RRFRanker"
+    hybrid_ranker: str = "WeightedRanker"
+    hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----
     chunk_size: int = 800
     chunk_overlap: int = 100
@@ -173,6 +177,30 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError(
                 "hybrid_ranker 必須是 'RRFRanker' 或 'WeightedRanker'"
             )
+
+    hybrid_ranker_params = config.get("hybrid_ranker_params")
+
+    if hybrid_ranker_params is not None:
+        if not isinstance(hybrid_ranker_params, dict):
+            raise ConfigValidationError("hybrid_ranker_params 必須是 dict")
+
+        if "weights" in hybrid_ranker_params:
+            weights = hybrid_ranker_params["weights"]
+            if not isinstance(weights, list) or len(weights) != 2:
+                raise ConfigValidationError("weights 必須是長度 2 的列表")
+            for w in weights:
+                if not isinstance(w, (int, float)):
+                    raise ConfigValidationError("weights 元素必須為數值")
+
+        if "k" in hybrid_ranker_params:
+            k = hybrid_ranker_params["k"]
+            if not isinstance(k, int):
+                raise ConfigValidationError("hybrid_ranker_params.k 必須是整數")
+            if k <= 0:
+                raise ConfigValidationError("hybrid_ranker_params.k 必須大於 0")
+
+        # 驗證通過後將 tomlkit 型別轉換為原生 Python 型別
+        config["hybrid_ranker_params"] = _normalize_toml_types(hybrid_ranker_params)
 
     # ----- nodes config -----
     chunk_size = config.get("chunk_size")

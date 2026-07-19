@@ -11,6 +11,7 @@ vector_store_type = "milvus"
 milvus_uri = "data/rag/results/milvus.db"
 collection_name = "webpages"
 hybrid_ranker = "WeightedRanker" # run name
+hybrid_ranker_params = { weights = [1.0, 0.5] }
 
 [index]
 embedding_name = "text-embedding-3-small"
