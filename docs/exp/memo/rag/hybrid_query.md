@@ -320,19 +320,131 @@ WeightedRanker 的 Top-1 Score 更高（0.857 vs 0.499），但原因可能包�
 
 # 實驗三：hybrid_top_k 參數影響
 
-## 動機
+## 實驗設計
 
-當前 `hybrid_top_k=10`，實驗 B 的 Top-1 Score 已達 0.857，但稀疏分支的候選數可能仍受限。調高 `hybrid_top_k` 可讓 sparse 分支貢獻更多優質候選。
+### 測試問題
 
-## 測試配置（固定 WeightedRanker `[1.0, 0.5]`）
+| 編號 | 查詢 | 測試重點 |
+|:---:|------|---------|
+| Q1 | 「實驗室的成員有哪些人？」 | 測試 sparse 候選數增加是否能引入更多優質節點 |
 
-| 實驗 | `hybrid_top_k` | `similarity_top_k` | 預期影響 |
-|:----:|:---:|:---:|---------|
-| D-1 | 10 | 10 | ✅ 已完成 |
-| D-2 | 20 | 10 | sparse 候選倍增，多樣性可能再提升 |
-| D-3 | 30 | 10 | 極大化 sparse 貢獻 |
+### 測試配置（固定 WeightedRanker `[1.0, 0.5]`）
+
+| 參數 | D-1（baseline） | D-2（sparse↑） | D-3（sparse↑↑） |
+|------|:---:|:---:|:---:|
+| **vector_store_type** | milvus | milvus | milvus |
+| **hybrid_ranker** | WeightedRanker | WeightedRanker | WeightedRanker |
+| **hybrid_ranker_params** | `[1.0, 0.5]` | `[1.0, 0.5]` | `[1.0, 0.5]` |
+| **similarity_top_k** | 10 | 10 | 10 |
+| **hybrid_top_k** | 10 | 20 | 30 |
+| **query_mode** | hybrid | hybrid | hybrid |
+| **llm_name** | gemini-3.1-flash-lite | gemini-3.1-flash-lite | gemini-3.1-flash-lite |
+| **query** | 實驗室的成員有哪些人？ | 實驗室的成員有哪些人？ | 實驗室的成員有哪些人？ |
+
+### 評斷標準
+
+| 指標 | 目標值 | 優先級 |
+|------|--------|:------:|
+| 成員覆蓋 | **≥ 10 位** | P0 |
+| Top-1 Score | **≥ 0.35** | P0 |
+| Faithfulness | 100% | P0 |
+| Relevancy | 100% | P0 |
+
+### 注意事項
+
+- 三組在單一 `exp.py` 批次中依序執行，共用同一份 MilvusLite 實例
+- 固定 `weights=[1.0, 0.5]`（實驗二最佳權重），`hybrid_top_k` 為唯一變數
 
 ---
+
+## 實驗記錄（Q1：「實驗室的成員有哪些人？」）
+
+### 實驗 D-1：hybrid_top_k=10（baseline）
+
+| 指標 | 結果 |
+|:------|:---:|
+| **Top-1 Score** | 0.997（幾乎滿分）✅ |
+| **Score 範圍** | 0.622–0.997 |
+| **成員覆蓋** | **12 位**（廖梓逸、簡資烜、張彣謙、李倬安、葉展維、張勛皓、孫詠淳、黃懷萱、龔若齊、簡國峻、沈哲寬、曾廷綸）✅ |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | 46.61 秒 |
+| **回答結構化** | 僅條列人名 |
+| **Sources 多樣性** | ✅ 涵蓋 `Letter to potential students`、`Join WIDM`、`Activities`、`Web Intelligence and Data Mining Lab`、`校外奬項` 等不同頁面 |
+
+### 實驗 D-2：hybrid_top_k=20
+
+| 指標 | 結果 |
+|:------|:---:|
+| **Top-1 Score** | 0.997（幾乎滿分）✅ |
+| **Score 範圍** | 0.622–0.997 |
+| **成員覆蓋** | **12 位**（廖梓逸、簡資烜、張彣謙、李倬安、葉展維、張勛皓、孫詠淳、黃懷萱、龔若齊、簡國峻、沈哲寬、曾廷綸）✅ |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | **32.82 秒** 🥇 |
+| **回答結構化** | ✅ **自動分組**：研究生（廖梓逸、簡資烜、張彣謙、黃懷萱、龔若齊、簡國峻）vs 大學部/專題生（李倬安、葉展維、張勛皓、孫詠淳、沈哲寬、曾廷綸） |
+| **Sources 多樣性** | ✅ 涵蓋 `Letter to potential students`、`Join WIDM`、`Activities`、`Web Intelligence and Data Mining Lab`、`校外奬項` 等不同頁面 |
+
+### 實驗 D-3：hybrid_top_k=30
+
+| 指標 | 結果 |
+|:------|:---:|
+| **Top-1 Score** | 0.997（幾乎滿分）✅ |
+| **Score 範圍** | 0.622–0.997 |
+| **成員覆蓋** | **12 位**（廖梓逸、簡資烜、張彣謙、李倬安、葉展維、張勛皓、孫詠淳、黃懷萱、龔若齊、簡國峻、沈哲寬、曾廷綸）✅ |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | **31.63 秒** 🥇 |
+| **回答結構化** | 僅條列人名 |
+| **Sources 多樣性** | ✅ 涵蓋 `Letter to potential students`、`Join WIDM`、`Activities`、`Web Intelligence and Data Mining Lab`、`校外奬項` 等不同頁面 |
+
+### 三組 hybrid_top_k 彙總比較
+
+| 指標 | `top_k=10`（baseline） | `top_k=20`（D-2） | `top_k=30`（D-3） |
+|:---|:---:|:---:|:---:|
+| **Top-1 Score** | **0.997** 🥇 | **0.997** 🥇 | **0.997** 🥇 |
+| **Score 範圍** | 0.622–0.997 | 0.622–0.997 | 0.622–0.997 |
+| **Top-10 Sources 組成** | 完全相同 | 完全相同 | 完全相同 |
+| **成員覆蓋** | **12 位** ✅ | **12 位** ✅ | **12 位** ✅ |
+| **Faithfulness** | 100% | 100% | 100% |
+| **Relevancy** | 100% | 100% | 100% |
+| **執行時間** | 46.61s | **32.82s** | **31.63s** |
+| **回答結構化** | 僅條列人名 | ✅ 分研究生/專題生 | 僅條列人名 |
+
+---
+
+## 實驗總結
+
+### 關鍵發現
+
+#### 1. `hybrid_top_k` 對最終 Top-10 無影響
+
+三組實驗的 **Top-10 sources 完全一致**——相同的頁面、相同的 Score、相同的排序。這是因為 `weights=[1.0, 0.5]` 讓 dense 分支完全主導最終排序：
+
+- `hybrid_top_k=10` 時，sparse 的 10 個候選中僅有少數對 fusion 有貢獻
+- `hybrid_top_k=20` 或 `30` 時，新增的 sparse 候選分數更低，仍無法擠進最終 Top-10
+- Score 0.622 以下的節點完全被排除在 Top-10 之外，且三組的 cutoff 一致
+
+**結論：在 `weights=[1.0, 0.5]` 配置下，調高 `hybrid_top_k` 無正面效益。**
+
+#### 2. 執行時間差異來自 MilvusLite hot-start
+
+`top_k=10` 耗時 46.61s（最慢），`top_k=20` 與 `30` 分別為 32.82s 與 31.63s。此差異來自批次執行中的 **冷啟動 vs hot-start**——第一個 run 需載入模型、建立 collection，後續 run 直接重用。**非 `hybrid_top_k` 本身的影響。**
+
+#### 3. 回答結構化差異為 LLM 隨機性
+
+`top_k=20` 的 LLM 回應自動將成員分類為「研究生」與「大學部/專題生」，而其他兩組僅條列人名。在 Top-10 sources 完全一致的前提下，此差異為 **LLM 生成的隨機性**，與 `hybrid_top_k` 參數無關。
+
+### 最終鎖定配置
+
+| 參數 | 鎖定值 |
+|:---|:---:|
+| **hybrid_ranker** | `WeightedRanker` |
+| **weights** | `[1.0, 0.5]` |
+| **hybrid_top_k** | **10**（調高無益，維持預設） |
+| **similarity_top_k** | 10 |
+
+可直接進入五題全面驗證階段。
 
 # 實驗四：五題全面驗證
 
@@ -360,7 +472,7 @@ FaithfulnessEvaluator + RelevancyEvaluator（使用 `gpt-5.4` 作為獨立 evalu
 
 ---
 
-# 實驗六：Metadata Filter + Hybrid 共存驗證
+# 實驗五：Metadata Filter + Hybrid 共存驗證
 
 ## 動機
 
@@ -368,7 +480,7 @@ FaithfulnessEvaluator + RelevancyEvaluator（使用 `gpt-5.4` 作為獨立 evalu
 
 ## 測試配置
 
-固定 `WeightedRanker [1.0, 0.3]`、`hybrid_top_k=20`，加入：
+固定 `WeightedRanker [1.0, 0.5]`、`hybrid_top_k=10`，加入：
 
 ```python
 filter_dict = {"page_type": "paper"}
@@ -387,13 +499,11 @@ filter_dict = {"page_type": "paper"}
 ```
 Step 1: ✅ 實驗一（RRF vs Weighted）— 已完成，WeightedRanker 勝出
   ↓
-Step 2: 實驗二（Weighted 權重微調）— 確認 [1.0, 0.3] 是否最優
+Step 2: ✅ 實驗二（Weighted 權重微調）— 已完成，鎖定 [1.0, 0.5]
   ↓
-Step 3: 實驗四（hybrid_top_k 影響）— 調高後觀察多樣性變化
+Step 3: ✅ 實驗三（hybrid_top_k 影響）— 已完成，鎖定 hybrid_top_k=10
   ↓
-Step 4: 實驗五（五題全面驗證）— 確認不破壞既有成果
+Step 4: 🔜 實驗四（五題全面驗證）— 確認不破壞既有成果
   ↓
-Step 5: 實驗六（Metadata Filter 共存）— 驗證 filter + hybrid 同時作用
-  ↓
-Step 6: 實驗三（RRF k 值調校，備選）— 僅當 Weighted 有問題時啟用
+Step 5: 🔜 實驗五（Metadata Filter 共存）— 驗證 filter + hybrid 同時作用
 ```

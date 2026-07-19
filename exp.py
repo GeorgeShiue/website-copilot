@@ -1,6 +1,6 @@
-from app.workflow.workflow import run_webpage_image_summarizer, run_rag_query
-from utils.log_helper import setup_logging
+from app.workflow.workflow import run_rag_query, run_webpage_image_summarizer
 from app.workflow.workflow_manager import RunManager
+from utils.log_helper import setup_logging
 
 setup_logging("debug")
 
@@ -37,7 +37,7 @@ def webpage_image_summarizer_prompt():
         )
 
 
-def rag_model():
+def rag_dense_model():
     run_manager = RunManager()
     queries = [
         "實驗室近三年發表過哪些論文？",
@@ -65,6 +65,7 @@ def rag_model():
             )
 
 
+# TODO: 測試 milvus vector store
 def rag_hybrid_ranker():
     run_manager = RunManager()
     run_manager.set_module_path("rag_hybrid_ranker")
@@ -98,6 +99,24 @@ def rag_hybrid_ranker_weights():
         )
 
 
+def rag_hybrid_top_k():
+    run_manager = RunManager()
+    run_manager.set_module_path("rag_hybrid_top_k")
+
+    hybrid_top_k_configs = [
+        "milvus",  # baseline: hybrid_top_k=10
+        "milvus-topk-20",  # hybrid_top_k=20
+        "milvus-topk-30",  # hybrid_top_k=30
+    ]
+
+    for hybrid_top_k_config in hybrid_top_k_configs:
+        run_rag_query(
+            run_manager=run_manager,
+            config_name=hybrid_top_k_config,
+            run_name_use_config_name=True,
+        )
+
+
 if __name__ == "__main__":
     import asyncio
 
@@ -105,6 +124,9 @@ if __name__ == "__main__":
 
     # webpage_image_summarizer_model()
     # webpage_image_summarizer_prompt()
-    # rag_model()
+
+    # rag_dense_model()
+
     # rag_hybrid_ranker()
-    rag_hybrid_ranker_weights()
+    # rag_hybrid_ranker_weights()
+    rag_hybrid_top_k()

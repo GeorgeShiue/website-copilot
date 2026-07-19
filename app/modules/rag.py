@@ -147,7 +147,6 @@ RELEVANCY_REFINE_TEMPLATE = PromptTemplate(
 )
 
 
-# TODO: 測試 milvus vector store
 class Rag:
     def __init__(
         self,

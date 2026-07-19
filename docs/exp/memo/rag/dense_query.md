@@ -1,4 +1,4 @@
-# Sparse Query 設定
+# Dense Query 設定
 
 ## Retriever
 
