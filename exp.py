@@ -65,6 +65,21 @@ def rag_model():
             )
 
 
+def rag_hybrid_ranker():
+    run_manager = RunManager()
+    run_manager.set_module_path("rag_hybrid_ranker")
+    hybrid_rankers = [
+        "milvus-weight",
+        "milvus-RRF",
+    ]
+
+    for hybrid_ranker in hybrid_rankers:
+        run_rag_query(
+            run_manager=run_manager,
+            config_name=hybrid_ranker,
+        )
+
+
 if __name__ == "__main__":
     import asyncio
 
@@ -72,4 +87,5 @@ if __name__ == "__main__":
 
     # webpage_image_summarizer_model()
     # webpage_image_summarizer_prompt()
-    rag_model()
+    # rag_model()
+    rag_hybrid_ranker()

@@ -1,0 +1,22 @@
+[init]
+webpages_data_folder_path = "data/webpages"
+
+[nodes]
+chunk_size = 800
+chunk_overlap = 100
+paragraph_separator = "\n\n"
+
+[vector_store]
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
+collection_name = "webpages"
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+similarity_top_k = 10
+
+[query_engine]
+llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.4
+query = "加入實驗室需要準備哪些資料？"

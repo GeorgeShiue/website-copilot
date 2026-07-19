@@ -1,4 +1,4 @@
-# 查詢模組設定
+# Sparse Query 設定
 
 ## Retriever
 

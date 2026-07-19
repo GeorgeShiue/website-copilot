@@ -34,6 +34,7 @@ VECTOR_STORE_KEYS = {
     "collection_name",
     "vector_store_type",
     "milvus_uri",
+    "hybrid_ranker",
 }
 NODES_KEYS = {
     "chunk_size",
@@ -75,6 +76,7 @@ class RagConfig:
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
     collection_name: str = DEFALULT_COLLECTION_NAME
+    hybrid_ranker: str = "RRFRanker"
     # ----- nodes config -----
     chunk_size: int = 800
     chunk_overlap: int = 100
@@ -163,6 +165,14 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("collection_name 必須是字串")
         if not collection_name.strip():
             raise ConfigValidationError("collection_name 不可為空字串")
+
+    hybrid_ranker = config.get("hybrid_ranker")
+
+    if hybrid_ranker is not None:
+        if hybrid_ranker not in ("RRFRanker", "WeightedRanker"):
+            raise ConfigValidationError(
+                "hybrid_ranker 必須是 'RRFRanker' 或 'WeightedRanker'"
+            )
 
     # ----- nodes config -----
     chunk_size = config.get("chunk_size")

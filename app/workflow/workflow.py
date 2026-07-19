@@ -203,6 +203,7 @@ def run_rag_build(
             milvus_uri=os.path.join(run_manager.results_folder_path, "milvus.db"),
             collection_name=config.collection_name,
             embedding_name=config.embedding_name,
+            hybrid_ranker=config.hybrid_ranker,
         )
 
         # ----- 建立 Index -----
@@ -301,6 +302,7 @@ def run_rag_query(
                 milvus_uri=config.milvus_uri,
                 collection_name=config.collection_name,
                 embedding_name=config.embedding_name,
+                hybrid_ranker=config.hybrid_ranker,
             )
             rag.build_index(
                 embedding_name=config.embedding_name,
@@ -313,6 +315,7 @@ def run_rag_query(
                 collection_name=config.collection_name,
                 embedding_name=config.embedding_name,
                 overwrite=False,
+                hybrid_ranker=config.hybrid_ranker,
             )
             rag.load_index(embedding_name=config.embedding_name)
 

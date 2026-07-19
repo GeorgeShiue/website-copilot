@@ -22,6 +22,8 @@ class WebpageImageSummarizerConfigCLI:
 
 @dataclass
 class RagConfigCLI:
+    # ----- vector store config -----
+
     # ----- retriever config -----
     similarity_top_k: int | None = None
     query_mode: str | None = None

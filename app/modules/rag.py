@@ -188,6 +188,7 @@ class Rag:
         collection_name: str = DEFALULT_COLLECTION_NAME,
         embedding_name: str = "text-embedding-3-small",
         overwrite: bool = True,
+        hybrid_ranker: str = "RRFRanker",
     ) -> None:
         if vector_store_type == "qdrant":
             os.makedirs(qdrant_db_folder_path, exist_ok=True)
@@ -202,6 +203,14 @@ class Rag:
         elif vector_store_type == "milvus":
             dim = EMBEDDING_DIM_MAP.get(embedding_name)
 
+            # 依 hybrid_ranker 類型決定硬編碼參數（實驗 A/B）
+            if hybrid_ranker == "RRFRanker":
+                hybrid_ranker_params = {"k": 60}
+            elif hybrid_ranker == "WeightedRanker":
+                hybrid_ranker_params = {"weights": [1.0, 0.3]}
+            else:
+                raise ValueError(f"Unsupported hybrid_ranker: {hybrid_ranker}")
+
             # * MilvusLite search 須明確指定 output_fields 才能回傳節點完整資料
             self.vector_store = MilvusVectorStore(
                 milvus_uri,
@@ -211,11 +220,16 @@ class Rag:
                 output_fields=["_node_content", "_node_type"],
                 enable_sparse=True,
                 sparse_embedding_function=BGEM3SparseEmbeddingFunction(),
+                hybrid_ranker=hybrid_ranker,
+                hybrid_ranker_params=hybrid_ranker_params,
             )
         else:
             raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
 
-        logger.info(f"Successfully built vector store (type={vector_store_type})")
+        logger.info(
+            f"Successfully built vector store "
+            f"(type={vector_store_type}, hybrid_ranker={hybrid_ranker})"
+        )
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -265,6 +279,7 @@ class Rag:
         if self.nodes is None:
             raise RuntimeError("Nodes have not been built, cannot build index")
 
+        # * milvus vector store 使用 sparse embeddnig 時在這裡會造成畫面短暫凍結
         embed_model = self._set_embed_model(embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(
