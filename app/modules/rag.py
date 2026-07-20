@@ -354,7 +354,7 @@ class Rag:
     def build_retriever(
         self,
         query_mode: str = "hybrid",  # "default" or "hybrid"
-        filter_dict: dict[str, str | int | tuple] | None = None,
+        filter_dict: dict[str, Any] | None = None,
         similarity_top_k: int = 10,
         hybrid_top_k: int = 10,
         alpha: float = 0.5,
@@ -364,6 +364,7 @@ class Rag:
 
         filters: MetadataFilters | None = None
         if filter_dict:
+            logger.info(f"Building retriever with filters: {filter_dict}")
             filter_list = []
             for key, entry in filter_dict.items():
                 if isinstance(entry, tuple):

@@ -325,7 +325,7 @@ def run_rag_query(
         # 可篩選類別和年份
         # filter_dict = {
         #     "page_type": "paper",
-        #     "year": 2023,
+        #     # "year": 2023,
         # }
 
         rag.build_retriever(
