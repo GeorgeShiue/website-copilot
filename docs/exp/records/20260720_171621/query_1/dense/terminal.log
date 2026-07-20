@@ -1,0 +1,253 @@
+──────────────────────────────────────────────────── RAG Query (dense) ────────────────────────────────────────────────────
+─────────────────────────────────────────────── Rag Config Loaded from toml ───────────────────────────────────────────────
+                    init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages │
+└───────────────────────────┴───────────────┘
+                         vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value                               ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages                            │
+│ hybrid_ranker         │ WeightedRanker                      │
+│ hybrid_ranker_params  │ None                                │
+│ milvus_uri            │ data/rag/results/milvus_dense_q1.db │
+│ qdrant_db_folder_path │ data/rag/results/qdrant_db          │
+│ vector_store_type     │ milvus                              │
+└───────────────────────┴─────────────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┓
+┃ Config           ┃ Value   ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
+│ alpha            │ 0.5     │
+│ hybrid_top_k     │ 10      │
+│ query_mode       │ default │
+│ similarity_top_k │ 10      │
+└──────────────────┴─────────┘
+            query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                  ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.4                    │
+│ llm_name │ gemini-3.1-flash-lite  │
+│ query    │ 實驗室的成員有哪些人？ │
+└──────────┴────────────────────────┘
+───────────────────────────────────────────────── Building All Resources ──────────────────────────────────────────────────
+
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
+Loading files: 100%|##########| 47/47 [00:00<00:00, 6695.39it/s]
+INFO     Loading 47 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:00<00:00,  4.20it/s]
+Applying transformations: 100%|##########| 5/5 [00:00<00:00,  6.83it/s]
+INFO     Pipeline produced 279 nodes
+/home/george/website-copilot/app/modules/rag.py:533: PyMilvusDeprecationWarning: `connections.list_connections` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  for alias in connections.list_connections():
+/home/george/website-copilot/app/modules/rag.py:535: PyMilvusDeprecationWarning: `connections.disconnect` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  connections.disconnect(alias)
+
+Downloading (incomplete total...): 0.00B [00:00, ?B/s]
+
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]
+Fetching 30 files: 100%|##########| 30/30 [00:00<00:00, 4693.54it/s]
+
+Download complete: : 0.00B [00:00, ?B/s]
+Download complete: : 0.00B [00:00, ?B/s]
+
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]
+Loading weights: 100%|##########| 391/391 [00:00<00:00, 10170.56it/s]
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     Loading faiss with AVX512 support.
+INFO     Could not load library with AVX512 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
+INFO     Loading faiss with AVX2 support.
+INFO     Could not load library with AVX2 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
+INFO     Loading faiss.
+INFO     Successfully loaded faiss.
+INFO     MilvusLite server started for /home/george/website-copilot/data/rag/results/milvus_dense_q1.db on port 40027
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+INFO     Successfully built vector store (type=milvus, hybrid_ranker=WeightedRanker)
+
+Generating embeddings:   0%|          | 0/279 [00:00<?, ?it/s]
+Generating embeddings:  92%|#########1| 256/279 [00:02<00:00, 87.05it/s]
+Generating embeddings: 100%|##########| 279/279 [00:04<00:00, 61.29it/s]
+Generating embeddings: 100%|##########| 279/279 [00:04<00:00, 66.73it/s]
+INFO     Successfully built index from nodes
+INFO     Successfully built retriever (query mode=default)
+INFO     Successfully built query engine
+─────────────────────────────────────────────────── Query & Response 1 ────────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據所提供的文件內容，並未列出完整的實驗室成員名單，僅提及以下人員：
+
+         *   **指導教授：** 張嘉惠教授
+         *   **曾獲獎項或參與活動的相關學生：**
+         廖梓逸、簡資烜、張彣謙、李倬安、葉展維、張勛皓、孫詠淳、黃懷萱、龔若齊、簡國峻、沈哲寬、曾廷綸。
+───────────────────────────────────────────────────────── Sources ─────────────────────────────────────────────────────────
+INFO     Retrieved 10 sources
+───────────────────────── Page: Letter to potential students  |  Score: 0.501  |  Type: personnel ─────────────────────────
+INFO     ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+───────────────────────── Page: Letter to potential students  |  Score: 0.474  |  Type: personnel ─────────────────────────
+INFO     ## 申請所需材料
+
+         請通過電子郵件將以下材料發送給指導教授：
+
+         1. 個人履歷（CV）含參與過的專案及成果
+         1. 學業成績單
+         1. 簡短的研究計書
+
+         這些資料將幫助我們評估你的背景和研究潛力。
+───────────────────────── Page: Letter to potential students  |  Score: 0.472  |  Type: personnel ─────────────────────────
+INFO     ## 專題研究期待
+
+         參加比賽、申請國科會大專生專題計畫、投稿。
+───────────────────────── Page: Letter to potential students  |  Score: 0.471  |  Type: personnel ─────────────────────────
+INFO     # Prospective Students
+         ## 專題生/研究生找指導教授的說明
+         ## 研究方向與申請流程
+
+         請仔細檢視LAB的研究領域及近期的發表論文，以確保你的研究意向與實驗室我們的研究活動相符。
+────────────────────────────────── Page: Join WIDM  |  Score: 0.458  |  Type: personnel ───────────────────────────────────
+INFO     ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume (CV),
+         academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to schedule
+         an interview. Priority will be given to students who have taken Professor Chang's courses. Post date: Sep 3, 2017
+         12:46:12 AM
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.436  |  Type: general ──────────────────────
+INFO     # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項](ht
+         tps://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](https://s
+         ites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1%8C%E7%A0%94
+         %E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites.goo
+         gle.com/ ...
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.434  |  Type: general ──────────────────────
+INFO     恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6%E5%
+         AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E5%90%88%
+         E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmbomtcx ...
+───────────────────────────────── Page: 校外奬項  |  Score: 0.432  |  Type: announcement ──────────────────────────────────
+INFO     ## 校外奬項
+
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名 — Jan. 17,
+         2026
+
+         恭賀張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6%E5%
+         AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E5%90%88%
+         E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhK ...
+────────────────────────────────── Page: Activities  |  Score: 0.422  |  Type: personnel ──────────────────────────────────
+INFO     ### 2022/8/18
+
+
+         > # Image-7
+         >
+         > **圖片摘要：**
+         > 十二名男女站在會議室中，中間女性手持生日卡片，右側女性手持拉拉熊玩偶。
+         >
+         > **主要元素：**
+         > 1. 實體: 會議室, 生日卡片, 拉拉熊玩偶, 口罩, 大學生
+         > 2. OCR文字: Happy birthday to you
+         > 3. 主題標籤: 生日慶祝, 團體合照, 校園生活
+         >
+         > **頁面關聯：**
+         > 本圖片紀錄成員生日慶祝活動，屬於大學實驗室或社團團體合照。
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.404  |  Type: general ──────────────────────
+INFO     恭喜！
+         專題生[李倬安、葉展維](https://sites.google.com/d/1BfrQkppHi-99yVwtdiVffZ5cO0r7nMcn/p/1xdXUQzCJ_-8-y2hnM2qrKmeruOZ
+         5QwPP/edit)[參加第29屆人工智慧與應用研討會榮獲The Appier-Sponsored Award](https://taai2024.org/) - Dec. 2024
+
+         恭喜！ [張嘉惠老師指導 黃懷萱 等同學 論文 獲選 ROCLING 2024 Best Paper
+         Award](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C-%E5%BC%B5%E5%98%89%E6%83%A0%E8%80%81%E5%B8%AB%
+         E6%8C%87%E5%B0%8E-%E9%BB%83%E6%87%B7%E8%90%B1%E5%90%8C%E5%AD%B8%E8%AB%96%E6%96%87-%E7%8D%B2%E9%81%B8-rocling-2024-
+         best-paper-awar ...
+─────────────────────────────────────────────────────── Evaluation ────────────────────────────────────────────────────────
+─────────────────────────────────────────────────── Faithfulness Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容確實未提供完整成員名單，且有提到張嘉惠教授與列舉出的多位學生姓名。
+INFO     Retrying request to /chat/completions in 0.383103 seconds
+──────────────────────────────────────────────────── Relevancy Result ─────────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應指出文件未提供完整成員名單，並列出文中確實出現的教授與學生姓名，與上下文內容一致。
+─────────────────────────────────────────────────── Evaluation Summary ────────────────────────────────────────────────────
+Query times: 1
+Faithfulness: 100.00% (1/1)
+Relevancy: 100.00% (1/1)
+─────────────────────────────────────────────────── RAG Query Completed ───────────────────────────────────────────────────
+INFO     RAG Query (dense) Completed in 38.092 seconds

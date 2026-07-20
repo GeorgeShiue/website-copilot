@@ -1,4 +1,4 @@
-# Hybrid Search (2026/7/19)
+# Hybrid Search (2026/7/20)
 > 對應 `2026_0708-RAG_Upgrade.md` 第二部分（二、混合檢索與重排序）
 
 ## 前置回顧：Phase 1 對 Phase 2 的關鍵影響

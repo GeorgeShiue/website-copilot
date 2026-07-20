@@ -1,8 +1,12 @@
 # Hybrid Query 設定
 
-> 對應 `2026_0719-hybrid-search.md` Part 3 — Milvus 融合演算法比較（核心實驗）
+> 對應 `2026_0720-hybrid-search.md` Part 3 — Milvus 融合演算法比較（核心實驗）
 
 ## Vector Store
+
+### Vector Store Type
+
+> **目前穩定值：`"milvus"`**
 
 ### Hybrid Ranker
 
@@ -51,7 +55,7 @@ Milvus BGE-M3 同時產生 dense + sparse 向量。`query_mode="hybrid"` 時使�
 
 沿用 dense-only 階段的穩定配置。
 
-# 實驗一：融合演算法比較（RRF vs Weighted）
+# 實驗一： RRFRanker vs WeightedRanker (2026/7/20)
 
 ## 實驗設計
 
@@ -183,7 +187,7 @@ RRF 的 rank-based 機制讓 BGE-M3 中文 sparse 分支過度影響排序，導
 
 WeightedRanker 的 Top-1 Score 更高（0.857 vs 0.499），但原因可能包含 dense-only 與 hybrid 的 score 計算方式不同（hybrid 的 dense 分支仍使用 cosine），以及重新 rebuild 後的索引略有差異。功能面上成員覆蓋一致，兩者皆可作為正式配置。
 
-# 實驗二：WeightedRanker 權重微調
+# 實驗二：WeightedRanker 權重微調 (2026/7/20)
 
 ## 實驗設計
 
@@ -318,7 +322,7 @@ WeightedRanker 的 Top-1 Score 更高（0.857 vs 0.499），但原因可能包�
 `[1.0, 0.5]` 在所有面向取得最佳平衡，建議作為新的預設權重。`[0.9, 0.3]` 表現最差，不建議使用。
 
 
-# 實驗三：hybrid_top_k 參數影響
+# 實驗三：hybrid_top_k 參數影響 (2026/7/20)
 
 ## 實驗設計
 
@@ -446,7 +450,7 @@ WeightedRanker 的 Top-1 Score 更高（0.857 vs 0.499），但原因可能包�
 
 可直接進入五題全面驗證階段。
 
-# 實驗四：五題全面驗證
+# 實驗四：五題全面驗證 (2026/7/20)
 
 ## 實驗設計
 
@@ -609,7 +613,7 @@ Q5 論文題是當前唯一未通過的瓶頸題，且 hybrid 模式讓情況較
 
 **下一步：實驗五 — Metadata Filter + Hybrid 共存驗證。**
 
-# 實驗五：Metadata Filter + Hybrid 共存驗證
+# 實驗五：Metadata Filter + Hybrid 共存驗證 (2026/7/20)
 
 ## 實驗設計
 
@@ -723,19 +727,3 @@ Top-2 的 sources（0.909、0.890）已包含豐富的 2024–2025 論文資訊�
 | **P0** | ✅ **Metadata Filter** | `page_type="paper"` + hybrid 共存驗證成功 | 檢索污染已解決 |
 | **P1** | ⏳ **生成階段約束** | Prompt engineering：禁止 LLM 使用外部知識、強制只引用當前 sources、時間範圍限縮 | 解決 Relevancy 0% |
 | **P2** | 論文題專用 cutoff | 對論文查詢啟用 cutoff（如 0.65）過濾低分與過舊 paper pages | 減少 Bottom 雜訊 |
-
----
-
-# 建議執行順序
-
-```
-Step 1: ✅ 實驗一（RRF vs Weighted）— 已完成，WeightedRanker 勝出
-  ↓
-Step 2: ✅ 實驗二（Weighted 權重微調）— 已完成，鎖定 [1.0, 0.5]
-  ↓
-Step 3: ✅ 實驗三（hybrid_top_k 影響）— 已完成，鎖定 hybrid_top_k=10
-  ↓
-Step 4: ✅ 實驗四（五題全面驗證）— 已完成，Q1–Q4 100%，Q5 需後續處理
-  ↓
-Step 5: ✅ 實驗五（Metadata Filter 共存）— 已完成，檢索污染解決，生成層仍需處理
-```

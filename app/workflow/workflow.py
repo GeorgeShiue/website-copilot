@@ -1,8 +1,6 @@
 import os
 
 from app.configs.rag_config import (
-    DEFAULT_MILVUS_DB_FOLDER_PATH,
-    DEFAULT_QDRANT_DB_FOLER_PATH,
     RagConfig,
 )
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
@@ -240,6 +238,7 @@ def run_rag_build(
     rag.close()
 
 
+# TODO: 此function內支援多份query
 def run_rag_query(
     run_manager: RunManager | None = None,
     config_name: str = "default",
@@ -375,12 +374,12 @@ def run_rag_query(
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-        if rebuild:
+        if rebuild or config.vector_store_type == "milvus":
             module_config_folder_path = ""
             if config.vector_store_type == "qdrant":
-                module_config_folder_path = DEFAULT_QDRANT_DB_FOLER_PATH
+                module_config_folder_path = config.qdrant_db_folder_path
             elif config.vector_store_type == "milvus":
-                module_config_folder_path = DEFAULT_MILVUS_DB_FOLDER_PATH
+                module_config_folder_path = config.milvus_uri
             save_module_config_as_toml(
                 config,
                 os.path.join(module_config_folder_path, "module_config.toml"),
@@ -389,5 +388,5 @@ def run_rag_query(
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
 
-    if rebuild:
+    if rebuild or config.vector_store_type == "milvus":
         rag.close()

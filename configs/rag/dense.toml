@@ -1,0 +1,24 @@
+[init]
+webpages_data_folder_path = "data/webpages"
+
+[nodes]
+chunk_size = 800
+chunk_overlap = 100
+paragraph_separator = "\n\n"
+
+[vector_store]
+vector_store_type = "milvus"
+milvus_uri = "data/rag/results/milvus_dense.db"
+collection_name = "webpages"
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+query_mode = "default" # run name
+similarity_top_k = 10
+
+[query_engine]
+llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.4
+query = "實驗室的成員有哪些人？"

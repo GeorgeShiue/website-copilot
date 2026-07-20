@@ -524,8 +524,21 @@ class Rag:
         if self.qdrant_client is not None:
             self.qdrant_client.close()
 
+        if isinstance(self.vector_store, MilvusVectorStore):
+            try:
+                self.vector_store._milvusclient.close()
+            except Exception:
+                pass
+
         self.qdrant_client = None
         self.vector_store = None
+        self.index = None
+        self.retriever = None
+        self.query_engine = None
+
+        import gc
+
+        gc.collect()
 
     def override_init_config(self, **init_kwargs) -> None:
         self.webpages_data_folder_path = init_kwargs.get(
@@ -540,9 +553,15 @@ class Rag:
         )
         self.results_json = self._load_results_json()
 
-        client: QdrantClient | None = self.qdrant_client
-        if client is not None:
-            client.close()
+        qdrant_client: QdrantClient | None = self.qdrant_client
+        if qdrant_client is not None:
+            qdrant_client.close()
+
+        if isinstance(self.vector_store, MilvusVectorStore):
+            try:
+                self.vector_store._milvusclient.close()
+            except Exception:
+                pass
 
         self.qdrant_client = None
         self.vector_store = None
