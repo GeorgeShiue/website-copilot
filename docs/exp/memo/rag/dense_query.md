@@ -1,4 +1,4 @@
-# 查詢模組設定
+# Dense Query 設定
 
 ## Retriever
 

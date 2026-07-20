@@ -278,3 +278,33 @@ def log_config(title: str, config: object) -> None:
                 table.add_row(str(key), str(display_value))
 
             print_log(table)
+
+
+def _normalize_toml_types(obj: Any) -> Any:
+    """遞迴轉換 tomlkit 型別為原生 Python 型別。
+
+    tomlkit.items.InlineTable / Array 不繼承 dict / list，
+    因此不能只靠 isinstance，須以類別名稱精確匹配。
+    """
+    type_name = type(obj).__name__
+
+    if type_name in ("InlineTable", "Table", "dict"):
+        return {
+            _normalize_toml_types(k): _normalize_toml_types(v) for k, v in obj.items()
+        }
+    if type_name in ("Array", "list"):
+        return [_normalize_toml_types(item) for item in obj]
+
+    if type(obj).__module__ == "builtins":
+        return obj
+
+    if type_name == "Bool":
+        return bool(obj)
+    if type_name == "Integer":
+        return int(obj)
+    if type_name == "Float":
+        return float(obj)
+    if type_name in ("String", "Key"):
+        return str(obj)
+
+    return obj

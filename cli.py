@@ -22,8 +22,14 @@ class WebpageImageSummarizerConfigCLI:
 
 @dataclass
 class RagConfigCLI:
+    # ----- vector store config -----
+    hybrid_ranker: str | None = None
+    weights: list[float] | None = None
     # ----- retriever config -----
-    top_k: int | None = None
+    similarity_top_k: int | None = None
+    query_mode: str | None = None
+    hybrid_top_k: int | None = None
+    alpha: float | None = None
     # ----- query engine config -----
     cutoff: float | None = None
     query: str | None = None
@@ -77,7 +83,10 @@ if __name__ == "__main__":
     module_config_overrides = {}
     for key, value in vars(cli_arg.module).items():
         if value is not None:
-            module_config_overrides[key] = value
+            if key == "weights":
+                module_config_overrides["hybrid_ranker_params"] = {"weights": value}
+            else:
+                module_config_overrides[key] = value
 
     if isinstance(cli_arg, WebsiteCrawlerCLI):
         run_manager.set_module_path("website_crawler")

@@ -7,16 +7,20 @@ chunk_overlap = 100
 paragraph_separator = "\n\n"
 
 [vector_store]
-qdrant_db_folder_path = "data/rag/results/qdrant_db"
+vector_store_type = "milvus"
+milvus_uri = "data/rag/results/milvus_hybrid.db"
 collection_name = "webpages"
+hybrid_ranker = "WeightedRanker"
+hybrid_ranker_params = { weights = [1.0, 0.5] }
 
 [index]
 embedding_name = "text-embedding-3-small"
 
 [retriever]
+query_mode = "hybrid" # run name
 similarity_top_k = 10
+hybrid_top_k = 10
 
 [query_engine]
 llm_name = "gemini-3.1-flash-lite"
-cutoff = 0.4
-query = "加入實驗室需要準備哪些資料？"
+query = "實驗室的成員有哪些人？"

@@ -29,14 +29,22 @@ from llama_index.core.vector_stores import (
     MetadataFilter,
     MetadataFilters,
 )
+from llama_index.core.vector_stores.types import VectorStoreQueryMode
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
+from llama_index.vector_stores.milvus import MilvusVectorStore
+from llama_index.vector_stores.milvus.utils import (
+    BGEM3SparseEmbeddingFunction,
+)
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
 from app.configs.rag_config import (
+    DEFALULT_COLLECTION_NAME,
+    DEFAULT_MILVUS_DB_FOLDER_PATH,
     DEFAULT_QDRANT_DB_FOLER_PATH,
+    DEFAULT_VECTOR_STORE_TYPE,
     WEBPAGES_DATA_FOLDER_PATH,
 )
 from utils.log_helper import log_session, log_source_title
@@ -48,6 +56,12 @@ from utils.rag_helper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+EMBEDDING_DIM_MAP: dict[str, int] = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+}
 
 
 FAITHFULNESS_EVAL_TEMPLATE = PromptTemplate(
@@ -146,28 +160,76 @@ class Rag:
 
         # ===== internal state =====
         self.qdrant_client: QdrantClient | None = None
-        self.vector_store: QdrantVectorStore | None = None
+        self.vector_store: QdrantVectorStore | MilvusVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.nodes: Sequence[BaseNode] | None = None
         self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
 
     def clean_vector_store(
-        self, qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
+        self,
+        qdrant_db_folder_path: str | None = None,
+        milvus_uri: str | None = None,
     ) -> None:
-        shutil.rmtree(qdrant_db_folder_path)
-        logger.info("Successfully cleaned existing vector store")
+        if qdrant_db_folder_path and os.path.exists(qdrant_db_folder_path):
+            shutil.rmtree(qdrant_db_folder_path)
+            logger.info("Cleaned Qdrant vector store")
+
+        if milvus_uri and os.path.exists(milvus_uri):
+            shutil.rmtree(milvus_uri)
+            logger.info("Cleaned Milvus vector store")
 
     def build_vector_store(
         self,
+        vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE,
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
-        collection_name: str = "webpages",
+        milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH,
+        collection_name: str = DEFALULT_COLLECTION_NAME,
+        embedding_name: str = "text-embedding-3-small",
+        overwrite: bool = True,
+        hybrid_ranker: str = "WeightedRanker",
+        hybrid_ranker_params: dict | None = None,
     ) -> None:
-        self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
-        self.vector_store = QdrantVectorStore(
-            collection_name, self.qdrant_client, index_doc_id=False
+        if vector_store_type == "qdrant":
+            os.makedirs(qdrant_db_folder_path, exist_ok=True)
+            self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
+            self.vector_store = QdrantVectorStore(
+                collection_name,
+                self.qdrant_client,
+                index_doc_id=False,
+                enable_hybrid=True,
+                fastembed_sparse_model="Qdrant/bm25",
+            )
+        elif vector_store_type == "milvus":
+            dim = EMBEDDING_DIM_MAP.get(embedding_name)
+
+            if hybrid_ranker_params is None:
+                if hybrid_ranker == "RRFRanker":
+                    hybrid_ranker_params = {"k": 60}
+                elif hybrid_ranker == "WeightedRanker":
+                    hybrid_ranker_params = {"weights": [1.0, 0.5]}
+                else:
+                    raise ValueError(f"Unsupported hybrid_ranker: {hybrid_ranker}")
+
+            # * MilvusLite search 須明確指定 output_fields 才能回傳節點完整資料
+            self.vector_store = MilvusVectorStore(
+                milvus_uri,
+                collection_name=collection_name,
+                overwrite=overwrite,
+                dim=dim,
+                output_fields=["_node_content", "_node_type"],
+                enable_sparse=True,
+                sparse_embedding_function=BGEM3SparseEmbeddingFunction(),
+                hybrid_ranker=hybrid_ranker,
+                hybrid_ranker_params=hybrid_ranker_params,
+            )
+        else:
+            raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
+
+        logger.info(
+            f"Successfully built vector store "
+            f"(type={vector_store_type}, hybrid_ranker={hybrid_ranker})"
         )
-        logger.info("Successfully built vector store")
 
     def _load_results_json(self) -> dict[str, Any]:
         if os.path.exists(self.results_json_path):
@@ -205,6 +267,7 @@ class Rag:
         self.index = VectorStoreIndex.from_vector_store(
             self.vector_store, embed_model, show_progress=True
         )
+
         logger.info("Successfully loaded index from vector store")
 
     def build_index(
@@ -216,6 +279,7 @@ class Rag:
         if self.nodes is None:
             raise RuntimeError("Nodes have not been built, cannot build index")
 
+        # * milvus vector store 使用 sparse embeddnig 時在這裡會造成畫面短暫凍結
         embed_model = self._set_embed_model(embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(
@@ -289,14 +353,18 @@ class Rag:
 
     def build_retriever(
         self,
-        top_k: int = 5,
-        filter_dict: dict[str, str | int | tuple] | None = None,
+        query_mode: str = "hybrid",  # "default" or "hybrid"
+        filter_dict: dict[str, Any] | None = None,
+        similarity_top_k: int = 10,
+        hybrid_top_k: int = 10,
+        alpha: float = 0.5,
     ) -> None:
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
 
         filters: MetadataFilters | None = None
         if filter_dict:
+            logger.info(f"Building retriever with filters: {filter_dict}")
             filter_list = []
             for key, entry in filter_dict.items():
                 if isinstance(entry, tuple):
@@ -308,12 +376,20 @@ class Rag:
                 )
             filters = MetadataFilters(filters=filter_list)
 
+        vector_store_query_mode = (
+            VectorStoreQueryMode.HYBRID
+            if query_mode == "hybrid"
+            else VectorStoreQueryMode.DEFAULT
+        )
         self.retriever = VectorIndexRetriever(
             index=self.index,
-            similarity_top_k=top_k,
+            similarity_top_k=similarity_top_k,
             filters=filters,
+            vector_store_query_mode=vector_store_query_mode,
+            hybrid_top_k=hybrid_top_k,
+            alpha=alpha,
         )
-        logger.info("Successfully built retriever")
+        logger.info(f"Successfully built retriever (query mode={query_mode})")
 
     def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
         log_session("Sources", style="blue")
@@ -326,14 +402,15 @@ class Rag:
             format_content = truncate_text(raw_content, max_length=500)
             logger.info(format_content)
 
-            logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
+            # logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
 
     # ? filter 在 retriever, 還有需要 query engine 嗎
     # TODO: 新增 retrieve method，retriever + similarity postprocessor
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",
-        cutoff: float = 0.45,
+        cutoff: float = 0.0,
+        query_mode: str = "hybrid",
     ) -> None:
         if self.retriever is None:
             raise RuntimeError(
@@ -349,11 +426,17 @@ class Rag:
 
         llm = self._set_llm(llm_name, api_key_name)
         response_synthesizer = get_response_synthesizer(llm)
-        similarity_postprocessor = SimilarityPostprocessor(similarity_cutoff=cutoff)
+
+        node_postprocessors = []
+        if query_mode != "hybrid":
+            node_postprocessors.append(
+                SimilarityPostprocessor(similarity_cutoff=cutoff)
+            )
+
         self.query_engine = RetrieverQueryEngine(
             self.retriever,
             response_synthesizer,
-            node_postprocessors=[similarity_postprocessor],
+            node_postprocessors=node_postprocessors,
         )
 
         logger.info("Successfully built query engine")
@@ -438,12 +521,24 @@ class Rag:
         logger.info(f"Reason: {reason}")
 
     def close(self) -> None:
-        client = self.qdrant_client
-        if client is not None:
-            client.close()
+        if self.qdrant_client is not None:
+            self.qdrant_client.close()
+
+        if isinstance(self.vector_store, MilvusVectorStore):
+            try:
+                self.vector_store._milvusclient.close()
+            except Exception:
+                pass
 
         self.qdrant_client = None
         self.vector_store = None
+        self.index = None
+        self.retriever = None
+        self.query_engine = None
+
+        import gc
+
+        gc.collect()
 
     def override_init_config(self, **init_kwargs) -> None:
         self.webpages_data_folder_path = init_kwargs.get(
@@ -458,9 +553,15 @@ class Rag:
         )
         self.results_json = self._load_results_json()
 
-        client: QdrantClient | None = getattr(self, "client", None)
-        if client is not None:
-            client.close()
+        qdrant_client: QdrantClient | None = self.qdrant_client
+        if qdrant_client is not None:
+            qdrant_client.close()
+
+        if isinstance(self.vector_store, MilvusVectorStore):
+            try:
+                self.vector_store._milvusclient.close()
+            except Exception:
+                pass
 
         self.qdrant_client = None
         self.vector_store = None

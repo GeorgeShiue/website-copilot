@@ -1,12 +1,12 @@
-# RAG Upgrade (2026/07/08)
+# RAG Upgrade (2026/07/20)
 
 ## 待辦事項
-- [x] 一、 Metadata 擴展與資料庫預篩選 (Metadata Filter)
-- [ ] 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
+- [x] 一、 Metadata 擴展與篩選 (Metadata Filter)
+- [x] 二、 混合檢索 (Hybrid Search)
 - [ ] 三、 知識圖譜檢索 (Graph RAG)
 - [ ] 四、 多步推理代理化 (Agentic RAG)
 
-## 一、 Metadata 擴展與資料庫預篩選 (Metadata Filter)
+## 一、 Metadata 擴展與篩選 (Metadata Filter)
 
 **核心目標：** 從資料輸入端建立硬性邊界，消除跨類別（如把公告當作論文）與跨時空（如混淆歷年資料）的 AI 幻覺。
 
@@ -48,13 +48,26 @@
      ```
      既有 20 項測試全部通過（33.93s），向後相容零破損
 
-## 二、 混合檢索與重排序 (Hybrid Search + Node Re-ranking)
+## 二、 混合檢索 (Hybrid Search)
 
-**核心目標：** 在第一階段畫出的「安全範圍」內，解決特定名詞、人名或法規查無資料的召回率瓶頸，並萃取最高純度的上下文。
+**核心目標：** 以稠密＋稀疏雙軌檢索互補，在不依賴 cutoff 和 reranker 的前提下，解決特定關鍵字與語意模糊之間的召回缺口。
 
-1. **啟用 Qdrant 雙軌混合檢索 (Hybrid Retriever)**：在初始化 `QdrantVectorStore` 時啟用 `enable_hybrid=True`。讓系統同時建立稠密向量（語意）與稀疏向量（BM25 關鍵字）索引，並透過調整 `alpha` 值來平衡兩者的搜尋權重。
-2. **放寬召回與精準重排序 (Cross-Encoder Reranker)**：將 Retriever 的初步撈取量（`similarity_top_k`）大幅放寬至 15~20 筆。接著，在管線中掛載 `NodePostprocessor`，使用如 `CohereRerank` 或開源的 BGE-Reranker 針對這 20 筆資料進行交叉比對與重新計分，精準截斷保留最相關的 Top-5 筆。
-3. **Prompt 生成約束與防幻覺**：覆寫 `rag_config.py` 中的 `text_qa_template`。加入嚴格溯源指令（「只能使用 Context 回答，若名單不全必須明確告知，絕不允許外推」），並要求模型在生成事實時必須附上來源連結。將此管線封裝為 `HybridQueryEngine`。
+1. **Vector Store 切換：Qdrant → Milvus**：Qdrant + BM25（`Qdrant/bm25`，純英文語料）對中文 tokenization 效果有限，**改採 Milvus + BGE-M3**（`BAAI/bge-m3`，多語言神經稀疏編碼）。`build_vector_store()` 傳入 `enable_sparse=True` 與 `BGEM3SparseEmbeddingFunction()`，collection 同時儲存稠密向量與稀疏向量。
+
+2. **融合演算法：WeightedRanker 勝出**：Milvus 支援 RRFRanker（rank-based）與 WeightedRanker（score-based）。經實驗比較，RRFRanker 分數壓縮在 0.015–0.033、sparse 干擾過大、成員覆蓋僅 7 位；**WeightedRanker 保留 cosine 原始分數**，成員覆蓋 12 位。最終鎖定 `WeightedRanker` 搭配 `weights=[1.0, 0.5]`。Hybrid mode 跳過 `SimilarityPostprocessor`，完全依賴融合分數自然排序，**省去 cutoff 調參成本**。
+
+3. **參數實驗**：經三組實驗鎖定最終配置——
+   - **權重微調**（`[1.0,0.3]` vs `[1.0,0.5]` vs `[0.9,0.3]`）：`[1.0, 0.5]` 全面勝出，Top-1 Score **0.997**、執行時間最快 **27.92s**
+   - **`hybrid_top_k`**（10 vs 20 vs 30）：調高無益，最終 Top-10 sources 完全一致，維持預設 **10**
+   - **Dense vs Hybrid 橫向比較**（同 Milvus、同資料、同批次）：Hybrid Score 健康分佈（0.62–1.04 vs dense 0.40–0.57），排序品質顯著優於 dense
+
+4. **五題全面驗證**：最終鎖定 `milvus` + `WeightedRanker [1.0, 0.5]` + `similarity_top_k=10` + `hybrid_top_k=10` + `query_mode=hybrid`（不啟用 cutoff）。Q1–Q4 全數通過（Faithfulness/Relevancy 皆 100%）；**Q5 未通過**（皆 0%），原因為檢索污染（personnel 頁面 Score 0.95–0.98 淹沒 paper 頁面 0.62–0.63）與生成層 LLM hallucination（虛構 2026 年論文）。
+
+5. **Q5 瓶頸與 Metadata Filter 共存驗證**：加入 `filter_dict={"page_type": "paper"}` 後檢索層完全解決（Top-10 100% 為論文頁面），Faithfulness 從 0% 提升至 **100%**；但 Relevancy 仍為 0%（LLM 仍使用外部知識補充 2026 年論文），**瓶頸從檢索層轉移至生成層**。
+
+6. **Config Schema 擴充**：`app/configs/rag_config.py` 於 `[vector_store]` 區段新增 `hybrid_ranker`、`hybrid_ranker_params`，於 `[retriever]` 區段新增 `query_mode`、`similarity_top_k`、`hybrid_top_k`。向後相容：`query_mode="default"` 時退化為既有 dense-only 行為。
+
+7. **與原始規劃的差異**：Reranker（BGE Reranker v2-m3）的原始設計（放寬 cutoff → reranker 精準過濾）已被 **Metadata Filter 隔離 + WeightedRanker 健康排序** 取代。當前瓶頸已轉移至生成層，應優先處理 prompt anti-hallucination engineering 與 Agentic RAG self-reflection，而非 reranker。詳細實驗記錄請參考 [`docs/exp/memo/rag/hybrid_query.md`](../exp/memo/rag/hybrid_query.md) 與 [`docs/exp/memo/rag/hybrid_dense_query_compare.md`](../exp/memo/rag/hybrid_dense_query_compare.md)。
 
 ## 三、 知識圖譜檢索 (Graph RAG)
 

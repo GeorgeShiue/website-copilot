@@ -5,6 +5,7 @@ from typing import Any, Self
 
 from utils.config_helper import (
     ConfigValidationError,
+    _normalize_toml_types,
     filter_commented_configs,
     load_config_from_toml,
     override_config,
@@ -12,8 +13,13 @@ from utils.config_helper import (
 
 logger = logging.getLogger(__name__)
 
+
 WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
-DEFAULT_QDRANT_DB_FOLER_PATH = "data/rag/results/qdrant_db"
+RAG_RESULTS_FOLDER_PATH = "data/rag/results"
+DEFAULT_VECTOR_STORE_TYPE = "qdrant"
+DEFALULT_COLLECTION_NAME = "webpages"
+DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
+DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
@@ -28,6 +34,10 @@ INIT_KEYS = {
 VECTOR_STORE_KEYS = {
     "qdrant_db_folder_path",
     "collection_name",
+    "vector_store_type",
+    "milvus_uri",
+    "hybrid_ranker",
+    "hybrid_ranker_params",
 }
 NODES_KEYS = {
     "chunk_size",
@@ -38,7 +48,10 @@ INDEX_KEYS = {
     "embedding_name",
 }
 RETRIEVER_KEYS = {
-    "top_k",
+    "similarity_top_k",
+    "query_mode",
+    "hybrid_top_k",
+    "alpha",
 }
 QUERY_ENGINE_KEYS = {
     "llm_name",
@@ -62,8 +75,12 @@ class RagConfig:
     # ----- init config -----
     webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
     # ----- vector store config -----
+    vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
-    collection_name: str = "webpages"
+    milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
+    collection_name: str = DEFALULT_COLLECTION_NAME
+    hybrid_ranker: str = "WeightedRanker"
+    hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----
     chunk_size: int = 800
     chunk_overlap: int = 100
@@ -71,10 +88,13 @@ class RagConfig:
     # ----- index config -----
     embedding_name: str = "text-embedding-3-small"
     # ----- retriever config -----
-    top_k: int = 5
+    query_mode: str = "hybrid"
+    similarity_top_k: int = 10
+    hybrid_top_k: int = 10
+    alpha: float = 0.5
     # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
-    cutoff: float = 0.5
+    cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(
@@ -133,6 +153,10 @@ def _validate_config(config: dict[str, Any]) -> None:
     # ----- vector store config -----
     qdrant_db_folder_path = config.get("qdrant_db_folder_path")
     collection_name = config.get("collection_name")
+    vector_store_type = config.get("vector_store_type")
+
+    if vector_store_type is not None and vector_store_type not in ("qdrant", "milvus"):
+        raise ConfigValidationError("vector_store_type 必須是 'qdrant' 或 'milvus'")
 
     if qdrant_db_folder_path is not None:
         if not isinstance(qdrant_db_folder_path, str):
@@ -145,6 +169,38 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("collection_name 必須是字串")
         if not collection_name.strip():
             raise ConfigValidationError("collection_name 不可為空字串")
+
+    hybrid_ranker = config.get("hybrid_ranker")
+
+    if hybrid_ranker is not None:
+        if hybrid_ranker not in ("RRFRanker", "WeightedRanker"):
+            raise ConfigValidationError(
+                "hybrid_ranker 必須是 'RRFRanker' 或 'WeightedRanker'"
+            )
+
+    hybrid_ranker_params = config.get("hybrid_ranker_params")
+
+    if hybrid_ranker_params is not None:
+        if not isinstance(hybrid_ranker_params, dict):
+            raise ConfigValidationError("hybrid_ranker_params 必須是 dict")
+
+        if "weights" in hybrid_ranker_params:
+            weights = hybrid_ranker_params["weights"]
+            if not isinstance(weights, list) or len(weights) != 2:
+                raise ConfigValidationError("weights 必須是長度 2 的列表")
+            for w in weights:
+                if not isinstance(w, (int, float)):
+                    raise ConfigValidationError("weights 元素必須為數值")
+
+        if "k" in hybrid_ranker_params:
+            k = hybrid_ranker_params["k"]
+            if not isinstance(k, int):
+                raise ConfigValidationError("hybrid_ranker_params.k 必須是整數")
+            if k <= 0:
+                raise ConfigValidationError("hybrid_ranker_params.k 必須大於 0")
+
+        # 驗證通過後將 tomlkit 型別轉換為原生 Python 型別
+        config["hybrid_ranker_params"] = _normalize_toml_types(hybrid_ranker_params)
 
     # ----- nodes config -----
     chunk_size = config.get("chunk_size")
@@ -174,13 +230,32 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("embedding_name 不可為空字串")
 
     # ----- retriever config -----
-    top_k = config.get("top_k")
+    similarity_top_k = config.get("similarity_top_k")
+    query_mode = config.get("query_mode")
+    hybrid_top_k = config.get("hybrid_top_k")
+    alpha = config.get("alpha")
 
-    if top_k is not None:
-        if not isinstance(top_k, int):
-            raise ConfigValidationError("top_k 必須是整數")
-        if top_k <= 0:
-            raise ConfigValidationError("top_k 必須大於 0")
+    if similarity_top_k is not None:
+        if not isinstance(similarity_top_k, int):
+            raise ConfigValidationError("similarity_top_k 必須是整數")
+        if similarity_top_k <= 0:
+            raise ConfigValidationError("similarity_top_k 必須大於 0")
+
+    if query_mode is not None:
+        if query_mode not in ("hybrid", "default"):
+            raise ConfigValidationError("query_mode 必須是 'hybrid' 或 'default'")
+
+    if hybrid_top_k is not None:
+        if not isinstance(hybrid_top_k, int):
+            raise ConfigValidationError("hybrid_top_k 必須是整數")
+        if hybrid_top_k <= 0:
+            raise ConfigValidationError("hybrid_top_k 必須大於 0")
+
+    if alpha is not None:
+        if not isinstance(alpha, (int, float)):
+            raise ConfigValidationError("alpha 必須是數值")
+        if not 0.0 <= float(alpha) <= 1.0:
+            raise ConfigValidationError("alpha 必須介於 0.0 到 1.0")
 
     # ----- query engine config -----
     llm_name = config.get("llm_name")

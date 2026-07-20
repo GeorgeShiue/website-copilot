@@ -14,9 +14,9 @@ collection_name = "webpages"
 embedding_name = "text-embedding-3-small"
 
 [retriever]
-top_k = 10 # run name
+similarity_top_k = 10
 
 [query_engine]
 llm_name = "gemini-3.1-flash-lite"
-cutoff = 0.4 # run name
+cutoff = 0.4
 query = "加入實驗室需要準備哪些資料？"

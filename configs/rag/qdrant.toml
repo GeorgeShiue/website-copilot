@@ -7,6 +7,7 @@ chunk_overlap = 100
 paragraph_separator = "\n\n"
 
 [vector_store]
+vector_store_type = "qdrant"
 qdrant_db_folder_path = "data/rag/results/qdrant_db"
 collection_name = "webpages"
 
@@ -14,9 +15,12 @@ collection_name = "webpages"
 embedding_name = "text-embedding-3-small"
 
 [retriever]
-top_k = 5
+query_mode = "hybrid" # run name
+similarity_top_k = 10
+hybrid_top_k = 10
+alpha = 0.5
 
 [query_engine]
-llm_name = "gemini-3.1-flash-lite"  # run name
-cutoff = 0.45
-query = "加入實驗室需要準備哪些資料？"
+llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.4
+query = "實驗室的成員有哪些人？"
