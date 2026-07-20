@@ -448,29 +448,166 @@ WeightedRanker 的 Top-1 Score 更高（0.857 vs 0.499），但原因可能包�
 
 # 實驗四：五題全面驗證
 
-## 動機
+## 實驗設計
 
-當前僅以 Q1（名單型）驗證成效。需以 dense-only 階段的五題全面測試，確認 hybrid search 不破壞既有成果。
+### 測試問題
 
-## 測試問題
+| 編號 | 查詢 | 類型 | dense-only 對照 |
+|:---:|------|:----:|:---:|
+| Q1 | 實驗室的成員有哪些人？ | 名單型 | 100%/100% ✅ |
+| Q2 | 實驗室在 2024 年有哪些活動？ | 時間範圍型（活動） | 100%/100% ✅ |
+| Q3 | 加入實驗室需要準備哪些資料？ | 指引型 | 100%/100% ✅ |
+| Q4 | 如何聯絡研究室指導教授？ | 指引型 | 100%/100% ✅ |
+| Q5 | 實驗室近三年發表過哪些論文？ | 時間範圍型（論文） | 100%/0% ❌ |
 
-| 編號 | 查詢 | 類型 |
-|:---:|------|:----:|
-| Q1 | 實驗室的成員有哪些人？ | 名單型 ✅（已測） |
-| Q2 | 實驗室在 2024 年有哪些活動？ | 時間範圍型 |
-| Q3 | 加入實驗室需要準備哪些資料？ | 指引型 |
-| Q4 | 如何聯絡研究室指導教授？ | 指引型 |
-| Q5 | 實驗室近三年發表過哪些論文？ | 時間範圍型（論文） |
+### 測試配置
 
-## 測試次數
+| 參數 | 鎖定值 |
+|:---|:---:|
+| **vector_store_type** | milvus |
+| **hybrid_ranker** | WeightedRanker |
+| **weights** | `[1.0, 0.5]` |
+| **similarity_top_k** | 10 |
+| **hybrid_top_k** | 10 |
+| **query_mode** | hybrid |
+| **llm_name** | gemini-3.1-flash-lite |
+| **cutoff** | hybrid 模式不啟用 |
 
-每題 **1 次 query**（快速驗證參數組合效果，同 dense-only 7/4 實驗設計）。
+### 評斷標準
 
-## 評估方式
+| 指標 | 目標值 | 優先級 |
+|------|--------|:------:|
+| Faithfulness | 100% | P0 |
+| Relevancy | 100% | P0 |
+| Q5 論文類型改善 | Relevancy > 0%（dense-only 階段為 0%） | P1 |
 
-FaithfulnessEvaluator + RelevancyEvaluator（使用 `gpt-5.4` 作為獨立 evaluator）。
+### 注意事項
+
+- 每題各自獨立重建（Milvus 強制完整重建路徑）
+- 評估使用 `gpt-5.4` 作為獨立 evaluator（同 dense-only 7/4 實驗）
+- 所有參數鎖定實驗一～三得出的最佳值
 
 ---
+
+## 實驗記錄
+
+### Q1：實驗室的成員有哪些人？（名單型）
+
+| 指標 | 結果 |
+|:---|:---:|
+| **Top-1 Score** | 0.997（幾乎滿分）✅ |
+| **Score 範圍** | 0.622–0.997 |
+| **成員覆蓋** | **12 位**（廖梓逸、簡資烜、張彣謙、李倬安、葉展維、張勛皓、孫詠淳、黃懷萱、龔若齊、簡國峻、沈哲寬、曾廷綸）✅ |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | 35.51 秒 |
+| **Sources 多樣性** | ✅ 涵蓋 personnel、general、announcement 等不同頁面類型 |
+
+### Q2：實驗室在 2024 年有哪些活動？（時間範圍型 — 活動）
+
+| 指標 | 結果 |
+|:---|:---:|
+| **Top-1 Score** | 0.982 |
+| **Score 範圍** | 0.636–0.982 |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | 30.94 秒 |
+| **回答品質** | 精準列出 2024 年七項活動/獎項（TAAI 2024、ROCLING 2024、和泰 MaaS 黑客松等） |
+| **Sources 多樣性** | ✅ `校外奬項`、`Activities`、`News` 等頁面提供充足證據 |
+
+### Q3：加入實驗室需要準備哪些資料？（指引型）
+
+| 指標 | 結果 |
+|:---|:---:|
+| **Top-1 Score** | 1.043（Top-1 首次突破 1.0） |
+| **Score 範圍** | 0.615–1.043 |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | 30.44 秒 |
+| **回答品質** | 正確回覆 CV、成績單、研究計畫三項申請資料 |
+| **Sources 多樣性** | ✅ `Letter to potential students`、`Join WIDM` 等頁面 |
+
+### Q4：如何聯絡研究室指導教授？（指引型）
+
+| 指標 | 結果 |
+|:---|:---:|
+| **Top-1 Score** | 1.004 |
+| **Score 範圍** | 0.622–1.004 |
+| **Faithfulness** | ✅ 100% |
+| **Relevancy** | ✅ 100% |
+| **執行時間** | 29.62 秒 |
+| **回答品質** | 提供完整教授信箱（chiahui@g.ncu.edu.tw）與申請流程 |
+
+### Q5：實驗室近三年發表過哪些論文？（時間範圍型 — 論文）
+
+| 指標 | 結果 |
+|:---|:---:|
+| **Top-1 Score** | 0.981（personnel 頁面） |
+| **Score 範圍** | 0.620–0.981 |
+| **論文頁面排名** | ❌ Bottom-3：`Publication`(0.628)、`Publication by Year`(0.625)、`Publication`(0.620) |
+| **Faithfulness** | ❌ **0%** |
+| **Relevancy** | ❌ **0%** |
+| **執行時間** | 31.44 秒 |
+| **回答品質** | ❌ **LLM hallucination**：虛構 2026 年論文、將競賽獎項誤答為論文發表 |
+
+### 五題彙總比較
+
+| 編號 | 查詢 | 類型 | Faithfulness | Relevancy | Latency | 與 dense-only 對比 |
+|:---:|------|:----:|:---:|:---:|:---:|:---:|
+| Q1 | 實驗室的成員有哪些人？ | 名單型 | ✅ **100%** | ✅ **100%** | 35.51s | ✅ 持平 |
+| Q2 | 實驗室在 2024 年有哪些活動？ | 時間範圍型（活動） | ✅ **100%** | ✅ **100%** | 30.94s | ✅ 持平 |
+| Q3 | 加入實驗室需要準備哪些資料？ | 指引型 | ✅ **100%** | ✅ **100%** | 30.44s | ✅ 持平 |
+| Q4 | 如何聯絡研究室指導教授？ | 指引型 | ✅ **100%** | ✅ **100%** | 29.62s | ✅ 持平 |
+| Q5 | 實驗室近三年發表過哪些論文？ | 時間範圍型（論文） | ❌ **0%** | ❌ **0%** | 31.44s | ❌ **退化**（dense-only 100%/0%） |
+
+---
+
+## 實驗總結
+
+### 關鍵發現
+
+#### 1. Hybrid search 對 Q1–Q4 完全有效
+
+Q1 名單型（12 位成員）、Q2 活動型（2024 年活動）、Q3 指引型（申請資料）、Q4 指引型（聯絡方式）**全部通過 Faithfulness/Relevancy 100%**，與 dense-only 階段結果一致，證實 hybrid search 對多數查詢類型無負面影響。
+
+#### 2. Q5 論文題是唯一瓶頸，且 hybrid 比 dense-only 更糟
+
+| 面向 | dense-only（Phase 1） | Milvus Weighted（本次） |
+|:---|:---:|:---:|
+| Faithfulness | 100%（誠實拒答） | **0%（hallucination）** |
+| Relevancy | 0%（誠實拒答） | **0%（hallucination）** |
+
+Root cause 分析：
+
+- **檢索層**：論文頁面（`Publication`、`Publication by Year`）的 cosine score（0.620–0.628）遠低於不相關的 personnel 頁面（0.950–0.981），hybrid `[1.0, 0.5]` 讓 dense 主導，無法將 paper 頁面提升到 Top-5
+- **混合型污染**：Top-10 中僅 3/10 是真正的論文頁面，且全排在最後三名。前段被 personnel 頁面（含「論文」關鍵字）和舊獎項頁面佔據
+- **生成層**：LLM 從 personnel 頁面的「近期的發表論文」一詞推論出虛構的 2026 年論文，產生嚴重 hallucination。dense-only 階段使用 cutoff=0.45 時反而誠實拒答，結果更可靠
+
+#### 3. Top-1 Score 異常升高
+
+Q3 與 Q4 的 Top-1 Score 分別達到 1.043 與 1.004，突破 cosine similarity 的理論上限 1.0。這是因為 WeightedRanker 的線性加權公式 `score = w_dense × dense_score + w_sparse × sparse_score` 中，當 dense_score 接近 1.0 且 sparse_score > 0 時，加權和可能超過 1.0。
+
+### 與 dense-only 結論對照
+
+| 面向 | dense-only 結論 | hybrid 結論 |
+|:---|:---|:---|
+| Q1 名單型 | 需 `top_k=10, cutoff=0.4` | hybrid 無 cutoff 即達相同水準 |
+| Q2 活動型 | 穩定 100% | 維持 100% |
+| Q3/Q4 指引型 | 穩定 100% | 維持 100% |
+| Q5 論文型 | 誠實拒答（100%/0%） | **hallucination（0%/0%）— 退化** |
+| 關鍵瓶頸 | Q5 query 理解 + 檢索 | Q5 檢索污染 + LLM hallucination |
+
+### 後續行動
+
+Q5 論文題是當前唯一未通過的瓶頸題，且 hybrid 模式讓情況較 dense-only 更糟。建議：
+
+| 優先序 | 方向 | 具體做法 | 預期改善 |
+|:------:|------|----------|---------|
+| **P0** | Metadata Filter 隔離非論文頁面 | 論文查詢時啟用 `filter_dict={"page_type": "paper"}`，只在 paper pages 中檢索 | 直接解決檢索污染 |
+| **P1** | 論文題專用 cutoff | 對論文查詢啟用 cutoff（如 0.65）過濾低分 paper pages | 減少雜訊 |
+| **P2** | 生成階段約束 | 對時間範圍類查詢強制 provenance 標示，禁止外部知識推論 | 防止 hallucination |
+
+**下一步：實驗五 — Metadata Filter + Hybrid 共存驗證。**
 
 # 實驗五：Metadata Filter + Hybrid 共存驗證
 

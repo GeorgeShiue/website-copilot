@@ -94,7 +94,7 @@ class RagConfig:
     alpha: float = 0.5
     # ----- query engine config -----
     llm_name: str = "gemini-3.1-flash-lite"
-    cutoff: float = 0.4
+    cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(

@@ -86,7 +86,7 @@ def rag_hybrid_ranker_weights():
     run_manager.set_module_path("rag_hybrid_ranker_weights")
 
     hybrid_ranker_weights = [
-        "milvus-weight",
+        "milvus-weight-1.0_0.3",
         "milvus-weight-1.0_0.5",
         "milvus-weight-0.9_0.3",
     ]
@@ -104,15 +104,34 @@ def rag_hybrid_top_k():
     run_manager.set_module_path("rag_hybrid_top_k")
 
     hybrid_top_k_configs = [
-        "milvus",  # baseline: hybrid_top_k=10
-        "milvus-topk-20",  # hybrid_top_k=20
-        "milvus-topk-30",  # hybrid_top_k=30
+        "milvus-topk-10",
+        "milvus-topk-20",
+        "milvus-topk-30",
     ]
 
     for hybrid_top_k_config in hybrid_top_k_configs:
         run_rag_query(
             run_manager=run_manager,
             config_name=hybrid_top_k_config,
+            run_name_use_config_name=True,
+        )
+
+
+def rag_hybrid_five_question():
+    run_manager = RunManager()
+    run_manager.set_module_path("rag_hybrid_five_question")
+    queries = [
+        "milvus-q1-members",
+        "milvus-q2-activities",
+        "milvus-q3-prepare",
+        "milvus-q4-contact",
+        "milvus-q5-papers",
+    ]
+
+    for query in queries:
+        run_rag_query(
+            run_manager=run_manager,
+            config_name=query,
             run_name_use_config_name=True,
         )
 
@@ -129,4 +148,5 @@ if __name__ == "__main__":
 
     # rag_hybrid_ranker()
     # rag_hybrid_ranker_weights()
-    rag_hybrid_top_k()
+    # rag_hybrid_top_k()
+    rag_hybrid_five_question()
