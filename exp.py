@@ -67,7 +67,6 @@ def rag_dense_model():
             )
 
 
-# TODO: 測試 milvus vector store
 def rag_hybrid_ranker():
     run_manager = RunManager()
     run_manager.set_module_path("rag_hybrid_ranker")
