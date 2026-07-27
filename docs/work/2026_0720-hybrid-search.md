@@ -1,5 +1,12 @@
 # Hybrid Search (2026/7/20)
-> 對應 `2026_0708-RAG_Upgrade.md` 第二部分（二、混合檢索與重排序）
+
+## 待辦事項
+
+- [x] Phase 1: Qdrant Hybrid Search（BM25 + WeightedRanker）
+- [x] Phase 2: Milvus Hybrid Search（BGE-M3 + RRF / WeightedRanker）
+- [x] Phase 3: Milvus Vector Store 優化（融合演算法調校 + 參數網格搜尋）
+
+---
 
 ## 前置回顧：Phase 1 對 Phase 2 的關鍵影響
 

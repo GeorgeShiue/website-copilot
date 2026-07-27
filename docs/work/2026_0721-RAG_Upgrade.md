@@ -1,10 +1,12 @@
-# RAG Upgrade (2026/07/20)
+# RAG Upgrade (2026/07/21)
 
 ## 待辦事項
 - [x] 一、 Metadata 擴展與篩選 (Metadata Filter)
 - [x] 二、 混合檢索 (Hybrid Search)
-- [ ] 三、 知識圖譜檢索 (Graph RAG)
-- [ ] 四、 多步推理代理化 (Agentic RAG)
+- [x] 三、 檢索工具封裝 (RAG Retriever Tool)
+- [ ] 四、 Agent 通訊介面 (Agent Communication Interface)
+- [ ] 五、 知識圖譜檢索 (Graph RAG)
+- [ ] 六、 多步推理代理化 (Agentic RAG)
 
 ## 一、 Metadata 擴展與篩選 (Metadata Filter)
 
@@ -69,20 +71,64 @@
 
 7. **與原始規劃的差異**：Reranker（BGE Reranker v2-m3）的原始設計（放寬 cutoff → reranker 精準過濾）已被 **Metadata Filter 隔離 + WeightedRanker 健康排序** 取代。當前瓶頸已轉移至生成層，應優先處理 prompt anti-hallucination engineering 與 Agentic RAG self-reflection，而非 reranker。詳細實驗記錄請參考 [`docs/exp/memo/rag/hybrid_query.md`](../exp/memo/rag/hybrid_query.md) 與 [`docs/exp/memo/rag/hybrid_dense_query_compare.md`](../exp/memo/rag/hybrid_dense_query_compare.md)。
 
-## 三、 知識圖譜檢索 (Graph RAG)
+## 三、 檢索工具封裝 (RAG Retriever Tool)
+
+**核心目標：** 將當前已實作完成的 RAG 系統包裝為 Agent 可呼叫的工具（retriever 層級，不含 LLM 生成），使下游 LangChain Agent 能動態選擇檢索策略。
+
+- **Rag 類別新增 `retrieve()` 方法**：繞過 `RetrieverQueryEngine`，直接呼叫 `VectorIndexRetriever.retrieve()` 並回傳 `list[dict]`（page_title、score、page_type、content、url），避免外部工具層依賴 LlamaIndex 型別
+- **支援執行期 filter_dict 覆寫**：`retrieve()` 接受 `filter_dict` 與 `similarity_top_k` 參數，呼叫時從既有 retriever 讀取 `query_mode` / `hybrid_top_k` / `alpha` 後暫時重建 retriever，讓 Agent 可根據問題動態決定過濾條件（如 `{"page_type": "paper", "year": (2024, FilterOperator.GTE)}`）或調整召回數量
+- **注意副作用**：傳入 `filter_dict` 會覆寫 `self.retriever`，影響後續不帶 filter 的呼叫（沿用上一組參數）。未來可改為每次建立臨時 retriever 解決
+- **測試涵蓋**：Qdrant 5 項 + Milvus Hybrid 6 項全數通過，含基本檢索、filter 隔離、top_k 覆寫、無匹配 filter、有 filter 後接無 filter（確認副作用保留）
+- **Tool Wrapper 模組**：`app/tools/rag_retriever_tool.py` 定義 `RetrieverInput`（Pydantic schema）與 `create_retriever_tool()`，將 `Rag.retrieve()` 包裝為 LangChain `StructuredTool`（name=`webpage_retriever`）。結果格式化為純文字（編號/分數/類型/URL/內容片段），預設 content 截斷 800 chars 避免撐爆 Agent context window
+- **改用無截斷版本**：使用者自行修改儲存為 `app/tools/webpage_RAG_retriever.py`，移除 content 截斷、tool name 改為 `"webpage_RAG_retriever"`、factory 改名為 `create_webpage_RAG_retriever_tool()`。此版本為當前主要活躍版本
+- **Rag 實例自動綁定**：透過 `object.__setattr__(tool, "rag", rag)` 繞過 Pydantic v2 欄位驗證，將 `Rag` 實例綁定為 tool 屬性。Agent 結束後由呼叫者手動 `tool.rag.close()` 釋放資源
+- **`tools.py` 角色重定位**：簡化為所有工具的 re-export 集中入口，未來 Graph RAG Tool 加入時可直接從 `app.tools.tools` 統一 import
+- **LangGraph 整合範例**（`create_agent`，新版推薦，非已棄用的 `create_react_agent`）：
+  ```python
+  from app.tools.webpage_RAG_retriever import create_webpage_RAG_retriever_tool
+  tool = create_webpage_RAG_retriever_tool(config_name="milvus")
+  agent = create_agent(model, [tool], system_prompt="你是實驗室網站問答助理。")
+  result = agent.invoke({"messages": [("human", "實驗室 2024 年後的論文？")]})
+  tool.rag.close()
+  ```
+- **與 Phase 5（Graph RAG）的關係**：此處包裝的是純向量混合檢索工具；Phase 5 的圖譜工具將以相同模式封裝為第二個 `StructuredTool`，Agent 透過 tool description 自主選擇。詳細實作紀錄請參考 [`2026_0721-RAG_retriever_tool.md`](./2026_0721-RAG_retriever_tool.md)
+
+## 四、 Agent 通訊介面 (Agent Communication Interface)
+
+**核心目標：** 定義 Agent 與外部系統之間的標準通訊協議，統一輸入輸出格式、串流模式與多輪對話機制，作為 Phase 5 自訂 StateGraph 的基礎。
+
+- **統一通訊協定 — `messages` 列表**：整個 LangChain 生態系的標準介面，輸入與輸出皆為 `list[Message]`（`HumanMessage`、`AIMessage`、`ToolMessage`）。所有 Agent 工具（retriever、graph 等）皆遵循此協議，Agent 根據 `AIMessage.tool_calls` 決定是否呼叫工具
+- **基本呼叫 `.invoke()`**：
+  ```python
+  response = agent.invoke({"messages": [{"role": "user", "content": "查詢論文"}]})
+  for msg in response["messages"]:
+      msg.pretty_print()
+  ```
+- **串流輸出 `.stream()`**：支援四種 `stream_mode`——`"values"`（完整狀態，適合除錯）、`"updates"`（增量變更，適合前端）、`"messages"`（僅 messages 變更，適合聊天 UI）、`"custom"`（工具內自訂資料，適合進度條/中間結果）
+- **事件串流 `.stream_events()`**：逐 token 串流 LLM 生成內容，適用於即時顯示回應，`version="v3"` 為最新協議版本
+- **多輪對話（需 checkpointer）**：透過 `MemorySaver` 或 `RedisSaver` 啟用對話記憶，以 `thread_id` 區分不同 session，Agent 自動累積對話歷史
+  ```python
+  config = {"configurable": {"thread_id": "session-001"}}
+  agent.invoke({"messages": [{"role": "user", "content": "我叫小明"}]}, config=config)
+  agent.invoke({"messages": [{"role": "user", "content": "我叫什麼名字？"}]}, config=config)
+  ```
+- **部署後遠端呼叫（LangGraph SDK）**：透過 `langgraph_sdk.get_sync_client()` 連接部署後的 Agent 服務，以 `runs.stream()` 串流結果，輸入格式與本地 `.invoke()` 完全一致
+- **`create_agent` 完整參數**：`model`（字串或 `BaseChatModel`）、`tools`（`BaseTool` 列表）、`system_prompt`、`middleware`（`ToolRetryMiddleware`、`HumanInTheLoopMiddleware` 等）、`checkpointer`、`store`（長期記憶）、`context_schema`（tool 內可透過 `ToolRuntime` 存取執行期上下文）
+- **版本注意**：LangGraph v1.0 已棄用 `create_react_agent`，官方遷移路徑為 `from langchain.agents import create_agent`。LangGraph 的 `create_agent` 回傳 `CompiledStateGraph`，與 `create_react_agent` 行為相容但支援更多 middleware 與狀態自訂
+
+## 五、 知識圖譜檢索 (Graph RAG)
 
 **核心目標：** 建立全局知識圖譜，專注解決跨實體的多跳推理與全域脈絡統整，並將檢索能力轉換為標準工具。
 
-1. **建構圖譜引擎 (PropertyGraphIndex)**：利用 LlamaIndex 的知識萃取工具與 LLM，閱讀網頁純文本並自主抓取「專案」、「教授」、「技術能力」等實體與其關聯（Triplets），存入圖資料庫中。將此封裝為 `GraphQueryEngine`。
-2. **跨框架工具封裝 (Tool Abstraction)**：透過 LlamaIndex 提供的橋接功能，將 `HybridQueryEngine` 與 `GraphQueryEngine` 轉換為 LangChain 認得的 `StructuredTool`。
-3. **定義高精度工具說明書 (Tool Description)**：在工具的 Description 參數中嚴格寫明觸發條件。明確定義單純細節查詢使用 Hybrid 工具，跨實體邏輯或宏觀統整使用 Graph 工具，作為下一階段 Agent 決策的唯一依據。
+- **建構圖譜引擎 (PropertyGraphIndex)**：利用 LlamaIndex 的知識萃取工具與 LLM，閱讀網頁純文本並自主抓取「專案」、「教授」、「技術能力」等實體與其關聯（Triplets），存入圖資料庫中，封裝為 `GraphQueryEngine`
+- **跨框架工具封裝 (Tool Abstraction)**：透過 LlamaIndex 橋接功能，將 `HybridQueryEngine` 與 `GraphQueryEngine` 轉換為 LangChain `StructuredTool`
+- **定義高精度工具說明書 (Tool Description)**：在 Description 中嚴格寫明觸發條件——單純細節查詢使用 Hybrid 工具，跨實體邏輯或宏觀統整使用 Graph 工具
 
-## 四、 多步推理代理化 (Agentic RAG)
+## 六、 多步推理代理化 (Agentic RAG)
 
 **核心目標：** 透過 LangGraph 建立具備「思考、行動、驗證、防呆」的全自動迴圈，賦予系統自主查證能力。
 
-1. **定義全局狀態 (State Graph)**：在 LangGraph 中宣告 `AgentState`。除了問題與檢索文本外，必須加入 `retry_count`（重試次數）欄位，作為防止無限迴圈的強制終止條件。
-2. **建立自主控制節點 (Nodes)**：
-* **規劃與執行節點 (Planner & Action)**：由 LLM 評估問題，自動選擇呼叫混合工具（帶或不帶 Metadata 過濾）或圖譜工具，並將檢索結果寫入狀態。
-* **自我驗證節點 (Self-Reflection / Grader)**：強制驗證點。由評估模型判斷抓到的資料是否足以完美回答使用者問題。
-3. **編織條件控制流 (Conditional Edges)**：根據驗證結果進行路由。資料不足且未達重試上限時，導回規劃節點重新檢索；資料充足或達重試上限時，則進入最終生成節點產出解答。
+- **定義全局狀態 (State Graph)**：在 LangGraph 中宣告 `AgentState`，除問題與檢索文本外，加入 `retry_count` 欄位作為無限迴圈強制終止條件
+- **規劃與執行節點 (Planner & Action)**：LLM 評估問題，自動選擇呼叫混合工具（帶或不帶 Metadata 過濾）或圖譜工具，將檢索結果寫入狀態
+- **自我驗證節點 (Self-Reflection / Grader)**：強制驗證點，由評估模型判斷檢索資料是否足以回答問題
+- **條件控制流 (Conditional Edges)**：資料不足且未達重試上限 → 導回規劃節點；資料充足或已達上限 → 進入最終生成節點產出解答
