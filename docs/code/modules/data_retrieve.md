@@ -15,7 +15,7 @@
 	- `app/modules/rag.py`（主流程，包含**向量儲存**、**節點處理**、**索引建立**、**檢索器**、**查詢引擎**與**評估**）
 	- `app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
 	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**與**格式化工具**）
-	- `app/tools/webpage_RAG_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
+	- `app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
 
 - **模組設定**
 	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `app/configs/rag_config.py` 載入）
@@ -194,7 +194,7 @@ Hybrid Search 同時以 Dense Vector 與 Sparse Vector 檢索，再將兩者分�
 
 ---
 
-## webpage_RAG_retriever.py
+## webpage_retriever.py
 
 將 RAG retriever 包裝為 LangChain `StructuredTool`，使下游 Agent 可直接呼叫檢索。
 
@@ -204,16 +204,16 @@ Pydantic v2 schema，定義三個參數供 LLM 填寫：
 - `filter_dict`：可選的 metadata 過濾條件（範例：`{"page_type": "paper"}`）
 - `similarity_top_k`：回傳數量上限
 
-### create_webpage_RAG_retriever_tool()
+### create_webpage_retriever_tool()
 高層工廠函數，接受 `config_name` 與 `**config_overrides`，流程：
 1. 載入 TOML 設定 → 初始化 Rag
 2. 建立 Nodes → 建立 Vector Store → 建立 Index → 建立 Retriever（**不建 Query Engine**）
-3. 包裝為 `StructuredTool(name="webpage_RAG_retriever")`
+3. 包裝為 `StructuredTool(name="webpage_retriever")`
 4. 將 Rag 實例綁定為 `tool.rag` 屬性（結束後呼叫 `tool.rag.close()` 釋放資源）
 
 ### 使用方式
 ```python
-tool = create_webpage_RAG_retriever_tool(config_name="milvus")
+tool = create_webpage_retriever_tool(config_name="milvus")
 agent = create_agent(model, [tool])
 # Agent 執行期間自主呼叫 tool(retriever_input)
 tool.rag.close()  # 釋放向量儲存資源

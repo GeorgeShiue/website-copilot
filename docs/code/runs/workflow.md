@@ -6,7 +6,7 @@
 - [app/workflow/workflow_config.py](app/workflow/workflow_config.py)：定義 workflow 層的 run dataclass，提供 CLI 與程式端共用的參數結構。
 - [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)：管理 `runs/<timestamp>/<module>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
 - [main.py](main.py)：示範以程式直呼 workflow 的串接入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段。
-- `app/tools/webpage_RAG_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫檢索。
+- `app/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫檢索。
 - [app/modules/website_crawler.py](app/modules/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
 - [app/modules/webpage_image_summarizer.py](app/modules/webpage_image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
 - [app/modules/rag.py](app/modules/rag.py)：實際執行向量索引建置、查詢與評估的模組。

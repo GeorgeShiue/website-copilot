@@ -45,7 +45,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── webpage_image_summarizer.py
 │   │   └── website_crawler.py
 │   ├── tools/
-│   │   └── webpage_RAG_retriever.py    # RAG retriever → LangChain StructuredTool
+│   │   └── webpage_retriever.py    # RAG retriever → LangChain StructuredTool
 │   └── workflow/
 │       ├── workflow.py
 │       ├── workflow_config.py

@@ -22,7 +22,7 @@
 |------|---------|------|
 | `app/modules/rag.py` | **新增方法** | 新增 `retrieve()` 方法 |
 | `app/tools/rag_retriever_tool.py` | **新檔案** | Tool wrapper 模組 |
-| `app/tools/webpage_RAG_retriever.py` | **新增工廠函數** | 新增 `create_webpage_RAG_retriever_tool()`，私有化底層包裝 |
+| `app/tools/webpage_retriever.py` | **新增工廠函數** | 新增 `create_webpage_retriever_tool()`，私有化底層包裝 |
 | `app/tools/tools.py` | **重寫** | 簡化為 re-export 集中入口 |
 | `cli.py` | **可選** | 新增 CLI 入口 |
 
@@ -93,7 +93,7 @@
 1. **目錄結構**：新增 `app/tools/` 目錄，集中放置所有 Agent 工具。目錄內含 `__init__.py` 使其成為 Python 套件，未來 Phase 4 的 Graph RAG Tool 也將放置於此。
 2. **輸入 Schema**：使用 Pydantic `BaseModel` 定義 `RetrieverInput`，包含三個欄位：`query`（必要）、`filter_dict`（可選）、`similarity_top_k`（可選）。`Field(description=...)` 的內容會直接成為 LLM 決定工具參數時的指引。
 3. **結果格式化**：`format_retrieval_results()` 將 `retrieve()` 回傳的 `list[dict]` 轉為附編號的純文字，每個結果包含標題、分數、類型、URL、內容片段。內容片段限制 800 字元，防止撐爆 Agent context。
-4. ~~無截斷方案~~ — **已評估但未採用**。完整內容保留可讓 LLM 取得更多細節，但對 context 有限的 Agent 模型可能造成溢出。`webpage_RAG_retriever.py` 中使用者修改的版本即使用無截斷策略，可依使用場景切換。
+4. ~~無截斷方案~~ — **已評估但未採用**。完整內容保留可讓 LLM 取得更多細節，但對 context 有限的 Agent 模型可能造成溢出。`webpage_retriever.py` 中使用者修改的版本即使用無截斷策略，可依使用場景切換。
 5. **Rag 實例綁定**：`create_retriever_tool()` 為工廠函數，接收已建好 retriever 的 `Rag` 實例，回傳 `StructuredTool`。因 `StructuredTool` 為 Pydantic v2 模型，動態綁定 `tool.rag = rag` 須使用 `object.__setattr__()` 繞過欄位驗證，讓外部可在 Agent 結束後透過 `tool.rag.close()` 釋放資源。
 
 ### 進度
@@ -104,7 +104,7 @@
   - `format_retrieval_results()`：格式化檢索結果，內容截斷 800 chars
   - `create_retriever_tool()`：工廠函數，回傳 `StructuredTool(name="webpage_retriever")`
 - **Rag 實例綁定** — 透過 `object.__setattr__(tool, "rag", rag)` 將 Rag 實例綁定為 tool 屬性，解決 Pydantic v2 禁止動態屬性的限制。
-- **另存 `webpage_RAG_retriever.py` 變體**（使用者自行修改）— 內容與 `rag_retriever_tool.py` 基本相同，差異為無 content 截斷、tool name 改為 `"webpage_RAG_retriever"`。
+- **另存 `webpage_retriever.py` 變體**（使用者自行修改）— 內容與 `rag_retriever_tool.py` 基本相同，差異為無 content 截斷、tool name 改為 `"webpage_retriever"`。
 
 ### 測試
 
@@ -128,7 +128,7 @@
 
 | 限制 | 影響 | 解決方案 / 改善方向 |
 |------|------|-------------------|
-| **content 固定截斷** | 結果 content 固定截斷 800 字元，長文件可能遺失細節 | 改為動態截斷（依 token 數），或分段回傳；或使用無截斷變體 `webpage_RAG_retriever` |
+| **content 固定截斷** | 結果 content 固定截斷 800 字元，長文件可能遺失細節 | 改為動態截斷（依 token 數），或分段回傳；或使用無截斷變體 `webpage_retriever` |
 
 ---
 
@@ -136,15 +136,15 @@
 
 ### 修改檔案
 
-`app/tools/webpage_RAG_retriever.py`（新增工廠函數）
+`app/tools/webpage_retriever.py`（新增工廠函數）
 `app/tools/tools.py`（重寫為 re-export 入口）
 
 ### 規劃
 
-**目標**：將高層的工具工廠函數移至工具定義所在的模組，使工具的包裝（wrap Rag）與建立（pipeline + wrap）都集中在同一個檔案中。`tools.py` 簡化為純 re-export 入口，讓外部可透過 `app.tools.tools.create_webpage_RAG_retriever_tool` 統一取得所有工具。
+**目標**：將高層的工具工廠函數移至工具定義所在的模組，使工具的包裝（wrap Rag）與建立（pipeline + wrap）都集中在同一個檔案中。`tools.py` 簡化為純 re-export 入口，讓外部可透過 `app.tools.tools.create_webpage_retriever_tool` 統一取得所有工具。
 
-1. **搬移方向**：高層工廠函數從 `tools.py` 移至 `webpage_RAG_retriever.py`，與底層包裝函數 `_webpage_RAG_to_retriever_tool()` 並存。外部使用時可選擇從 `webpage_RAG_retriever` 直接 import，或從 `tools` 集中入口 import。
-2. **私有化底層包裝**：`webpage_RAG_to_retriever_tool()` 改名為 `_webpage_RAG_to_retriever_tool()`，標記為內部函數。外部不應直接呼叫此函數，而應使用 `create_webpage_RAG_retriever_tool()` 統一取得已建好 pipeline 的工具。
+1. **搬移方向**：高層工廠函數從 `tools.py` 移至 `webpage_retriever.py`，與底層包裝函數 `_webpage_RAG_to_retriever_tool()` 並存。外部使用時可選擇從 `webpage_retriever` 直接 import，或從 `tools` 集中入口 import。
+2. **私有化底層包裝**：`webpage_RAG_to_retriever_tool()` 改名為 `_webpage_RAG_to_retriever_tool()`，標記為內部函數。外部不應直接呼叫此函數，而應使用 `create_webpage_retriever_tool()` 統一取得已建好 pipeline 的工具。
 3. **`tools.py` 角色重定位**：原本 `tools.py` 包含了完整的工廠實作，改為只做 re-export。當未來有其他工具模組（如 Graph RAG Tool）加入時，`tools.py` 就是它們的匯總出口。
 4. **函數簽名調整**：`config_name` 預設值改為 `"milvus"`（暫時），因為測試顯示 milvus hybrid 表現優於 qdrant default。待 `default.toml` 更新後改回 `"default"`。
 
@@ -152,28 +152,28 @@
 
 **今日搬移與重構**（2026/7/21）：
 
-- **`create_webpage_RAG_retriever_tool()` 移至 `webpage_RAG_retriever.py`** — 原先在 `tools.py` 中的 `webpage_RAG_retriever_tool()` 被移至 `webpage_RAG_retriever.py` 並改名為 `create_webpage_RAG_retriever_tool()`，與 `RetrieverInput`、`format_retrieval_results()`、`_webpage_RAG_to_retriever_tool()` 三個元件放在同一個檔案中。至此，工具 schema、格式化、包裝、工廠全部集中在 `webpage_RAG_retriever.py`。
-- **`_webpage_RAG_to_retriever_tool()` 私有化** — 底層的包裝函數改名為私有，外部只需透過 `create_webpage_RAG_retriever_tool()` 取得工具。
-- **`tools.py` 簡化為 re-export** — 內容從 106 行降為 4 行：`from app.tools.webpage_RAG_retriever import create_webpage_RAG_retriever_tool`，並透過 `__all__` 宣告公開 API。
+- **`create_webpage_retriever_tool()` 移至 `webpage_retriever.py`** — 原先在 `tools.py` 中的 `webpage_retriever_tool()` 被移至 `webpage_retriever.py` 並改名為 `create_webpage_retriever_tool()`，與 `RetrieverInput`、`format_retrieval_results()`、`_webpage_RAG_to_retriever_tool()` 三個元件放在同一個檔案中。至此，工具 schema、格式化、包裝、工廠全部集中在 `webpage_retriever.py`。
+- **`_webpage_RAG_to_retriever_tool()` 私有化** — 底層的包裝函數改名為私有，外部只需透過 `create_webpage_retriever_tool()` 取得工具。
+- **`tools.py` 簡化為 re-export** — 內容從 106 行降為 4 行：`from app.tools.webpage_retriever import create_webpage_retriever_tool`，並透過 `__all__` 宣告公開 API。
 
 **測試結果：**
 
 | 測試案例 | 結果 |
 |---------|------|
-| 從 `webpage_RAG_retriever` direct import `create_webpage_RAG_retriever_tool` | ✅ |
-| 從 `tools` re-export import `create_webpage_RAG_retriever_tool` | ✅ |
+| 從 `webpage_retriever` direct import `create_webpage_retriever_tool` | ✅ |
+| 從 `tools` re-export import `create_webpage_retriever_tool` | ✅ |
 | 兩個 import 路徑指向同一函數（`assert direct is tools_factory`） | ✅ |
 | 建立工具（direct 路徑）→ invoke 基本（10 筆） + filter/top_k（3 筆） | ✅ |
 | 建立工具（re-export 路徑）→ invoke + `tool.rag.close()` 資源釋放 | ✅ |
 
 ### `rag.close()` 的生命週期
 
-`create_webpage_RAG_retriever_tool()` 內部**不呼叫** `rag.close()`，因為 `_webpage_RAG_to_retriever_tool()` 在建立工具時已透過 `object.__setattr__(tool, "rag", rag)` 自動綁定 `Rag` 實例。正確生命週期：
+`create_webpage_retriever_tool()` 內部**不呼叫** `rag.close()`，因為 `_webpage_RAG_to_retriever_tool()` 在建立工具時已透過 `object.__setattr__(tool, "rag", rag)` 自動綁定 `Rag` 實例。正確生命週期：
 
 ```python
 # 1. 建立工具（內部建立 Rag 實例，自動綁定為 tool.rag）
-from app.tools.webpage_RAG_retriever import create_webpage_RAG_retriever_tool
-tool = create_webpage_RAG_retriever_tool(config_name="milvus")
+from app.tools.webpage_retriever import create_webpage_retriever_tool
+tool = create_webpage_retriever_tool(config_name="milvus")
 
 # 2. Agent 使用工具進行多次檢索
 agent = create_agent(model, tools=[tool])

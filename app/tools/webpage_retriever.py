@@ -41,7 +41,7 @@ class RetrieverInputSchema(BaseModel):
     )
 
 
-def create_webpage_RAG_retriever_tool(
+def create_webpage_retriever_tool(
     run_manager: RunManager | None = None,
     config_name: str = "milvus",
     run_name_use_config_name: bool = False,
@@ -145,7 +145,7 @@ def _webpage_RAG_to_retriever_tool(rag: Rag) -> StructuredTool:
 
     Returns:
         StructuredTool: 可直接傳入 create_agent()、ToolNode 或
-            create_react_agent() 的工具實例。name 為 "webpage_RAG_retriever"。
+            create_react_agent() 的工具實例。name 為 "webpage_retriever"。
     """
 
     def _retrieve(
@@ -167,7 +167,7 @@ def _webpage_RAG_to_retriever_tool(rag: Rag) -> StructuredTool:
         return formatted_results
 
     tool = StructuredTool(
-        name="webpage_RAG_retriever",
+        name="webpage_retriever",
         description=(
             "檢索實驗室網站網頁中與查詢相關的內容。"
             "當你需要查詢實驗室的論文、研究主題、人員資訊、公告時使用此工具。"
