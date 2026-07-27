@@ -8,16 +8,19 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 - 爬取網站並匯出已清理的 Markdown 頁面。
 - 摘要網頁圖片並將說明附加到 Markdown 輸出中。
-- 建立或載入本地 Qdrant 向量索引以進行檢索。
-- 使用 Gemini 驅動的查詢引擎處理索引後內容。
+- 建立或載入本地向量索引（Qdrant / Milvus）以進行混合檢索，同步進行語意比對與關鍵字比對。
+- 利用爬蟲階段注入的頁面類型標籤，在檢索前隔離跨類別雜訊。
+- 將檢索能力包裝為工具，供下游 Agent 動態呼叫與過濾。
+- 使用 Gemini / GPT 驅動的查詢引擎處理索引後內容，並自動評估回答品質。
 - 保存每次執行的輸出 artefacts、日誌和生成的 Markdown。
 
 ## 專案流程
 
-1. 爬取目標網站並將結果儲存為 Markdown 和 JSON。
+1. 爬取目標網站，從 URL 解析頁面類型，將結果儲存為 Markdown 和 JSON。
 2. 摘要爬取結果中的圖片，生成增強版 Markdown。
-3. 將處理後的 Markdown 載入 Qdrant 支援的向量索引。
-4. 使用 Gemini 模型查詢索引並檢索有來源的回答。
+3. 將處理後的 Markdown 載入向量索引（Qdrant BM25 或 Milvus BGE-M3），同時建立稠密向量與稀疏向量索引。
+4. 將檢索能力包裝為工具，支援動態過濾條件供 Agent 呼叫。
+5. 執行查詢時以 Dense + Sparse 混合檢索，過濾指定頁面類型，由 LLM 生成有來源的回答。
 
 ## 檔案結構
 
@@ -41,13 +44,19 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── rag.py
 │   │   ├── webpage_image_summarizer.py
 │   │   └── website_crawler.py
+│   ├── tools/
+│   │   └── webpage_RAG_retriever.py    # RAG retriever → LangChain StructuredTool
 │   └── workflow/
 │       ├── workflow.py
 │       ├── workflow_config.py
 │       └── workflow_manager.py
 ├── configs/
 │   ├── rag/
-│   │   ├── default.toml
+│   │   ├── default.toml               # Qdrant Dense (預設)
+│   │   ├── dense.toml                  # Milvus Dense-only 對照
+│   │   ├── hybrid.toml                 # Milvus Hybrid 通用設定
+│   │   ├── milvus.toml                 # Milvus + WeightedRanker
+│   │   ├── qdrant.toml                 # Qdrant BM25 Hybrid
 │   │   └── test.toml
 │   ├── webpage_image_summarizer/
 │   │   ├── default.toml
@@ -58,21 +67,25 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       └── test.toml
 ├── data/
 │   ├── rag/
-│   │   └── qdrant_db/            # 本地 Qdrant persistence（如果已建立）
+│   │   └── results/                    # 向量資料庫（qdrant_db/ 或 milvus.db）
 │   └── webpages/
-│       ├── prompt-v2/
-│       └── prompt-v3/
+│       ├── results/                    # 爬蟲與摘要結果
+│       ├── results.json                # 結果索引
+│       └── module_config.toml          # 模組設定備份
 ├── dev/
 ├── docs/
-│   ├── cli.md
-│   ├── config.md
-│   ├── project.md
-│   ├── exp/
-│   │   ├── memo/
-│   │   └── records/
-│   ├── modules/
-│   ├── progress_report/
-│   └── work/
+│   ├── project.md                      # 專案總覽與路線圖
+│   ├── code/
+│   │   ├── phase1.md                   # Phase 1 實作概覽
+│   │   ├── modules/
+│   │   │   ├── data_collect.md         # 爬蟲模組文件
+│   │   │   ├── data_preprocess.md      # 圖片摘要模組文件
+│   │   │   └── data_retrieve.md        # RAG 檢索模組文件
+│   │   └── runs/
+│   │       ├── cli.md                  # CLI 使用方式
+│   │       ├── config.md               # 設定機制說明
+│   │       └── workflow.md             # Workflow 流程說明
+│   └── progress_report/                # 進度報告
 ├── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ├── test/
 │   ├── test_main.py
@@ -105,26 +118,29 @@ playwright install
 
 ## 設定
 
-本專案使用 `config/` 底下的 TOML 檔案，以及從 `.env` 讀取環境變數。
+本專案使用 `configs/` 底下的 TOML 檔案，以及從 `.env` 讀取環境變數。
 
 ### 爬蟲設定
 
-- `config/website_crawler/*.toml`
+- `configs/website_crawler/*.toml`
 - 控制爬取深度、頁面數量限制、內容過濾、URL 模式與允許網域。
 
 ### 圖片摘要設定
 
-- `config/webpage_image_summarizer/*.toml`
+- `configs/webpage_image_summarizer/*.toml`
 - 控制圖片下載逾時、重試行為、快取、模型選擇、prompt 文本以及圖片來源模式。
 
 ### 環境變數
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/rag.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/rag.py` | 用於回答生成的 Gemini 金鑰。 |
-| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag.py` | 向量索引的嵌入模型金鑰。 |
+| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 Gemini 金鑰。 |
+| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 GPT 金鑰。 |
+| `GEMINI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（Gemini）。 |
+| `OPENAI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（GPT）。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
+| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
 
 ## 使用方式
 
@@ -136,13 +152,20 @@ python main.py
 
 這會先執行網站爬蟲，然後將爬取結果傳給圖片摘要器。輸出會寫入 `runs/<timestamp>/...`。
 
-### 執行檢索示範
+### 執行 RAG 查詢
 
 ```bash
-python -m app.rag
+# 使用 Milvus + WeightedRanker 執行混合檢索
+python cli.py rag-query-cli --run.config-name milvus
+
+# 使用 Qdrant BM25 混合檢索
+python cli.py rag-query-cli --run.config-name qdrant
+
+# 自訂 top-k 與過濾條件（透過 CLI 覆寫）
+python cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 10 --module.hybrid_top_k 20
 ```
 
-檢索示範會載入 `data/webpages/prompt-v3/results`，建立或重用 `data/rag/results/qdrant_db` 中的本地 Qdrant 索引，並使用 Gemini 執行範例查詢。
+也可以透過 `exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
 
 ### 執行 smoke tests
 
@@ -154,13 +177,17 @@ pytest
 
 ## 輸出
 
-典型的生成 artefacts 包含：
+每次執行會在 `runs/<timestamp>/<module>/<run_name>/` 下產生以下 artefacts：
 
-- `runs/<timestamp>/website_crawler/<run_name>/results.json`
-- `runs/<timestamp>/website_crawler/<run_name>/results/*.md`
-- `runs/<timestamp>/webpage_image_summarizer/<run_name>/results.json`
-- `runs/<timestamp>/webpage_image_summarizer/<run_name>/results/*.md`
-- `data/rag/results/qdrant_db/`
+- `results.json` — 結構化結果
+- `results/*.md` — 每頁的 Markdown 內容
+- `module_config.toml` — 本次執行的模組參數備份
+- `run_config.toml` — CLI 執行時的 run-level 參數（僅 CLI 入口）
+- `terminal.log` — 執行日誌
+
+向量資料庫持久化於 `data/rag/results/`：
+- `qdrant_db/` — Qdrant 向量儲存
+- `milvus.db` — Milvus Lite 向量儲存
 
 ## 開發
 
@@ -172,18 +199,26 @@ pytest
 
 專案的實作筆記與路線圖位於 `docs/`：
 
-- `docs/Project.md`
-- `docs/Data_Collect.md`
-- `docs/Data_Preprocess.md`
-- `docs/Data_Retrieve.md`
+- `docs/project.md` — 專案總覽、階段規劃與路線圖
+- `docs/code/phase1.md` — Phase 1 實作概覽與已知問題
+- `docs/code/modules/data_collect.md` — 爬蟲模組說明
+- `docs/code/modules/data_preprocess.md` — 圖片摘要模組說明
+- `docs/code/modules/data_retrieve.md` — RAG 檢索模組說明
+- `docs/code/runs/cli.md` — CLI 使用方式
+- `docs/code/runs/config.md` — 設定機制說明
+- `docs/code/runs/workflow.md` — Workflow 流程說明
 
 ## 狀態
 
 目前實作涵蓋：
 
-- 網站爬取與 Markdown 清理
+- 網站爬取、Markdown 清理與頁面類型分類
 - 圖片摘要與快取/重試邏輯
-- 使用 Qdrant 的本地向量檢索
-- 以 Gemini 驅動的來源檢索式查詢引擎
+- 本地向量檢索（Qdrant BM25 / Milvus BGE-M3）
+- 稠密 + 稀疏混合檢索（WeightedRanker / RRFRanker）
+- Metadata 頁面類型過濾
+- RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
+- Gemini / GPT 驅動的來源檢索式查詢引擎
+- 自動化回答品質評估（Faithfulness + Relevancy）
 
-後續規劃請參閱 `docs/Project.md`。
+後續規劃請參閱 `docs/project.md`。

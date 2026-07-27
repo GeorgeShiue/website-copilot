@@ -30,7 +30,8 @@
 - 以**頁面標題**作為檔名，並避免**重複輸出**。
 
 ### 3. 輸出與記錄結果
-- 回傳每頁的**網址**、整理後**內容**與**圖片資訊**。
+- 回傳每頁的**網址**、整理後**內容**、**圖片資訊**、**metadata** 與 **crawl_info**。
+- Metadata 包含從 URL 解析出的 `page_type`（`"paper"` / `"announcement"` / `"personnel"` / `"general"` 等）與網頁 `description`，供後續 RAG 檢索時作為過濾標籤。
 - 提供**成功**、**錯誤**與**重複頁面**的統計。
 - 方便後續檢查**爬取品質**與**覆蓋範圍**。
 
@@ -54,5 +55,7 @@
 ## 補充說明
 - `WebsiteCrawler.crawl_website()` 先設定**網址**與**篩選條件**，再執行**非同步爬取**與**結果整理**；任一階段失敗都會直接回傳 `None`。
 - `_crawl_website_async()` 組合**瀏覽器設定**、**內容過濾**、**網址/網域篩選**與**深層爬取策略**，並將結果整理成清單。
--- `WebsiteCrawlerConfig.from_toml()` 從 `./configs/website_crawler/{name}.toml` 載入 `init` 與 `crawl` 設定，並在建立後立即驗證內容。
+- `_extract_metadata()` 根據 URL sub-path 匹配 `PAGE_TYPE_PATTERNS` 規則（如 `/news` → `announcement`、`/publication` → `paper`），產出 `page_type` 與 `description` 供下游 metadata filter 使用。
+- `_extract_crawl_results_data()` 產出最終結構，每個頁面包含 `url`、`fit_markdown`、`images`、`metadata` 與 `crawl_info` 五個子字典。
+- `WebsiteCrawlerConfig.from_toml()` 從 `./configs/website_crawler/{name}.toml` 載入 `init` 與 `crawl` 設定，並在建立後立即驗證內容。
 - `exclude_words` 若以**列表**提供會自動轉成 `tuple`，`run_name` 則依 TOML 註解標記的欄位組合而成。

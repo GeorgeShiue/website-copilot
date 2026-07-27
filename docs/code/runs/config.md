@@ -65,13 +65,14 @@
 - 載入流程：
   1. `RagConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
   2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 處理合併與覆寫。
-  3. 建構 `RagConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`chunk_size`、`top_k`、`cutoff` 等）。
+  3. 建構 `RagConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
 
 欄位摘要：
 
-- `vector_store`：`qdrant_db_folder_path`、`collection_name`（預設 collection 為 `webpages`，持久化路徑預設 `data/rag/results/qdrant_db`）。
+- `vector_store`：`vector_store_type`（`"qdrant"` 或 `"milvus"`）、`qdrant_db_folder_path`、`milvus_uri`、`collection_name`（預設 `webpages`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`，預設 `"WeightedRanker"`）、`hybrid_ranker_params`（dict，例如 `{"weights": [1.0, 0.5]}`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
-- `retriever`：`top_k`，`query_engine`：`llm_name`、`cutoff`、`query`。
+- `retriever`：`similarity_top_k`（預設 `10`）、`query_mode`（`"default"` 或 `"hybrid"`）、`hybrid_top_k`（預設 `10`）、`alpha`（預設 `0.5`）。
+- `query_engine`：`llm_name`、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
 ## 三、共用載入、覆寫與驗證機制
@@ -136,8 +137,8 @@ module_config 與 run_config 的寫入機制：
 - 目前四個主要 workflow 的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.toml`，並將部分設定另存到 `qdrant_db_folder_path/config.toml`
-  - `run_rag_query()`：寫 `module_config.toml`，並將部分設定另存到 `qdrant_db_folder_path/config.toml`
+  - `run_rag_build()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
+  - `run_rag_query()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定）。
 - module_config.toml
 - run_config.toml
 - terminal.log
@@ -176,8 +177,8 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.toml，另存一份到 `qdrant_db_folder_path/config.toml`
-- run_rag_query()：寫 module_config.toml，另存一份到 `qdrant_db_folder_path/config.toml`
+- run_rag_build()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）
+- run_rag_query()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定）
 
 ## 五、測試與實驗如何使用 config
 

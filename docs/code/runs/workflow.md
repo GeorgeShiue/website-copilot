@@ -5,7 +5,8 @@
 - [app/workflow/workflow.py](app/workflow/workflow.py)：定義四個主要 workflow 入口，負責把 config、module 與 RunManager 串起來，並執行實際的爬蟲、圖片摘要與 RAG 建置／查詢流程。
 - [app/workflow/workflow_config.py](app/workflow/workflow_config.py)：定義 workflow 層的 run dataclass，提供 CLI 與程式端共用的參數結構。
 - [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)：管理 `runs/<timestamp>/<module>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
-- [main.py](main.py)：示範以程式直呼 workflow 的串接入口，先執行網站爬蟲，再把結果交給圖片摘要流程。
+- [main.py](main.py)：示範以程式直呼 workflow 的串接入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段。
+- `app/tools/webpage_RAG_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫檢索。
 - [app/modules/website_crawler.py](app/modules/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
 - [app/modules/webpage_image_summarizer.py](app/modules/webpage_image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
 - [app/modules/rag.py](app/modules/rag.py)：實際執行向量索引建置、查詢與評估的模組。
@@ -50,17 +51,17 @@
 - 流程：
   1. 建立 [app/modules/rag.py](app/modules/rag.py) 的 `Rag`。
   2. 透過 [app/configs/rag_config.py](app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
-  3. 依序執行 `build_nodes()`、`build_vector_store()`、`build_index()`、`build_retriever()`、`build_query_engine()`。
-  4. 執行範例 query，最後寫出 `module_config.toml`，並把部分設定另存到 `qdrant_db_folder_path/config.toml`。
+  3. 依序執行 `build_nodes()`、`build_vector_store()`（支援 **Qdrant BM25** 或 **Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）、`build_index()`、`build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）、`build_query_engine()`。
+  4. 執行範例 query，最後寫出 `module_config.toml`，並把部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
 
 ### 4. `run_rag_query()`
 
 - 目的：以既有的 vector store / index 為基礎，重建必要資源並執行多輪 query 與評估。
 - 流程：
   1. 建立 `Rag` 並載入 `RagConfig`。
-  2. 依 `force_rebuild` 決定是重新建置整套 RAG 資源，還是直接載入既有 index。
-  3. 建立 retriever 與 query engine 後，針對預設 query 或指定 query 進行多輪查詢。
-  4. 回報 faithfulness / relevancy 評估結果，並寫出 `module_config.toml` 與 `qdrant_db_folder_path/config.toml`。
+  2. 依 `force_rebuild` 或 `vector_store_type="milvus"`（MilvusLite 不支援增量，每次需重建）決定是否重新建置整套 RAG 資源，或直接載入既有 index。
+  3. 建立 retriever（可選 `filter_dict` 參數進行 metadata 過濾，但保留給 Agent 工具參數）與 query engine 後，針對預設 query 或指定 query 進行多輪查詢。
+  4. 回報 faithfulness / relevancy 評估結果，並寫出 `module_config.toml` 與向量庫路徑設定備份。
 
 ## 四、Workflow 與 RunManager
 
