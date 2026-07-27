@@ -48,19 +48,20 @@
 - [x] **RAG 檢索-長文本資料**
     - [x] **載入資料**（SimpleDirectoryReader + results.json）
     - [x] **轉換資料**（MarkdownNodeParser / SentenceSplitter / MarkdownHeadingMergeParser / MarkdownImageExtractor）
-    - [x] **向量索引**（OpenAI **text-embedding-3-small** + **Qdrant** 本地持久化）
+    - [x] **向量索引**（OpenAI **text-embedding-3-small** + **Qdrant** / **Milvus** 本地持久化）
+    - [x] **Metadata Filter**（爬蟲 URL 解析 `page_type`，注入節點 metadata 供檢索前過濾）
+    - [x] **Hybrid Search**（**Milvus BGE-M3** 或 **Qdrant BM25** 稠密稀疏雙軌檢索，WeightedRanker / RRFRanker 融合）
     - [x] **查詢引擎**（RetrieverQueryEngine + **Gemini** / **GPT** 回答生成）
+    - [x] **RAG Retriever Tool**（LangChain `StructuredTool` 封裝，供 Agent 動態呼叫）
     - [x] **成效評估**（FaithfulnessEvaluator + RelevancyEvaluator）
 - [ ] **知識圖譜檢索（網站結構）** — 規劃中
 - [ ] **資料庫檢索（多欄位資料）** — 規劃中
 
 ## 已知問題
-- [ ] **純向量 RAG 本質局限**：對結構化列表（名單型）、時間範圍型查詢表現不佳；單一策略無法涵蓋所有資料類型
-    1. **時間範圍型**— 時間表述未轉為明確年份，檢索易混入不同頁型
-    2. **名單型**— 來源頁面含大量 VLM 圖片描述導致語義向量偏移，純向量檢索對結構化列表有本質局限
-- [ ] **改善方向**：導入混合檢索（向量 + BM25 關鍵字）、動態降閾或備援機制，最終走向**資料類型分流路由**
+- [ ] **特定頁面類型需依靠 Metadata Filter**：部分頁面類型（如論文）語意相似度不足，若無 metadata filter 輔助，Dense Search 可能完全召回不到；需仰賴 Agent 在查詢意圖判斷後主動傳入 `filter_dict` 參數。
+- [ ] **Metadata Filter 暫不支援時間範圍過濾**：爬蟲階段僅從 URL 解析頁面類型，未擷取網頁的創建/更新時間，因此無法以時間區間（如「近三年」）進行檢索前過濾。
 
 ## 未來規劃
 - [ ] **資料類型分類器**：判斷查詢/資料類型，自動路由至適當檢索策略
-- [ ] **知識圖譜檢索**：處理網站結構、頁面關聯性與導覽路徑
-- [ ] **資料庫檢索**：處理表格、規格表等多欄位結構化資料
+- [ ] **知識圖譜檢索工具**：處理網站結構與頁面關聯性查詢
+- [ ] **資料庫檢索工具**：處理表格與多欄位結構化資料

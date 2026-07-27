@@ -12,6 +12,11 @@
 
 1. `cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI`。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
+   - `RagConfigCLI.module` 支援以下 hybrid 相關覆寫：
+     - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`
+     - `weights` — `list[float]`，設定 WeightedRanker 權重（`[1.0, 0.5]`）
+     - `similarity_top_k`、`query_mode`、`hybrid_top_k`、`alpha` — retriever 參數
+     - `cutoff`、`query` — query engine 參數
 2. 使用 `tyro.cli(...)` 解析命令列並回傳對應的 dataclass 實例 `cli_arg`。
 3. 以 `vars(cli_arg.module)` 收集 module 參數，僅保留非 `None` 欄位作為 `module_config_overrides`。
 4. 根據 `cli_arg` 型別，呼叫 `RunManager.set_module_path(<module>)`，再呼叫相對應的 `run_*` 函式，並傳入：
@@ -38,8 +43,14 @@
 ## 五、執行範例
 
 ```bash
-# 範例：使用 rag query CLI 並覆寫 module 的 top_k
-python cli.py rag-query-cli --run.config-name test --run.force-rebuild --module.top-k 10
+# 範例：使用 rag query CLI 並覆寫 module 的 similarity_top_k 與 hybrid_ranker
+python cli.py rag-query-cli --run.config-name test --run.force-rebuild --module.similarity_top_k 10
+
+# 範例：切換至 WeightedRanker 並自訂權重
+python cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker WeightedRanker --module.weights "[1.0, 0.5]"
+
+# 範例：設定 hybrid 檢索參數
+python cli.py rag-query-cli --run.config-name hybrid --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
 ```
 
 （備註：開發環境常見 wrapper：`uv run python cli.py ...`，依環境而定）
