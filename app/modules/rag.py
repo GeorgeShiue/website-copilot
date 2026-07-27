@@ -404,8 +404,6 @@ class Rag:
 
             # logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
 
-    # ? filter 在 retriever, 還有需要 query engine 嗎
-    # TODO: 新增 retrieve method，retriever + similarity postprocessor
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",
@@ -472,6 +470,71 @@ class Rag:
             raise TypeError(
                 f"Query engine returned unexpected response type: {type(response)}"
             )
+
+    def retrieve(
+        self,
+        query: str,
+        filter_dict: dict[str, Any] | None = None,
+        similarity_top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """檢索相關節點，不回傳 LLM 生成結果。
+
+        回傳結構化 dict 列表（非原始 NodeWithScore），
+        讓外部工具層可以序列化，不需依賴 LlamaIndex 型別。
+        支援執行期動態 filter_dict 覆寫（暫時重建 retriever）。
+
+        Args:
+            query: 搜尋查詢字串。
+            filter_dict: 可選的 metadata 過濾條件 dict。
+                格式與 build_retriever() 的 filter_dict 完全相同：
+                - 純值 → EQ: {"page_type": "paper"}
+                - tuple → 自訂 operator: {"year": (2024, FilterOperator.GTE)}
+                - list tuple → IN: {"page_type": (["paper", "announcement"], FilterOperator.IN)}
+                傳 None 則沿用既有 retriever 的 filter 設定（若無則不過濾）。
+            similarity_top_k: 可選的 top-k 覆寫值。傳 None 則沿用既有設定。
+
+        Returns:
+            list[dict]: 每個 dict 包含 page_title、score、page_type、content、url。
+        """
+        if self.retriever is None:
+            raise RuntimeError("Retriever has not been built, cannot retrieve")
+
+        # 執行期參數覆寫 — 暫時重建 retriever
+        if filter_dict is not None or similarity_top_k is not None:
+            if similarity_top_k is None:
+                similarity_top_k = self.retriever.similarity_top_k
+            # 從既有 retriever 取 query_mode / hybrid_top_k / alpha
+            query_mode = (
+                "hybrid"
+                if self.retriever._vector_store_query_mode
+                == VectorStoreQueryMode.HYBRID
+                else "default"
+            )
+            hybrid_top_k = getattr(self.retriever, "_hybrid_top_k", 10)
+            alpha = getattr(self.retriever, "_alpha", 0.5)
+            self.build_retriever(
+                query_mode=query_mode,
+                similarity_top_k=similarity_top_k,
+                hybrid_top_k=hybrid_top_k,
+                alpha=alpha,
+                filter_dict=filter_dict,
+            )
+
+        nodes = self.retriever.retrieve(query)
+        results = []
+        for node in nodes:
+            page_title, score, page_type = extract_sources_info(node)
+            results.append(
+                {
+                    "page_title": page_title,
+                    "score": score,
+                    "page_type": page_type,
+                    "content": node.node.get_content(),
+                    "url": node.node.metadata.get("page_url", ""),
+                }
+            )
+
+        return results
 
     def evaluate(
         self,

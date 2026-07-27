@@ -3,7 +3,7 @@
 ## 待辦事項
 - [x] 一、 Metadata 擴展與篩選 (Metadata Filter)
 - [x] 二、 混合檢索 (Hybrid Search)
-- [ ] 三、 檢索工具封裝 (RAG Retriever Tool)
+- [x] 三、 檢索工具封裝 (RAG Retriever Tool)
 - [ ] 四、 Agent 通訊介面 (Agent Communication Interface)
 - [ ] 五、 知識圖譜檢索 (Graph RAG)
 - [ ] 六、 多步推理代理化 (Agentic RAG)
@@ -73,20 +73,25 @@
 
 ## 三、 檢索工具封裝 (RAG Retriever Tool)
 
-**核心目標：** 將當前已實作完成的 RAG 系統包裝為 Agent 可呼叫的工具（retriever 層級，不含 LLM 生成），使下游 LangGraph Agent 能動態選擇檢索策略。
+**核心目標：** 將當前已實作完成的 RAG 系統包裝為 Agent 可呼叫的工具（retriever 層級，不含 LLM 生成），使下游 LangChain Agent 能動態選擇檢索策略。
 
 - **Rag 類別新增 `retrieve()` 方法**：繞過 `RetrieverQueryEngine`，直接呼叫 `VectorIndexRetriever.retrieve()` 並回傳 `list[dict]`（page_title、score、page_type、content、url），避免外部工具層依賴 LlamaIndex 型別
-- **支援執行期 filter_dict 覆寫**：`retrieve()` 接受 `filter_dict` 與 `similarity_top_k` 參數，呼叫時暫時重建 retriever，讓 Agent 可根據問題動態決定過濾條件（如 `{"page_type": "paper", "year": (2024, FilterOperator.GTE)}`）或調整召回數量
-- **新增 `app/tools/rag_retriever_tool.py`**：定義 `RetrieverInput`（Pydantic schema）與 `create_retriever_tool()`，將 `Rag.retrieve()` 包裝為 LangChain `StructuredTool`（name=`webpage_retriever`）。結果格式化為純文字（content 截斷 800 chars），避免撐爆 Agent context window
-- **新增 `run_rag_retriever_tool()` workflow**：遵循 `run_rag_build` 模式，只建到 retriever 層級（nodes → vector store → index → retriever），不回傳 None 而是回傳包裝好的 `StructuredTool`。沿用既有的 `RagConfig` 與 `RunManager` 機制
-- **LangGraph 整合範例**：
+- **支援執行期 filter_dict 覆寫**：`retrieve()` 接受 `filter_dict` 與 `similarity_top_k` 參數，呼叫時從既有 retriever 讀取 `query_mode` / `hybrid_top_k` / `alpha` 後暫時重建 retriever，讓 Agent 可根據問題動態決定過濾條件（如 `{"page_type": "paper", "year": (2024, FilterOperator.GTE)}`）或調整召回數量
+- **注意副作用**：傳入 `filter_dict` 會覆寫 `self.retriever`，影響後續不帶 filter 的呼叫（沿用上一組參數）。未來可改為每次建立臨時 retriever 解決
+- **測試涵蓋**：Qdrant 5 項 + Milvus Hybrid 6 項全數通過，含基本檢索、filter 隔離、top_k 覆寫、無匹配 filter、有 filter 後接無 filter（確認副作用保留）
+- **Tool Wrapper 模組**：`app/tools/rag_retriever_tool.py` 定義 `RetrieverInput`（Pydantic schema）與 `create_retriever_tool()`，將 `Rag.retrieve()` 包裝為 LangChain `StructuredTool`（name=`webpage_retriever`）。結果格式化為純文字（編號/分數/類型/URL/內容片段），預設 content 截斷 800 chars 避免撐爆 Agent context window
+- **改用無截斷版本**：使用者自行修改儲存為 `app/tools/webpage_RAG_retriever.py`，移除 content 截斷、tool name 改為 `"webpage_RAG_retriever"`、factory 改名為 `create_webpage_RAG_retriever_tool()`。此版本為當前主要活躍版本
+- **Rag 實例自動綁定**：透過 `object.__setattr__(tool, "rag", rag)` 繞過 Pydantic v2 欄位驗證，將 `Rag` 實例綁定為 tool 屬性。Agent 結束後由呼叫者手動 `tool.rag.close()` 釋放資源
+- **`tools.py` 角色重定位**：簡化為所有工具的 re-export 集中入口，未來 Graph RAG Tool 加入時可直接從 `app.tools.tools` 統一 import
+- **LangGraph 整合範例**（`create_agent`，新版推薦，非已棄用的 `create_react_agent`）：
   ```python
-  tool = run_rag_retriever_tool(run_manager, config_name="hybrid")
-  agent = create_react_agent(model, [tool])
+  from app.tools.webpage_RAG_retriever import create_webpage_RAG_retriever_tool
+  tool = create_webpage_RAG_retriever_tool(config_name="milvus")
+  agent = create_agent(model, [tool], system_prompt="你是實驗室網站問答助理。")
   result = agent.invoke({"messages": [("human", "實驗室 2024 年後的論文？")]})
+  tool.rag.close()
   ```
-  Agent 內部自動判斷何時呼叫 retriever、要傳入什麼 filter_dict，實現「思考→檢索→驗證」迴圈
-- **與 Phase 4（Graph RAG）的關係**：此處包裝的是純向量混合檢索工具；Phase 4 的圖譜工具將以相同模式封裝為第二個 `StructuredTool`，Agent 透過 tool description 自主選擇
+- **與 Phase 5（Graph RAG）的關係**：此處包裝的是純向量混合檢索工具；Phase 5 的圖譜工具將以相同模式封裝為第二個 `StructuredTool`，Agent 透過 tool description 自主選擇。詳細實作紀錄請參考 [`2026_0721-RAG_retriever_tool.md`](./2026_0721-RAG_retriever_tool.md)
 
 ## 四、 Agent 通訊介面 (Agent Communication Interface)
 
