@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
 RAG_RESULTS_FOLDER_PATH = "data/rag/results"
 DEFAULT_VECTOR_STORE_TYPE = "qdrant"
-DEFALULT_COLLECTION_NAME = "webpages"
+DEFAULT_COLLECTION_NAME = "webpages"
 DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
 DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
@@ -78,7 +78,7 @@ class RagConfig:
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
-    collection_name: str = DEFALULT_COLLECTION_NAME
+    collection_name: str = DEFAULT_COLLECTION_NAME
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----

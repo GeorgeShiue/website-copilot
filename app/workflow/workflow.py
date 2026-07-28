@@ -166,6 +166,7 @@ def run_rag_build(
     run_title = f"RAG Build ({config_name})"
 
     with (
+        rag,
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
@@ -235,8 +236,6 @@ def run_rag_build(
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-    rag.close()
-
 
 # TODO: 此function內支援多份query
 def run_rag_query(
@@ -260,6 +259,7 @@ def run_rag_query(
     run_title = f"RAG Query ({config_name})"
 
     with (
+        rag,
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
@@ -387,6 +387,3 @@ def run_rag_query(
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
-
-    if rebuild or config.vector_store_type == "milvus":
-        rag.close()

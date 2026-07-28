@@ -1,8 +1,9 @@
+import gc
 import json
 import logging
 import os
 import shutil
-from typing import Any, Sequence
+from typing import Any, Self, Sequence
 
 from llama_index.core import (
     SimpleDirectoryReader,
@@ -41,7 +42,7 @@ from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
 from app.configs.rag_config import (
-    DEFALULT_COLLECTION_NAME,
+    DEFAULT_COLLECTION_NAME,
     DEFAULT_MILVUS_DB_FOLDER_PATH,
     DEFAULT_QDRANT_DB_FOLER_PATH,
     DEFAULT_VECTOR_STORE_TYPE,
@@ -165,6 +166,144 @@ class Rag:
         self.nodes: Sequence[BaseNode] | None = None
         self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
+        self._closed: bool = False
+
+    # ── Context Manager ──
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
+        self.close()
+
+    # ── GC 安全網 ──
+    def __del__(self) -> None:
+        self.close()
+
+    # ── 資源釋放（冪等）──
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+
+        if self.qdrant_client is not None:
+            self.qdrant_client.close()
+
+        if isinstance(self.vector_store, MilvusVectorStore):
+            try:
+                self.vector_store._milvusclient.close()
+            except Exception:
+                pass
+
+        self.qdrant_client = None
+        self.vector_store = None
+        self.index = None
+        self.retriever = None
+        self.query_engine = None
+
+        gc.collect()
+
+    # ── 重新設定資料源（Validate First, Then Swap）──
+    def override_init_config(self, **init_kwargs) -> None:
+        new_webpages_data_folder_path = init_kwargs.get(
+            "webpages_data_folder_path", self.webpages_data_folder_path
+        )
+        new_md_docs_folder_path = os.path.join(new_webpages_data_folder_path, "results")
+        new_results_json_path = os.path.join(
+            new_webpages_data_folder_path, "results.json"
+        )
+        new_results_json = self._load_results_json(new_results_json_path)
+
+        self.close()
+
+        self.webpages_data_folder_path = new_webpages_data_folder_path
+        self.md_docs_folder_path = new_md_docs_folder_path
+        self.results_json_path = new_results_json_path
+        self.results_json = new_results_json
+
+    def _load_results_json(
+        self, results_json_path: str | None = None
+    ) -> dict[str, Any]:
+        if results_json_path is None:
+            results_json_path = self.results_json_path
+        if not os.path.exists(results_json_path):
+            raise FileNotFoundError(
+                f"Results JSON file not found at {results_json_path}"
+            )
+        with open(results_json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _file_metadata(self, file_path: str) -> dict[str, Any]:
+        page_title = os.path.basename(file_path).replace(".md", "")
+        page_info = self.results_json.get(page_title, {})
+        page_metadata: dict[str, Any] = page_info.get("metadata", {})
+
+        metadata: dict[str, Any] = {
+            "page_title": page_title,
+            "page_url": page_info.get("url", ""),
+            "page_type": page_metadata.get("page_type", "general"),
+            "description": page_metadata.get("description", ""),
+        }
+
+        return metadata
+
+    def build_nodes(
+        self,
+        chunk_size: int = 800,
+        chunk_overlap: int = 100,
+        paragraph_separator: str = "\n\n",
+    ) -> None:
+        md_docs: list[Document] = SimpleDirectoryReader(
+            self.md_docs_folder_path,
+            exclude_empty=True,
+            filename_as_id=True,
+            required_exts=[".md"],
+            file_metadata=self._file_metadata,
+        ).load_data(show_progress=True)
+        logger.info(f"Loading {len(md_docs)} Markdown Documents")
+
+        pipeline = IngestionPipeline(
+            transformations=[
+                MarkdownNodeParser.from_defaults(),
+                MarkdownDateExtractor(),
+                SentenceSplitter.from_defaults(
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                    paragraph_separator=paragraph_separator,
+                ),
+                MarkdownHeadingMergeParser(),
+                MarkdownImageExtractor(),
+            ]
+        )
+        self.nodes = pipeline.run(documents=md_docs, show_progress=True)
+        logger.info(f"Pipeline produced {len(self.nodes)} nodes")
+
+    # ── Step 2：建立 Vector Store ──
+    @staticmethod
+    def _resolve_embedding_dim(embedding_name: str) -> int:
+        dim = EMBEDDING_DIM_MAP.get(embedding_name)
+        if dim is None:
+            raise ValueError(
+                f"Unknown embedding_name '{embedding_name}'. "
+                f"Supported embeddings: {list(EMBEDDING_DIM_MAP.keys())}."
+            )
+        return dim
+
+    @staticmethod
+    def _default_hybrid_ranker_params(hybrid_ranker: str) -> dict[str, Any]:
+        if hybrid_ranker == "RRFRanker":
+            return {"k": 60}
+        elif hybrid_ranker == "WeightedRanker":
+            return {"weights": [1.0, 0.5]}
+        else:
+            raise ValueError(
+                f"Unsupported hybrid_ranker: '{hybrid_ranker}'. "
+                f"Supported: 'RRFRanker', 'WeightedRanker'."
+            )
 
     def clean_vector_store(
         self,
@@ -184,12 +323,15 @@ class Rag:
         vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE,
         qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
         milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH,
-        collection_name: str = DEFALULT_COLLECTION_NAME,
+        collection_name: str = DEFAULT_COLLECTION_NAME,
         embedding_name: str = "text-embedding-3-small",
         overwrite: bool = True,
         hybrid_ranker: str = "WeightedRanker",
         hybrid_ranker_params: dict | None = None,
     ) -> None:
+        if hybrid_ranker_params is None:
+            hybrid_ranker_params = self._default_hybrid_ranker_params(hybrid_ranker)
+
         if vector_store_type == "qdrant":
             os.makedirs(qdrant_db_folder_path, exist_ok=True)
             self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
@@ -200,18 +342,12 @@ class Rag:
                 enable_hybrid=True,
                 fastembed_sparse_model="Qdrant/bm25",
             )
+            logger.debug(
+                "Qdrant does not use hybrid_ranker_params, ignoring: %s",
+                hybrid_ranker_params,
+            )
         elif vector_store_type == "milvus":
-            dim = EMBEDDING_DIM_MAP.get(embedding_name)
-
-            if hybrid_ranker_params is None:
-                if hybrid_ranker == "RRFRanker":
-                    hybrid_ranker_params = {"k": 60}
-                elif hybrid_ranker == "WeightedRanker":
-                    hybrid_ranker_params = {"weights": [1.0, 0.5]}
-                else:
-                    raise ValueError(f"Unsupported hybrid_ranker: {hybrid_ranker}")
-
-            # * MilvusLite search 須明確指定 output_fields 才能回傳節點完整資料
+            dim = self._resolve_embedding_dim(embedding_name)
             self.vector_store = MilvusVectorStore(
                 milvus_uri,
                 collection_name=collection_name,
@@ -231,34 +367,7 @@ class Rag:
             f"(type={vector_store_type}, hybrid_ranker={hybrid_ranker})"
         )
 
-    def _load_results_json(self) -> dict[str, Any]:
-        if os.path.exists(self.results_json_path):
-            with open(self.results_json_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        raise FileNotFoundError(
-            f"Results JSON file not found at {self.results_json_path}"
-        )
-
-    def _file_metadata(self, file_path: str) -> dict[str, Any]:
-        """Extract file metadata for a given file path using instance results JSON.
-
-        Injects ``page_type`` and ``description`` from the results.json ``metadata``
-        sub-dictionary into the LlamaIndex Document metadata, so they are persisted
-        to Qdrant and available for both pre-filtering and LLM context.
-        """
-        page_title = os.path.basename(file_path).replace(".md", "")
-        page_info = self.results_json.get(page_title, {})
-        page_metadata: dict[str, Any] = page_info.get("metadata", {})
-
-        metadata: dict[str, Any] = {
-            "page_title": page_title,
-            "page_url": page_info.get("url", ""),
-            "page_type": page_metadata.get("page_type", "general"),
-            "description": page_metadata.get("description", ""),
-        }
-
-        return metadata
-
+    # ── Step 3：建立 / 載入 Index ──
     def load_index(self, embedding_name: str = "text-embedding-3-small") -> None:
         if self.vector_store is None:
             raise RuntimeError("Vector store have not been built, cannot load index")
@@ -279,7 +388,6 @@ class Rag:
         if self.nodes is None:
             raise RuntimeError("Nodes have not been built, cannot build index")
 
-        # * milvus vector store 使用 sparse embeddnig 時在這裡會造成畫面短暫凍結
         embed_model = self._set_embed_model(embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex(
@@ -290,70 +398,25 @@ class Rag:
         )
         logger.info("Successfully built index from nodes")
 
-    def build_nodes(
-        self,
-        chunk_size: int = 800,
-        chunk_overlap: int = 100,
-        paragraph_separator: str = "\n\n",
-    ) -> None:
-        md_docs: list[Document] = SimpleDirectoryReader(
-            self.md_docs_folder_path,
-            exclude_empty=True,
-            filename_as_id=True,
-            required_exts=[".md"],
-            file_metadata=self._file_metadata,
-        ).load_data(show_progress=True)
-        # for md_doc in md_docs: # debug
-        #     print(md_doc.metadata)
-        # return
-
-        logger.info(f"Loading {len(md_docs)} Markdown Documents")
-
-        pipeline = IngestionPipeline(
-            transformations=[
-                MarkdownNodeParser.from_defaults(),
-                MarkdownDateExtractor(),
-                SentenceSplitter.from_defaults(
-                    chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                    paragraph_separator=paragraph_separator,
-                ),
-                MarkdownHeadingMergeParser(),
-                MarkdownImageExtractor(),
-            ]
-        )
-        self.nodes = pipeline.run(documents=md_docs, show_progress=True)
-        logger.info(f"Pipeline produced {len(self.nodes)} nodes")
-        # self._log_page_node_info(self.nodes, page_title="Prospective_Students") # debug
-
+    # ── Step 4：建立 Retriever ──
     @staticmethod
-    def _log_page_node_info(
-        nodes: Sequence[BaseNode], page_title: str
-    ) -> None:  # debug
-        counter = 0
-        for node in nodes:
-            if node.metadata.get("page_title") == page_title:
-                counter += 1
-                logger.debug("Node content:")
-                logger.debug(node.get_content())
-                logger.debug("")
-                logger.debug("Node metadata:")
-                logger.debug(node.get_metadata_str())
-                logger.debug("-" * 90)
-        logger.debug(f"Found {counter} nodes from {page_title}")
-
-    def _set_embed_model(self, embedding_name):
-        api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
-        embed_model = OpenAIEmbedding(
-            model=embedding_name,
-            embed_batch_size=256,
-            api_key=api_key,
-        )
-        return embed_model
+    def _build_filters(
+        filter_dict: dict[str, Any] | None,
+    ) -> MetadataFilters | None:
+        if filter_dict is None:
+            return None
+        filter_list = []
+        for key, entry in filter_dict.items():
+            if isinstance(entry, tuple):
+                value, operator = entry
+            else:
+                value, operator = entry, FilterOperator.EQ
+            filter_list.append(MetadataFilter(key=key, value=value, operator=operator))
+        return MetadataFilters(filters=filter_list)
 
     def build_retriever(
         self,
-        query_mode: str = "hybrid",  # "default" or "hybrid"
+        query_mode: str = "hybrid",
         filter_dict: dict[str, Any] | None = None,
         similarity_top_k: int = 10,
         hybrid_top_k: int = 10,
@@ -362,19 +425,9 @@ class Rag:
         if self.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
 
-        filters: MetadataFilters | None = None
+        filters = self._build_filters(filter_dict)
         if filter_dict:
             logger.info(f"Building retriever with filters: {filter_dict}")
-            filter_list = []
-            for key, entry in filter_dict.items():
-                if isinstance(entry, tuple):
-                    value, operator = entry
-                else:
-                    value, operator = entry, FilterOperator.EQ
-                filter_list.append(
-                    MetadataFilter(key=key, value=value, operator=operator)
-                )
-            filters = MetadataFilters(filters=filter_list)
 
         vector_store_query_mode = (
             VectorStoreQueryMode.HYBRID
@@ -391,19 +444,7 @@ class Rag:
         )
         logger.info(f"Successfully built retriever (query mode={query_mode})")
 
-    def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
-        log_session("Sources", style="blue")
-        logger.info(f"Retrieved {len(source_nodes)} sources")
-        for source_node in source_nodes:
-            page_title, score, page_type = extract_sources_info(source_node)
-            log_source_title(page_title, score, page_type)
-
-            raw_content = source_node.node.get_content()
-            format_content = truncate_text(raw_content, max_length=500)
-            logger.info(format_content)
-
-            # logger.debug(f"Node metadata: \n{source_node.node.get_metadata_str()}")
-
+    # ── Step 5：建立 Query Engine ──
     def build_query_engine(
         self,
         llm_name: str = "gemini-3.1-flash-lite",
@@ -439,20 +480,21 @@ class Rag:
 
         logger.info("Successfully built query engine")
 
+    def _set_embed_model(self, embedding_name: str) -> OpenAIEmbedding:
+        api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
+        embed_model = OpenAIEmbedding(
+            model=embedding_name,
+            embed_batch_size=256,
+            api_key=api_key,
+        )
+        return embed_model
+
     def _set_llm(self, llm_name: str, api_key_name: str) -> GoogleGenAI | OpenAI:
         api_key = os.getenv(api_key_name)
-
         if "gemini" in llm_name:
-            llm = GoogleGenAI(
-                model=llm_name,
-                api_key=api_key,
-            )
+            llm = GoogleGenAI(model=llm_name, api_key=api_key)
         elif "gpt" in llm_name:
-            llm = OpenAI(
-                model=llm_name,
-                api_key=api_key,
-            )
-
+            llm = OpenAI(model=llm_name, api_key=api_key)
         return llm
 
     def query(self, query: str, log_sources: bool = False) -> Response:
@@ -477,50 +519,16 @@ class Rag:
         filter_dict: dict[str, Any] | None = None,
         similarity_top_k: int | None = None,
     ) -> list[dict[str, Any]]:
-        """檢索相關節點，不回傳 LLM 生成結果。
-
-        回傳結構化 dict 列表（非原始 NodeWithScore），
-        讓外部工具層可以序列化，不需依賴 LlamaIndex 型別。
-        支援執行期動態 filter_dict 覆寫（暫時重建 retriever）。
-
-        Args:
-            query: 搜尋查詢字串。
-            filter_dict: 可選的 metadata 過濾條件 dict。
-                格式與 build_retriever() 的 filter_dict 完全相同：
-                - 純值 → EQ: {"page_type": "paper"}
-                - tuple → 自訂 operator: {"year": (2024, FilterOperator.GTE)}
-                - list tuple → IN: {"page_type": (["paper", "announcement"], FilterOperator.IN)}
-                傳 None 則沿用既有 retriever 的 filter 設定（若無則不過濾）。
-            similarity_top_k: 可選的 top-k 覆寫值。傳 None 則沿用既有設定。
-
-        Returns:
-            list[dict]: 每個 dict 包含 page_title、score、page_type、content、url。
-        """
         if self.retriever is None:
             raise RuntimeError("Retriever has not been built, cannot retrieve")
 
-        # 執行期參數覆寫 — 暫時重建 retriever
-        if filter_dict is not None or similarity_top_k is not None:
-            if similarity_top_k is None:
-                similarity_top_k = self.retriever.similarity_top_k
-            # 從既有 retriever 取 query_mode / hybrid_top_k / alpha
-            query_mode = (
-                "hybrid"
-                if self.retriever._vector_store_query_mode
-                == VectorStoreQueryMode.HYBRID
-                else "default"
-            )
-            hybrid_top_k = getattr(self.retriever, "_hybrid_top_k", 10)
-            alpha = getattr(self.retriever, "_alpha", 0.5)
-            self.build_retriever(
-                query_mode=query_mode,
-                similarity_top_k=similarity_top_k,
-                hybrid_top_k=hybrid_top_k,
-                alpha=alpha,
-                filter_dict=filter_dict,
-            )
+        if filter_dict is not None:
+            self.retriever._filters = self._build_filters(filter_dict)
+        if similarity_top_k is not None:
+            self.retriever.similarity_top_k = similarity_top_k
 
         nodes = self.retriever.retrieve(query)
+
         results = []
         for node in nodes:
             page_title, score, page_type = extract_sources_info(node)
@@ -540,7 +548,7 @@ class Rag:
         self,
         query: str,
         response: Response,
-        llm_name: str = "gpt-5.4",  # gemini-3.1-pro-preview 每日限額太低
+        llm_name: str = "gpt-5.4",
     ) -> tuple[EvaluationResult, EvaluationResult]:
         if "gemini" in llm_name:
             api_key_name = "GEMINI_RAG_EVALUATOR_API_KEY"
@@ -570,8 +578,17 @@ class Rag:
             response=response,
         )
         self._log_evaluation_result("Relevancy", relevancy_result)
-
         return faithfulness_result, relevancy_result
+
+    def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
+        log_session("Sources", style="blue")
+        logger.info(f"Retrieved {len(source_nodes)} sources")
+        for source_node in source_nodes:
+            page_title, score, page_type = extract_sources_info(source_node)
+            log_source_title(page_title, score, page_type)
+            raw_content = source_node.node.get_content()
+            format_content = truncate_text(raw_content, max_length=500)
+            logger.info(format_content)
 
     def _log_evaluation_result(
         self, evaluation_type: str, evaluation_result: EvaluationResult
@@ -582,52 +599,3 @@ class Rag:
         if evaluation_result.feedback:
             reason = evaluation_result.feedback.split("Reason:", 1)[-1].strip()
         logger.info(f"Reason: {reason}")
-
-    def close(self) -> None:
-        if self.qdrant_client is not None:
-            self.qdrant_client.close()
-
-        if isinstance(self.vector_store, MilvusVectorStore):
-            try:
-                self.vector_store._milvusclient.close()
-            except Exception:
-                pass
-
-        self.qdrant_client = None
-        self.vector_store = None
-        self.index = None
-        self.retriever = None
-        self.query_engine = None
-
-        import gc
-
-        gc.collect()
-
-    def override_init_config(self, **init_kwargs) -> None:
-        self.webpages_data_folder_path = init_kwargs.get(
-            "webpages_data_folder_path", self.webpages_data_folder_path
-        )
-
-        self.md_docs_folder_path = os.path.join(
-            self.webpages_data_folder_path, "results"
-        )
-        self.results_json_path = os.path.join(
-            self.webpages_data_folder_path, "results.json"
-        )
-        self.results_json = self._load_results_json()
-
-        qdrant_client: QdrantClient | None = self.qdrant_client
-        if qdrant_client is not None:
-            qdrant_client.close()
-
-        if isinstance(self.vector_store, MilvusVectorStore):
-            try:
-                self.vector_store._milvusclient.close()
-            except Exception:
-                pass
-
-        self.qdrant_client = None
-        self.vector_store = None
-        self.index = None
-        self.retriever = None
-        self.query_engine = None
