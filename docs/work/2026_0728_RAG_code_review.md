@@ -276,7 +276,10 @@ from llama_index.vector_stores.qdrant import ...
 
 ---
 
-## 🏗️ 模組重構建議
+## 🏗️ 模組重構建議（尚未執行）
+
+> ⚠️ 此章節描述的是更高層級的架構重構，與前述 Critical/Major 的局部修補不同。
+> 以下標記 ✅ 表示 Critical/Major 階段已完成的「前置準備」。
 
 ### 現狀問題總結
 
@@ -297,6 +300,9 @@ from llama_index.vector_stores.qdrant import ...
 ```
 
 呼叫端（`workflow.py`、`webpage_retriever.py`）**被迫了解完整的建構順序**，且無法輕易重複使用部分流程。
+
+雖然 Critical/Major 階段已將多個內部邏輯抽取為靜態方法（`_build_filters` ✅、`_resolve_embedding_dim` ✅、`_default_hybrid_ranker_params` ✅），
+但這些方法仍寄生在 `Rag` 類別之下，職責邊界未真正獨立。
 
 ### 建議重構方向：Builder + Facade Pattern
 
@@ -320,54 +326,65 @@ class RagBuilder:
 
 這帶來的效益：
 
-| 面向 | 現狀 | 重構後 |
+| 面向 | 現狀（Critical/Major 修復後） | 重構後 |
 |------|------|--------|
-| 測試性 | 需要完整的 Milvus/Qdrant | 可單獨測試 NodePipeline |
-| 可組合性 | 無法單獨使用 retriever | `RetrieverToolBuilder` 只建到 retriever |
-| 資源管理 | 手動 `rag.close()` | `with RagBuilder(config) as rag:` |
-| 重複程式碼 | `workflow.py` 與 `webpage_retriever.py` 重複建構序列 | 統一由 `RagBuilder` 處理 |
+| 測試性 | 需完整 Milvus/Qdrant，但靜態方法已可單元測試 ✅ | 可單獨測試 NodePipeline 模組 |
+| 可組合性 | 無法單獨使用 retriever，但已有 `_build_filters` 共用 ✅ | `RetrieverToolBuilder` 只建到 retriever |
+| 資源管理 | Context Manager 已實作 ✅，但呼叫端仍手動編排建構序列 | `with RagBuilder(config) as rag:` 自動編排 |
+| 重複程式碼 | `workflow.py` 與 `webpage_retriever.py` 仍重複 5 步驟 | 統一由 `RagBuilder` 編排
 
-### `rag.retrieve()` 的改良方向
+### `RagRetriever` 模組化（可選）
 
-目前的實作每次呼叫都重建 retriever（見 🔴 Critical #3）。更好的設計是讓 retriever 支援**執行期參數覆寫**而不重建：
+Critical #3 已完成改造：`retrieve()` 不再重建 retriever，改為直接覆寫內部屬性 ✅。
+若進一步抽取獨立的 `RagRetriever` 類別，可達到 `Retriever` 與 `Rag` 的生命週期解耦：
 
 ```python
 class RagRetriever:
-    def __init__(self, index: VectorStoreIndex, config: RetrieverConfig):
+    """抽取後的獨立 Retriever，不依賴 Rag 類別的 other 職責。"""
+    def __init__(self, index: VectorStoreIndex, similarity_top_k=10, ...):
         self._retriever = VectorIndexRetriever(index=index, ...)
-        self._default_config = config
 
     def retrieve(self, query: str, filter_dict=None, top_k=None) -> list[dict]:
-        # 只在必要時更新參數，不重建 retriever
         if filter_dict is not None:
-            self._retriever._filters = self._build_filters(filter_dict)
+            self._retriever.filters = Rag._build_filters(filter_dict)
         if top_k is not None:
-            self._retriever._similarity_top_k = top_k
+            self._retriever.similarity_top_k = top_k
         return self._retriever.retrieve(query)
 ```
 
-### `Workflow` 層的簡化效益
+但此步驟的**邊際效益已降低**（效能瓶頸已不存在），可視未來需求決定是否執行。
 
-重構後，`workflow.py` 的 `run_rag_build` 可簡化為：
+### `RagBuilder` Facade 的效益
+
+建立 `RagBuilder` Facade 後，`workflow.py` 與 `webpage_retriever.py` 不再需要手動編排建構序列。
+`with rag:` 已可正常運作 ✅，但呼叫端仍須自行呼叫 5 個 `build_*` 步驟。
 
 ```python
+# ── 現狀：呼叫端需知道完整建構順序 ──
+rag = Rag()
+with rag:
+    rag.override_init_config(webpages_data_folder_path=...)
+    rag.build_nodes(...)
+    rag.build_vector_store(...)
+    rag.build_index(...)
+    rag.build_retriever(...)
+    rag.build_query_engine(...)
+    rag.query(config.query)
+
+# ── 重構後：RagBuilder 封裝建構邏輯 ──
 def run_rag_build(config_name="default", ...):
     config = RagConfig.from_toml(config_name, **overrides)
-    rag = RagBuilder(config).build()
+    rag = RagBuilder(config).build()  # 內部自動呼叫 5 步驟
 
     with rag:
         rag.query(config.query)
 ```
 
-而 `webpage_retriever.py` 的 `create_webpage_retriever_tool` 可簡化為：
-
 ```python
 def create_webpage_retriever_tool(config_name="milvus", ...):
     config = RagConfig.from_toml(config_name, **overrides)
-    return RagBuilder(config).build_retriever_tool()
+    return RagBuilder(config).build_retriever_tool()  # 只建到 retriever
 ```
-
-不再需要手動重複 `build_nodes → build_vector_store → build_index → build_retriever` 的順序。
 
 ---
 

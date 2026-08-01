@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any
 
 from langchain_core.tools import StructuredTool
@@ -7,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.configs.rag_config import RagConfig
 from app.modules.rag import Rag
+from app.modules.rag_factory import RagBuilder
 from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
@@ -65,7 +65,6 @@ def create_webpage_retriever_tool(
         tool.rag 已自動綁定 Rag 實例，結束後請透過 tool.rag.close() 釋放資源。
     """
     # ----- 初始化設定和路徑 -----
-    rag = Rag()
     config = RagConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_retriever_tool")
@@ -76,6 +75,9 @@ def create_webpage_retriever_tool(
     run_manager.init_module_run_paths()
     run_title = f"RAG Retriever Tool ({config_name})"
 
+    # ----- 使用 RagBuilder 一鍵建構到 retriever 層級 -----
+    rag = RagBuilder(config).build_to_retriever()
+
     with (
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
@@ -84,49 +86,9 @@ def create_webpage_retriever_tool(
         log_session(run_title, style="purple")
         log_config("Rag Config Loaded from toml", config)
 
-        # ----- 初始化物件 -----
-        rag.override_init_config(
-            webpages_data_folder_path=config.webpages_data_folder_path,
-        )
-
-        # ----- 建立 Nodes -----
-        log_session("Building Nodes", style="cyan")
-        rag.build_nodes(
-            chunk_size=config.chunk_size,
-            chunk_overlap=config.chunk_overlap,
-            paragraph_separator=config.paragraph_separator,
-        )
-
-        # ----- 建立 Vector Store -----
-        log_session("Building Vector Store", style="cyan")
-        rag.build_vector_store(
-            vector_store_type=config.vector_store_type,
-            qdrant_db_folder_path=os.path.join(
-                run_manager.results_folder_path, "qdrant_db"
-            ),
-            milvus_uri=os.path.join(run_manager.results_folder_path, "milvus.db"),
-            collection_name=config.collection_name,
-            embedding_name=config.embedding_name,
-            hybrid_ranker=config.hybrid_ranker,
-            hybrid_ranker_params=config.hybrid_ranker_params,
-        )
-
-        # ----- 建立 Index -----
-        log_session("Building Index", style="cyan")
-        rag.build_index(embedding_name=config.embedding_name)
-
-        # ----- 建立 Retriever（不含 Query Engine）-----
-        log_session("Building Retriever", style="cyan")
-        rag.build_retriever(
-            similarity_top_k=config.similarity_top_k,
-            query_mode=config.query_mode,
-            hybrid_top_k=config.hybrid_top_k,
-            alpha=config.alpha,
-        )
-
         # ----- 包裝為工具並回傳 -----
         log_session("Wrapping as StructuredTool", style="cyan")
-        tool = _webpage_RAG_to_retriever_tool(rag)
+        tool = _webpage_retriever_to_tool(rag)
 
         # ----- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
@@ -136,7 +98,7 @@ def create_webpage_retriever_tool(
     return tool
 
 
-def _webpage_RAG_to_retriever_tool(rag: Rag) -> StructuredTool:
+def _webpage_retriever_to_tool(rag: Rag) -> StructuredTool:
     """將 Rag retriever 包裝為 LangChain StructuredTool。
 
     Args:

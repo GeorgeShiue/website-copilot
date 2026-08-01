@@ -2,68 +2,47 @@ import gc
 import json
 import logging
 import os
-import shutil
 from typing import Any, Self, Sequence
 
-from llama_index.core import (
-    SimpleDirectoryReader,
-    StorageContext,
-    VectorStoreIndex,
-    get_response_synthesizer,
-)
+from llama_index.core import VectorStoreIndex
 from llama_index.core.base.response.schema import Response
 from llama_index.core.evaluation import (
     FaithfulnessEvaluator,
     RelevancyEvaluator,
 )
 from llama_index.core.evaluation.base import EvaluationResult
-from llama_index.core.ingestion import IngestionPipeline
-from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
-from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.core.schema import BaseNode, Document, NodeWithScore
+from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.utils import truncate_text
 from llama_index.core.vector_stores import (
     FilterOperator,
     MetadataFilter,
     MetadataFilters,
 )
-from llama_index.core.vector_stores.types import VectorStoreQueryMode
-from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.milvus import MilvusVectorStore
-from llama_index.vector_stores.milvus.utils import (
-    BGEM3SparseEmbeddingFunction,
-)
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
-from app.configs.rag_config import (
-    DEFAULT_COLLECTION_NAME,
-    DEFAULT_MILVUS_DB_FOLDER_PATH,
-    DEFAULT_QDRANT_DB_FOLER_PATH,
-    DEFAULT_VECTOR_STORE_TYPE,
-    WEBPAGES_DATA_FOLDER_PATH,
-)
+from app.configs.rag_config import WEBPAGES_DATA_FOLDER_PATH
 from utils.log_helper import log_session, log_source_title
-from utils.rag_helper import (
-    MarkdownDateExtractor,
-    MarkdownHeadingMergeParser,
-    MarkdownImageExtractor,
-    extract_sources_info,
-)
+from utils.rag_helper import extract_sources_info
 
 logger = logging.getLogger(__name__)
 
-
-EMBEDDING_DIM_MAP: dict[str, int] = {
-    "text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
+LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
+    "gemini": {
+        "query_engine": "GEMINI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
+    },
+    "gpt": {
+        "query_engine": "OPENAI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "OPENAI_RAG_EVALUATOR_API_KEY",
+    },
 }
-
 
 FAITHFULNESS_EVAL_TEMPLATE = PromptTemplate(
     "Please tell if a given piece of information "
@@ -153,13 +132,11 @@ class Rag:
         self,
         webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH,
     ) -> None:
-        # ===== init args =====
         self.webpages_data_folder_path = webpages_data_folder_path
         self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")
         self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
 
-        # ===== internal state =====
         self.qdrant_client: QdrantClient | None = None
         self.vector_store: QdrantVectorStore | MilvusVectorStore | None = None
         self.index: VectorStoreIndex | None = None
@@ -168,7 +145,6 @@ class Rag:
         self.query_engine: RetrieverQueryEngine | None = None
         self._closed: bool = False
 
-    # ── Context Manager ──
     def __enter__(self) -> Self:
         return self
 
@@ -180,13 +156,23 @@ class Rag:
     ) -> None:
         self.close()
 
-    # ── GC 安全網 ──
     def __del__(self) -> None:
         self.close()
 
-    # ── 資源釋放（冪等）──
+    def _load_results_json(
+        self, results_json_path: str | None = None
+    ) -> dict[str, Any]:
+        if results_json_path is None:
+            results_json_path = self.results_json_path
+        if not os.path.exists(results_json_path):
+            raise FileNotFoundError(
+                f"Results JSON file not found at {results_json_path}"
+            )
+        with open(results_json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     def close(self) -> None:
-        if self._closed:
+        if getattr(self, "_closed", False):
             return
         self._closed = True
 
@@ -207,200 +193,8 @@ class Rag:
 
         gc.collect()
 
-    # ── 重新設定資料源（Validate First, Then Swap）──
-    def override_init_config(self, **init_kwargs) -> None:
-        new_webpages_data_folder_path = init_kwargs.get(
-            "webpages_data_folder_path", self.webpages_data_folder_path
-        )
-        new_md_docs_folder_path = os.path.join(new_webpages_data_folder_path, "results")
-        new_results_json_path = os.path.join(
-            new_webpages_data_folder_path, "results.json"
-        )
-        new_results_json = self._load_results_json(new_results_json_path)
-
-        self.close()
-
-        self.webpages_data_folder_path = new_webpages_data_folder_path
-        self.md_docs_folder_path = new_md_docs_folder_path
-        self.results_json_path = new_results_json_path
-        self.results_json = new_results_json
-
-    def _load_results_json(
-        self, results_json_path: str | None = None
-    ) -> dict[str, Any]:
-        if results_json_path is None:
-            results_json_path = self.results_json_path
-        if not os.path.exists(results_json_path):
-            raise FileNotFoundError(
-                f"Results JSON file not found at {results_json_path}"
-            )
-        with open(results_json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _file_metadata(self, file_path: str) -> dict[str, Any]:
-        page_title = os.path.basename(file_path).replace(".md", "")
-        page_info = self.results_json.get(page_title, {})
-        page_metadata: dict[str, Any] = page_info.get("metadata", {})
-
-        metadata: dict[str, Any] = {
-            "page_title": page_title,
-            "page_url": page_info.get("url", ""),
-            "page_type": page_metadata.get("page_type", "general"),
-            "description": page_metadata.get("description", ""),
-        }
-
-        return metadata
-
-    def build_nodes(
-        self,
-        chunk_size: int = 800,
-        chunk_overlap: int = 100,
-        paragraph_separator: str = "\n\n",
-    ) -> None:
-        md_docs: list[Document] = SimpleDirectoryReader(
-            self.md_docs_folder_path,
-            exclude_empty=True,
-            filename_as_id=True,
-            required_exts=[".md"],
-            file_metadata=self._file_metadata,
-        ).load_data(show_progress=True)
-        logger.info(f"Loading {len(md_docs)} Markdown Documents")
-
-        pipeline = IngestionPipeline(
-            transformations=[
-                MarkdownNodeParser.from_defaults(),
-                MarkdownDateExtractor(),
-                SentenceSplitter.from_defaults(
-                    chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                    paragraph_separator=paragraph_separator,
-                ),
-                MarkdownHeadingMergeParser(),
-                MarkdownImageExtractor(),
-            ]
-        )
-        self.nodes = pipeline.run(documents=md_docs, show_progress=True)
-        logger.info(f"Pipeline produced {len(self.nodes)} nodes")
-
-    # ── Step 2：建立 Vector Store ──
     @staticmethod
-    def _resolve_embedding_dim(embedding_name: str) -> int:
-        dim = EMBEDDING_DIM_MAP.get(embedding_name)
-        if dim is None:
-            raise ValueError(
-                f"Unknown embedding_name '{embedding_name}'. "
-                f"Supported embeddings: {list(EMBEDDING_DIM_MAP.keys())}."
-            )
-        return dim
-
-    @staticmethod
-    def _default_hybrid_ranker_params(hybrid_ranker: str) -> dict[str, Any]:
-        if hybrid_ranker == "RRFRanker":
-            return {"k": 60}
-        elif hybrid_ranker == "WeightedRanker":
-            return {"weights": [1.0, 0.5]}
-        else:
-            raise ValueError(
-                f"Unsupported hybrid_ranker: '{hybrid_ranker}'. "
-                f"Supported: 'RRFRanker', 'WeightedRanker'."
-            )
-
-    def clean_vector_store(
-        self,
-        qdrant_db_folder_path: str | None = None,
-        milvus_uri: str | None = None,
-    ) -> None:
-        if qdrant_db_folder_path and os.path.exists(qdrant_db_folder_path):
-            shutil.rmtree(qdrant_db_folder_path)
-            logger.info("Cleaned Qdrant vector store")
-
-        if milvus_uri and os.path.exists(milvus_uri):
-            shutil.rmtree(milvus_uri)
-            logger.info("Cleaned Milvus vector store")
-
-    def build_vector_store(
-        self,
-        vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE,
-        qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH,
-        milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH,
-        collection_name: str = DEFAULT_COLLECTION_NAME,
-        embedding_name: str = "text-embedding-3-small",
-        overwrite: bool = True,
-        hybrid_ranker: str = "WeightedRanker",
-        hybrid_ranker_params: dict | None = None,
-    ) -> None:
-        if hybrid_ranker_params is None:
-            hybrid_ranker_params = self._default_hybrid_ranker_params(hybrid_ranker)
-
-        if vector_store_type == "qdrant":
-            os.makedirs(qdrant_db_folder_path, exist_ok=True)
-            self.qdrant_client = QdrantClient(path=qdrant_db_folder_path)
-            self.vector_store = QdrantVectorStore(
-                collection_name,
-                self.qdrant_client,
-                index_doc_id=False,
-                enable_hybrid=True,
-                fastembed_sparse_model="Qdrant/bm25",
-            )
-            logger.debug(
-                "Qdrant does not use hybrid_ranker_params, ignoring: %s",
-                hybrid_ranker_params,
-            )
-        elif vector_store_type == "milvus":
-            dim = self._resolve_embedding_dim(embedding_name)
-            self.vector_store = MilvusVectorStore(
-                milvus_uri,
-                collection_name=collection_name,
-                overwrite=overwrite,
-                dim=dim,
-                output_fields=["_node_content", "_node_type"],
-                enable_sparse=True,
-                sparse_embedding_function=BGEM3SparseEmbeddingFunction(),
-                hybrid_ranker=hybrid_ranker,
-                hybrid_ranker_params=hybrid_ranker_params,
-            )
-        else:
-            raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
-
-        logger.info(
-            f"Successfully built vector store "
-            f"(type={vector_store_type}, hybrid_ranker={hybrid_ranker})"
-        )
-
-    # ── Step 3：建立 / 載入 Index ──
-    def load_index(self, embedding_name: str = "text-embedding-3-small") -> None:
-        if self.vector_store is None:
-            raise RuntimeError("Vector store have not been built, cannot load index")
-
-        embed_model = self._set_embed_model(embedding_name)
-        self.index = VectorStoreIndex.from_vector_store(
-            self.vector_store, embed_model, show_progress=True
-        )
-
-        logger.info("Successfully loaded index from vector store")
-
-    def build_index(
-        self,
-        embedding_name: str = "text-embedding-3-small",
-    ) -> None:
-        if self.vector_store is None:
-            raise RuntimeError("Vector store have not been built, cannot build index")
-        if self.nodes is None:
-            raise RuntimeError("Nodes have not been built, cannot build index")
-
-        embed_model = self._set_embed_model(embedding_name)
-        storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
-        self.index = VectorStoreIndex(
-            self.nodes,
-            storage_context=storage_context,
-            embed_model=embed_model,
-            show_progress=True,
-        )
-        logger.info("Successfully built index from nodes")
-
-    # ── Step 4：建立 Retriever ──
-    @staticmethod
-    def _build_filters(
+    def build_filters(
         filter_dict: dict[str, Any] | None,
     ) -> MetadataFilters | None:
         if filter_dict is None:
@@ -414,88 +208,16 @@ class Rag:
             filter_list.append(MetadataFilter(key=key, value=value, operator=operator))
         return MetadataFilters(filters=filter_list)
 
-    def build_retriever(
-        self,
-        query_mode: str = "hybrid",
-        filter_dict: dict[str, Any] | None = None,
-        similarity_top_k: int = 10,
-        hybrid_top_k: int = 10,
-        alpha: float = 0.5,
-    ) -> None:
-        if self.index is None:
-            raise RuntimeError("Index have not been built, cannot build retriever")
-
-        filters = self._build_filters(filter_dict)
-        if filter_dict:
-            logger.info(f"Building retriever with filters: {filter_dict}")
-
-        vector_store_query_mode = (
-            VectorStoreQueryMode.HYBRID
-            if query_mode == "hybrid"
-            else VectorStoreQueryMode.DEFAULT
-        )
-        self.retriever = VectorIndexRetriever(
-            index=self.index,
-            similarity_top_k=similarity_top_k,
-            filters=filters,
-            vector_store_query_mode=vector_store_query_mode,
-            hybrid_top_k=hybrid_top_k,
-            alpha=alpha,
-        )
-        logger.info(f"Successfully built retriever (query mode={query_mode})")
-
-    # ── Step 5：建立 Query Engine ──
-    def build_query_engine(
-        self,
-        llm_name: str = "gemini-3.1-flash-lite",
-        cutoff: float = 0.0,
-        query_mode: str = "hybrid",
-    ) -> None:
-        if self.retriever is None:
-            raise RuntimeError(
-                "Retriever have not been built, cannot build query engine"
-            )
-
-        if "gemini" in llm_name:
-            api_key_name = "GEMINI_RAG_QUERY_ENGINE_API_KEY"
-        elif "gpt" in llm_name:
-            api_key_name = "OPENAI_RAG_QUERY_ENGINE_API_KEY"
-        else:
-            raise ValueError(f"Unsupported LLM name: {llm_name}")
-
-        llm = self._set_llm(llm_name, api_key_name)
-        response_synthesizer = get_response_synthesizer(llm)
-
-        node_postprocessors = []
-        if query_mode != "hybrid":
-            node_postprocessors.append(
-                SimilarityPostprocessor(similarity_cutoff=cutoff)
-            )
-
-        self.query_engine = RetrieverQueryEngine(
-            self.retriever,
-            response_synthesizer,
-            node_postprocessors=node_postprocessors,
-        )
-
-        logger.info("Successfully built query engine")
-
-    def _set_embed_model(self, embedding_name: str) -> OpenAIEmbedding:
-        api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
-        embed_model = OpenAIEmbedding(
-            model=embedding_name,
-            embed_batch_size=256,
-            api_key=api_key,
-        )
-        return embed_model
-
-    def _set_llm(self, llm_name: str, api_key_name: str) -> GoogleGenAI | OpenAI:
-        api_key = os.getenv(api_key_name)
-        if "gemini" in llm_name:
-            llm = GoogleGenAI(model=llm_name, api_key=api_key)
-        elif "gpt" in llm_name:
-            llm = OpenAI(model=llm_name, api_key=api_key)
-        return llm
+    @staticmethod
+    def create_llm(llm_name: str, usage: str = "query_engine") -> GoogleGenAI | OpenAI:
+        for provider, env_vars in LLM_API_KEY_ENV_VARS.items():
+            if provider in llm_name:
+                api_key = os.getenv(env_vars[usage])
+                if provider == "gemini":
+                    return GoogleGenAI(model=llm_name, api_key=api_key)
+                elif provider == "gpt":
+                    return OpenAI(model=llm_name, api_key=api_key)
+        raise ValueError(f"Unsupported LLM name: {llm_name}")
 
     def query(self, query: str, log_sources: bool = False) -> Response:
         if self.query_engine is None:
@@ -508,10 +230,9 @@ class Rag:
             if log_sources:
                 self._log_sources(response.source_nodes)
             return response
-        else:
-            raise TypeError(
-                f"Query engine returned unexpected response type: {type(response)}"
-            )
+        raise TypeError(
+            f"Query engine returned unexpected response type: {type(response)}"
+        )
 
     def retrieve(
         self,
@@ -522,12 +243,18 @@ class Rag:
         if self.retriever is None:
             raise RuntimeError("Retriever has not been built, cannot retrieve")
 
-        if filter_dict is not None:
-            self.retriever._filters = self._build_filters(filter_dict)
-        if similarity_top_k is not None:
-            self.retriever.similarity_top_k = similarity_top_k
+        original_filters = self.retriever._filters
+        original_top_k = self.retriever.similarity_top_k
+        try:
+            if filter_dict is not None:
+                self.retriever._filters = self.build_filters(filter_dict)
+            if similarity_top_k is not None:
+                self.retriever.similarity_top_k = similarity_top_k
 
-        nodes = self.retriever.retrieve(query)
+            nodes = self.retriever.retrieve(query)
+        finally:
+            self.retriever._filters = original_filters
+            self.retriever.similarity_top_k = original_top_k
 
         results = []
         for node in nodes:
@@ -544,20 +271,14 @@ class Rag:
 
         return results
 
+    # TODO: 創建評估器的機制移動到 rag_factory.py
     def evaluate(
         self,
         query: str,
         response: Response,
-        llm_name: str = "gpt-5.4",
     ) -> tuple[EvaluationResult, EvaluationResult]:
-        if "gemini" in llm_name:
-            api_key_name = "GEMINI_RAG_EVALUATOR_API_KEY"
-        elif "gpt" in llm_name:
-            api_key_name = "OPENAI_RAG_EVALUATOR_API_KEY"
-        else:
-            raise ValueError(f"Unsupported LLM name: {llm_name}")
-
-        llm = self._set_llm(llm_name, api_key_name)
+        llm_name: str = "gpt-5.4"  # gpt-5.4 or gemini-3.1-pro
+        llm = self.create_llm(llm_name, "evaluator")
         faithfulness_evaluator = FaithfulnessEvaluator(
             llm=llm,
             eval_template=FAITHFULNESS_EVAL_TEMPLATE,
