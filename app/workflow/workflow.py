@@ -1,12 +1,12 @@
 import os
 
 from app.configs.rag_config import (
-    RagConfig,
+    RAGConfig,
 )
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
-from app.modules.rag import Rag
-from app.modules.rag_factory import RagBuilder
+from app.modules.rag import RAG
+from app.modules.rag_factory import RAGBuilder
 from app.modules.webpage_image_summarizer import WebpageImageSummarizer
 from app.modules.website_crawler import WebsiteCrawler
 from app.workflow.workflow_manager import RunManager
@@ -155,7 +155,7 @@ def run_rag_build(
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
-    config = RagConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_build")
     if run_name_use_config_name:
@@ -171,8 +171,8 @@ def run_rag_build(
         webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
         config.webpages_data_folder_path = webpages_data_folder_path
 
-    # ----- 使用 RagBuilder 一鍵建構 -----
-    rag = RagBuilder(config).build()
+    # ----- 使用 RAGBuilder 一鍵建構 -----
+    rag = RAGBuilder(config).build()
 
     with (
         rag,
@@ -181,7 +181,7 @@ def run_rag_build(
     ):
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
-        log_config("Rag Config Loaded from toml", config)
+        log_config("RAG Config Loaded from toml", config)
 
         # ----- Query & Response -----
         log_session("Query & Response", style="cyan")
@@ -201,7 +201,7 @@ def run_rag_query(
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
-    config = RagConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_query")
     if run_name_use_config_name:
@@ -211,8 +211,8 @@ def run_rag_query(
     run_manager.init_module_run_paths()
     run_title = f"RAG Query ({config_name})"
 
-    rag = Rag(webpages_data_folder_path=config.webpages_data_folder_path)
-    builder = RagBuilder(config)
+    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
+    builder = RAGBuilder(config)
 
     with (
         rag,
@@ -221,30 +221,8 @@ def run_rag_query(
     ):
         # ----- 建立所有資源 -----
         log_session("Building All Resources", style="cyan")
-        rebuild = False
-        store_path = (
-            config.milvus_uri
-            if config.vector_store_type == "milvus"
-            else config.qdrant_db_folder_path
-        )
-        if force_rebuild or not os.path.exists(store_path):
-            rebuild = True
-
-        # * Milvus Vector Store 必須重建
-        if rebuild or config.vector_store_type == "milvus":
-            if config.vector_store_type == "qdrant":
-                builder.clean_vector_store(rag)
-            elif config.vector_store_type == "milvus":
-                builder.clean_vector_store(rag)
-            builder.build_nodes(rag)
-            builder.build_vector_store(rag)
-            builder.build_index(rag)
-        else:
-            builder.build_vector_store(rag, overwrite=False)
-            builder.load_index(rag)
-
-        builder.build_retriever(rag)
-        builder.build_query_engine(rag)
+        rebuild = builder.build_reusable(rag, force_rebuild=force_rebuild)
+        builder.build_evaluators(rag)
 
         # ----- Query -----
         faithfulness_pass = 0
@@ -280,12 +258,12 @@ def run_rag_query(
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-        if rebuild or config.vector_store_type == "milvus":
-            module_config_folder_path = ""
-            if config.vector_store_type == "qdrant":
-                module_config_folder_path = config.qdrant_db_folder_path
-            elif config.vector_store_type == "milvus":
-                module_config_folder_path = config.milvus_uri
+        if rebuild:
+            module_config_folder_path = (
+                config.qdrant_db_folder_path
+                if config.vector_store_type == "qdrant"
+                else config.milvus_uri
+            )
             save_module_config_as_toml(
                 config,
                 os.path.join(module_config_folder_path, "module_config.toml"),

@@ -10,6 +10,10 @@ from llama_index.core import (
     VectorStoreIndex,
     get_response_synthesizer,
 )
+from llama_index.core.evaluation import (
+    FaithfulnessEvaluator,
+    RelevancyEvaluator,
+)
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 from llama_index.core.postprocessor import SimilarityPostprocessor
@@ -25,12 +29,20 @@ from llama_index.vector_stores.milvus.utils import (
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
-from app.configs.rag_config import RagConfig
-from app.modules.rag import Rag
+from app.configs.rag_config import RAGConfig
+from app.modules.rag import RAG
+from app.modules.rag_eval_prompts import (
+    FAITHFULNESS_EVAL_TEMPLATE,
+    FAITHFULNESS_REFINE_TEMPLATE,
+    RELEVANCY_EVAL_TEMPLATE,
+    RELEVANCY_REFINE_TEMPLATE,
+)
 from utils.rag_helper import (
     MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
+    build_filters,
+    create_llm,
 )
 
 logger = logging.getLogger(__name__)
@@ -245,16 +257,16 @@ class VectorStoreBuilder:
             )
 
 
-class RagBuilder:
-    def __init__(self, config: RagConfig) -> None:
+class RAGBuilder:
+    def __init__(self, config: RAGConfig) -> None:
         self.config = config
 
-    def build(self) -> Rag:
+    def build(self) -> RAG:
         rag = self.build_to_retriever()
         self.build_query_engine(rag)
         return rag
 
-    def build_to_retriever(self) -> Rag:
+    def build_to_retriever(self) -> RAG:
         rag = self._create_rag()
         self.build_nodes(rag)
         self.build_vector_store(rag)
@@ -262,7 +274,42 @@ class RagBuilder:
         self.build_retriever(rag)
         return rag
 
-    def build_nodes(self, rag: Rag) -> None:
+    def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> bool:
+        """建到 query engine 層級，視情況重建或載入既有 index。
+
+        - Milvus 一律重建（現有設計限制）。
+        - 其他 store：force_rebuild=True 或 store 路徑不存在時重建。
+        - 重建：clean → nodes → vector store → index。
+        - 載入：build_vector_store(overwrite=False) → load_index。
+        - 最後一律 build_retriever → build_query_engine。
+
+        Returns:
+            是否執行了重建，供 caller 判斷後續處理（例如儲存 module_config）。
+        """
+        rebuild = self._should_rebuild(force_rebuild)
+        if rebuild:
+            self.clean_vector_store(rag)
+            self.build_nodes(rag)
+            self.build_vector_store(rag)
+            self.build_index(rag)
+        else:
+            self.build_vector_store(rag, overwrite=False)
+            self.load_index(rag)
+
+        self.build_retriever(rag)
+        self.build_query_engine(rag)
+        return rebuild
+
+    def _should_rebuild(self, force_rebuild: bool) -> bool:
+        """決定是否需要重建 vector store / index。
+
+        Milvus 一律重建；Qdrant 在 force_rebuild 或 store 路徑不存在時重建。
+        """
+        if self.config.vector_store_type == "milvus":
+            return True
+        return force_rebuild or not os.path.exists(self.config.qdrant_db_folder_path)
+
+    def build_nodes(self, rag: RAG) -> None:
         builder = NodePipelineBuilder(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,
@@ -273,7 +320,7 @@ class RagBuilder:
             results_json=rag.results_json,
         )
 
-    def build_vector_store(self, rag: Rag, overwrite: bool = True) -> None:
+    def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
         qdrant_client, vector_store = VectorStoreBuilder.build(
             vector_store_type=self.config.vector_store_type,
             collection_name=self.config.collection_name,
@@ -292,13 +339,13 @@ class RagBuilder:
             self.config.hybrid_ranker,
         )
 
-    def clean_vector_store(self, rag: Rag) -> None:
+    def clean_vector_store(self, rag: RAG) -> None:
         if self.config.vector_store_type == "qdrant":
             VectorStoreBuilder.clean_qdrant(self.config.qdrant_db_folder_path)
         elif self.config.vector_store_type == "milvus":
             VectorStoreBuilder.clean_milvus(self.config.milvus_uri)
 
-    def build_index(self, rag: Rag) -> None:
+    def build_index(self, rag: RAG) -> None:
         if rag.vector_store is None:
             raise RuntimeError("Vector store have not been built, cannot build index")
         if rag.nodes is None:
@@ -314,7 +361,7 @@ class RagBuilder:
         )
         logger.info("Successfully built index from nodes")
 
-    def load_index(self, rag: Rag) -> None:
+    def load_index(self, rag: RAG) -> None:
         if rag.vector_store is None:
             raise RuntimeError("Vector store have not been built, cannot load index")
 
@@ -325,12 +372,12 @@ class RagBuilder:
         logger.info("Successfully loaded index from vector store")
 
     def build_retriever(
-        self, rag: Rag, filter_dict: dict[str, Any] | None = None
+        self, rag: RAG, filter_dict: dict[str, Any] | None = None
     ) -> None:
         if rag.index is None:
             raise RuntimeError("Index have not been built, cannot build retriever")
 
-        filters = Rag.build_filters(filter_dict)
+        filters = build_filters(filter_dict)
         if filter_dict:
             logger.info(f"Building retriever with filters: {filter_dict}")
 
@@ -351,13 +398,13 @@ class RagBuilder:
             f"Successfully built retriever (query mode={self.config.query_mode})"
         )
 
-    def build_query_engine(self, rag: Rag) -> None:
+    def build_query_engine(self, rag: RAG) -> None:
         if rag.retriever is None:
             raise RuntimeError(
                 "Retriever have not been built, cannot build query engine"
             )
 
-        llm = Rag.create_llm(self.config.llm_name)
+        llm = create_llm(self.config.query_llm_name)
         response_synthesizer = get_response_synthesizer(llm)
 
         node_postprocessors = []
@@ -374,6 +421,25 @@ class RagBuilder:
 
         logger.info("Successfully built query engine")
 
+    def build_evaluators(self, rag: RAG) -> None:
+        """建立 Faithfulness / Relevancy evaluator 並注入 rag.evaluators。"""
+        llm = create_llm(self.config.evaluator_llm_name, "evaluator")
+        faithfulness_evaluator = FaithfulnessEvaluator(
+            llm=llm,
+            eval_template=FAITHFULNESS_EVAL_TEMPLATE,
+            refine_template=FAITHFULNESS_REFINE_TEMPLATE,
+        )
+        relevancy_evaluator = RelevancyEvaluator(
+            llm=llm,
+            eval_template=RELEVANCY_EVAL_TEMPLATE,
+            refine_template=RELEVANCY_REFINE_TEMPLATE,
+        )
+        rag.evaluators = (faithfulness_evaluator, relevancy_evaluator)
+        logger.info(
+            "Successfully built evaluators (llm=%s)",
+            self.config.evaluator_llm_name,
+        )
+
     @staticmethod
     def _set_embed_model(embedding_name: str) -> OpenAIEmbedding:
         api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
@@ -381,5 +447,5 @@ class RagBuilder:
             model=embedding_name, embed_batch_size=256, api_key=api_key
         )
 
-    def _create_rag(self) -> Rag:
-        return Rag(webpages_data_folder_path=self.config.webpages_data_folder_path)
+    def _create_rag(self) -> RAG:
+        return RAG(webpages_data_folder_path=self.config.webpages_data_folder_path)

@@ -4,7 +4,7 @@ from app.workflow.workflow import (
     run_website_crawler,
 )
 from app.workflow.workflow_config import (
-    RagBuildRunConfig,
+    RAGBuildRunConfig,
     WebpageImageSummarizerRunConfig,
     WebsiteCrawlerRunConfig,
 )
@@ -50,7 +50,7 @@ def main() -> None:
 
     # ----- RAG Build -----
     run_manager.set_module_path("rag_build")
-    rag_build_run_config = RagBuildRunConfig(webpages_data_use_latest_results=True)
+    rag_build_run_config = RAGBuildRunConfig(webpages_data_use_latest_results=True)
     run_rag_build(run_manager=run_manager, **vars(rag_build_run_config))
     save_run_config_as_toml(
         rag_build_run_config,

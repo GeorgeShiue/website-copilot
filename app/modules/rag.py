@@ -11,123 +11,22 @@ from llama_index.core.evaluation import (
     RelevancyEvaluator,
 )
 from llama_index.core.evaluation.base import EvaluationResult
-from llama_index.core.prompts import PromptTemplate
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.utils import truncate_text
-from llama_index.core.vector_stores import (
-    FilterOperator,
-    MetadataFilter,
-    MetadataFilters,
-)
-from llama_index.llms.google_genai import GoogleGenAI
-from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
 from app.configs.rag_config import WEBPAGES_DATA_FOLDER_PATH
 from utils.log_helper import log_session, log_source_title
-from utils.rag_helper import extract_sources_info
+from utils.rag_helper import build_filters, extract_sources_info
 
 logger = logging.getLogger(__name__)
 
-LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
-    "gemini": {
-        "query_engine": "GEMINI_RAG_QUERY_ENGINE_API_KEY",
-        "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
-    },
-    "gpt": {
-        "query_engine": "OPENAI_RAG_QUERY_ENGINE_API_KEY",
-        "evaluator": "OPENAI_RAG_EVALUATOR_API_KEY",
-    },
-}
 
-FAITHFULNESS_EVAL_TEMPLATE = PromptTemplate(
-    "Please tell if a given piece of information "
-    "is supported by the context.\n"
-    "You need to answer with either YES or NO, followed by a short reason.\n"
-    "Answer YES if any of the context supports the information, even "
-    "if most of the context is unrelated. "
-    "If you answer YES or NO, add a second line starting with 'Reason:' "
-    "and explain your decision briefly. "
-    "請在 'Reason:' 行以繁體中文簡短說明（只要一句話即可）。 "
-    "Some examples are provided below. \n\n"
-    "Information: Apple pie is generally double-crusted.\n"
-    "Context: An apple pie is a fruit pie in which the principal filling "
-    "ingredient is apples. \n"
-    "Apple pie is often served with whipped cream, ice cream "
-    "('apple pie à la mode'), custard or cheddar cheese.\n"
-    "It is generally double-crusted, with pastry both above "
-    "and below the filling; the upper crust may be solid or "
-    "latticed (woven of crosswise strips).\n"
-    "Answer: YES\n"
-    "Reason: The context explicitly says the pie is generally double-crusted.\n"
-    "Information: Apple pies tastes bad.\n"
-    "Context: An apple pie is a fruit pie in which the principal filling "
-    "ingredient is apples. \n"
-    "Apple pie is often served with whipped cream, ice cream "
-    "('apple pie à la mode'), custard or cheddar cheese.\n"
-    "It is generally double-crusted, with pastry both above "
-    "and below the filling; the upper crust may be solid or "
-    "latticed (woven of crosswise strips).\n"
-    "Answer: NO\n"
-    "Reason: The context describes the pie, but it does not say anything about taste.\n"
-    "Information: {query_str}\n"
-    "Context: {context_str}\n"
-    "Answer: "
-)
-
-FAITHFULNESS_REFINE_TEMPLATE = PromptTemplate(
-    "We want to understand if the following information is present "
-    "in the context information: {query_str}\n"
-    "We have provided an existing YES/NO answer: {existing_answer}\n"
-    "We have the opportunity to refine the existing answer "
-    "(only if needed) with some more context below.\n"
-    "------------\n"
-    "{context_msg}\n"
-    "------------\n"
-    "If the existing answer was already YES, still answer YES. "
-    "If the information is present in the new context, answer YES. "
-    "Otherwise answer NO.\n"
-    "After YES or NO, add a new line starting with 'Reason:' and briefly "
-    "explain the decision based on the available context.\n"
-    "請在 'Reason:' 行以繁體中文簡短說明（只要一句話即可）。\n"
-)
-
-RELEVANCY_EVAL_TEMPLATE = PromptTemplate(
-    "Please tell if the response for the query is in line with the context \n"
-    "information provided.\n"
-    "You need to answer with either YES or NO, followed by a short reason.\n"
-    "Answer YES if the response for the query is in line with the context \n"
-    "information, otherwise NO.\n"
-    "After YES or NO, add a second line starting with 'Reason:' and explain \n"
-    "your decision briefly.\n"
-    "請在 'Reason:' 行以繁體中文簡短說明（只要一句話即可）。\n"
-    "Query and Response: \n {query_str}\n"
-    "Context: \n {context_str}\n"
-    "Answer: "
-)
-
-RELEVANCY_REFINE_TEMPLATE = PromptTemplate(
-    "We want to understand if the following query and response is in line with \n"
-    "the context information: \n {query_str}\n"
-    "We have provided an existing YES/NO answer: \n {existing_answer}\n"
-    "We have the opportunity to refine the existing answer (only if needed) with \n"
-    "some more context below.\n"
-    "------------\n"
-    "{context_msg}\n"
-    "------------\n"
-    "If the existing answer was already YES, still answer YES. If the information \n"
-    "is present in the new context, answer YES. Otherwise answer NO.\n"
-    "After YES or NO, add a new line starting with 'Reason:' and briefly explain \n"
-    "the decision based on the available context.\n"
-    "請在 'Reason:' 行以繁體中文簡短說明（只要一句話即可）。\n"
-)
-
-
-class Rag:
+class RAG:
     def __init__(
         self,
         webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH,
@@ -143,6 +42,7 @@ class Rag:
         self.nodes: Sequence[BaseNode] | None = None
         self.retriever: VectorIndexRetriever | None = None
         self.query_engine: RetrieverQueryEngine | None = None
+        self.evaluators: tuple[FaithfulnessEvaluator, RelevancyEvaluator] | None = None
         self._closed: bool = False
 
     def __enter__(self) -> Self:
@@ -190,34 +90,9 @@ class Rag:
         self.index = None
         self.retriever = None
         self.query_engine = None
+        self.evaluators = None
 
         gc.collect()
-
-    @staticmethod
-    def build_filters(
-        filter_dict: dict[str, Any] | None,
-    ) -> MetadataFilters | None:
-        if filter_dict is None:
-            return None
-        filter_list = []
-        for key, entry in filter_dict.items():
-            if isinstance(entry, tuple):
-                value, operator = entry
-            else:
-                value, operator = entry, FilterOperator.EQ
-            filter_list.append(MetadataFilter(key=key, value=value, operator=operator))
-        return MetadataFilters(filters=filter_list)
-
-    @staticmethod
-    def create_llm(llm_name: str, usage: str = "query_engine") -> GoogleGenAI | OpenAI:
-        for provider, env_vars in LLM_API_KEY_ENV_VARS.items():
-            if provider in llm_name:
-                api_key = os.getenv(env_vars[usage])
-                if provider == "gemini":
-                    return GoogleGenAI(model=llm_name, api_key=api_key)
-                elif provider == "gpt":
-                    return OpenAI(model=llm_name, api_key=api_key)
-        raise ValueError(f"Unsupported LLM name: {llm_name}")
 
     def query(self, query: str, log_sources: bool = False) -> Response:
         if self.query_engine is None:
@@ -247,7 +122,7 @@ class Rag:
         original_top_k = self.retriever.similarity_top_k
         try:
             if filter_dict is not None:
-                self.retriever._filters = self.build_filters(filter_dict)
+                self.retriever._filters = build_filters(filter_dict)
             if similarity_top_k is not None:
                 self.retriever.similarity_top_k = similarity_top_k
 
@@ -271,29 +146,20 @@ class Rag:
 
         return results
 
-    # TODO: 創建評估器的機制移動到 rag_factory.py
     def evaluate(
         self,
         query: str,
         response: Response,
     ) -> tuple[EvaluationResult, EvaluationResult]:
-        llm_name: str = "gpt-5.4"  # gpt-5.4 or gemini-3.1-pro
-        llm = self.create_llm(llm_name, "evaluator")
-        faithfulness_evaluator = FaithfulnessEvaluator(
-            llm=llm,
-            eval_template=FAITHFULNESS_EVAL_TEMPLATE,
-            refine_template=FAITHFULNESS_REFINE_TEMPLATE,
-        )
+        if self.evaluators is None:
+            raise RuntimeError("Evaluators have not been built, cannot evaluate")
+        faithfulness_evaluator, relevancy_evaluator = self.evaluators
+
         faithfulness_result = faithfulness_evaluator.evaluate_response(
             response=response
         )
         self._log_evaluation_result("Faithfulness", faithfulness_result)
 
-        relevancy_evaluator = RelevancyEvaluator(
-            llm=llm,
-            eval_template=RELEVANCY_EVAL_TEMPLATE,
-            refine_template=RELEVANCY_REFINE_TEMPLATE,
-        )
         relevancy_result = relevancy_evaluator.evaluate_response(
             query=query,
             response=response,

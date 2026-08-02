@@ -6,7 +6,7 @@
 涵蓋範圍：
 - NodePipelineBuilder：空資料夾、基本建構、chunk_size、錯誤處理、metadata 注入
 - VectorStoreBuilder：embedding 維度、ranker 參數、qdrant 建構/清理、factory 分派
-- RagBuilder：建構編排與 Context Manager 整合
+- RAGBuilder：建構編排與 Context Manager 整合
 """
 
 import os
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.configs.rag_config import RagConfig
+from app.configs.rag_config import RAGConfig
 from app.modules.rag_factory import NodePipelineBuilder, VectorStoreBuilder
 
 # ═══════════════════════════════════════════════════════════
@@ -54,9 +54,9 @@ def empty_folder() -> Generator[str, None, None]:
 
 
 @pytest.fixture
-def mock_config() -> RagConfig:
-    """最小化的 RagConfig，供 RagBuilder 測試使用。"""
-    return RagConfig(
+def mock_config() -> RAGConfig:
+    """最小化的 RAGConfig，供 RAGBuilder 測試使用。"""
+    return RAGConfig(
         config_name="test",
         webpages_data_folder_path="/tmp/test_rag_refactor_webpages",
         vector_store_type="qdrant",
@@ -70,7 +70,8 @@ def mock_config() -> RagConfig:
         similarity_top_k=10,
         hybrid_top_k=10,
         alpha=0.5,
-        llm_name="gemini-3.1-flash-lite",
+        query_llm_name="gemini-3.1-flash-lite",
+        evaluator_llm_name="gpt-5.4",
         cutoff=0.0,
         query="test query",
     )
@@ -292,29 +293,29 @@ class TestVectorStoreBuilder:
 
 
 # ═══════════════════════════════════════════════════════════
-# 群組 3：RagBuilder（RB.1 / RB.2 / RB.3）
+# 群組 3：RAGBuilder（RB.1 / RB.2 / RB.3）
 # ═══════════════════════════════════════════════════════════
 
 
-class TestRagBuilder:
-    """RagBuilder 的建構編排與 Context Manager 整合。"""
+class TestRAGBuilder:
+    """RAGBuilder 的建構編排與 Context Manager 整合。"""
 
     @staticmethod
     def _create_rag() -> Any:
-        """建立 Rag 實例，同時 mock _load_results_json 避免檔案依賴。"""
-        from app.modules.rag import Rag
+        """建立 RAG 實例，同時 mock _load_results_json 避免檔案依賴。"""
+        from app.modules.rag import RAG
 
-        with patch.object(Rag, "_load_results_json", return_value={}):
-            return Rag()
+        with patch.object(RAG, "_load_results_json", return_value={}):
+            return RAG()
 
-    def test_build_calls_all_five_steps(self, mock_config: RagConfig) -> None:
+    def test_build_calls_all_five_steps(self, mock_config: RAGConfig) -> None:
         """build() 應依序呼叫全部 5 個建構步驟。"""
-        from app.modules.rag import Rag
-        from app.modules.rag_factory import RagBuilder
+        from app.modules.rag import RAG
+        from app.modules.rag_factory import RAGBuilder
 
-        builder = RagBuilder(mock_config)
+        builder = RAGBuilder(mock_config)
         with (
-            patch.object(Rag, "_load_results_json", return_value={}),
+            patch.object(RAG, "_load_results_json", return_value={}),
             patch.object(builder, "build_nodes") as build_nodes,
             patch.object(builder, "build_vector_store") as build_vs,
             patch.object(builder, "build_index") as build_idx,
@@ -330,15 +331,15 @@ class TestRagBuilder:
         build_qe.assert_called_once()
 
     def test_build_to_retriever_skips_query_engine(
-        self, mock_config: RagConfig
+        self, mock_config: RAGConfig
     ) -> None:
         """build_to_retriever() 應建到 retriever 但不建 query engine。"""
-        from app.modules.rag import Rag
-        from app.modules.rag_factory import RagBuilder
+        from app.modules.rag import RAG
+        from app.modules.rag_factory import RAGBuilder
 
-        builder = RagBuilder(mock_config)
+        builder = RAGBuilder(mock_config)
         with (
-            patch.object(Rag, "_load_results_json", return_value={}),
+            patch.object(RAG, "_load_results_json", return_value={}),
             patch.object(builder, "build_nodes"),
             patch.object(builder, "build_vector_store"),
             patch.object(builder, "build_index"),
@@ -350,15 +351,15 @@ class TestRagBuilder:
         build_qe.assert_not_called()
 
     def test_build_returns_rag_with_context_manager(
-        self, mock_config: RagConfig
+        self, mock_config: RAGConfig
     ) -> None:
-        """build() 回傳的 Rag 應支援 Context Manager 協定。"""
-        from app.modules.rag import Rag
-        from app.modules.rag_factory import RagBuilder
+        """build() 回傳的 RAG 應支援 Context Manager 協定。"""
+        from app.modules.rag import RAG
+        from app.modules.rag_factory import RAGBuilder
 
-        builder = RagBuilder(mock_config)
+        builder = RAGBuilder(mock_config)
         with (
-            patch.object(Rag, "_load_results_json", return_value={}),
+            patch.object(RAG, "_load_results_json", return_value={}),
             patch.object(builder, "build_nodes"),
             patch.object(builder, "build_vector_store"),
             patch.object(builder, "build_index"),
@@ -369,3 +370,207 @@ class TestRagBuilder:
 
         assert hasattr(rag, "__enter__")
         assert hasattr(rag, "__exit__")
+
+
+# ═══════════════════════════════════════════════════════════
+# 群組 4：RAGBuilder.build_reusable（重建 / 載入決策與編排）
+# ═══════════════════════════════════════════════════════════
+
+
+class TestRAGBuilderReusable:
+    """build_reusable() 的重建 / 載入決策與編排。"""
+
+    @staticmethod
+    def _build_reusable(builder, rag, *, force_rebuild: bool = False):
+        """執行 build_reusable，mock 所有下游步驟以避免真實建構。"""
+        with (
+            patch.object(builder, "clean_vector_store") as clean,
+            patch.object(builder, "build_nodes") as build_nodes,
+            patch.object(builder, "build_vector_store") as build_vs,
+            patch.object(builder, "build_index") as build_idx,
+            patch.object(builder, "load_index") as load_idx,
+            patch.object(builder, "build_retriever") as build_ret,
+            patch.object(builder, "build_query_engine") as build_qe,
+        ):
+            rebuilt = builder.build_reusable(rag, force_rebuild=force_rebuild)
+
+        return rebuilt, {
+            "clean": clean,
+            "build_nodes": build_nodes,
+            "build_vs": build_vs,
+            "build_idx": build_idx,
+            "load_idx": load_idx,
+            "build_ret": build_ret,
+            "build_qe": build_qe,
+        }
+
+    def test_rebuilds_when_store_path_missing(
+        self, mock_config: RAGConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """store 路徑不存在 → 走重建路徑並回傳 True。"""
+        monkeypatch.setattr(os.path, "exists", lambda p: False)
+        from app.modules.rag_factory import RAGBuilder
+
+        builder = RAGBuilder(mock_config)
+        rag = TestRAGBuilder._create_rag()
+        rebuilt, calls = self._build_reusable(builder, rag)
+
+        assert rebuilt is True
+        calls["clean"].assert_called_once_with(rag)
+        calls["build_nodes"].assert_called_once_with(rag)
+        calls["build_vs"].assert_called_once_with(rag)  # overwrite=True 為預設值
+        calls["build_idx"].assert_called_once_with(rag)
+        calls["load_idx"].assert_not_called()
+        calls["build_ret"].assert_called_once_with(rag)
+        calls["build_qe"].assert_called_once_with(rag)
+
+    def test_loads_when_store_path_exists(
+        self, mock_config: RAGConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """store 路徑存在 → 走載入路徑並回傳 False。"""
+        monkeypatch.setattr(os.path, "exists", lambda p: True)
+        from app.modules.rag_factory import RAGBuilder
+
+        builder = RAGBuilder(mock_config)
+        rag = TestRAGBuilder._create_rag()
+        rebuilt, calls = self._build_reusable(builder, rag)
+
+        assert rebuilt is False
+        calls["clean"].assert_not_called()
+        calls["build_nodes"].assert_not_called()
+        calls["build_idx"].assert_not_called()
+        calls["build_vs"].assert_called_once_with(rag, overwrite=False)
+        calls["load_idx"].assert_called_once_with(rag)
+        calls["build_ret"].assert_called_once_with(rag)
+        calls["build_qe"].assert_called_once_with(rag)
+
+    def test_force_rebuild_overrides_existing_store(
+        self, mock_config: RAGConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """store 路徑存在但 force_rebuild=True → 仍走重建並回傳 True。"""
+        monkeypatch.setattr(os.path, "exists", lambda p: True)
+        from app.modules.rag_factory import RAGBuilder
+
+        builder = RAGBuilder(mock_config)
+        rag = TestRAGBuilder._create_rag()
+        rebuilt, calls = self._build_reusable(builder, rag, force_rebuild=True)
+
+        assert rebuilt is True
+        calls["build_nodes"].assert_called_once_with(rag)
+        calls["load_idx"].assert_not_called()
+
+    def test_milvus_always_rebuilds(self) -> None:
+        """Milvus 即使路徑存在也一律重建並回傳 True。"""
+        from app.modules.rag_factory import RAGBuilder
+
+        milvus_config = RAGConfig(
+            config_name="test",
+            webpages_data_folder_path="/tmp/test_rag_refactor_webpages",
+            vector_store_type="milvus",
+            milvus_uri="/tmp/test_rag_refactor_milvus.db",
+            collection_name="test_collection",
+            embedding_name="text-embedding-3-small",
+            chunk_size=800,
+            chunk_overlap=100,
+            paragraph_separator="\n\n",
+            query_mode="hybrid",
+            similarity_top_k=10,
+            hybrid_top_k=10,
+            alpha=0.5,
+            query_llm_name="gemini-3.1-flash-lite",
+            evaluator_llm_name="gpt-5.4",
+            cutoff=0.0,
+            query="test query",
+        )
+        builder = RAGBuilder(milvus_config)
+        rag = TestRAGBuilder._create_rag()
+        rebuilt, calls = self._build_reusable(builder, rag)
+
+        assert rebuilt is True
+        calls["build_nodes"].assert_called_once_with(rag)
+        calls["load_idx"].assert_not_called()
+
+
+# ═══════════════════════════════════════════════════════════
+# 群組 5：RAGBuilder.build_evaluators 與 RAG.evaluate
+# ═══════════════════════════════════════════════════════════
+
+
+class TestRAGBuilderEvaluators:
+    """build_evaluators() 注入 evaluator，RAG.evaluate() 僅負責執行。"""
+
+    def test_build_evaluators_injects_tuple(self, mock_config: RAGConfig) -> None:
+        """build_evaluators() 應以 config 的 evaluator_llm_name 建立兩個 evaluator 並注入。"""
+        from app.modules.rag_eval_prompts import (
+            FAITHFULNESS_EVAL_TEMPLATE,
+            FAITHFULNESS_REFINE_TEMPLATE,
+            RELEVANCY_EVAL_TEMPLATE,
+            RELEVANCY_REFINE_TEMPLATE,
+        )
+        from app.modules.rag_factory import RAGBuilder
+
+        builder = RAGBuilder(mock_config)
+        rag = TestRAGBuilder._create_rag()
+
+        fake_llm = object()
+        fake_faithfulness = object()
+        fake_relevancy = object()
+        with (
+            patch(
+                "app.modules.rag_factory.create_llm", return_value=fake_llm
+            ) as create_llm,
+            patch(
+                "app.modules.rag_factory.FaithfulnessEvaluator",
+                return_value=fake_faithfulness,
+            ) as f_class,
+            patch(
+                "app.modules.rag_factory.RelevancyEvaluator",
+                return_value=fake_relevancy,
+            ) as r_class,
+        ):
+            builder.build_evaluators(rag)
+
+        create_llm.assert_called_once_with(mock_config.evaluator_llm_name, "evaluator")
+        f_class.assert_called_once_with(
+            llm=fake_llm,
+            eval_template=FAITHFULNESS_EVAL_TEMPLATE,
+            refine_template=FAITHFULNESS_REFINE_TEMPLATE,
+        )
+        r_class.assert_called_once_with(
+            llm=fake_llm,
+            eval_template=RELEVANCY_EVAL_TEMPLATE,
+            refine_template=RELEVANCY_REFINE_TEMPLATE,
+        )
+        assert rag.evaluators == (fake_faithfulness, fake_relevancy)
+
+    def test_evaluate_raises_when_not_built(self) -> None:
+        """未建 evaluator 時呼叫 evaluate() 應拋 RuntimeError。"""
+
+        rag = TestRAGBuilder._create_rag()
+        with pytest.raises(RuntimeError, match="Evaluators have not been built"):
+            rag.evaluate("test query", object())
+
+    def test_evaluate_uses_injected_evaluators(self) -> None:
+        """evaluate() 應使用注入的 evaluator 執行並回傳 (faithfulness, relevancy)。"""
+        from unittest.mock import Mock
+
+        rag = TestRAGBuilder._create_rag()
+        faithfulness_evaluator = Mock()
+        relevancy_evaluator = Mock()
+        faithfulness_evaluator.evaluate_response.return_value = "f_result"
+        relevancy_evaluator.evaluate_response.return_value = "r_result"
+        rag.evaluators = (faithfulness_evaluator, relevancy_evaluator)
+
+        query = "test query"
+        response = object()
+        with patch.object(rag, "_log_evaluation_result"):
+            f_result, r_result = rag.evaluate(query, response)
+
+        assert f_result == "f_result"
+        assert r_result == "r_result"
+        faithfulness_evaluator.evaluate_response.assert_called_once_with(
+            response=response
+        )
+        relevancy_evaluator.evaluate_response.assert_called_once_with(
+            query=query, response=response
+        )

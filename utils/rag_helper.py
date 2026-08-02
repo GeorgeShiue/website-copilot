@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Any, ClassVar, Dict, List, Sequence
 
@@ -5,6 +6,49 @@ from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
+from llama_index.core.vector_stores import (
+    FilterOperator,
+    MetadataFilter,
+    MetadataFilters,
+)
+from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.openai import OpenAI
+
+LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
+    "gemini": {
+        "query_engine": "GEMINI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
+    },
+    "gpt": {
+        "query_engine": "OPENAI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "OPENAI_RAG_EVALUATOR_API_KEY",
+    },
+}
+
+
+def build_filters(filter_dict: dict[str, Any] | None) -> MetadataFilters | None:
+    if filter_dict is None:
+        return None
+    filter_list = []
+    for key, entry in filter_dict.items():
+        if isinstance(entry, tuple):
+            value, operator = entry
+        else:
+            value, operator = entry, FilterOperator.EQ
+        filter_list.append(MetadataFilter(key=key, value=value, operator=operator))
+    return MetadataFilters(filters=filter_list)
+
+
+def create_llm(llm_name: str, usage: str = "query_engine") -> GoogleGenAI | OpenAI:
+    for provider, env_vars in LLM_API_KEY_ENV_VARS.items():
+        if provider in llm_name:
+            api_key = os.getenv(env_vars[usage])
+            if provider == "gemini":
+                return GoogleGenAI(model=llm_name, api_key=api_key)
+            elif provider == "gpt":
+                return OpenAI(model=llm_name, api_key=api_key)
+    raise ValueError(f"Unsupported LLM name: {llm_name}")
+
 
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")

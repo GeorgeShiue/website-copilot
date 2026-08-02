@@ -4,9 +4,9 @@ from typing import Any
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from app.configs.rag_config import RagConfig
-from app.modules.rag import Rag
-from app.modules.rag_factory import RagBuilder
+from app.configs.rag_config import RAGConfig
+from app.modules.rag import RAG
+from app.modules.rag_factory import RAGBuilder
 from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
@@ -62,10 +62,10 @@ def create_webpage_retriever_tool(
 
     Returns:
         StructuredTool: 包裝好的 retriever 工具，可直接傳入 create_agent()。
-        tool.rag 已自動綁定 Rag 實例，結束後請透過 tool.rag.close() 釋放資源。
+        tool.rag 已自動綁定 RAG 實例，結束後請透過 tool.rag.close() 釋放資源。
     """
     # ----- 初始化設定和路徑 -----
-    config = RagConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_retriever_tool")
     if run_name_use_config_name:
@@ -75,8 +75,8 @@ def create_webpage_retriever_tool(
     run_manager.init_module_run_paths()
     run_title = f"RAG Retriever Tool ({config_name})"
 
-    # ----- 使用 RagBuilder 一鍵建構到 retriever 層級 -----
-    rag = RagBuilder(config).build_to_retriever()
+    # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----
+    rag = RAGBuilder(config).build_to_retriever()
 
     with (
         save_logging_file(run_manager.log_path),
@@ -84,7 +84,7 @@ def create_webpage_retriever_tool(
     ):
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
-        log_config("Rag Config Loaded from toml", config)
+        log_config("RAG Config Loaded from toml", config)
 
         # ----- 包裝為工具並回傳 -----
         log_session("Wrapping as StructuredTool", style="cyan")
@@ -98,11 +98,11 @@ def create_webpage_retriever_tool(
     return tool
 
 
-def _webpage_retriever_to_tool(rag: Rag) -> StructuredTool:
-    """將 Rag retriever 包裝為 LangChain StructuredTool。
+def _webpage_retriever_to_tool(rag: RAG) -> StructuredTool:
+    """將 RAG retriever 包裝為 LangChain StructuredTool。
 
     Args:
-        rag: 已初始化至 retriever 層級的 Rag 實例
+        rag: 已初始化至 retriever 層級的 RAG 實例
             （需已完成 build_nodes → build_vector_store → build_index → build_retriever）。
 
     Returns:
@@ -142,7 +142,7 @@ def _webpage_retriever_to_tool(rag: Rag) -> StructuredTool:
         func=_retrieve,
     )
 
-    # 將 Rag 實例綁定為工具屬性，讓外部呼叫者可在 Agent 結束後釋放資源
+    # 將 RAG 實例綁定為工具屬性，讓外部呼叫者可在 Agent 結束後釋放資源
     # 使用方式: tool.rag.close()
     # StructuredTool 為 Pydantic v2 模型，須繞過 __setattr__ 以動態綁定
     object.__setattr__(tool, "rag", rag)
