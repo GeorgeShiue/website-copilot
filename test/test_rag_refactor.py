@@ -13,6 +13,7 @@
 import json
 import os
 import tempfile
+from contextlib import nullcontext
 from typing import Any, Generator
 from unittest.mock import patch
 
@@ -388,6 +389,101 @@ class TestRAGBuilder:
 
         assert hasattr(rag, "__enter__")
         assert hasattr(rag, "__exit__")
+
+
+# ═══════════════════════════════════════════════════════════
+# 群組 3b：run_rag_build 的 save_vector_store_to_runs 旗標
+# ═══════════════════════════════════════════════════════════
+
+
+class TestRunRagBuildSaveVectorStore:
+    """save_vector_store_to_runs 旗標應決定向量庫儲存位置。"""
+
+    class _FakeRag:
+        """滿足 run_rag_build 中 with 區塊與 query() 呼叫的最小假物件。"""
+
+        def __enter__(self) -> "TestRunRagBuildSaveVectorStore._FakeRag":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def query(self, query: str, log_sources: bool = False) -> None:
+            return None
+
+    @staticmethod
+    def _run(
+        monkeypatch: pytest.MonkeyPatch,
+        config_name: str,
+        save_vector_store_to_runs: bool,
+    ) -> dict[str, Any]:
+        """以 fake builder 執行 run_rag_build，回傳被建構的 config 與 run_manager。"""
+        from app.workflow import workflow
+
+        captured: dict[str, Any] = {}
+
+        class _FakeBuilder:
+            def __init__(self, config: RAGConfig) -> None:
+                captured["config"] = config
+
+            def build(self) -> "TestRunRagBuildSaveVectorStore._FakeRag":
+                return TestRunRagBuildSaveVectorStore._FakeRag()
+
+        monkeypatch.setattr(workflow, "RAGBuilder", _FakeBuilder)
+        monkeypatch.setattr(workflow, "save_logging_file", lambda path: nullcontext())
+        monkeypatch.setattr(workflow, "log_run_time", lambda title: nullcontext())
+        monkeypatch.setattr(workflow, "log_session", lambda *args, **kwargs: None)
+        monkeypatch.setattr(workflow, "log_config", lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            workflow, "save_module_config_as_toml", lambda *args, **kwargs: None
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setattr(
+                "app.workflow.workflow_manager.RUNS_FOLDER_PATH", tmpdir
+            )
+            run_manager = RunManager("rag_build")
+            workflow.run_rag_build(
+                run_manager=run_manager,
+                config_name=config_name,
+                save_vector_store_to_runs=save_vector_store_to_runs,
+            )
+            captured["run_manager"] = run_manager
+        return captured
+
+    def test_qdrant_override_when_flag_true(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """True 時 qdrant 向量庫應存放於 run 的 results/vector_store/qdrant_db。"""
+        captured = self._run(monkeypatch, "default", save_vector_store_to_runs=True)
+        expected = os.path.join(
+            captured["run_manager"].results_folder_path,
+            "vector_store",
+            "qdrant_db",
+        )
+        assert captured["config"].qdrant_db_folder_path == expected
+
+    def test_milvus_override_when_flag_true(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """True 時 milvus 向量庫應存放於 run 的 results/vector_store/milvus.db。"""
+        captured = self._run(monkeypatch, "test", save_vector_store_to_runs=True)
+        expected = os.path.join(
+            captured["run_manager"].results_folder_path,
+            "vector_store",
+            "milvus.db",
+        )
+        assert captured["config"].milvus_uri == expected
+
+    def test_default_keeps_config_path_when_flag_false(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """False（預設）時向量庫路徑應維持 config 預設值、不被覆寫。"""
+        captured = self._run(monkeypatch, "default", save_vector_store_to_runs=False)
+        assert captured["config"].qdrant_db_folder_path == "data/rag/results/qdrant_db"
+        assert not captured["config"].qdrant_db_folder_path.startswith(
+            captured["run_manager"].results_folder_path
+        )
 
 
 # ═══════════════════════════════════════════════════════════

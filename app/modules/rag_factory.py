@@ -147,13 +147,13 @@ class VectorStoreBuilder:
             )
 
     @staticmethod
-    def clean_qdrant(db_folder_path: str) -> None:
+    def clean_qdrant(db_folder_path: str | None) -> None:
         if db_folder_path and os.path.exists(db_folder_path):
             shutil.rmtree(db_folder_path)
             logger.info("Cleaned Qdrant vector store: %s", db_folder_path)
 
     @staticmethod
-    def clean_milvus(milvus_uri: str) -> None:
+    def clean_milvus(milvus_uri: str | None) -> None:
         if milvus_uri and os.path.exists(milvus_uri):
             if os.path.isdir(milvus_uri):
                 shutil.rmtree(milvus_uri)
@@ -196,6 +196,10 @@ class VectorStoreBuilder:
             hybrid_ranker_params = VectorStoreBuilder.default_hybrid_ranker_params(
                 hybrid_ranker
             )
+
+        if "://" not in milvus_uri:
+            # milvus-lite 本地模式需要父目錄存在，否則連線會失敗
+            os.makedirs(os.path.dirname(milvus_uri), exist_ok=True)
 
         vector_store = MilvusVectorStore(
             milvus_uri,

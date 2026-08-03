@@ -154,6 +154,7 @@ def run_rag_build(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     webpages_data_use_latest_results: bool = False,
+    save_vector_store_to_runs: bool = False,
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
@@ -172,6 +173,23 @@ def run_rag_build(
         log_session("Finding Latest Webpages Data", style="cyan")
         webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
         config.webpages_data_folder_path = webpages_data_folder_path
+
+    # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
+    if save_vector_store_to_runs:
+        log_session("Saving Vector Store to Run Results", style="cyan")
+        vector_store_folder = os.path.join(
+            run_manager.results_folder_path, "vector_store"
+        )
+        if config.vector_store_type == "qdrant":
+            config.qdrant_db_folder_path = os.path.join(
+                vector_store_folder, "qdrant_db"
+            )
+        elif config.vector_store_type == "milvus":
+            config.milvus_uri = os.path.join(vector_store_folder, "milvus.db")
+        else:
+            raise ValueError(
+                f"Unsupported vector_store_type: {config.vector_store_type}"
+            )
 
     # ----- 使用 RAGBuilder 一鍵建構 -----
     rag = RAGBuilder(config).build()
