@@ -7,8 +7,10 @@
 - NodePipelineBuilder：空資料夾、基本建構、chunk_size、錯誤處理、metadata 注入
 - VectorStoreBuilder：embedding 維度、ranker 參數、qdrant 建構/清理、factory 分派
 - RAGBuilder：建構編排與 Context Manager 整合
+- Query 結果儲存：來源序列化、response_to_dict、RunManager JSON/MD 儲存
 """
 
+import json
 import os
 import tempfile
 from typing import Any, Generator
@@ -18,6 +20,12 @@ import pytest
 
 from app.configs.rag_config import RAGConfig
 from app.modules.rag_factory import NodePipelineBuilder, VectorStoreBuilder
+from app.workflow.workflow_manager import (
+    QUERY_MD_FILE_PREFIX,
+    RESULTS_JSON_NAME,
+    RunManager,
+)
+from utils.rag_helper import extract_sources_list, response_to_dict
 
 # ═══════════════════════════════════════════════════════════
 # 共用 fixtures
@@ -75,6 +83,16 @@ def mock_config() -> RAGConfig:
         cutoff=0.0,
         query="test query",
     )
+
+
+@pytest.fixture
+def run_manager(tmp_path) -> Generator[RunManager, None, None]:
+    """指向臨時目錄的 RunManager，避免污染 ./runs。"""
+    with patch("app.workflow.workflow_manager.RUNS_FOLDER_PATH", str(tmp_path)):
+        rm = RunManager("rag_query")
+        rm.set_run_path("test-run")
+        rm.init_module_run_paths()
+        yield rm
 
 
 # ═══════════════════════════════════════════════════════════
@@ -574,3 +592,230 @@ class TestRAGBuilderEvaluators:
         relevancy_evaluator.evaluate_response.assert_called_once_with(
             query=query, response=response
         )
+
+
+# ═══════════════════════════════════════════════════════════
+# 群組 6：Query 結果序列化與儲存（濃縮自 test_query_result_storage.py）
+# ═══════════════════════════════════════════════════════════
+
+
+class TestQueryResultStorage:
+    """Query 結果序列化函式與 RunManager 儲存行為。"""
+
+    @staticmethod
+    def _make_source_node(
+        score: float = 0.9,
+        title: str = "測試頁",
+        page_type: str = "personnel",
+        content: str = "內容",
+        url: str = "https://example.com",
+    ) -> Any:
+        """建立帶 metadata 的測試來源節點。"""
+        from llama_index.core.schema import NodeWithScore, TextNode
+
+        node = TextNode(
+            text=content,
+            metadata={"page_title": title, "page_type": page_type, "page_url": url},
+        )
+        return NodeWithScore(node=node, score=score)
+
+    @staticmethod
+    def _make_response(source_nodes: list[Any], response_text: str = "這是答案") -> Any:
+        """建立測試 Response。"""
+        from llama_index.core.base.response.schema import Response
+
+        return Response(response=response_text, source_nodes=source_nodes, metadata={})
+
+    @staticmethod
+    def _make_evaluation_result(passing: bool = True) -> Any:
+        """建立測試 EvaluationResult。"""
+        from llama_index.core.evaluation.base import EvaluationResult
+
+        return EvaluationResult(
+            query="測試問題",
+            contexts=["context"],
+            response="這是答案",
+            passing=passing,
+            feedback="Reason: 內容皆來自來源",
+            score=None,
+        )
+
+    @staticmethod
+    def _sample_query_results() -> dict[str, Any]:
+        """建立一份含單次 query 結果的 dict。"""
+        response = TestQueryResultStorage._make_response(
+            [TestQueryResultStorage._make_source_node(score=0.997)]
+        )
+        return {
+            "config": {
+                "config_name": "test",
+                "run_name": "test-run",
+                "query": "實驗室的成員有哪些人？",
+                "query_times": 1,
+            },
+            "summary": {"query_times": 1},
+            "results": [
+                response_to_dict(
+                    query="實驗室的成員有哪些人？",
+                    response=response,
+                    faithfulness_result=TestQueryResultStorage._make_evaluation_result(),
+                    relevancy_result=TestQueryResultStorage._make_evaluation_result(),
+                    index=1,
+                    timestamp="2026-08-03 20:33:22",
+                )
+            ],
+        }
+
+    # ── 序列化函式 ──
+
+    def test_extract_sources_list_serializes_and_truncates(self) -> None:
+        """每個來源節點應序列化為 5 欄位 dict，內容可依 max_content_length 截斷。"""
+        nodes = [
+            self._make_source_node(score=0.997, content="a" * 100),
+            self._make_source_node(score=0.8, title="第二頁"),
+        ]
+        sources = extract_sources_list(nodes)
+
+        assert [s["page_title"] for s in sources] == ["測試頁", "第二頁"]
+        assert sources[0]["score"] == 0.997
+        assert sources[0]["page_type"] == "personnel"
+        assert sources[0]["url"] == "https://example.com"
+        # 預設 800 字元上限內不截斷
+        assert sources[0]["content"] == "a" * 100
+
+        truncated = extract_sources_list(
+            [self._make_source_node(content="a" * 100)], max_content_length=10
+        )
+        assert truncated[0]["content"] == "a" * 10
+
+    def test_extract_sources_list_missing_url_falls_back_to_empty(self) -> None:
+        """缺少 page_url 時 url 欄位應為空字串。"""
+        from llama_index.core.schema import NodeWithScore, TextNode
+
+        node = TextNode(
+            text="內容",
+            metadata={"page_title": "無 URL 頁", "page_type": "general"},
+        )
+        sources = extract_sources_list([NodeWithScore(node=node, score=0.5)])
+        assert sources[0]["url"] == ""
+
+    def test_response_to_dict_assembles_entry_with_evaluation(self) -> None:
+        """response_to_dict 應組裝完整 entry，並將評估結果轉為可序列化 dict。"""
+        response = self._make_response([self._make_source_node(score=0.997)])
+        entry = response_to_dict(
+            query="實驗室的成員有哪些人？",
+            response=response,
+            faithfulness_result=self._make_evaluation_result(),
+            relevancy_result=self._make_evaluation_result(),
+            index=1,
+            timestamp="2026-08-03 20:33:22",
+        )
+
+        assert entry["index"] == 1
+        assert entry["timestamp"] == "2026-08-03 20:33:22"
+        assert entry["query"] == "實驗室的成員有哪些人？"
+        assert entry["response"] == "這是答案"
+        assert entry["sources"][0]["score"] == 0.997
+        assert entry["evaluation"]["faithfulness"] == {
+            "passing": True,
+            "score": None,
+            "feedback": "Reason: 內容皆來自來源",
+        }
+        assert entry["evaluation"]["relevancy"]["passing"] is True
+
+    def test_response_to_dict_omits_evaluation_when_none(self) -> None:
+        """未傳入評估結果時不應包含 evaluation 欄位。"""
+        entry = response_to_dict(query="問題", response=self._make_response([]))
+        assert "evaluation" not in entry
+
+    # ── RunManager 儲存 ──
+
+    def test_save_results_as_json_roundtrips(self, run_manager: RunManager) -> None:
+        """save_results_as_json 應寫出 results.json 且可 round-trip。"""
+        query_results = self._sample_query_results()
+        run_manager.save_results_as_json(query_results)
+
+        json_path = os.path.join(run_manager.run_path, RESULTS_JSON_NAME)
+        assert os.path.isfile(json_path)
+        with open(json_path, "r", encoding="utf-8") as f:
+            assert json.load(f) == query_results
+
+    def test_save_query_results_as_md_writes_one_file_per_query(
+        self, run_manager: RunManager
+    ) -> None:
+        """每次 query 應各自寫成一份 Markdown 檔案。"""
+        query_results = self._sample_query_results()
+        second = self._make_response(
+            [self._make_source_node(score=0.9, title="另一頁")],
+            response_text="第二次答案",
+        )
+        query_results["results"].append(
+            response_to_dict(
+                query="實驗室的成員有哪些人？",
+                response=second,
+                index=2,
+                timestamp="2026-08-03 20:33:30",
+            )
+        )
+        run_manager.save_query_results_as_md(query_results)
+
+        for index in (1, 2):
+            md_path = os.path.join(
+                run_manager.results_folder_path, f"{QUERY_MD_FILE_PREFIX}{index}.md"
+            )
+            assert os.path.isfile(md_path)
+
+        first_content = open(
+            os.path.join(
+                run_manager.results_folder_path, f"{QUERY_MD_FILE_PREFIX}1.md"
+            ),
+            "r",
+            encoding="utf-8",
+        ).read()
+        assert "# Query #1: 實驗室的成員有哪些人？" in first_content
+        assert "這是答案" in first_content
+        assert "# Evaluation" in first_content
+        assert "# Sources (1)" in first_content
+
+        second_content = open(
+            os.path.join(
+                run_manager.results_folder_path, f"{QUERY_MD_FILE_PREFIX}2.md"
+            ),
+            "r",
+            encoding="utf-8",
+        ).read()
+        assert "# Query #2:" in second_content
+        assert "第二次答案" in second_content
+
+    def test_save_query_results_as_md_escapes_pipe_in_table_cells(
+        self, run_manager: RunManager
+    ) -> None:
+        """表格欄位中的 | 字元應被跳脫，避免破壞 Markdown 表格。"""
+        from llama_index.core.schema import NodeWithScore, TextNode
+
+        node = TextNode(
+            text="內容",
+            metadata={
+                "page_title": "A|B",
+                "page_type": "general",
+                "page_url": "https://example.com/a|b",
+            },
+        )
+        entry = response_to_dict(
+            query="問題",
+            response=self._make_response([NodeWithScore(node=node, score=0.5)]),
+            index=1,
+        )
+        query_results = {
+            "config": {"config_name": "test", "run_name": "test-run"},
+            "summary": {"query_times": 1},
+            "results": [entry],
+        }
+        run_manager.save_query_results_as_md(query_results)
+
+        md_path = os.path.join(
+            run_manager.results_folder_path, f"{QUERY_MD_FILE_PREFIX}1.md"
+        )
+        content = open(md_path, "r", encoding="utf-8").read()
+        assert "| A\\|B |" in content
+        assert "https://example.com/a\\|b" in content

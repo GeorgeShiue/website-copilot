@@ -1,4 +1,5 @@
 import os
+import time
 
 from app.configs.rag_config import (
     RAGConfig,
@@ -16,6 +17,7 @@ from utils.log_helper import (
     log_session,
     save_logging_file,
 )
+from utils.rag_helper import response_to_dict
 
 
 def run_website_crawler(
@@ -191,7 +193,6 @@ def run_rag_build(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
 
-# TODO: 此function內支援多份query
 def run_rag_query(
     run_manager: RunManager | None = None,
     config_name: str = "default",
@@ -225,6 +226,7 @@ def run_rag_query(
         builder.build_evaluators(rag)
 
         # ----- Query -----
+        query_results: list[dict] = []
         faithfulness_pass = 0
         relevancy_pass = 0
         for i in range(query_times):
@@ -233,7 +235,7 @@ def run_rag_query(
             response = rag.query(config.query, log_sources=True)
 
             # ----- 回應評估 -----
-            # TODO: 改用 regas 或 deepeval 評估
+            # * 可改用 regas 或 deepeval 評估
             log_session("Evaluation", style="cyan")
             faithfulness_result, relevancy_result = rag.evaluate(
                 query=config.query, response=response
@@ -242,6 +244,17 @@ def run_rag_query(
                 faithfulness_pass += 1
             if relevancy_result.passing:
                 relevancy_pass += 1
+
+            query_results.append(
+                response_to_dict(
+                    query=config.query,
+                    response=response,
+                    faithfulness_result=faithfulness_result,
+                    relevancy_result=relevancy_result,
+                    index=i + 1,
+                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+                )
+            )
 
         faithfulness_pass_rate = faithfulness_pass / query_times * 100
         relevancy_pass_rate = relevancy_pass / query_times * 100
@@ -254,7 +267,36 @@ def run_rag_query(
         )
         print(f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})")
 
-        # TODO: 制定 Query Response 的儲存方式
+        # ----- 儲存 query 結果 -----
+        log_session("Saving Query Results", style="cyan")
+        query_results_dict = {
+            "config": {
+                "config_name": config.config_name,
+                "run_name": run_manager.run_name,
+                "query": config.query,
+                "query_llm_name": config.query_llm_name,
+                "evaluator_llm_name": config.evaluator_llm_name,
+                "vector_store_type": config.vector_store_type,
+                "collection_name": config.collection_name,
+                "query_mode": config.query_mode,
+                "similarity_top_k": config.similarity_top_k,
+                "hybrid_top_k": config.hybrid_top_k,
+                "alpha": config.alpha,
+                "cutoff": config.cutoff,
+                "query_times": query_times,
+            },
+            "summary": {
+                "query_times": query_times,
+                "faithfulness_pass_count": faithfulness_pass,
+                "faithfulness_pass_rate": faithfulness_pass_rate,
+                "relevancy_pass_count": relevancy_pass,
+                "relevancy_pass_rate": relevancy_pass_rate,
+            },
+            "results": query_results,
+        }
+        run_manager.save_results_as_json(query_results_dict)
+        run_manager.save_query_results_as_md(query_results_dict)
+
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
