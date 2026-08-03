@@ -12,7 +12,7 @@
 
 1. `cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI`。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
-   - `RagConfigCLI.module` 支援以下 hybrid 相關覆寫：
+   - `RAGConfigCLI.module` 支援以下 hybrid 相關覆寫：
      - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`
      - `weights` — `list[float]`，設定 WeightedRanker 權重（`[1.0, 0.5]`）
      - `similarity_top_k`、`query_mode`、`hybrid_top_k`、`alpha` — retriever 參數

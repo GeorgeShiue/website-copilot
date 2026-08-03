@@ -42,6 +42,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── website_crawler_config.py
 │   ├── modules/
 │   │   ├── rag.py
+│   │   ├── rag_factory.py                # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   ├── rag_eval_prompts.py           # 評估 Prompt 模板
 │   │   ├── webpage_image_summarizer.py
 │   │   └── website_crawler.py
 │   ├── tools/
@@ -52,9 +54,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       └── workflow_manager.py
 ├── configs/
 │   ├── rag/
-│   │   ├── default.toml               # Qdrant Dense (預設)
-│   │   ├── dense.toml                  # Milvus Dense-only 對照
-│   │   ├── hybrid.toml                 # Milvus Hybrid 通用設定
+│   │   ├── default.toml               # 預設設定
 │   │   ├── milvus.toml                 # Milvus + WeightedRanker
 │   │   ├── qdrant.toml                 # Qdrant BM25 Hybrid
 │   │   └── test.toml
@@ -89,7 +89,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ├── test/
 │   ├── test_main.py
-│   └── test_module.py
+│   ├── test_module.py
+│   └── test_rag_refactor.py
 └── utils/
     ├── config_helper.py
     ├── log_helper.py
@@ -134,11 +135,11 @@ playwright install
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 Gemini 金鑰。 |
-| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 GPT 金鑰。 |
-| `GEMINI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（Gemini）。 |
-| `OPENAI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（GPT）。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
+| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 Gemini 金鑰。 |
+| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
+| `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
+| `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |
 | `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
 | `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
 

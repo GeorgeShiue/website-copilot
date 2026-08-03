@@ -12,9 +12,11 @@
 與此並行的尚有**知識圖譜檢索（網站結構）**、**資料庫檢索（多欄位資料）** 兩條策略路徑，依資料類型分流選用。
 
 - **模組實作**
-	- `app/modules/rag.py`（主流程，包含**向量儲存**、**節點處理**、**索引建立**、**檢索器**、**查詢引擎**與**評估**）
+	- `app/modules/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
+	- `app/modules/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
+	- `app/modules/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
 	- `app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
-	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**與**格式化工具**）
+	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**與共用 `build_filters` / `create_llm`）
 	- `app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
 
 - **模組設定**
@@ -34,19 +36,22 @@
 ### 使用流程總覽
 
 ```
-Rag()
-├── build_vector_store()     # (1) 建立向量儲存（Qdrant / Milvus，支援 Hybrid）
-├── build_nodes()            # (2) 讀取 Markdown → Pipeline 產出節點
+RAGBuilder(config)
+├── build_nodes()            # (1) 讀取 Markdown → Pipeline 產出節點
+├── build_vector_store()     # (2) 建立向量儲存（Qdrant / Milvus，支援 Hybrid）
 │   └── load_index()         # (3a) 既有向量庫直接載入（跳過 build_nodes/build_index）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
 ├── build_retriever()        # (4) 建立檢索器（支援 filter_dict 動態過濾）
 ├── build_query_engine()     # (5) 建立查詢引擎
+└── build_reusable()         # 依需求自動選擇「重建」或「載入」路徑（run_rag_query 使用）
+
+RAG（runtime）
 ├── query() / evaluate()     # (6) 執行查詢與評估
 ├── retrieve()               # (7) 僅檢索不回覆（回傳結構化 dict，供 Tool 使用）
 └── close()                  # (8) 釋放資源
 ```
 
-其中 (2) → (3b) 用於首次建立索引，(3a) 則用於後續重複使用。
+其中 (1) → (3b) 用於首次建立索引，(3a) 則用於後續重複使用。
 
 ---
 
@@ -57,21 +62,21 @@ Rag()
 - `results.json` 的 key 為網頁標題（去除 `.md` 副檔名），value 包含 `url`、`metadata`（含 `page_type`、`description`）、`images`、`crawl_info` 等資訊。
 
 #### 讀取 Markdown 文件
-- `build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{webpages_data_folder_path}/results`。
+- `RAGBuilder.build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{webpages_data_folder_path}/results`。
 - 只處理副檔名為 `.md` 的檔案，確保輸入內容來自爬蟲生成的 Markdown 成果。
-- 透過 `self._file_metadata()` 回呼函式，根據 `results.json` 為每份文件注入以下 metadata：
+- 透過 `NodePipelineBuilder._build_file_metadata()` 回呼函式，根據 `results.json` 為每份文件注入以下 metadata：
   - `page_title` — 頁面標題
   - `page_url` — 原始 URL
   - `page_type` — 頁面類型（爬蟲從 URL 解析：`"paper"` / `"announcement"` / `"personnel"` / `"general"` 等）
   - `description` — 頁面描述
 
-這些 metadata 在 `build_nodes()` 階段即寫入每個 LlamaIndex Document，後續經由 IngestionPipeline 傳遞給 child nodes，最終持久化到向量儲存中，同時供 **pre-filtering**（檢索前過濾）與 **LLM context**（檢索後附加上下文）使用。
+這些 metadata 在 `RAGBuilder.build_nodes()` 階段即寫入每個 LlamaIndex Document，後續經由 IngestionPipeline 傳遞給 child nodes，最終持久化到向量儲存中，同時供 **pre-filtering**（檢索前過濾）與 **LLM context**（檢索後附加上下文）使用。
 
 ---
 
 ### 2. 轉換資料
 
-`build_nodes()` 內部使用 `IngestionPipeline` 依序執行以下轉換：
+`RAGBuilder.build_nodes()` 內部使用 `IngestionPipeline` 依序執行以下轉換：
 
 1. **`MarkdownNodeParser`** — 解析 Markdown 結構，保留標題路徑 metadata。
 2. **`SentenceSplitter`** — 以 `chunk_size=800`、`chunk_overlap=100`、`paragraph_separator="\n\n"` 進行切塊，這組參數目前表現最平衡。
@@ -85,7 +90,7 @@ Rag()
 ### 3. 建立索引
 
 #### 3a. 建立向量儲存（必要前驟）
-`build_vector_store()` 支援兩種向量儲存後端，透過 `vector_store_type` 切換：
+`RAGBuilder.build_vector_store()` 支援兩種向量儲存後端，透過 `vector_store_type` 切換：
 
 **Qdrant（純 BM25 Hybrid）**
 - 以 `QdrantClient(path=qdrant_db_folder_path)` 初始化，`QdrantVectorStore(collection_name, client, index_doc_id=False, enable_hybrid=True, fastembed_sparse_model="Qdrant/bm25")`。
@@ -101,8 +106,8 @@ Rag()
 - 須明確指定 `output_fields=["_node_content", "_node_type"]` 確保節點完整回傳。
 
 #### 3b. 載入或新建索引
-- **既有資料庫載入**：`load_index()` 使用 `VectorStoreIndex.from_vector_store(vector_store, embed_model)`，僅需提供 embedding 模型。
-- **新建索引**：`build_index()` 需先完成 `build_nodes()` 產出 `self.nodes`，再以 `VectorStoreIndex(nodes, storage_context, embed_model)` 寫入向量庫。
+- **既有資料庫載入**：`RAGBuilder.load_index()` 使用 `VectorStoreIndex.from_vector_store(vector_store, embed_model)`，僅需提供 embedding 模型。
+- **新建索引**：`RAGBuilder.build_index()` 需先完成 `build_nodes()` 產出 `rag.nodes`，再以 `VectorStoreIndex(nodes, storage_context, embed_model)` 寫入向量庫。
 
 #### Embedding 設定
 - 使用 `OpenAIEmbedding(model="text-embedding-3-small", embed_batch_size=256)`，並透過 `.env` 讀取 `OPENAI_RAG_EMBEDDING_API_KEY`。
@@ -112,7 +117,7 @@ Rag()
 ### 4. 查詢引擎
 
 #### 檢索器
-`build_retriever()` 建立 `VectorIndexRetriever`，支援以下參數：
+`RAGBuilder.build_retriever()` 建立 `VectorIndexRetriever`，支援以下參數：
 
 - `query_mode`：`"default"`（純 Dense）或 `"hybrid"`（Dense + Sparse 混合）。Hybrid 模式會設定 `vector_store_query_mode=VectorStoreQueryMode.HYBRID`。
 - `similarity_top_k`：回傳的前 k 筆結果（預設 `10`）。
@@ -126,7 +131,7 @@ Rag()
 若未傳入 `filter_dict`，沿用既有 retriever 的 filter 設定（若無則不過濾）。
 
 #### 查詢引擎
-`build_query_engine()` 將檢索器、回應合成器與後處理器串接成 `RetrieverQueryEngine`。
+`RAGBuilder.build_query_engine()` 將檢索器、回應合成器與後處理器串接成 `RetrieverQueryEngine`。
 
 - **Hybrid 模式**：跳過 `SimilarityPostprocessor`，因為 hybrid 分數已由 ranker 融合，不再適用 similarity cutoff。
 - **Dense 模式**：加入 `SimilarityPostprocessor(similarity_cutoff=cutoff)`（預設 `cutoff=0.0`，通常設定 `0.4`）。
@@ -146,7 +151,7 @@ Rag()
 
 ### 5. 成效評估
 
-`evaluate(query, response, llm_name)` 使用兩項指標評估查詢結果：
+`evaluate(query, response)` 使用兩項指標評估查詢結果（Prompt 模板定義於 `app/modules/rag_eval_prompts.py`）：
 
 #### Faithfulness（忠實度）
 - `FaithfulnessEvaluator` 搭配自訂 `FAITHFULNESS_EVAL_TEMPLATE` 與 `FAITHFULNESS_REFINE_TEMPLATE`。
@@ -167,7 +172,7 @@ Rag()
 Metadata filter 允許在檢索前預先隔離跨類別雜訊，避免語義重疊導致的幻覺。
 
 #### 過濾機制
-- `build_retriever(filter_dict=...)` 在建置檢索器時即設定過濾條件。
+- `RAGBuilder.build_retriever(filter_dict=...)` 在建置檢索器時即設定過濾條件。
 - `retrieve(filter_dict=...)` 支援**執行期動態覆寫**，暫時重建 retriever 以套用新 filter。
 - filter_dict 支援 `FilterOperator`：`EQ`（等於）、`GT` / `GTE` / `LT` / `LTE`（比較）、`IN`（包含）、`TEXT_MATCH`（文字匹配）。
 
@@ -206,10 +211,10 @@ Pydantic v2 schema，定義三個參數供 LLM 填寫：
 
 ### create_webpage_retriever_tool()
 高層工廠函數，接受 `config_name` 與 `**config_overrides`，流程：
-1. 載入 TOML 設定 → 初始化 Rag
-2. 建立 Nodes → 建立 Vector Store → 建立 Index → 建立 Retriever（**不建 Query Engine**）
+1. 載入 TOML 設定 → 建立 `RAGBuilder(config)`
+2. 呼叫 `RAGBuilder(config).build_to_retriever()`（建立 Nodes → Vector Store → Index → Retriever，**不建 Query Engine**）
 3. 包裝為 `StructuredTool(name="webpage_retriever")`
-4. 將 Rag 實例綁定為 `tool.rag` 屬性（結束後呼叫 `tool.rag.close()` 釋放資源）
+4. 將 RAG 實例綁定為 `tool.rag` 屬性（結束後呼叫 `tool.rag.close()` 釋放資源）
 
 ### 使用方式
 ```python

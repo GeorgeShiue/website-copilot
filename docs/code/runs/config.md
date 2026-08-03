@@ -63,16 +63,16 @@
 - Config dataclass: `app/configs/rag_config.py`
 - TOML 範例與實作：`configs/rag/{config_name}.toml`
 - 載入流程：
-  1. `RagConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
+  1. `RAGConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
   2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 處理合併與覆寫。
-  3. 建構 `RagConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
+  3. 建構 `RAGConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
 
 欄位摘要：
 
 - `vector_store`：`vector_store_type`（`"qdrant"` 或 `"milvus"`）、`qdrant_db_folder_path`、`milvus_uri`、`collection_name`（預設 `webpages`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`，預設 `"WeightedRanker"`）、`hybrid_ranker_params`（dict，例如 `{"weights": [1.0, 0.5]}`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
 - `retriever`：`similarity_top_k`（預設 `10`）、`query_mode`（`"default"` 或 `"hybrid"`）、`hybrid_top_k`（預設 `10`）、`alpha`（預設 `0.5`）。
-- `query_engine`：`llm_name`、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
+- `query_engine`：`query_llm_name`（預設 `gemini-3.1-flash-lite`）、`evaluator_llm_name`（預設 `gpt-5.4`）、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
 ## 三、共用載入、覆寫與驗證機制
