@@ -180,15 +180,17 @@ pytest
 
 每次執行會在 `runs/<timestamp>/<module>/<run_name>/` 下產生以下 artefacts：
 
-- `results.json` — 結構化結果
-- `results/*.md` — 每頁的 Markdown 內容
+- `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
+- `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
 - `run_config.toml` — CLI 執行時的 run-level 參數（僅 CLI 入口）
 - `terminal.log` — 執行日誌
 
-向量資料庫持久化於 `data/rag/results/`：
+向量資料庫預設持久化於 `data/rag/results/`：
 - `qdrant_db/` — Qdrant 向量儲存
 - `milvus.db` — Milvus Lite 向量儲存
+
+`run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
 
 ## 開發
 
@@ -221,5 +223,6 @@ pytest
 - RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
+- Query 結果落盤（`results.json` + `results/query_{index}.md`）與向量庫可存至 run 內（`save_vector_store_to_runs`）
 
 後續規劃請參閱 `docs/project.md`。

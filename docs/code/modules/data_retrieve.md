@@ -16,7 +16,7 @@
 	- `app/modules/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
 	- `app/modules/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
 	- `app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
-	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**與共用 `build_filters` / `create_llm`）
+	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
 	- `app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
 
 - **模組設定**

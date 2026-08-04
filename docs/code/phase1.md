@@ -54,6 +54,8 @@
     - [x] **查詢引擎**（RetrieverQueryEngine + **Gemini** / **GPT** 回答生成）
     - [x] **RAG Retriever Tool**（LangChain `StructuredTool` 封裝，供 Agent 動態呼叫）
     - [x] **成效評估**（FaithfulnessEvaluator + RelevancyEvaluator）
+    - [x] **Query 結果落盤**（結構化 `results.json` + 每次 query 一份 `results/query_{index}.md`）
+    - [x] **向量庫存至 run 內**（`save_vector_store_to_runs`，避免實驗互相覆寫 `data/rag/results/`）
 - [ ] **知識圖譜檢索（網站結構）** — 規劃中
 - [ ] **資料庫檢索（多欄位資料）** — 規劃中
 

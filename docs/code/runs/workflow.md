@@ -53,6 +53,7 @@
   1. 透過 [app/configs/rag_config.py](app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
   2. 使用 `RAGBuilder(config).build()` 一鍵建構完整 RAG 管線：`build_nodes()` → `build_vector_store()`（支援 **Qdrant BM25** 或 **Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()` → `build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）→ `build_query_engine()`。
   3. 執行範例 query，最後寫出 `module_config.toml`，並把部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
+  4. 可選 `save_vector_store_to_runs=True`（CLI 旗標 `--run.save-vector-store-to-runs`）：把向量庫改存至本次 run 的 `results/vector_store/{qdrant_db | milvus.db}`，避免覆寫 `data/rag/results/` 固定位置；`module_config.toml` 會記錄覆寫後路徑。
 
 ### 4. `run_rag_query()`
 
@@ -61,7 +62,10 @@
   1. 建立 `RAG` 實例並載入 `RAGConfig`，以 `RAGBuilder` 進行編排。
   2. 呼叫 `RAGBuilder.build_reusable(rag, force_rebuild=...)`：依 `force_rebuild` 或 `vector_store_type="milvus"`（MilvusLite 不支援增量，每次需重建）決定「重建」整套 RAG 資源，或「載入」既有 index。
   3. 呼叫 `RAGBuilder.build_evaluators(rag)` 注入 Faithfulness / Relevancy evaluator，再針對預設 query 或指定 query 進行多輪查詢與評估。
-  4. 回報 faithfulness / relevancy 評估結果，並寫出 `module_config.toml` 與向量庫路徑設定備份。
+  4. 回報 faithfulness / relevancy 評估結果，並將每次 query 結果落盤：
+     - `results.json` — 結構化結果（`config` / `summary` / `results` 三層；`summary` 含各評估 pass count 與 pass rate）
+     - `results/query_{index}.md` — 每次 query 與回覆各一份，含來源與評估
+  5. 寫出 `module_config.toml`；若本次為重建（rebuild），另存一份到向量庫路徑（依 `vector_store_type` 決定）。
 
 ## 四、Workflow 與 RunManager
 
@@ -73,13 +77,16 @@
 - `runs/<timestamp>/<module>/<run>/run_config.toml`
 - `runs/<timestamp>/<module>/<run>/terminal.log`
 
+> 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 開啟 `save_vector_store_to_runs` 時，向量庫寫入 `results/vector_store/`（而非 `data/rag/results/`）。
+
 Workflow 內部常見行為：
 
 - `run_manager.set_module_path(<module>)`：決定本次 workflow 的模組子目錄。
 - `run_manager.set_run_path(<run_name>)`：決定本次執行的 run 名稱。
 - `run_manager.init_module_run_paths()`：初始化上述所有輸出路徑。
-- `run_manager.save_results_as_json()`：寫出 JSON 結果。
-- `run_manager.save_results_as_md()`：寫出 Markdown 結果。
+- `run_manager.save_results_as_json()`：寫出 JSON 結果（crawler / summarizer 的爬取結果，或 `run_rag_query` 的 query 三層結構）。
+- `run_manager.save_results_as_md()`：寫出 Markdown 結果（每頁一份 `results/*.md`）。
+- `run_manager.save_query_results_as_md()`：`run_rag_query` 專用，每次 query 與回覆各寫一份 `results/query_{index}.md`。
 - `run_manager.load_latest_results_from_json()`：當 image summarizer 沒有直接收到 crawl_results 時，會自動載入最近一次 crawler 的輸出。
 
 ## 五、Workflow 與 Config 的互動

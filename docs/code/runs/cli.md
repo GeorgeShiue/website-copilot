@@ -5,6 +5,7 @@
 - `cli.py`：CLI 入口，使用 `tyro` 解析 dataclass 型態，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline，結束時寫入 `run_config.toml`。
 - `[app/workflow/workflow.py](app/workflow/workflow.py)`：實作主要 pipeline（`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_rag_query`），負責載入 module config、執行流程、寫入 `module_config.toml` 與結果。
 - `[app/workflow/workflow_config.py](app/workflow/workflow_config.py)`：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。
+  - `RAGBuildRunConfig` 含 `save_vector_store_to_runs`（預設 `False`，CLI 旗標 `--run.save-vector-store-to-runs`）：開啟時向量庫寫入本次 run 的 `results/vector_store/`。
 - `[app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)`：管理 `runs/<timestamp>/<module>/<run>/` 路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
 - `utils/config_helper.py`：共用設定工具，提供載入、覆寫、與寫出 TOML 的 helper 函式。
 
@@ -21,7 +22,7 @@
 3. 以 `vars(cli_arg.module)` 收集 module 參數，僅保留非 `None` 欄位作為 `module_config_overrides`。
 4. 根據 `cli_arg` 型別，呼叫 `RunManager.set_module_path(<module>)`，再呼叫相對應的 `run_*` 函式，並傳入：
    - `run_manager`，
-   - `**vars(cli_arg.run)`（如 `config_name`, `run_name_use_config_name`, `force_rebuild` 等），
+   - `**vars(cli_arg.run)`（如 `config_name`, `run_name_use_config_name`, `force_rebuild`, `save_vector_store_to_runs` 等），
    - `**module_config_overrides`（僅 CLI 明確提供的 module-level 覆寫）。
 5. `run_*` 會透過對應 Config 的 `from_toml(config_name, **config_overrides)`：
    - 組出 `configs/<module>/{config_name}.toml`，
@@ -51,6 +52,9 @@ python cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker Weig
 
 # 範例：設定 hybrid 檢索參數
 python cli.py rag-query-cli --run.config-name hybrid --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
+
+# 範例：RAG 建置時把向量庫存至本次 run 的 results/vector_store/
+python cli.py rag-build-cli --run.config-name default --run.save-vector-store-to-runs
 ```
 
 （備註：開發環境常見 wrapper：`uv run python cli.py ...`，依環境而定）

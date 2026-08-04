@@ -119,8 +119,8 @@
 
 - 建立 `runs/<timestamp>/<module>/<run>/` 目錄結構
 - 會產生並管理以下檔案路徑：
-  - `results.json`
-  - `results/`（Markdown 檔案）
+  - `results.json`（爬取結果，或 `run_rag_query` 的 query 三層結構）
+  - `results/`（Markdown 檔案；`rag_query` 另含每次 query 一份的 `query_{index}.md`，`rag_build` 旗標開啟時含 `vector_store/`）
   - `module_config.toml`
   - `run_config.toml`
   - `terminal.log`
@@ -137,8 +137,8 @@ module_config 與 run_config 的寫入機制：
 - 目前四個主要 workflow 的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
-  - `run_rag_query()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定）。
+  - `run_rag_build()`：寫 `module_config.toml`；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
+  - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
 - module_config.toml
 - run_config.toml
 - terminal.log
@@ -172,13 +172,14 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 - RunManager.save_results_as_json() 會寫出 results.json
 - RunManager.save_results_as_md() 會寫出 results/\*.md
+- RunManager.save_query_results_as_md() 會把每次 query 與回覆寫成 results/query_{index}.md（run_rag_query 專用）
 
 四條流程目前行為：
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）
-- run_rag_query()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定）
+- run_rag_build()：寫 module_config.toml；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`，否則寫入 config 預設位置（`data/rag/results/`）
+- run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
 
 ## 五、測試與實驗如何使用 config
 
