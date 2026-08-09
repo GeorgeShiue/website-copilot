@@ -26,8 +26,20 @@ logger = logging.getLogger(__name__)
 
 # TODO: 為每個模組客製化 RunManager
 class RunManager:
-    def __init__(self, module_name: str = "") -> None:
+    def __init__(
+        self,
+        module_name: str = "",
+        base_folder: str = "runs",
+    ) -> None:
+        """初始化 RunManager。
+
+        Args:
+            module_name: 模組名稱（可選，之後可再 set_module_path）。
+            base_folder: 執行結果的根資料夾（預設 runs/）。
+                聊天記錄等非實驗資料可傳入其他資料夾（如 chats/）。
+        """
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
+        self.base_folder = base_folder
         self.base_path = self._set_base_path()
 
         self.module_name: str = ""
@@ -50,7 +62,7 @@ class RunManager:
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
-        base_path = os.path.join(RUNS_FOLDER_PATH, self.timestamp)
+        base_path = os.path.join(self.base_folder, self.timestamp)
         os.makedirs(base_path, exist_ok=True)
         return base_path
 

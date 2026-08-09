@@ -30,8 +30,8 @@ from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
 from app.configs.rag_config import RAGConfig
-from app.modules.rag import RAG
-from app.modules.rag_eval_prompts import (
+from app.engines.rag import RAG
+from app.engines.rag_eval_prompts import (
     FAITHFULNESS_EVAL_TEMPLATE,
     FAITHFULNESS_REFINE_TEMPLATE,
     RELEVANCY_EVAL_TEMPLATE,

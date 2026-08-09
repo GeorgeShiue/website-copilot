@@ -5,8 +5,8 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from app.configs.rag_config import RAGConfig
-from app.modules.rag import RAG
-from app.modules.rag_factory import RAGBuilder
+from app.engines.rag import RAG
+from app.engines.rag_factory import RAGBuilder
 from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
@@ -87,13 +87,11 @@ def create_webpage_retriever_tool(
         log_config("RAG Config Loaded from toml", config)
 
         # ----- 包裝為工具並回傳 -----
-        log_session("Wrapping as StructuredTool", style="cyan")
+        # 完成宣告由 log_run_time 的 "Completed in ..." 承擔
         tool = _webpage_retriever_to_tool(rag)
 
         # ----- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
-
-        log_session("RAG Retriever Tool Created", style="green")
 
     return tool
 
