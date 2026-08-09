@@ -121,7 +121,7 @@ rag.py (runtime)                    rag_factory.py (build)
 | `configs/rag/dense.toml`、`hybrid.toml` | 刪除 | 不再使用 |
 | `app/workflow/workflow.py` | 修改 | 兩個呼叫端改用 `RagBuilder` |
 | `app/tools/webpage_retriever.py` | 修改 | 改用 `RagBuilder(config).build_to_retriever()` |
-| `test/test_rag_refactor.py` | 修改 | 新增群組 4（`build_reusable`）、群組 5（evaluator）測試 |
+| `test/test_rag_refactor.py` | 修改 | 新增群組 4（`build_reusable`）、群組 5（evaluator）測試（檔案已於 08/09 刪除） |
 | `docs/code/modules/data_retrieve.md` | 修改 | `evaluate()` 簽名與模板位置更新 |
 
 ---
@@ -159,7 +159,7 @@ rag = RagBuilder(config).build_to_retriever()
 
 ## 7. 測試與驗證
 
-### 7.1 測試結構（`test/test_rag_refactor.py`，依元件職責分群組）
+### 7.1 測試結構（`test/test_rag_refactor.py`，依元件職責分群組）——⚠️ 檔案已於 08/09 刪除，本節僅保留作歷史紀錄
 
 | 群組 | 測試類別 | 涵蓋 |
 |------|---------|------|
@@ -169,7 +169,7 @@ rag = RagBuilder(config).build_to_retriever()
 | 4 | `TestRagBuilderReusable` | 路徑不存在→重建、路徑存在→載入、`force_rebuild` 覆寫、Milvus 一律重建 |
 | 5 | `TestRagBuilderEvaluators` | evaluator 注入、未注入時 `evaluate()` 拋錯、使用注入實例 |
 
-> 註：07/28 規劃的獨立測試檔（`test_node_pipeline_builder.py` 等）未建立，測試統一集中在 `test_rag_refactor.py`。
+> 註：07/28 規劃的獨立測試檔（`test_node_pipeline_builder.py` 等）未建立，測試統一集中在 `test_rag_refactor.py`（該檔已於 08/09 刪除）。
 
 ### 7.2 驗證結果（SMOKE 測試，Exit Code 0）
 
@@ -182,6 +182,7 @@ rag = RagBuilder(config).build_to_retriever()
 ### 7.3 建議回歸命令
 
 ```bash
+# ⚠️ test_rag_refactor.py 已於 08/09 刪除，前兩條命令僅保留作歷史紀錄
 uv run pytest test/test_rag_refactor.py -v
 uv run pytest test/ -v --ignore=test/test_main.py --ignore=test/test_module.py
 uv run pyright app/modules/rag.py app/modules/rag_factory.py utils/rag_helper.py
@@ -239,7 +240,7 @@ RAG 為縮寫（Retrieval-Augmented Generation），曾評估將**類別**與**�
 
 | 層級 | 狀態 | 說明 |
 |------|------|------|
-| 類別符號（9 個 .py） | ✅ 已執行 | `rag.py`、`rag_factory.py`、`rag_config.py`、`webpage_retriever.py`、`workflow.py`、`workflow_config.py`、`cli.py`、`main.py`、`test/test_rag_refactor.py` |
+| 類別符號（9 個 .py） | ✅ 已執行 | `rag.py`、`rag_factory.py`、`rag_config.py`、`webpage_retriever.py`、`workflow.py`、`workflow_config.py`、`cli.py`、`main.py`、`test/test_rag_refactor.py`（檔案已於 08/09 刪除） |
 | 模組檔名（4 個 .py） | ❌ 未執行（維持小寫） | 避免 macOS case-insensitive 碰撞與 Git case-only rename；`utils/log_helper.py` L76 logger name 不變 |
 | 文件 | ✅ 已同步 | `README.md`、`docs/code/modules/*`、`docs/code/runs/*` 已更新為 `RAG*` 命名 |
 
