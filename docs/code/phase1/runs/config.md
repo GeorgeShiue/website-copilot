@@ -12,22 +12,22 @@
 
 ## 一、config 架構
 
-[app/workflow/workflow.py](app/workflow/workflow.py)、[cli.py](cli.py) 與 [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py) 共同負責執行路徑與檔案留存。
+[src/app/workflow/workflow.py](src/app/workflow/workflow.py)、[src/cli.py](src/cli.py) 與 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py) 共同負責執行路徑與檔案留存。
 
-專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`），每個模組由對應的 dataclass 在 `app/configs/` 中載入與驗證。根據目前程式碼庫，三個主要 config 類分別位於：
+專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`），每個模組由對應的 dataclass 在 `src/app/configs/` 中載入與驗證。根據目前程式碼庫，三個主要 config 類分別位於：
 
-- `app/configs/website_crawler_config.py`
-- `app/configs/webpage_image_summarizer_config.py`
-- `app/configs/rag_config.py`
+- `src/app/configs/website_crawler_config.py`
+- `src/app/configs/webpage_image_summarizer_config.py`
+- `src/app/configs/rag_config.py`
 
 三個 config class 的載入流程一致：
 
 1. 由 `config_name` 組出 TOML 檔路徑（例如 `configs/<module>/<config_name>.toml`）
 2. 透過 `sections_to_keys` 定義允許的欄位，逐 section 載入 TOML
-3. 使用共用 helper（`utils/config_helper.py`）做欄位過濾、覆寫與合併
+3. 使用共用 helper（`src/utils/config_helper.py`）做欄位過濾、覆寫與合併
 4. 建構 dataclass 並在 `__post_init__` 或模組內呼叫 `_validate_config()` 進行型別與範圍驗證
 
-備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`cli.py` 與 `main.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
+備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`src/cli.py` 與 `src/main.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
 
 ## 二、各模組怎麼載入與覆寫
 
@@ -35,7 +35,7 @@
 
 ### Website crawler
 
-- Config dataclass: `app/configs/website_crawler_config.py`
+- Config dataclass: `src/app/configs/website_crawler_config.py`
 - TOML 範例與實作：`configs/website_crawler/{config_name}.toml`（例如 `configs/website_crawler/default.toml`）
 - 載入流程：
   1. `WebsiteCrawlerConfig.from_toml(config_name, **overrides)` 會依 `DEFAULT_CONFIG_FOLDER_PATH` 組出 `configs/website_crawler/{config_name}.toml`。
@@ -51,7 +51,7 @@
 
 ### Webpage image summarizer
 
-- Config dataclass: `app/configs/webpage_image_summarizer_config.py`
+- Config dataclass: `src/app/configs/webpage_image_summarizer_config.py`
 - TOML 範例與實作：`configs/webpage_image_summarizer/{config_name}.toml`
 - 載入流程與注意：
   1. `WebpageImageSummarizerConfig.from_toml(config_name, **overrides)` 會載入 `configs/webpage_image_summarizer/{config_name}.toml`，並套用 `sections_to_keys` 規則。
@@ -60,7 +60,7 @@
 
 ### RAG
 
-- Config dataclass: `app/configs/rag_config.py`
+- Config dataclass: `src/app/configs/rag_config.py`
 - TOML 範例與實作：`configs/rag/{config_name}.toml`
 - 載入流程：
   1. `RAGConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
@@ -79,7 +79,7 @@
 
 ## 三、共用載入、覆寫與驗證機制
 
-[utils/config_helper.py](utils/config_helper.py) 是專案的設定工具中心，`app/configs/*` 的 dataclass 與 `app/workflow/*` 的流程都會透過它來載入、覆寫、驗證與寫回設定檔。以下依實作（參考 `utils/config_helper.py`）說明主要責任與行為：
+[src/utils/config_helper.py](src/utils/config_helper.py) 是專案的設定工具中心，`src/app/configs/*` 的 dataclass 與 `src/app/workflow/*` 的流程都會透過它來載入、覆寫、驗證與寫回設定檔。以下依實作（參考 `src/utils/config_helper.py`）說明主要責任與行為：
 
 - load_config_section_from_toml(config_path, config_section, allowed_keys)
   - 讀取指定 TOML 檔案的 section，要求該 section 為 table（Mapping）。
@@ -97,7 +97,7 @@
   - 若某 section 的 allowed keys 為空（residual section），函式會把剩餘未消耗的鍵寫入該 section；注意：不支援多個 residual section（會拋出 ValueError）。
 
 - save_run_config_as_toml(config, toml_file_path)
-  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以記錄 run-level 參數。
+  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`src/cli.py` 或 `src/main.py`）在流程結束時呼叫以記錄 run-level 參數。
 
 - filter_commented_configs(config_path, comment_keyword)
   - 解析 TOML 原始文字，抓出在註解中包含指定關鍵字（例如 `run name`）的設定鍵，供 `run_name` 生成使用。
@@ -113,11 +113,11 @@
 - allowed_keys 為空集合時，其行為是「允許所有 key 並作為 residual section」，此模式被用於 `litellm_kwargs`（允許自由延伸的參數）。
 - `load_config_section_from_toml()` 會對未知鍵發出 warning 並忽略，避免使用者在 TOML 中打錯鍵時造成未預期的覆寫。
 - `save_module_config_as_toml()` 會跳過 `config_name`、`sections_to_keys` 等 metadata，僅寫出實際的設定值；若發現多個 residual section，會以錯誤中斷以避免不明行為。
-- 實際使用範例：各模組的 `from_toml()`（見 `app/configs/*_config.py`）會先呼叫 `load_config_from_toml()`，再呼叫 `override_config()`，最後以回傳的 dict 建構 dataclass 並在 `__post_init__()` 執行 `_validate_config()`。
+- 實際使用範例：各模組的 `from_toml()`（見 `src/app/configs/*_config.py`）會先呼叫 `load_config_from_toml()`，再呼叫 `override_config()`，最後以回傳的 dict 建構 dataclass 並在 `__post_init__()` 執行 `_validate_config()`。
 
 ## 四、留檔機制
 
-目前的 RunManager 實作位於 `app/workflow/workflow_manager.py`（類別 `RunManager`），其行為如下：
+目前的 RunManager 實作位於 `src/app/workflow/workflow_manager.py`（類別 `RunManager`），其行為如下：
 
 - 建立 `runs/<timestamp>/<module>/<run>/` 目錄結構
 - 會產生並管理以下檔案路徑：
@@ -130,7 +130,7 @@
 module_config 與 run_config 的寫入機制：
 
 - `utils/config_helper.save_module_config_as_toml(config, path)` 會依 `sections_to_keys` 把 config 分 section 寫出為 `module_config.toml`；若某 section 的 allowed keys 為空（例如 `litellm_kwargs`），helper 會把該 section 視為 residual section，並把未消耗的 key 寫入該 section。
-- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
+- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由呼叫端（`src/cli.py` 或 `src/main.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
 
 結果檔案與產出：
 
@@ -161,13 +161,13 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 目前實際寫入時機：
 
-- `cli.py`：tyro 解析 CLI → 執行對應 run\_\* 流程 → 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
-- `main.py`：每個階段（website_crawler / webpage_image_summarizer / rag_build）執行完後呼叫 `save_run_config_as_toml(...)`
+- `src/cli.py`：tyro 解析 CLI → 執行對應 run\_\* 流程 → 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
+- `src/main.py`：每個階段（website_crawler / webpage_image_summarizer / rag_build）執行完後呼叫 `save_run_config_as_toml(...)`
 
 因此：
 
-- 走 `cli.py` 或 `main.py` 入口時，run_config.toml 會被寫出
-- 直接呼叫 `app/workflow/workflow.py` 內函式時，不會自動寫 run_config.toml（由呼叫端自行決定）
+- 走 `src/cli.py` 或 `src/main.py` 入口時，run_config.toml 會被寫出
+- 直接呼叫 `src/app/workflow/workflow.py` 內函式時，不會自動寫 run_config.toml（由呼叫端自行決定）
 
 ### 結果檔案
 
@@ -186,19 +186,19 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 倉庫中的測試與實驗（現況）：
 
-- `test/test_module.py` 的 smoke test 會透過程式 API 依序呼叫：
+- `src/test/test_module.py` 的 smoke test 會透過程式 API 依序呼叫：
   - `run_website_crawler(config_name="test")`
   - `run_webpage_image_summarizer(config_name="test")`
   - `run_rag_build(config_name="test")`
 
-- `test/test_main.py` 會測試 crawler 與 summarizer 的串接流程（共用同一個 RunManager）。
-- `exp.py` 仍保留為手動實驗入口，方便針對不同 `config_name` 或模型版本做比較。
+- `src/test/test_main.py` 會測試 crawler 與 summarizer 的串接流程（共用同一個 RunManager）。
+- `src/exp.py` 仍保留為手動實驗入口，方便針對不同 `config_name` 或模型版本做比較。
 
 ## 六、結論
 
 簡短結論：
 
-`configs/`（TOML）→ `utils/config_helper` 載入與過濾 → `app/configs/*.py` 建構 dataclass 並驗證 → `app/workflow/workflow_manager.py`（RunManager）負責寫出 module/run artifacts。
+`configs/`（TOML）→ `utils/config_helper` 載入與過濾 → `src/app/configs/*.py` 建構 dataclass 並驗證 → `src/app/workflow/workflow_manager.py`（RunManager）負責寫出 module/run artifacts。
 
 重點：
 
@@ -208,15 +208,15 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 ## Evidence
 
-- [utils/config_helper.py](utils/config_helper.py)
-- [app/website_crawler_config.py](app/website_crawler_config.py)
-- [app/webpage_image_summarizer_config.py](app/webpage_image_summarizer_config.py)
-- [app/rag_config.py](app/rag_config.py)
-- [app/website_crawler.py](app/website_crawler.py)
+- [src/utils/config_helper.py](src/utils/config_helper.py)
+- [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)
+- [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)
+- [src/app/configs/rag_config.py](src/app/configs/rag_config.py)
+- [src/app/modules/website_crawler.py](src/app/modules/website_crawler.py)
 - [run.py](run.py)
-- [cli.py](cli.py)
+- [src/cli.py](src/cli.py)
 - [run_config.py](run_config.py)
 - [utils/run_manager.py](utils/run_manager.py)
-- [main.py](main.py)
-- [test/test_module.py](test/test_module.py)
-- [test/test_main.py](test/test_main.py)
+- [src/main.py](src/main.py)
+- [src/test/test_module.py](src/test/test_module.py)
+- [src/test/test_main.py](src/test/test_main.py)

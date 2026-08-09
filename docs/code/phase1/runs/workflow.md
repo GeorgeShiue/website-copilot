@@ -2,29 +2,29 @@
 
 ## 一、主要檔案與角色
 
-- [app/workflow/workflow.py](app/workflow/workflow.py)：定義四個主要 workflow 入口，負責把 config、module 與 RunManager 串起來，並執行實際的爬蟲、圖片摘要與 RAG 建置／查詢流程。
-- [app/workflow/workflow_config.py](app/workflow/workflow_config.py)：定義 workflow 層的 run dataclass，提供 CLI 與程式端共用的參數結構。
-- [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)：管理 `runs/<timestamp>/<module>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
-- [main.py](main.py)：示範以程式直呼 workflow 的串接入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段。
-- `app/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫檢索。
-- [app/modules/website_crawler.py](app/modules/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
-- [app/modules/webpage_image_summarizer.py](app/modules/webpage_image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
-- [app/modules/rag.py](app/modules/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
-- [app/modules/rag_factory.py](app/modules/rag_factory.py)：負責 RAG 建構流程（`RAGBuilder` / `NodePipelineBuilder` / `VectorStoreBuilder`）。
-- [app/configs/website_crawler_config.py](app/configs/website_crawler_config.py)、[app/configs/webpage_image_summarizer_config.py](app/configs/webpage_image_summarizer_config.py)、[app/configs/rag_config.py](app/configs/rag_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
-- [utils/config_helper.py](utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
+- [src/app/workflow/workflow.py](src/app/workflow/workflow.py)：定義四個主要 workflow 入口，負責把 config、module 與 RunManager 串起來，並執行實際的爬蟲、圖片摘要與 RAG 建置／查詢流程。
+- [src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)：定義 workflow 層的 run dataclass，提供 CLI 與程式端共用的參數結構。
+- [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)：管理 `runs/<timestamp>/<module>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
+- [src/main.py](src/main.py)：示範以程式直呼 workflow 的串接入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段。
+- `src/app/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫檢索。
+- [src/app/modules/website_crawler.py](src/app/modules/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
+- [src/app/modules/webpage_image_summarizer.py](src/app/modules/webpage_image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
+- [src/app/modules/rag.py](src/app/modules/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
+- [src/app/modules/rag_factory.py](src/app/modules/rag_factory.py)：負責 RAG 建構流程（`RAGBuilder` / `NodePipelineBuilder` / `VectorStoreBuilder`）。
+- [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)、[src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)、[src/app/configs/rag_config.py](src/app/configs/rag_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
+- [src/utils/config_helper.py](src/utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
 
 ## 二、Workflow 解析與執行流程
 
-1. workflow 的核心實作集中在 [app/workflow/workflow.py](app/workflow/workflow.py)，目前提供四個主要入口：
+1. workflow 的核心實作集中在 [src/app/workflow/workflow.py](src/app/workflow/workflow.py)，目前提供四個主要入口：
    - `run_website_crawler()`
    - `run_webpage_image_summarizer()`
    - `run_rag_build()`
    - `run_rag_query()`
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
-3. 每個 workflow 都會建立或接收 [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
+3. 每個 workflow 都會建立或接收 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`，並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`。
-5. `run_config.toml` 由呼叫端（`cli.py` 或 `main.py`）在流程結束後呼叫 `save_run_config_as_toml()` 寫出；workflow 函式本身不會自動產生（僅產生 module-level artifacts）。
+5. `run_config.toml` 由呼叫端（`src/cli.py` 或 `src/main.py`）在流程結束後呼叫 `save_run_config_as_toml()` 寫出；workflow 函式本身不會自動產生（僅產生 module-level artifacts）。
 
 ## 三、四條主要 Workflow
 
@@ -32,8 +32,8 @@
 
 - 目的：從指定網站爬取頁面、清理 Markdown，並產出可供後續流程使用的 crawl results。
 - 流程：
-  1. 建立 [app/modules/website_crawler.py](app/modules/website_crawler.py) 的 `WebsiteCrawler`。
-  2. 透過 [app/configs/website_crawler_config.py](app/configs/website_crawler_config.py) 從 `configs/website_crawler/{config_name}.toml` 讀入設定。
+  1. 建立 [src/app/modules/website_crawler.py](src/app/modules/website_crawler.py) 的 `WebsiteCrawler`。
+  2. 透過 [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py) 從 `configs/website_crawler/{config_name}.toml` 讀入設定。
   3. 套用 `override_init_config()` 與 `crawl_website()` 的執行參數。
   4. 若爬取成功，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
@@ -41,16 +41,16 @@
 
 - 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown。
 - 流程：
-  1. 建立 [app/modules/webpage_image_summarizer.py](app/modules/webpage_image_summarizer.py) 的 `WebpageImageSummarizer`。
-  2. 透過 [app/configs/webpage_image_summarizer_config.py](app/configs/webpage_image_summarizer_config.py) 載入 `configs/webpage_image_summarizer/{config_name}.toml`。
-  3. 若未直接傳入 `crawl_results`，則由 [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py) 自動載入最近一次 crawler 結果。
+  1. 建立 [src/app/modules/webpage_image_summarizer.py](src/app/modules/webpage_image_summarizer.py) 的 `WebpageImageSummarizer`。
+  2. 透過 [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py) 載入 `configs/webpage_image_summarizer/{config_name}.toml`。
+  3. 若未直接傳入 `crawl_results`，則由 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py) 自動載入最近一次 crawler 結果。
   4. 執行圖片摘要後，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
 ### 3. `run_rag_build()`
 
 - 目的：建立 RAG 所需的 nodes、vector store、index、retriever 與 query engine，並立即執行範例查詢。
 - 流程：
-  1. 透過 [app/configs/rag_config.py](app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
+  1. 透過 [src/app/configs/rag_config.py](src/app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
   2. 使用 `RAGBuilder(config).build()` 一鍵建構完整 RAG 管線：`build_nodes()` → `build_vector_store()`（支援 **Qdrant BM25** 或 **Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()` → `build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）→ `build_query_engine()`。
   3. 執行範例 query（`rag.query(config.query, log_sources=True)`），最後在 run 路徑寫出 `module_config.toml`（不會另存到向量庫路徑；該另存行為僅 `run_rag_query` 於 rebuild 時執行）。
   4. 可選 `save_vector_store_to_runs=True`（CLI 旗標 `--run.save-vector-store-to-runs`）：把向量庫改存至本次 run 的 `results/vector_store/{qdrant_db | milvus.db}`，避免覆寫 `data/rag/results/` 固定位置；`module_config.toml` 會記錄覆寫後路徑。
@@ -93,46 +93,46 @@ Workflow 內部常見行為：
 
 Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與共用 helper：
 
-1. `app/configs/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
+1. `src/app/configs/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
 2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 負責讀入、過濾與覆寫。
 3. `save_module_config_as_toml()` 會把實際使用到的設定寫回 `module_config.toml`，方便追蹤本次執行。
-4. `save_run_config_as_toml()` 由呼叫端（`cli.py` 與 `main.py`）在流程結束後寫出 run-level 參數；workflow 函式本身不會自動產生。
+4. `save_run_config_as_toml()` 由呼叫端（`src/cli.py` 與 `src/main.py`）在流程結束後寫出 run-level 參數；workflow 函式本身不會自動產生。
 
-這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `app/configs/`。
+這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `src/app/configs/`。
 
 ## 六、使用範例
 
 ```bash
 # 先爬取，再做圖片摘要
-python main.py
+python src/main.py
 ```
 
 ```bash
 # 只跑 workflow 層的 RAG 建置流程（通常透過 CLI 或程式入口呼叫）
-python cli.py rag-build-cli --run.config-name default
+python src/cli.py rag-build-cli --run.config-name default
 ```
 
 ```bash
 # 執行 RAG 查詢流程並允許重建
-python cli.py rag-query-cli --run.config-name test --run.force-rebuild
+python src/cli.py rag-query-cli --run.config-name test --run.force-rebuild
 ```
 
 ## 七、注意事項與建議
 
-- 若要修改 workflow 的執行行為，優先檢查 [app/workflow/workflow.py](app/workflow/workflow.py) 與對應的 `app/configs/*_config.py`，不要把設定邏輯分散到 module 本體。
-- 若要調整輸出目錄與 artifacts 命名，優先修改 [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)。
-- 若要新增 workflow，建議先在 `app/workflow/workflow.py` 定義入口，再補上對應的 config dataclass 與 RunManager 輸出行為。
+- 若要修改 workflow 的執行行為，優先檢查 [src/app/workflow/workflow.py](src/app/workflow/workflow.py) 與對應的 `src/app/configs/*_config.py`，不要把設定邏輯分散到 module 本體。
+- 若要調整輸出目錄與 artifacts 命名，優先修改 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)。
+- 若要新增 workflow，建議先在 `src/app/workflow/workflow.py` 定義入口，再補上對應的 config dataclass 與 RunManager 輸出行為。
 
 ## 八、參考與證據
 
-- [app/workflow/workflow.py](app/workflow/workflow.py)
-- [app/workflow/workflow_config.py](app/workflow/workflow_config.py)
-- [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)
-- [main.py](main.py)
-- [app/modules/website_crawler.py](app/modules/website_crawler.py)
-- [app/modules/webpage_image_summarizer.py](app/modules/webpage_image_summarizer.py)
-- [app/modules/rag.py](app/modules/rag.py)
-- [app/configs/website_crawler_config.py](app/configs/website_crawler_config.py)
-- [app/configs/webpage_image_summarizer_config.py](app/configs/webpage_image_summarizer_config.py)
-- [app/configs/rag_config.py](app/configs/rag_config.py)
-- [utils/config_helper.py](utils/config_helper.py)
+- [src/app/workflow/workflow.py](src/app/workflow/workflow.py)
+- [src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)
+- [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)
+- [src/main.py](src/main.py)
+- [src/app/modules/website_crawler.py](src/app/modules/website_crawler.py)
+- [src/app/modules/webpage_image_summarizer.py](src/app/modules/webpage_image_summarizer.py)
+- [src/app/modules/rag.py](src/app/modules/rag.py)
+- [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)
+- [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)
+- [src/app/configs/rag_config.py](src/app/configs/rag_config.py)
+- [src/utils/config_helper.py](src/utils/config_helper.py)

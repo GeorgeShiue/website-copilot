@@ -28,30 +28,39 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ```text
 .
-├── cli.py                       # CLI 入口
-├── exp.py                       # 實驗或快速測試入口
-├── main.py                      # 協調爬蟲與圖片摘要的主流程
 ├── prek.toml                    # ruff/prek 設定
 ├── pyproject.toml               # Python 專案設定與依賴
 ├── README.md
 ├── uv.lock
-├── app/
-│   ├── configs/
-│   │   ├── rag_config.py
-│   │   ├── webpage_image_summarizer_config.py
-│   │   └── website_crawler_config.py
-│   ├── modules/
-│   │   ├── rag.py
-│   │   ├── rag_factory.py                # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   ├── rag_eval_prompts.py           # 評估 Prompt 模板
-│   │   ├── webpage_image_summarizer.py
-│   │   └── website_crawler.py
-│   ├── tools/
-│   │   └── webpage_retriever.py    # RAG retriever → LangChain StructuredTool
-│   └── workflow/
-│       ├── workflow.py
-│       ├── workflow_config.py
-│       └── workflow_manager.py
+├── src/
+│   ├── cli.py                   # CLI 入口
+│   ├── exp.py                   # 實驗或快速測試入口
+│   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
+│   ├── app/
+│   │   ├── configs/
+│   │   │   ├── rag_config.py
+│   │   │   ├── webpage_image_summarizer_config.py
+│   │   │   └── website_crawler_config.py
+│   │   ├── modules/
+│   │   │   ├── rag.py
+│   │   │   ├── rag_factory.py            # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   │   ├── rag_eval_prompts.py       # 評估 Prompt 模板
+│   │   │   ├── webpage_image_summarizer.py
+│   │   │   └── website_crawler.py
+│   │   ├── tools/
+│   │   │   └── webpage_retriever.py      # RAG retriever → LangChain StructuredTool
+│   │   └── workflow/
+│   │       ├── workflow.py
+│   │       ├── workflow_config.py
+│   │       └── workflow_manager.py
+│   ├── test/
+│   │   ├── test_main.py
+│   │   ├── test_module.py
+│   │   └── test_rag_refactor.py
+│   └── utils/
+│       ├── config_helper.py
+│       ├── log_helper.py
+│       └── rag_helper.py
 ├── configs/
 │   ├── rag/
 │   │   ├── default.toml               # 預設設定（Milvus + WeightedRanker hybrid）
@@ -76,25 +85,20 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── docs/
 │   ├── project.md                      # 專案總覽與路線圖
 │   ├── code/
-│   │   ├── phase1.md                   # Phase 1 實作概覽
-│   │   ├── modules/
-│   │   │   ├── data_collect.md         # 爬蟲模組文件
-│   │   │   ├── data_preprocess.md      # 圖片摘要模組文件
-│   │   │   └── data_retrieve.md        # RAG 檢索模組文件
-│   │   └── runs/
-│   │       ├── cli.md                  # CLI 使用方式
-│   │       ├── config.md               # 設定機制說明
-│   │       └── workflow.md             # Workflow 流程說明
+│   │   └── phase1/
+│   │       ├── phase1.md               # Phase 1 實作概覽
+│   │       ├── modules/
+│   │       │   ├── data_collect.md     # 爬蟲模組文件
+│   │       │   ├── data_preprocess.md  # 圖片摘要模組文件
+│   │       │   └── data_retrieve.md    # RAG 檢索模組文件
+│   │       ├── runs/
+│   │       │   ├── cli.md              # CLI 使用方式
+│   │       │   ├── config.md           # 設定機制說明
+│   │       │   └── workflow.md         # Workflow 流程說明
+│   │       └── survey/
+│   │           └── data_process_method.md  # 資料處理方法 survey
 │   └── progress_report/                # 進度報告
-├── runs/                         # 執行輸出（以時間戳資料夾儲存）
-├── test/
-│   ├── test_main.py
-│   ├── test_module.py
-│   └── test_rag_refactor.py
-└── utils/
-    ├── config_helper.py
-    ├── log_helper.py
-    └── rag_helper.py
+└── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ```
 
 ## 需求
@@ -205,13 +209,14 @@ pytest
 專案的實作筆記與路線圖位於 `docs/`：
 
 - `docs/project.md` — 專案總覽、階段規劃與路線圖
-- `docs/code/phase1.md` — Phase 1 實作概覽與已知問題
-- `docs/code/modules/data_collect.md` — 爬蟲模組說明
-- `docs/code/modules/data_preprocess.md` — 圖片摘要模組說明
-- `docs/code/modules/data_retrieve.md` — RAG 檢索模組說明
-- `docs/code/runs/cli.md` — CLI 使用方式
-- `docs/code/runs/config.md` — 設定機制說明
-- `docs/code/runs/workflow.md` — Workflow 流程說明
+- `docs/code/phase1/phase1.md` — Phase 1 實作概覽與已知問題
+- `docs/code/phase1/modules/data_collect.md` — 爬蟲模組說明
+- `docs/code/phase1/modules/data_preprocess.md` — 圖片摘要模組說明
+- `docs/code/phase1/modules/data_retrieve.md` — RAG 檢索模組說明
+- `docs/code/phase1/runs/cli.md` — CLI 使用方式
+- `docs/code/phase1/runs/config.md` — 設定機制說明
+- `docs/code/phase1/runs/workflow.md` — Workflow 流程說明
+- `docs/code/phase1/survey/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態
 

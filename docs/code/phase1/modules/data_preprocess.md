@@ -4,12 +4,12 @@
 此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程會先從爬取結果收集圖片來源，再進行下載、快取、摘要與重試，最後產生包含圖片說明的 `enhanced_markdown` 與統計資訊。
 
 - **模組實作**
-	- `app/modules/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
-	- `app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**，並定義 `VLM_MODEL_TO_API_KEY` 模型→API key 對照表）
-	- `utils/log_helper.py`（**日誌**、**進度**與**統計輸出**輔助）
+	- `src/app/modules/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
+	- `src/app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**，並定義 `VLM_MODEL_TO_API_KEY` 模型→API key 對照表）
+	- `src/utils/log_helper.py`（**日誌**、**進度**與**統計輸出**輔助）
 
 - **模組設定**
-	- `./configs/webpage_image_summarizer/{name}.toml`（**摘要設定檔**，透過 `app/configs/webpage_image_summarizer_config.py` 載入）
+	- `./configs/webpage_image_summarizer/{name}.toml`（**摘要設定檔**，透過 `src/app/configs/webpage_image_summarizer_config.py` 載入）
 	- 可在 `WebpageImageSummarizerConfig` 或執行參數中覆寫 **model**、**prompt**、**image_source**、**vlm_max_workers** 與 **litellm_kwargs**
 	- `WebpageImageSummarizer._get_api_key()` 依 `VLM_MODEL_TO_API_KEY` 對照表推斷對應的環境變數，並從 `.env` 或系統環境讀取
 
