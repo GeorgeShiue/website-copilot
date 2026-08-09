@@ -105,14 +105,14 @@ runs/<ts>/rag_build/<run_name>/
 | `app/modules/rag_factory.py` | 修改 | `build_milvus` 建立父目錄；clean 簽名放寬為 `str | None` |
 | `test/test_main.py` | 修改 | `run_rag_build` 傳入 `save_vector_store_to_runs=True` |
 | `test/test_module.py` | 修改 | `run_rag_build(config_name="test", save_vector_store_to_runs=True)` |
-| `test/test_rag_refactor.py` | 修改 | 新增群組 6 `TestQueryResultStorage`（13 項濃縮為 7 項：序列化 + 儲存 + 表格跳脫 + 多 query 分檔）與群組 3b `TestRunRagBuildSaveVectorStore`（3 項，patch builder 確定性測試） |
+| `test/test_rag_refactor.py` | 修改 | 新增群組 6 `TestQueryResultStorage`（13 項濃縮為 7 項：序列化 + 儲存 + 表格跳脫 + 多 query 分檔）與群組 3b `TestRunRagBuildSaveVectorStore`（3 項，patch builder 確定性測試）（檔案已於 08/09 刪除） |
 
 ## 7. 測試與驗證
 
 | 驗證 | 結果 |
 |------|------|
-| `uv run pytest test/test_rag_refactor.py -v`（群組 6 + 群組 3b） | 38 passed |
-| `uv run pytest test/ --ignore=test/test_main.py --ignore=test/test_module.py` | 38 passed |
+| `uv run pytest test/test_rag_refactor.py -v`（群組 6 + 群組 3b）⚠️ 檔案已於 08/09 刪除 | 38 passed |
+| `uv run pytest test/ --ignore=test/test_main.py --ignore=test/test_module.py` ⚠️ 同上 | 38 passed |
 | `uv run pyright` | 0 errors |
 | 端對端：`run_rag_build(config_name="test", save_vector_store_to_runs=True)` | `milvus.db` 落於 `runs/<ts>/rag_build/query_mode-hybrid/results/vector_store/`；`data/rag/results/` 未被改動；`module_config.toml` 記錄覆寫路徑 |
 | Smoke：`uv run python cli.py rag-query-cli --run.config-name test --run.query-times 2` | 成功，2/2 pass；`results.json` 與 `results/query_{index}.md` 內容與 log 一致 |
@@ -143,6 +143,6 @@ runs/<ts>/rag_build/<run_name>/
 2. **MD 儲存機制**：`save_query_results_as_md` 由單一 `query_report.md` 改為「一次 query 與回覆一份檔案」（`results/query_{index}.md`）；渲染器改為 `_render_query_result_md(result)`。
 3. **MD 表頭**：移除 config 表頭與標題（原 `# RAG Query Report (...)` + `> config: ...`），標題改為 `# Query #{index}: {query}`，不再記錄 config。
 4. **schema 重新命名**：`results.json` 的 `meta` 欄位重新命名為 `config`（`workflow.py` 生成處、測試 fixture 同步更新）。
-5. **測試整合**：原 `test/test_query_result_storage.py` 的 13 項測試濃縮為 7 項，合併至 `test/test_rag_refactor.py` 群組 6 `TestQueryResultStorage`，並刪除原測試檔。
+5. **測試整合**：原 `test/test_query_result_storage.py` 的 13 項測試濃縮為 7 項，合併至 `test/test_rag_refactor.py` 群組 6 `TestQueryResultStorage`，並刪除原測試檔。（`test_rag_refactor.py` 已於 08/09 刪除）
 
 

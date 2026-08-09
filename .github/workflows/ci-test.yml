@@ -61,4 +61,4 @@ jobs:
           echo "GEMINI_RAG_QUERY_ENGINE_API_KEY"=${{ secrets.GEMINI_API_KEY }} >> .env
 
       - name: Run tests
-        run: uv run pytest test/test_module.py
+        run: uv run pytest src/test/test_module.py

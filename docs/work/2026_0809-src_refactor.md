@@ -55,7 +55,7 @@ website-copilot/
 │   │   ├── modules/              # rag、rag_factory 等 5 檔
 │   │   ├── tools/                # webpage_retriever
 │   │   └── workflow/             # workflow / workflow_config / workflow_manager
-│   ├── test/                     # 3 個測試檔
+│   ├── test/                     # 2 個測試檔（test_rag_refactor.py 已於 08/09 刪除）
 │   └── utils/                    # config_helper / log_helper / rag_helper
 ├── configs/  data/  runs/  dev/  docs/   # 不動
 └── pyproject.toml  README.md  uv.lock  prek.toml
@@ -109,13 +109,13 @@ addopts = "-s -v"
 | `pyproject.toml` | 修改 | pytest `pythonpath = ["src"]` + `testpaths` |
 | `README.md` | 修改 | 結構樹 |
 | `docs/code/**`（6 檔） | 修改 | 路徑引用加 `src/` 前綴 |
-| `src/test/test_rag_refactor.py` | 修改 | **修正既有測試 bug**（見 §7） |
+| `src/test/test_rag_refactor.py` | 修改 | **修正既有測試 bug**（見 §7）（檔案已於 08/09 刪除） |
 
 ## 7. 測試與驗證
 
 | 驗證 | 結果 |
 |------|------|
-| `uv run pytest` | **42 passed**（8 warnings） |
+| `uv run pytest` | **42 passed**（8 warnings）⚠️ 刪除 `test_rag_refactor.py` 後現為 **4 passed** |
 | `uv run python src/cli.py --help` | ✅ tyro subcommands 正常（sys.path[0]=`src/`） |
 | `uv run ruff check src` | ✅ All checks passed |
 | `uv run pyright` | ✅ 0 errors（`typeEvaluation` unrecognized 為既有警告） |

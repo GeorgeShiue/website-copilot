@@ -55,8 +55,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │       └── workflow_manager.py
 │   ├── test/
 │   │   ├── test_main.py
-│   │   ├── test_module.py
-│   │   └── test_rag_refactor.py
+│   │   └── test_module.py
 │   └── utils/
 │       ├── config_helper.py
 │       ├── log_helper.py
@@ -201,8 +200,8 @@ pytest
 ## 開發
 
 - 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定。
-- `test/test_main.py` 會使用測試設定檔執行完整流程。
-- `test/test_module.py` 會獨立執行爬蟲與摘要器。
+- `src/test/test_main.py` 會使用測試設定檔執行完整流程。
+- `src/test/test_module.py` 會獨立執行爬蟲與摘要器。
 
 ## 文件
 
