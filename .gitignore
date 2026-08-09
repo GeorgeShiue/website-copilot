@@ -11,3 +11,4 @@ storage_context/
 ingestion_cache/
 
 /runs/
+.DS_Store

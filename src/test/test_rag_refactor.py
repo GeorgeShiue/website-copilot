@@ -455,7 +455,7 @@ class TestRunRagBuildSaveVectorStore:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """True 時 qdrant 向量庫應存放於 run 的 results/vector_store/qdrant_db。"""
-        captured = self._run(monkeypatch, "default", save_vector_store_to_runs=True)
+        captured = self._run(monkeypatch, "qdrant", save_vector_store_to_runs=True)
         expected = os.path.join(
             captured["run_manager"].results_folder_path,
             "vector_store",

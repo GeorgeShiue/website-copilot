@@ -28,30 +28,39 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ```text
 .
-├── cli.py                       # CLI 入口
-├── exp.py                       # 實驗或快速測試入口
-├── main.py                      # 協調爬蟲與圖片摘要的主流程
 ├── prek.toml                    # ruff/prek 設定
 ├── pyproject.toml               # Python 專案設定與依賴
 ├── README.md
 ├── uv.lock
-├── app/
-│   ├── configs/
-│   │   ├── rag_config.py
-│   │   ├── webpage_image_summarizer_config.py
-│   │   └── website_crawler_config.py
-│   ├── modules/
-│   │   ├── rag.py
-│   │   ├── rag_factory.py                # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   ├── rag_eval_prompts.py           # 評估 Prompt 模板
-│   │   ├── webpage_image_summarizer.py
-│   │   └── website_crawler.py
-│   ├── tools/
-│   │   └── webpage_retriever.py    # RAG retriever → LangChain StructuredTool
-│   └── workflow/
-│       ├── workflow.py
-│       ├── workflow_config.py
-│       └── workflow_manager.py
+├── src/
+│   ├── cli.py                   # CLI 入口
+│   ├── exp.py                   # 實驗或快速測試入口
+│   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
+│   ├── app/
+│   │   ├── configs/
+│   │   │   ├── rag_config.py
+│   │   │   ├── webpage_image_summarizer_config.py
+│   │   │   └── website_crawler_config.py
+│   │   ├── modules/
+│   │   │   ├── rag.py
+│   │   │   ├── rag_factory.py            # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   │   ├── rag_eval_prompts.py       # 評估 Prompt 模板
+│   │   │   ├── webpage_image_summarizer.py
+│   │   │   └── website_crawler.py
+│   │   ├── tools/
+│   │   │   └── webpage_retriever.py      # RAG retriever → LangChain StructuredTool
+│   │   └── workflow/
+│   │       ├── workflow.py
+│   │       ├── workflow_config.py
+│   │       └── workflow_manager.py
+│   ├── test/
+│   │   ├── test_main.py
+│   │   ├── test_module.py
+│   │   └── test_rag_refactor.py
+│   └── utils/
+│       ├── config_helper.py
+│       ├── log_helper.py
+│       └── rag_helper.py
 ├── configs/
 │   ├── rag/
 │   │   ├── default.toml               # 預設設定（Milvus + WeightedRanker hybrid）
@@ -86,15 +95,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │       ├── config.md               # 設定機制說明
 │   │       └── workflow.md             # Workflow 流程說明
 │   └── progress_report/                # 進度報告
-├── runs/                         # 執行輸出（以時間戳資料夾儲存）
-├── test/
-│   ├── test_main.py
-│   ├── test_module.py
-│   └── test_rag_refactor.py
-└── utils/
-    ├── config_helper.py
-    ├── log_helper.py
-    └── rag_helper.py
+└── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ```
 
 ## 需求

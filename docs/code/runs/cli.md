@@ -2,16 +2,16 @@
 
 ## 一、主要檔案與角色
 
-- `cli.py`：CLI 入口，使用 `tyro` 解析 dataclass 型態，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline，結束時寫入 `run_config.toml`。
-- `[app/workflow/workflow.py](app/workflow/workflow.py)`：實作主要 pipeline（`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_rag_query`），負責載入 module config、執行流程、寫入 `module_config.toml` 與結果。
-- `[app/workflow/workflow_config.py](app/workflow/workflow_config.py)`：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。
+- `src/cli.py`：CLI 入口，使用 `tyro` 解析 dataclass 型態，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline，結束時寫入 `run_config.toml`。
+- `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`：實作主要 pipeline（`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_rag_query`），負責載入 module config、執行流程、寫入 `module_config.toml` 與結果。
+- `[src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)`：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。
   - `RAGBuildRunConfig` 含 `save_vector_store_to_runs`（預設 `False`，CLI 旗標 `--run.save-vector-store-to-runs`）：開啟時向量庫寫入本次 run 的 `results/vector_store/`。
-- `[app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)`：管理 `runs/<timestamp>/<module>/<run>/` 路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
-- `utils/config_helper.py`：共用設定工具，提供載入、覆寫、與寫出 TOML 的 helper 函式。
+- `[src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)`：管理 `runs/<timestamp>/<module>/<run>/` 路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
+- `src/utils/config_helper.py`：共用設定工具，提供載入、覆寫、與寫出 TOML 的 helper 函式。
 
 ## 二、CLI 解析與 dispatch 流程
 
-1. `cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI`。
+1. `src/cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI`。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
    - `RAGConfigCLI.module` 支援以下 hybrid 相關覆寫：
      - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`
@@ -29,7 +29,7 @@
    - 用 `load_config_from_toml()` 載入 sections，
    - 用 `override_config()` 合併 CLI 傳入的 overrides（依 `sections_to_keys` 過濾），
    - 建構 dataclass 並執行模組內驗證。
-6. CLI 主流程結束時，`cli.py` 呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`，把 run-level 參數寫入 `run_config.toml`。
+6. CLI 主流程結束時，`src/cli.py` 呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`，把 run-level 參數寫入 `run_config.toml`。
 
 ## 三、參數覆寫規則要點
 
@@ -39,35 +39,35 @@
 ## 四、`run_config.toml` 與 `module_config.toml` 的差異與產生時機
 
 - `module_config.toml`：由 pipeline（`run_*`）呼叫 `save_module_config_as_toml(config, run_manager.module_config_toml_path)` 產生，內容以 `sections_to_keys` 為準分 section 寫出；若存在 residual section（section keys 為空），未消耗欄位會寫入該 residual section。
-- `run_config.toml`：由呼叫端在流程結束時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。目前 `cli.py` 與 `main.py` 都會寫出；直接呼叫 `[app/workflow/workflow.py](app/workflow/workflow.py)` 的 workflow 函式則不會自動寫入。
+- `run_config.toml`：由呼叫端在流程結束時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。目前 `src/cli.py` 與 `src/main.py` 都會寫出；直接呼叫 `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)` 的 workflow 函式則不會自動寫入。
 
 ## 五、執行範例
 
 ```bash
 # 範例：使用 rag query CLI 並覆寫 module 的 similarity_top_k 與 hybrid_ranker
-python cli.py rag-query-cli --run.config-name test --run.force-rebuild --module.similarity_top_k 10
+python src/cli.py rag-query-cli --run.config-name test --run.force-rebuild --module.similarity_top_k 10
 
 # 範例：切換至 WeightedRanker 並自訂權重
-python cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker WeightedRanker --module.weights "[1.0, 0.5]"
+python src/cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker WeightedRanker --module.weights "[1.0, 0.5]"
 
 # 範例：設定 hybrid 檢索參數（test 與 default 皆為 Milvus hybrid；此處示範 CLI 覆寫）
-python cli.py rag-query-cli --run.config-name test --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
+python src/cli.py rag-query-cli --run.config-name test --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
 
 # 範例：RAG 建置時把向量庫存至本次 run 的 results/vector_store/
-python cli.py rag-build-cli --run.config-name default --run.save-vector-store-to-runs
+python src/cli.py rag-build-cli --run.config-name default --run.save-vector-store-to-runs
 ```
 
-（備註：開發環境常見 wrapper：`uv run python cli.py ...`，依環境而定）
+（備註：開發環境常見 wrapper：`uv run python src/cli.py ...`，依環境而定）
 
 ## 六、注意事項與建議
 
-- 若需讓更多欄位能由 CLI 覆寫，請在對應 `app/configs/*_config.py` 中擴充 `sections_to_keys`。
-- 若自行呼叫 workflow 函式（非 CLI / 非 main.py 入口）也希望寫出 `run_config.toml`，可在呼叫端於 pipeline 執行完後顯式呼叫 `utils.config_helper.save_run_config_as_toml()` 並以 `RunManager.run_config_toml_path` 為目標路徑。
+- 若需讓更多欄位能由 CLI 覆寫，請在對應 `src/app/configs/*_config.py` 中擴充 `sections_to_keys`。
+- 若自行呼叫 workflow 函式（非 CLI / 非 src/main.py 入口）也希望寫出 `run_config.toml`，可在呼叫端於 pipeline 執行完後顯式呼叫 `utils.config_helper.save_run_config_as_toml()` 並以 `RunManager.run_config_toml_path` 為目標路徑。
 
 ## 七、參考與證據
 
-- `cli.py`
-- `[app/workflow/workflow.py](app/workflow/workflow.py)`
-- `[app/workflow/workflow_config.py](app/workflow/workflow_config.py)`
-- `[app/workflow/workflow_manager.py](app/workflow/workflow_manager.py)`
-- `utils/config_helper.py`
+- `src/cli.py`
+- `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`
+- `[src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)`
+- `[src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)`
+- `src/utils/config_helper.py`

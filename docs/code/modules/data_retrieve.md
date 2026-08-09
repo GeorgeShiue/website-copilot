@@ -12,15 +12,15 @@
 與此並行的尚有**知識圖譜檢索（網站結構）**、**資料庫檢索（多欄位資料）** 兩條策略路徑，依資料類型分流選用。
 
 - **模組實作**
-	- `app/modules/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
-	- `app/modules/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
-	- `app/modules/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
-	- `app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
-	- `utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
-	- `app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
+	- `src/app/modules/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
+	- `src/app/modules/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
+	- `src/app/modules/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
+	- `src/app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
+	- `src/utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
+	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
 
 - **模組設定**
-	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `app/configs/rag_config.py` 載入）
+	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `src/app/configs/rag_config.py` 載入）
 	- 可在 `RagConfig` 或執行參數中覆寫 **embedding**、**vector store 類型**、**hybrid ranker**、**chunk 參數**、**檢索設定**與 **LLM 模型**
 	- API key 依用途分為三組獨立環境變數：`OPENAI_RAG_EMBEDDING_API_KEY`（Embedding）、`GEMINI_RAG_QUERY_ENGINE_API_KEY` / `OPENAI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`GEMINI_RAG_EVALUATOR_API_KEY` / `OPENAI_RAG_EVALUATOR_API_KEY`（評估）
 

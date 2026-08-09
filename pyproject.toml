@@ -44,5 +44,6 @@ strictListInference = true
 strictSetInference = true
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
+testpaths = ["src/test"]
 addopts = "-s -v"
