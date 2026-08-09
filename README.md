@@ -42,22 +42,22 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── website_crawler_config.py
 │   ├── modules/
 │   │   ├── rag.py
+│   │   ├── rag_factory.py                # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   ├── rag_eval_prompts.py           # 評估 Prompt 模板
 │   │   ├── webpage_image_summarizer.py
 │   │   └── website_crawler.py
 │   ├── tools/
-│   │   └── webpage_RAG_retriever.py    # RAG retriever → LangChain StructuredTool
+│   │   └── webpage_retriever.py    # RAG retriever → LangChain StructuredTool
 │   └── workflow/
 │       ├── workflow.py
 │       ├── workflow_config.py
 │       └── workflow_manager.py
 ├── configs/
 │   ├── rag/
-│   │   ├── default.toml               # Qdrant Dense (預設)
-│   │   ├── dense.toml                  # Milvus Dense-only 對照
-│   │   ├── hybrid.toml                 # Milvus Hybrid 通用設定
+│   │   ├── default.toml               # 預設設定（Milvus + WeightedRanker hybrid）
 │   │   ├── milvus.toml                 # Milvus + WeightedRanker
 │   │   ├── qdrant.toml                 # Qdrant BM25 Hybrid
-│   │   └── test.toml
+│   │   └── test.toml                   # 測試用（同 default，Milvus hybrid）
 │   ├── webpage_image_summarizer/
 │   │   ├── default.toml
 │   │   ├── test.toml
@@ -89,7 +89,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ├── test/
 │   ├── test_main.py
-│   └── test_module.py
+│   ├── test_module.py
+│   └── test_rag_refactor.py
 └── utils/
     ├── config_helper.py
     ├── log_helper.py
@@ -134,13 +135,13 @@ playwright install
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 Gemini 金鑰。 |
-| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `app/modules/rag.py` | 用於回答生成的 GPT 金鑰。 |
-| `GEMINI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（Gemini）。 |
-| `OPENAI_RAG_EVALUATOR_API_KEY` | `app/modules/rag.py` | 回答評估（GPT）。 |
-| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
+| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 Gemini 金鑰。 |
+| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
+| `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
+| `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | GPT 圖片摘要金鑰。 |
+| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | Gemini 圖片摘要金鑰。 |
 
 ## 使用方式
 
@@ -167,6 +168,8 @@ python cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 1
 
 也可以透過 `exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
 
+> **注意**：`exp.py` 內各實驗函式以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `exp.py` 中的 `config_name` 清單。
+
 ### 執行 smoke tests
 
 ```bash
@@ -179,15 +182,17 @@ pytest
 
 每次執行會在 `runs/<timestamp>/<module>/<run_name>/` 下產生以下 artefacts：
 
-- `results.json` — 結構化結果
-- `results/*.md` — 每頁的 Markdown 內容
+- `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
+- `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — CLI 執行時的 run-level 參數（僅 CLI 入口）
+- `run_config.toml` — run-level 參數（`cli.py` 與 `main.py` 入口會寫出）
 - `terminal.log` — 執行日誌
 
-向量資料庫持久化於 `data/rag/results/`：
+向量資料庫預設持久化於 `data/rag/results/`：
 - `qdrant_db/` — Qdrant 向量儲存
 - `milvus.db` — Milvus Lite 向量儲存
+
+`run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
 
 ## 開發
 
@@ -220,5 +225,6 @@ pytest
 - RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
+- Query 結果落盤（`results.json` + `results/query_{index}.md`）與向量庫可存至 run 內（`save_vector_store_to_runs`）
 
 後續規劃請參閱 `docs/project.md`。

@@ -48,7 +48,7 @@
 - 避免**設定格式不正確**而影響爬取。
 
 ### 3. 套用與轉換參數
-- 將 `exclude_words` 由**列表**轉成 `tuple`。
+- `exclude_words` 保留為**字串列表**（`list[str]`），由 `_validate_config()` 驗證型別、拒絕空列表與非字串元素。
 - 可搭配 `app/modules/website_crawler.py` 調整**瀏覽**與**爬取行為**。
 - 讓設定內容直接對應**實際執行需求**。
 
@@ -58,4 +58,4 @@
 - `_extract_metadata()` 根據 URL sub-path 匹配 `PAGE_TYPE_PATTERNS` 規則（如 `/news` → `announcement`、`/publication` → `paper`），產出 `page_type` 與 `description` 供下游 metadata filter 使用。
 - `_extract_crawl_results_data()` 產出最終結構，每個頁面包含 `url`、`fit_markdown`、`images`、`metadata` 與 `crawl_info` 五個子字典。
 - `WebsiteCrawlerConfig.from_toml()` 從 `./configs/website_crawler/{name}.toml` 載入 `init` 與 `crawl` 設定，並在建立後立即驗證內容。
-- `exclude_words` 若以**列表**提供會自動轉成 `tuple`，`run_name` 則依 TOML 註解標記的欄位組合而成。
+- `exclude_words` 必須是**字串列表**（`list[str]`），驗證時拒絕空列表與非字串元素；`run_name` 則依 TOML 註解標記的欄位組合而成。

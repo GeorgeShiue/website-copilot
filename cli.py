@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 from app.workflow.workflow_config import (
-    RagBuildRunConfig,
-    RagQueryRunConfig,
+    RAGBuildRunConfig,
+    RAGQueryRunConfig,
     WebpageImageSummarizerRunConfig,
     WebsiteCrawlerRunConfig,
 )
@@ -21,7 +21,7 @@ class WebpageImageSummarizerConfigCLI:
 
 
 @dataclass
-class RagConfigCLI:
+class RAGConfigCLI:
     # ----- vector store config -----
     hybrid_ranker: str | None = None
     weights: list[float] | None = None
@@ -48,15 +48,15 @@ class WebpageImageSummarizerCLI:
 
 
 @dataclass
-class RagBuildCLI:
-    run: RagBuildRunConfig
-    module: RagConfigCLI
+class RAGBuildCLI:
+    run: RAGBuildRunConfig
+    module: RAGConfigCLI
 
 
 @dataclass
-class RagQueryCLI:
-    run: RagQueryRunConfig
-    module: RagConfigCLI
+class RAGQueryCLI:
+    run: RAGQueryRunConfig
+    module: RAGConfigCLI
 
 
 if __name__ == "__main__":
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     run_manager = RunManager()
 
     cli_args_type = (
-        WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI
+        WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI
     )
     cli_arg = tyro.cli(cli_args_type)
     module_config_overrides = {}
@@ -102,14 +102,14 @@ if __name__ == "__main__":
             **vars(cli_arg.run),
             **module_config_overrides,
         )
-    elif isinstance(cli_arg, RagBuildCLI):
+    elif isinstance(cli_arg, RAGBuildCLI):
         run_manager.set_module_path("rag_build")
         run_rag_build(
             run_manager,
             **vars(cli_arg.run),
             **module_config_overrides,
         )
-    elif isinstance(cli_arg, RagQueryCLI):
+    elif isinstance(cli_arg, RAGQueryCLI):
         run_manager.set_module_path("rag_query")
         run_rag_query(
             run_manager,

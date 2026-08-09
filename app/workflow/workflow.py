@@ -1,11 +1,13 @@
 import os
+import time
 
 from app.configs.rag_config import (
-    RagConfig,
+    RAGConfig,
 )
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
-from app.modules.rag import Rag
+from app.modules.rag import RAG
+from app.modules.rag_factory import RAGBuilder
 from app.modules.webpage_image_summarizer import WebpageImageSummarizer
 from app.modules.website_crawler import WebsiteCrawler
 from app.workflow.workflow_manager import RunManager
@@ -15,6 +17,7 @@ from utils.log_helper import (
     log_session,
     save_logging_file,
 )
+from utils.rag_helper import response_to_dict
 
 
 def run_website_crawler(
@@ -151,11 +154,11 @@ def run_rag_build(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     webpages_data_use_latest_results: bool = False,
+    save_vector_store_to_runs: bool = False,
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
-    rag = Rag()
-    config = RagConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_build")
     if run_name_use_config_name:
@@ -165,68 +168,40 @@ def run_rag_build(
     run_manager.init_module_run_paths()
     run_title = f"RAG Build ({config_name})"
 
+    # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
+    if webpages_data_use_latest_results:
+        log_session("Finding Latest Webpages Data", style="cyan")
+        webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
+        config.webpages_data_folder_path = webpages_data_folder_path
+
+    # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
+    if save_vector_store_to_runs:
+        log_session("Saving Vector Store to Run Results", style="cyan")
+        vector_store_folder = os.path.join(
+            run_manager.results_folder_path, "vector_store"
+        )
+        if config.vector_store_type == "qdrant":
+            config.qdrant_db_folder_path = os.path.join(
+                vector_store_folder, "qdrant_db"
+            )
+        elif config.vector_store_type == "milvus":
+            config.milvus_uri = os.path.join(vector_store_folder, "milvus.db")
+        else:
+            raise ValueError(
+                f"Unsupported vector_store_type: {config.vector_store_type}"
+            )
+
+    # ----- 使用 RAGBuilder 一鍵建構 -----
+    rag = RAGBuilder(config).build()
+
     with (
+        rag,
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
-        log_config("Rag Config Loaded from toml", config)
-
-        # ----- 初始化物件 -----
-        if webpages_data_use_latest_results:
-            log_session("Finding Latest Webpages Data", style="cyan")
-            webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
-        else:
-            webpages_data_folder_path = config.webpages_data_folder_path
-        rag.override_init_config(
-            webpages_data_folder_path=webpages_data_folder_path,
-        )
-
-        # ----- 建立 Nodes -----
-        log_session("Building Nodes", style="cyan")
-        rag.build_nodes(
-            chunk_size=config.chunk_size,
-            chunk_overlap=config.chunk_overlap,
-            paragraph_separator=config.paragraph_separator,
-        )
-
-        # ----- 建立 Vector Store -----
-        log_session("Building Vector Store", style="cyan")
-        rag.build_vector_store(
-            vector_store_type=config.vector_store_type,
-            qdrant_db_folder_path=os.path.join(
-                run_manager.results_folder_path, "qdrant_db"
-            ),
-            milvus_uri=os.path.join(run_manager.results_folder_path, "milvus.db"),
-            collection_name=config.collection_name,
-            embedding_name=config.embedding_name,
-            hybrid_ranker=config.hybrid_ranker,
-            hybrid_ranker_params=config.hybrid_ranker_params,
-        )
-
-        # ----- 建立 Index -----
-        log_session("Building Index", style="cyan")
-        rag.build_index(
-            embedding_name=config.embedding_name,
-        )
-
-        # ----- 建立 Retriever -----
-        log_session("Building Retriever", style="cyan")
-        rag.build_retriever(
-            similarity_top_k=config.similarity_top_k,
-            query_mode=config.query_mode,
-            hybrid_top_k=config.hybrid_top_k,
-            alpha=config.alpha,
-        )
-
-        # ----- 建立 Query Engine -----
-        log_session("Building Query Engine", style="cyan")
-        rag.build_query_engine(
-            llm_name=config.llm_name,
-            cutoff=config.cutoff,
-            query_mode=config.query_mode,
-        )
+        log_config("RAG Config Loaded from toml", config)
 
         # ----- Query & Response -----
         log_session("Query & Response", style="cyan")
@@ -235,10 +210,7 @@ def run_rag_build(
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-    rag.close()
 
-
-# TODO: 此function內支援多份query
 def run_rag_query(
     run_manager: RunManager | None = None,
     config_name: str = "default",
@@ -248,8 +220,7 @@ def run_rag_query(
     **config_overrides,
 ) -> None:
     # ----- 初始化設定和路徑 -----
-    rag = Rag()
-    config = RagConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
         run_manager = RunManager("rag_query")
     if run_name_use_config_name:
@@ -259,88 +230,21 @@ def run_rag_query(
     run_manager.init_module_run_paths()
     run_title = f"RAG Query ({config_name})"
 
+    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
+    builder = RAGBuilder(config)
+
     with (
+        rag,
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
-        # ----- 輸出開始訊息 -----
-        log_session(run_title, style="purple")
-        log_config("Rag Config Loaded from toml", config)
-
-        # ----- 初始化物件 -----
-        rag.override_init_config(
-            webpages_data_folder_path=config.webpages_data_folder_path,
-        )
-
         # ----- 建立所有資源 -----
         log_session("Building All Resources", style="cyan")
-        rebuild = False
-        store_path = (
-            config.milvus_uri
-            if config.vector_store_type == "milvus"
-            else config.qdrant_db_folder_path
-        )
-        if force_rebuild or not os.path.exists(store_path):
-            rebuild = True
-
-        # * Milvus Vector Store 必須重建
-        if rebuild or config.vector_store_type == "milvus":
-            if config.vector_store_type == "qdrant":
-                rag.clean_vector_store(
-                    qdrant_db_folder_path=config.qdrant_db_folder_path
-                )
-            elif config.vector_store_type == "milvus":
-                rag.clean_vector_store(milvus_uri=config.milvus_uri)
-            rag.build_nodes(
-                chunk_size=config.chunk_size,
-                chunk_overlap=config.chunk_overlap,
-                paragraph_separator=config.paragraph_separator,
-            )
-            rag.build_vector_store(
-                vector_store_type=config.vector_store_type,
-                qdrant_db_folder_path=config.qdrant_db_folder_path,
-                milvus_uri=config.milvus_uri,
-                collection_name=config.collection_name,
-                embedding_name=config.embedding_name,
-                hybrid_ranker=config.hybrid_ranker,
-                hybrid_ranker_params=config.hybrid_ranker_params,
-            )
-            rag.build_index(
-                embedding_name=config.embedding_name,
-            )
-        else:
-            rag.build_vector_store(
-                vector_store_type=config.vector_store_type,
-                qdrant_db_folder_path=config.qdrant_db_folder_path,
-                milvus_uri=config.milvus_uri,
-                collection_name=config.collection_name,
-                embedding_name=config.embedding_name,
-                overwrite=False,
-                hybrid_ranker=config.hybrid_ranker,
-                hybrid_ranker_params=config.hybrid_ranker_params,
-            )
-            rag.load_index(embedding_name=config.embedding_name)
-
-        # 可篩選類別和年份
-        # filter_dict = {
-        #     "page_type": "paper",
-        #     # "year": 2023,
-        # }
-
-        rag.build_retriever(
-            similarity_top_k=config.similarity_top_k,
-            query_mode=config.query_mode,
-            hybrid_top_k=config.hybrid_top_k,
-            alpha=config.alpha,
-            # filter_dict=filter_dict, # * 留給 agent 工具參數
-        )
-        rag.build_query_engine(
-            llm_name=config.llm_name,
-            cutoff=config.cutoff,
-            query_mode=config.query_mode,
-        )
+        rebuild = builder.build_reusable(rag, force_rebuild=force_rebuild)
+        builder.build_evaluators(rag)
 
         # ----- Query -----
+        query_results: list[dict] = []
         faithfulness_pass = 0
         relevancy_pass = 0
         for i in range(query_times):
@@ -349,7 +253,7 @@ def run_rag_query(
             response = rag.query(config.query, log_sources=True)
 
             # ----- 回應評估 -----
-            # TODO: 改用 regas 或 deepeval 評估
+            # * 可改用 regas 或 deepeval 評估
             log_session("Evaluation", style="cyan")
             faithfulness_result, relevancy_result = rag.evaluate(
                 query=config.query, response=response
@@ -358,6 +262,17 @@ def run_rag_query(
                 faithfulness_pass += 1
             if relevancy_result.passing:
                 relevancy_pass += 1
+
+            query_results.append(
+                response_to_dict(
+                    query=config.query,
+                    response=response,
+                    faithfulness_result=faithfulness_result,
+                    relevancy_result=relevancy_result,
+                    index=i + 1,
+                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+                )
+            )
 
         faithfulness_pass_rate = faithfulness_pass / query_times * 100
         relevancy_pass_rate = relevancy_pass / query_times * 100
@@ -370,16 +285,45 @@ def run_rag_query(
         )
         print(f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})")
 
-        # TODO: 制定 Query Response 的儲存方式
+        # ----- 儲存 query 結果 -----
+        log_session("Saving Query Results", style="cyan")
+        query_results_dict = {
+            "config": {
+                "config_name": config.config_name,
+                "run_name": run_manager.run_name,
+                "query": config.query,
+                "query_llm_name": config.query_llm_name,
+                "evaluator_llm_name": config.evaluator_llm_name,
+                "vector_store_type": config.vector_store_type,
+                "collection_name": config.collection_name,
+                "query_mode": config.query_mode,
+                "similarity_top_k": config.similarity_top_k,
+                "hybrid_top_k": config.hybrid_top_k,
+                "alpha": config.alpha,
+                "cutoff": config.cutoff,
+                "query_times": query_times,
+            },
+            "summary": {
+                "query_times": query_times,
+                "faithfulness_pass_count": faithfulness_pass,
+                "faithfulness_pass_rate": faithfulness_pass_rate,
+                "relevancy_pass_count": relevancy_pass,
+                "relevancy_pass_rate": relevancy_pass_rate,
+            },
+            "results": query_results,
+        }
+        run_manager.save_results_as_json(query_results_dict)
+        run_manager.save_query_results_as_md(query_results_dict)
+
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-        if rebuild or config.vector_store_type == "milvus":
-            module_config_folder_path = ""
-            if config.vector_store_type == "qdrant":
-                module_config_folder_path = config.qdrant_db_folder_path
-            elif config.vector_store_type == "milvus":
-                module_config_folder_path = config.milvus_uri
+        if rebuild:
+            module_config_folder_path = (
+                config.qdrant_db_folder_path
+                if config.vector_store_type == "qdrant"
+                else config.milvus_uri
+            )
             save_module_config_as_toml(
                 config,
                 os.path.join(module_config_folder_path, "module_config.toml"),
@@ -387,6 +331,3 @@ def run_rag_query(
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
-
-    if rebuild or config.vector_store_type == "milvus":
-        rag.close()

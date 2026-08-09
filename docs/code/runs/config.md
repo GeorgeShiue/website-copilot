@@ -3,7 +3,7 @@
 ## 待辦事項
 
 - [x] webpage_image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
-- [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 0 代表不限制深度, exclude_words 改成 list)
+- [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 None 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
 - [x] 保留建置 vector store 的 config 到 data/rag/results/qdrant_db
 - [x] 設計 run config class
@@ -27,7 +27,7 @@
 3. 使用共用 helper（`utils/config_helper.py`）做欄位過濾、覆寫與合併
 4. 建構 dataclass 並在 `__post_init__` 或模組內呼叫 `_validate_config()` 進行型別與範圍驗證
 
-備註：直接在程式中呼叫 `app/workflow/workflow.py` 或 `main.py` 的 pipeline 時，通常不會自動寫入 `run_config.toml`；由 CLI (`cli.py`) 啟動時，才會呼叫 `utils.config_helper.save_run_config_as_toml()` 並寫出 `run_config.toml`（此機制同為保持執行可追溯性）。
+備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`cli.py` 與 `main.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
 
 ## 二、各模組怎麼載入與覆寫
 
@@ -45,7 +45,7 @@
 
 欄位說明與驗證重點：
 
-- `init`：`max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`（`max_depth` 若為 0 表示無限制，驗證為 int 或 None 且不可小於 0）。
+- `init`：`max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`（`max_depth` 為 `None` 時不限制深度，驗證為 int 或 None 且不可小於 0；注意 crawl4ai 的 `max_depth=0` 語意為只爬首頁，因此「不限制」必須省略該參數）。
 - `crawl`：`url`、`url_patterns`、`allowed_domains`、`exclude_words`（`exclude_words` 必須為 list 或 None）。\*\*
   \*\*
 
@@ -63,17 +63,19 @@
 - Config dataclass: `app/configs/rag_config.py`
 - TOML 範例與實作：`configs/rag/{config_name}.toml`
 - 載入流程：
-  1. `RagConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
+  1. `RAGConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
   2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 處理合併與覆寫。
-  3. 建構 `RagConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
+  3. 建構 `RAGConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
 
 欄位摘要：
 
 - `vector_store`：`vector_store_type`（`"qdrant"` 或 `"milvus"`）、`qdrant_db_folder_path`、`milvus_uri`、`collection_name`（預設 `webpages`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`，預設 `"WeightedRanker"`）、`hybrid_ranker_params`（dict，例如 `{"weights": [1.0, 0.5]}`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
 - `retriever`：`similarity_top_k`（預設 `10`）、`query_mode`（`"default"` 或 `"hybrid"`）、`hybrid_top_k`（預設 `10`）、`alpha`（預設 `0.5`）。
-- `query_engine`：`llm_name`、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
+- `query_engine`：`query_llm_name`（預設 `gemini-3.1-flash-lite`）、`evaluator_llm_name`（預設 `gpt-5.4`）、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
+
+目前 `configs/rag/default.toml` 與 `configs/rag/test.toml` 皆設定為 **Milvus hybrid search**（`vector_store_type="milvus"`、`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）；`milvus.toml` 保留相同設定的對照檔，`qdrant.toml` 則為 Qdrant 後端（`alpha=0.5` 線性融合）的對照。Dense 模式的 `cutoff`（如 `0.4`）在 hybrid 模式下不啟用，由融合分數自然排序。
 
 ## 三、共用載入、覆寫與驗證機制
 
@@ -95,7 +97,7 @@
   - 若某 section 的 allowed keys 為空（residual section），函式會把剩餘未消耗的鍵寫入該 section；注意：不支援多個 residual section（會拋出 ValueError）。
 
 - save_run_config_as_toml(config, toml_file_path)
-  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由 CLI 在流程結束時呼叫以記錄 run-level 參數。
+  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以記錄 run-level 參數。
 
 - filter_commented_configs(config_path, comment_keyword)
   - 解析 TOML 原始文字，抓出在註解中包含指定關鍵字（例如 `run name`）的設定鍵，供 `run_name` 生成使用。
@@ -119,8 +121,8 @@
 
 - 建立 `runs/<timestamp>/<module>/<run>/` 目錄結構
 - 會產生並管理以下檔案路徑：
-  - `results.json`
-  - `results/`（Markdown 檔案）
+  - `results.json`（爬取結果，或 `run_rag_query` 的 query 三層結構）
+  - `results/`（Markdown 檔案；`rag_query` 另含每次 query 一份的 `query_{index}.md`，`rag_build` 旗標開啟時含 `vector_store/`）
   - `module_config.toml`
   - `run_config.toml`
   - `terminal.log`
@@ -128,7 +130,7 @@
 module_config 與 run_config 的寫入機制：
 
 - `utils/config_helper.save_module_config_as_toml(config, path)` 會依 `sections_to_keys` 把 config 分 section 寫出為 `module_config.toml`；若某 section 的 allowed keys 為空（例如 `litellm_kwargs`），helper 會把該 section 視為 residual section，並把未消耗的 key 寫入該 section。
-- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。通常由 CLI（`cli.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
+- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
 
 結果檔案與產出：
 
@@ -137,8 +139,8 @@ module_config 與 run_config 的寫入機制：
 - 目前四個主要 workflow 的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
-  - `run_rag_query()`：寫 `module_config.toml`，並將部分設定另存到向量庫路徑（依 `vector_store_type` 決定）。
+  - `run_rag_build()`：寫 `module_config.toml`；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
+  - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
 - module_config.toml
 - run_config.toml
 - terminal.log
@@ -157,28 +159,28 @@ save_module_config_as_toml() 會依 sections_to_keys 以分 section 形式輸出
 
 save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 None 欄位）。
 
-目前實際寫入時機在 [cli.py](cli.py)：
+目前實際寫入時機：
 
-- tyro 解析 CLI
-- 執行對應 run\_\* 流程
-- 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
+- `cli.py`：tyro 解析 CLI → 執行對應 run\_\* 流程 → 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
+- `main.py`：每個階段（website_crawler / webpage_image_summarizer / rag_build）執行完後呼叫 `save_run_config_as_toml(...)`
 
 因此：
 
-- 走 CLI 入口時，run_config.toml 會被寫出
-- 直接呼叫 [run.py](run.py) 或 [main.py](main.py) 內函式時，通常不會自動寫 run_config.toml
+- 走 `cli.py` 或 `main.py` 入口時，run_config.toml 會被寫出
+- 直接呼叫 `app/workflow/workflow.py` 內函式時，不會自動寫 run_config.toml（由呼叫端自行決定）
 
 ### 結果檔案
 
 - RunManager.save_results_as_json() 會寫出 results.json
 - RunManager.save_results_as_md() 會寫出 results/\*.md
+- RunManager.save_query_results_as_md() 會把每次 query 與回覆寫成 results/query_{index}.md（run_rag_query 專用）
 
 四條流程目前行為：
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）
-- run_rag_query()：寫 module_config.toml，另存一份到向量庫路徑（依 `vector_store_type` 決定）
+- run_rag_build()：寫 module_config.toml；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`，否則寫入 config 預設位置（`data/rag/results/`）
+- run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
 
 ## 五、測試與實驗如何使用 config
 

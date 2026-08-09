@@ -17,4 +17,4 @@ def test_webpage_image_summarizer():
 
 
 def test_rag():
-    run_rag_build(config_name="test")
+    run_rag_build(config_name="test", save_vector_store_to_runs=True)

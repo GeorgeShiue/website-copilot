@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 from rich import box
 from rich.table import Table
@@ -12,6 +13,7 @@ from utils.log_helper import print_log
 RUNS_FOLDER_PATH = "./runs"
 os.makedirs(RUNS_FOLDER_PATH, exist_ok=True)
 RESULTS_JSON_NAME = "results.json"
+QUERY_MD_FILE_PREFIX = "query_"
 RUN_PATH_COMPLETE = [
     "Results json",
     "Module config toml",
@@ -177,8 +179,8 @@ class RunManager:
         log_path = os.path.join(self.run_path, "terminal.log")
         self.log_path = log_path
 
-    def save_results_as_json(self, results: dict[str, dict]) -> None:
-        """將爬取結果列表寫入 JSON 檔案。"""
+    def save_results_as_json(self, results: dict[str, Any]) -> None:
+        """將結果寫入 JSON 檔案（爬取結果或 query 結果皆可）。"""
         os.makedirs(os.path.dirname(self.results_json_path), exist_ok=True)
         with open(self.results_json_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
@@ -205,6 +207,89 @@ class RunManager:
                     for image in images:
                         f.write(f"![]({image['src']})\n")
                     f.write("\n" + "-" * 5 + "\n")
+
+    def save_query_results_as_md(self, query_results: dict) -> None:
+        """將每次 query 與回覆各寫為一份 Markdown 檔案。"""
+        for result in query_results.get("results", []):
+            index = result.get("index", 1)
+            markdown = self._render_query_result_md(result)
+            md_file_name = f"{QUERY_MD_FILE_PREFIX}{index}.md"
+            md_file_path = os.path.join(self.results_folder_path, md_file_name)
+            os.makedirs(os.path.dirname(md_file_path), exist_ok=True)
+            with open(md_file_path, "w", encoding="utf-8") as f:
+                f.write(markdown)
+
+    def _render_query_result_md(self, result: dict) -> str:
+        """將單次 query 的結果渲染為獨立的 Markdown 檔案（內部使用）。"""
+        lines: list[str] = []
+        lines.append(f"# Query #{result.get('index')}: {result.get('query', '')}")
+        timestamp = result.get("timestamp")
+        if timestamp:
+            lines.append("")
+            lines.append(f"> {timestamp}")
+        lines.append("")
+        lines.append("# Response")
+        lines.append("")
+        lines.append(str(result.get("response", "")))
+        lines.append("")
+
+        evaluation = result.get("evaluation")
+        if evaluation:
+            lines.append("# Evaluation")
+            lines.append("")
+            lines.append("| Metric | Passing | Score | Reason |")
+            lines.append("|--------|:-------:|:-----:|--------|")
+            for metric in ("faithfulness", "relevancy"):
+                ev = evaluation.get(metric)
+                if ev is None:
+                    continue
+                passing = ev.get("passing")
+                mark = ":white_check_mark:" if passing else ":x:"
+                score = ev.get("score")
+                score_text = self._format_score(score)
+                reason = self._escape_md_cell(
+                    (ev.get("feedback") or "").replace("\n", " ")
+                )
+                lines.append(
+                    f"| {metric.capitalize()} | {mark} | {score_text} | {reason} |"
+                )
+            lines.append("")
+
+        sources = result.get("sources", [])
+        lines.append(f"# Sources ({len(sources)})")
+        lines.append("")
+        if sources:
+            lines.append("| # | Page | Type | Score | URL |")
+            lines.append("|---|------|------|:-----:|-----|")
+            for i, source in enumerate(sources, start=1):
+                lines.append(
+                    f"| {i} | {self._escape_md_cell(source.get('page_title', ''))} "
+                    f"| {self._escape_md_cell(source.get('page_type', ''))} "
+                    f"| {self._format_score(source.get('score'))} "
+                    f"| {self._escape_md_cell(source.get('url', ''))} |"
+                )
+            lines.append("")
+            for i, source in enumerate(sources, start=1):
+                content = source.get("content", "")
+                lines.append(f"**#{i} 內容片段：**")
+                lines.append("")
+                lines.append(self._to_blockquote(content))
+                lines.append("")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_score(score: object) -> str:
+        return f"{score:.4f}" if isinstance(score, (int, float)) else "-"
+
+    @staticmethod
+    def _escape_md_cell(text: object) -> str:
+        return str(text).replace("|", "\\|").replace("\n", " ")
+
+    @staticmethod
+    def _to_blockquote(text: object) -> str:
+        """將多行文字轉為每行皆為引用區塊的 Markdown。"""
+        return "\n".join(f"> {line}" for line in str(text).splitlines())
 
     def load_latest_results_from_json(self) -> dict[str, dict]:
         """從 JSON 檔案讀取爬取結果列表。"""

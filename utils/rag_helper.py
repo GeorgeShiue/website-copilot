@@ -1,10 +1,56 @@
+import os
 import re
 from typing import Any, ClassVar, Dict, List, Sequence
 
+from llama_index.core.base.response.schema import Response
 from llama_index.core.bridge.pydantic import Field
+from llama_index.core.evaluation.base import EvaluationResult
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.schema import BaseNode, NodeWithScore
+from llama_index.core.vector_stores import (
+    FilterOperator,
+    MetadataFilter,
+    MetadataFilters,
+)
+from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.openai import OpenAI
+
+LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
+    "gemini": {
+        "query_engine": "GEMINI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
+    },
+    "gpt": {
+        "query_engine": "OPENAI_RAG_QUERY_ENGINE_API_KEY",
+        "evaluator": "OPENAI_RAG_EVALUATOR_API_KEY",
+    },
+}
+
+
+def build_filters(filter_dict: dict[str, Any] | None) -> MetadataFilters | None:
+    if filter_dict is None:
+        return None
+    filter_list = []
+    for key, entry in filter_dict.items():
+        if isinstance(entry, tuple):
+            value, operator = entry
+        else:
+            value, operator = entry, FilterOperator.EQ
+        filter_list.append(MetadataFilter(key=key, value=value, operator=operator))
+    return MetadataFilters(filters=filter_list)
+
+
+def create_llm(llm_name: str, usage: str = "query_engine") -> GoogleGenAI | OpenAI:
+    for provider, env_vars in LLM_API_KEY_ENV_VARS.items():
+        if provider in llm_name:
+            api_key = os.getenv(env_vars[usage])
+            if provider == "gemini":
+                return GoogleGenAI(model=llm_name, api_key=api_key)
+            elif provider == "gpt":
+                return OpenAI(model=llm_name, api_key=api_key)
+    raise ValueError(f"Unsupported LLM name: {llm_name}")
+
 
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -105,7 +151,7 @@ class MarkdownDateExtractor(BaseExtractor):
       1. Section heading 年份 (### 2026)
       2. Post date 行 (Post date: Mon DD, YYYY)
       3. 列表結尾日期標記 (— Mon. DD, YYYY)
-      4. 內容年份回落 (第一個 20\d{2})
+      4. 內容年份回落 (第一個 20\\d{2})
     """
 
     is_text_node_only: bool = False
@@ -210,3 +256,77 @@ def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
         page_type = "Unknown"
 
     return page_title, score, page_type
+
+
+def extract_sources_list(
+    source_nodes: Sequence[NodeWithScore],
+    max_content_length: int | None = 800,
+) -> list[dict[str, Any]]:
+    """將檢索來源節點序列化為可寫入 JSON 的 dict 列表。
+
+    Args:
+        source_nodes: 檢索回傳的來源節點。
+        max_content_length: 內容片段最大字元數；None 表示不截斷。
+
+    Returns:
+        每個 dict 包含 page_title / score / page_type / url / content，
+        與 Rag.retrieve() 的回傳形狀一致。
+    """
+    sources = []
+    for source_node in source_nodes:
+        page_title, score, page_type = extract_sources_info(source_node)
+        raw_content = source_node.node.get_content()
+        if max_content_length is not None:
+            raw_content = raw_content[:max_content_length]
+        sources.append(
+            {
+                "page_title": page_title,
+                "score": score,
+                "page_type": page_type,
+                "url": source_node.node.metadata.get("page_url", ""),
+                "content": raw_content,
+            }
+        )
+    return sources
+
+
+def evaluation_result_to_dict(result: EvaluationResult) -> dict[str, Any]:
+    """將 EvaluationResult 轉為可寫入 JSON 的 dict。"""
+    return {
+        "passing": bool(getattr(result, "passing", False)),
+        "score": getattr(result, "score", None),
+        "feedback": getattr(result, "feedback", None),
+    }
+
+
+def response_to_dict(
+    query: str,
+    response: Response,
+    faithfulness_result: EvaluationResult | None = None,
+    relevancy_result: EvaluationResult | None = None,
+    index: int = 1,
+    timestamp: str = "",
+    max_content_length: int | None = 800,
+) -> dict[str, Any]:
+    """將單次 query 的回應與評估結果組裝為可寫入 JSON 的 dict。"""
+    result: dict[str, Any] = {
+        "index": index,
+        "timestamp": timestamp,
+        "query": query,
+        "response": response.response,
+        "sources": extract_sources_list(response.source_nodes, max_content_length),
+    }
+    if faithfulness_result is not None or relevancy_result is not None:
+        result["evaluation"] = {
+            "faithfulness": (
+                evaluation_result_to_dict(faithfulness_result)
+                if faithfulness_result is not None
+                else None
+            ),
+            "relevancy": (
+                evaluation_result_to_dict(relevancy_result)
+                if relevancy_result is not None
+                else None
+            ),
+        }
+    return result

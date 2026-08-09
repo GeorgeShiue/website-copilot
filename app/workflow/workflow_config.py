@@ -18,11 +18,12 @@ class WebpageImageSummarizerRunConfig(BaseRunConfig):
 
 
 @dataclass
-class RagBuildRunConfig(BaseRunConfig):
+class RAGBuildRunConfig(BaseRunConfig):
     webpages_data_use_latest_results: bool = False
+    save_vector_store_to_runs: bool = False
 
 
 @dataclass
-class RagQueryRunConfig(BaseRunConfig):
+class RAGQueryRunConfig(BaseRunConfig):
     force_rebuild: bool = False
     query_times: int = 1

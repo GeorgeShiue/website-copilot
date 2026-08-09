@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
 RAG_RESULTS_FOLDER_PATH = "data/rag/results"
 DEFAULT_VECTOR_STORE_TYPE = "qdrant"
-DEFALULT_COLLECTION_NAME = "webpages"
+DEFAULT_COLLECTION_NAME = "webpages"
 DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
 DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
@@ -54,7 +54,8 @@ RETRIEVER_KEYS = {
     "alpha",
 }
 QUERY_ENGINE_KEYS = {
-    "llm_name",
+    "query_llm_name",
+    "evaluator_llm_name",
     "cutoff",
     "query",
 }
@@ -69,7 +70,7 @@ SECTIONS_TO_KEYS = {
 
 
 @dataclass
-class RagConfig:
+class RAGConfig:
     # ----- metadata (no default values)-----
     config_name: str
     # ----- init config -----
@@ -78,7 +79,7 @@ class RagConfig:
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
     qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
     milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
-    collection_name: str = DEFALULT_COLLECTION_NAME
+    collection_name: str = DEFAULT_COLLECTION_NAME
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----
@@ -93,7 +94,8 @@ class RagConfig:
     hybrid_top_k: int = 10
     alpha: float = 0.5
     # ----- query engine config -----
-    llm_name: str = "gemini-3.1-flash-lite"
+    query_llm_name: str = "gemini-3.1-flash-lite"
+    evaluator_llm_name: str = "gpt-5.4"
     cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
     # ----- metadata -----
@@ -110,7 +112,7 @@ class RagConfig:
         config_name: str = "default",
         **overrides,
     ) -> Self:
-        """從 TOML 設定檔建立 RagConfig。"""
+        """從 TOML 設定檔建立 RAGConfig。"""
         config_path = os.path.join(DEFAULT_CONFIG_FOLDER_PATH, f"{config_name}.toml")
         config = load_config_from_toml(config_path, SECTIONS_TO_KEYS)
         config = override_config(config, overrides, SECTIONS_TO_KEYS)
@@ -258,15 +260,22 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("alpha 必須介於 0.0 到 1.0")
 
     # ----- query engine config -----
-    llm_name = config.get("llm_name")
+    query_llm_name = config.get("query_llm_name")
+    evaluator_llm_name = config.get("evaluator_llm_name")
     cutoff = config.get("cutoff")
     query = config.get("query")
 
-    if llm_name is not None:
-        if not isinstance(llm_name, str):
-            raise ConfigValidationError("llm_name 必須是字串")
-        if not llm_name.strip():
-            raise ConfigValidationError("llm_name 不可為空字串")
+    if query_llm_name is not None:
+        if not isinstance(query_llm_name, str):
+            raise ConfigValidationError("query_llm_name 必須是字串")
+        if not query_llm_name.strip():
+            raise ConfigValidationError("query_llm_name 不可為空字串")
+
+    if evaluator_llm_name is not None:
+        if not isinstance(evaluator_llm_name, str):
+            raise ConfigValidationError("evaluator_llm_name 必須是字串")
+        if not evaluator_llm_name.strip():
+            raise ConfigValidationError("evaluator_llm_name 不可為空字串")
 
     if cutoff is not None:
         if not isinstance(cutoff, (int, float)):
