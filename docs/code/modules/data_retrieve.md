@@ -69,6 +69,7 @@ RAG（runtime）
   - `page_url` — 原始 URL
   - `page_type` — 頁面類型（爬蟲從 URL 解析：`"paper"` / `"announcement"` / `"personnel"` / `"general"` 等）
   - `description` — 頁面描述
+  - `year` / `month` / `day` — 由管線中的 `MarkdownDateExtractor` 依內容萃取，支援時間範圍過濾（見下方「轉換資料」）
 
 這些 metadata 在 `RAGBuilder.build_nodes()` 階段即寫入每個 LlamaIndex Document，後續經由 IngestionPipeline 傳遞給 child nodes，最終持久化到向量儲存中，同時供 **pre-filtering**（檢索前過濾）與 **LLM context**（檢索後附加上下文）使用。
 
@@ -79,9 +80,10 @@ RAG（runtime）
 `RAGBuilder.build_nodes()` 內部使用 `IngestionPipeline` 依序執行以下轉換：
 
 1. **`MarkdownNodeParser`** — 解析 Markdown 結構，保留標題路徑 metadata。
-2. **`SentenceSplitter`** — 以 `chunk_size=800`、`chunk_overlap=100`、`paragraph_separator="\n\n"` 進行切塊，這組參數目前表現最平衡。
-3. **`MarkdownHeadingMergeParser`**（自訂）— 把純標題節點併入下一個有實質內容的節點，避免空洞的標題節點。
-4. **`MarkdownImageExtractor`**（自訂）— 將 Markdown 圖片抽出到 `metadata["images"]`，並把內容中的圖片標記替換成 `alt` 文字。
+2. **`MarkdownDateExtractor`**（自訂）— 從節點內容萃取 `year` / `month` / `day` 寫入 metadata（四層遞減優先：section heading 年份 → `Post date` 行 → 列表結尾日期標記 → 內容年份回落），需置於 `SentenceSplitter` 之前讓 child chunks 繼承日期 metadata。
+3. **`SentenceSplitter`** — 以 `chunk_size=800`、`chunk_overlap=100`、`paragraph_separator="\n\n"` 進行切塊，這組參數目前表現最平衡。
+4. **`MarkdownHeadingMergeParser`**（自訂）— 把純標題節點併入下一個有實質內容的節點，避免空洞的標題節點。
+5. **`MarkdownImageExtractor`**（自訂）— 將 Markdown 圖片抽出到 `metadata["images"]`，並把內容中的圖片標記替換成 `alt` 文字。
 
 這樣可讓圖片摘要、OCR 與頁面關聯保留在同一個 Node 中，避免資訊斷裂。
 
@@ -210,11 +212,12 @@ Pydantic v2 schema，定義三個參數供 LLM 填寫：
 - `similarity_top_k`：回傳數量上限
 
 ### create_webpage_retriever_tool()
-高層工廠函數，接受 `config_name` 與 `**config_overrides`，流程：
-1. 載入 TOML 設定 → 建立 `RAGBuilder(config)`
+高層工廠函數，接受 `run_manager`（可選）、`config_name`、`run_name_use_config_name` 與 `**config_overrides`，流程：
+1. 載入 TOML 設定 → 建立 `RunManager` 並初始化 run 路徑
 2. 呼叫 `RAGBuilder(config).build_to_retriever()`（建立 Nodes → Vector Store → Index → Retriever，**不建 Query Engine**）
 3. 包裝為 `StructuredTool(name="webpage_retriever")`
 4. 將 RAG 實例綁定為 `tool.rag` 屬性（結束後呼叫 `tool.rag.close()` 釋放資源）
+5. 在 run 路徑寫出 `module_config.toml`（與其他 workflow 一致的留檔行為）
 
 ### 使用方式
 ```python

@@ -24,7 +24,7 @@
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
 3. 每個 workflow 都會建立或接收 [app/workflow/workflow_manager.py](app/workflow/workflow_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`，並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`。
-5. 若流程是透過 CLI 進入，`cli.py` 會在執行完畢後額外寫出 `run_config.toml`；若直接呼叫 workflow 函式，通常只會產生 module-level artifacts。
+5. `run_config.toml` 由呼叫端（`cli.py` 或 `main.py`）在流程結束後呼叫 `save_run_config_as_toml()` 寫出；workflow 函式本身不會自動產生（僅產生 module-level artifacts）。
 
 ## 三、四條主要 Workflow
 
@@ -52,7 +52,7 @@
 - 流程：
   1. 透過 [app/configs/rag_config.py](app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
   2. 使用 `RAGBuilder(config).build()` 一鍵建構完整 RAG 管線：`build_nodes()` → `build_vector_store()`（支援 **Qdrant BM25** 或 **Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()` → `build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）→ `build_query_engine()`。
-  3. 執行範例 query，最後寫出 `module_config.toml`，並把部分設定另存到向量庫路徑（依 `vector_store_type` 決定存至 `qdrant_db_folder_path/` 或 `milvus_uri/`）。
+  3. 執行範例 query（`rag.query(config.query, log_sources=True)`），最後在 run 路徑寫出 `module_config.toml`（不會另存到向量庫路徑；該另存行為僅 `run_rag_query` 於 rebuild 時執行）。
   4. 可選 `save_vector_store_to_runs=True`（CLI 旗標 `--run.save-vector-store-to-runs`）：把向量庫改存至本次 run 的 `results/vector_store/{qdrant_db | milvus.db}`，避免覆寫 `data/rag/results/` 固定位置；`module_config.toml` 會記錄覆寫後路徑。
 
 ### 4. `run_rag_query()`
@@ -96,7 +96,7 @@ Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與�
 1. `app/configs/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
 2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 負責讀入、過濾與覆寫。
 3. `save_module_config_as_toml()` 會把實際使用到的設定寫回 `module_config.toml`，方便追蹤本次執行。
-4. `save_run_config_as_toml()` 則由 CLI 入口寫出 run-level 參數；直接呼叫 workflow 函式時不一定會產生。
+4. `save_run_config_as_toml()` 由呼叫端（`cli.py` 與 `main.py`）在流程結束後寫出 run-level 參數；workflow 函式本身不會自動產生。
 
 這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `app/configs/`。
 

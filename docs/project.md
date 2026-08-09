@@ -19,7 +19,7 @@
 
 # 功能開發
 
-## Phase 1：網站知識庫 (當前目標)
+## Phase 1：資訊檢索 (當前目標)
 > [docs/code/phase1.md](code/phase1.md)
 
 > **支援多資料類型、改進檢索品質**

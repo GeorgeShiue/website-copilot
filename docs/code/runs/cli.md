@@ -39,7 +39,7 @@
 ## 四、`run_config.toml` 與 `module_config.toml` 的差異與產生時機
 
 - `module_config.toml`：由 pipeline（`run_*`）呼叫 `save_module_config_as_toml(config, run_manager.module_config_toml_path)` 產生，內容以 `sections_to_keys` 為準分 section 寫出；若存在 residual section（section keys 為空），未消耗欄位會寫入該 residual section。
-- `run_config.toml`：由 `cli.py` 在 CLI 流程結束時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。若直接透過 `[app/workflow/workflow.py](app/workflow/workflow.py)` 或 `main.py` 呼叫 pipeline，通常不會自動寫入 `run_config.toml`。
+- `run_config.toml`：由呼叫端在流程結束時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。目前 `cli.py` 與 `main.py` 都會寫出；直接呼叫 `[app/workflow/workflow.py](app/workflow/workflow.py)` 的 workflow 函式則不會自動寫入。
 
 ## 五、執行範例
 
@@ -62,7 +62,7 @@ python cli.py rag-build-cli --run.config-name default --run.save-vector-store-to
 ## 六、注意事項與建議
 
 - 若需讓更多欄位能由 CLI 覆寫，請在對應 `app/configs/*_config.py` 中擴充 `sections_to_keys`。
-- 若希望在非 CLI 環境也寫出 `run_config.toml`，可在呼叫端於 pipeline 執行完後顯式呼叫 `utils.config_helper.save_run_config_as_toml()` 並以 `RunManager.run_config_toml_path` 為目標路徑。
+- 若自行呼叫 workflow 函式（非 CLI / 非 main.py 入口）也希望寫出 `run_config.toml`，可在呼叫端於 pipeline 執行完後顯式呼叫 `utils.config_helper.save_run_config_as_toml()` 並以 `RunManager.run_config_toml_path` 為目標路徑。
 
 ## 七、參考與證據
 

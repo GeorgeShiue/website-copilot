@@ -3,7 +3,7 @@
 ## 待辦事項
 
 - [x] webpage_image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
-- [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 0 代表不限制深度, exclude_words 改成 list)
+- [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 None 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
 - [x] 保留建置 vector store 的 config 到 data/rag/results/qdrant_db
 - [x] 設計 run config class
@@ -27,7 +27,7 @@
 3. 使用共用 helper（`utils/config_helper.py`）做欄位過濾、覆寫與合併
 4. 建構 dataclass 並在 `__post_init__` 或模組內呼叫 `_validate_config()` 進行型別與範圍驗證
 
-備註：直接在程式中呼叫 `app/workflow/workflow.py` 或 `main.py` 的 pipeline 時，通常不會自動寫入 `run_config.toml`；由 CLI (`cli.py`) 啟動時，才會呼叫 `utils.config_helper.save_run_config_as_toml()` 並寫出 `run_config.toml`（此機制同為保持執行可追溯性）。
+備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`cli.py` 與 `main.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
 
 ## 二、各模組怎麼載入與覆寫
 
@@ -45,7 +45,7 @@
 
 欄位說明與驗證重點：
 
-- `init`：`max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`（`max_depth` 若為 0 表示無限制，驗證為 int 或 None 且不可小於 0）。
+- `init`：`max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`（`max_depth` 為 `None` 時不限制深度，驗證為 int 或 None 且不可小於 0；注意 crawl4ai 的 `max_depth=0` 語意為只爬首頁，因此「不限制」必須省略該參數）。
 - `crawl`：`url`、`url_patterns`、`allowed_domains`、`exclude_words`（`exclude_words` 必須為 list 或 None）。\*\*
   \*\*
 
@@ -97,7 +97,7 @@
   - 若某 section 的 allowed keys 為空（residual section），函式會把剩餘未消耗的鍵寫入該 section；注意：不支援多個 residual section（會拋出 ValueError）。
 
 - save_run_config_as_toml(config, toml_file_path)
-  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由 CLI 在流程結束時呼叫以記錄 run-level 參數。
+  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以記錄 run-level 參數。
 
 - filter_commented_configs(config_path, comment_keyword)
   - 解析 TOML 原始文字，抓出在註解中包含指定關鍵字（例如 `run name`）的設定鍵，供 `run_name` 生成使用。
@@ -130,7 +130,7 @@
 module_config 與 run_config 的寫入機制：
 
 - `utils/config_helper.save_module_config_as_toml(config, path)` 會依 `sections_to_keys` 把 config 分 section 寫出為 `module_config.toml`；若某 section 的 allowed keys 為空（例如 `litellm_kwargs`），helper 會把該 section 視為 residual section，並把未消耗的 key 寫入該 section。
-- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。通常由 CLI（`cli.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
+- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由呼叫端（`cli.py` 或 `main.py`）在流程結束時呼叫以確保 run-level 參數被紀錄。
 
 結果檔案與產出：
 
@@ -159,16 +159,15 @@ save_module_config_as_toml() 會依 sections_to_keys 以分 section 形式輸出
 
 save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 None 欄位）。
 
-目前實際寫入時機在 [cli.py](cli.py)：
+目前實際寫入時機：
 
-- tyro 解析 CLI
-- 執行對應 run\_\* 流程
-- 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
+- `cli.py`：tyro 解析 CLI → 執行對應 run\_\* 流程 → 最後呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`
+- `main.py`：每個階段（website_crawler / webpage_image_summarizer / rag_build）執行完後呼叫 `save_run_config_as_toml(...)`
 
 因此：
 
-- 走 CLI 入口時，run_config.toml 會被寫出
-- 直接呼叫 [run.py](run.py) 或 [main.py](main.py) 內函式時，通常不會自動寫 run_config.toml
+- 走 `cli.py` 或 `main.py` 入口時，run_config.toml 會被寫出
+- 直接呼叫 `app/workflow/workflow.py` 內函式時，不會自動寫 run_config.toml（由呼叫端自行決定）
 
 ### 結果檔案
 

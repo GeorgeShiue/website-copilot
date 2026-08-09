@@ -140,8 +140,8 @@ playwright install
 | `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
 | `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
 | `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |
-| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | GPT 圖片摘要金鑰。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/configs/webpage_image_summarizer_config.py` | Gemini 圖片摘要金鑰。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | GPT 圖片摘要金鑰。 |
+| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | Gemini 圖片摘要金鑰。 |
 
 ## 使用方式
 
@@ -168,6 +168,8 @@ python cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 1
 
 也可以透過 `exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
 
+> **注意**：`exp.py` 內各實驗函式以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `exp.py` 中的 `config_name` 清單。
+
 ### 執行 smoke tests
 
 ```bash
@@ -183,7 +185,7 @@ pytest
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — CLI 執行時的 run-level 參數（僅 CLI 入口）
+- `run_config.toml` — run-level 參數（`cli.py` 與 `main.py` 入口會寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/results/`：

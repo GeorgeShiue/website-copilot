@@ -5,13 +5,13 @@
 
 - **模組實作**
 	- `app/modules/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
-	- `app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
+	- `app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**，並定義 `VLM_MODEL_TO_API_KEY` 模型→API key 對照表）
 	- `utils/log_helper.py`（**日誌**、**進度**與**統計輸出**輔助）
 
 - **模組設定**
 	- `./configs/webpage_image_summarizer/{name}.toml`（**摘要設定檔**，透過 `app/configs/webpage_image_summarizer_config.py` 載入）
 	- 可在 `WebpageImageSummarizerConfig` 或執行參數中覆寫 **model**、**prompt**、**image_source**、**vlm_max_workers** 與 **litellm_kwargs**
-	- `get_summarizer_model_api_key()` 會依模型名稱推斷對應的環境變數，並從 `.env` 或系統環境讀取
+	- `WebpageImageSummarizer._get_api_key()` 依 `VLM_MODEL_TO_API_KEY` 對照表推斷對應的環境變數，並從 `.env` 或系統環境讀取
 
 - **模組環境**
 	- `Python >= 3.10`（程式使用現代型別語法如 `dict[str, Any]` 與 `Literal`）
@@ -38,7 +38,7 @@
 ## webpage_image_summarizer_config.py
 
 ### 1. 設定載入來源
-- 從 `./config/webpage_image_summarizer/{name}.toml` 載入設定。
+- 從 `./configs/webpage_image_summarizer/{name}.toml` 載入設定。
 - `init` 區塊管理下載與快取參數，`summarize` 區塊管理模型與摘要參數，`litellm_kwargs` 區塊管理傳給 `LiteLLM` 的額外參數。
 - `from_toml()` 會在建立物件時立即載入並驗證設定。
 
@@ -48,7 +48,7 @@
 - `override_init_config()` 與 `override_summarize_config()` 會先套用覆寫，再重新驗證。
 
 ### 3. API key 與 run name
-- `get_summarizer_model_api_key()` 會依模型名稱推斷 `gpt` 或 `gemini` 對應的環境變數。
+- `VLM_MODEL_TO_API_KEY` 對照表依模型名稱（含 `gpt` / `gemini` 關鍵字）對應環境變數，由 `WebpageImageSummarizer._get_api_key()` 讀取。
 - `run_name` 會依 TOML 中註解標記的欄位組合而成，方便區分不同實驗設定。
 - 預設提示詞由 `DEFAULT_PROMPT` 提供，內容聚焦在可檢索、可驗證的圖片摘要。
 
