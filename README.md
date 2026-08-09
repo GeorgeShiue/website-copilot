@@ -85,15 +85,18 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── docs/
 │   ├── project.md                      # 專案總覽與路線圖
 │   ├── code/
-│   │   ├── phase1.md                   # Phase 1 實作概覽
-│   │   ├── modules/
-│   │   │   ├── data_collect.md         # 爬蟲模組文件
-│   │   │   ├── data_preprocess.md      # 圖片摘要模組文件
-│   │   │   └── data_retrieve.md        # RAG 檢索模組文件
-│   │   └── runs/
-│   │       ├── cli.md                  # CLI 使用方式
-│   │       ├── config.md               # 設定機制說明
-│   │       └── workflow.md             # Workflow 流程說明
+│   │   └── phase1/
+│   │       ├── phase1.md               # Phase 1 實作概覽
+│   │       ├── modules/
+│   │       │   ├── data_collect.md     # 爬蟲模組文件
+│   │       │   ├── data_preprocess.md  # 圖片摘要模組文件
+│   │       │   └── data_retrieve.md    # RAG 檢索模組文件
+│   │       ├── runs/
+│   │       │   ├── cli.md              # CLI 使用方式
+│   │       │   ├── config.md           # 設定機制說明
+│   │       │   └── workflow.md         # Workflow 流程說明
+│   │       └── survey/
+│   │           └── data_process_method.md  # 資料處理方法 survey
 │   └── progress_report/                # 進度報告
 └── runs/                         # 執行輸出（以時間戳資料夾儲存）
 ```
@@ -206,13 +209,14 @@ pytest
 專案的實作筆記與路線圖位於 `docs/`：
 
 - `docs/project.md` — 專案總覽、階段規劃與路線圖
-- `docs/code/phase1.md` — Phase 1 實作概覽與已知問題
-- `docs/code/modules/data_collect.md` — 爬蟲模組說明
-- `docs/code/modules/data_preprocess.md` — 圖片摘要模組說明
-- `docs/code/modules/data_retrieve.md` — RAG 檢索模組說明
-- `docs/code/runs/cli.md` — CLI 使用方式
-- `docs/code/runs/config.md` — 設定機制說明
-- `docs/code/runs/workflow.md` — Workflow 流程說明
+- `docs/code/phase1/phase1.md` — Phase 1 實作概覽與已知問題
+- `docs/code/phase1/modules/data_collect.md` — 爬蟲模組說明
+- `docs/code/phase1/modules/data_preprocess.md` — 圖片摘要模組說明
+- `docs/code/phase1/modules/data_retrieve.md` — RAG 檢索模組說明
+- `docs/code/phase1/runs/cli.md` — CLI 使用方式
+- `docs/code/phase1/runs/config.md` — 設定機制說明
+- `docs/code/phase1/runs/workflow.md` — Workflow 流程說明
+- `docs/code/phase1/survey/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態
 
