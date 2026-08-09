@@ -75,6 +75,8 @@
 - `query_engine`：`query_llm_name`（預設 `gemini-3.1-flash-lite`）、`evaluator_llm_name`（預設 `gpt-5.4`）、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
+目前 `configs/rag/default.toml` 與 `configs/rag/test.toml` 皆設定為 **Milvus hybrid search**（`vector_store_type="milvus"`、`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）；`milvus.toml` 保留相同設定的對照檔，`qdrant.toml` 則為 Qdrant 後端（`alpha=0.5` 線性融合）的對照。Dense 模式的 `cutoff`（如 `0.4`）在 hybrid 模式下不啟用，由融合分數自然排序。
+
 ## 三、共用載入、覆寫與驗證機制
 
 [utils/config_helper.py](utils/config_helper.py) 是專案的設定工具中心，`app/configs/*` 的 dataclass 與 `app/workflow/*` 的流程都會透過它來載入、覆寫、驗證與寫回設定檔。以下依實作（參考 `utils/config_helper.py`）說明主要責任與行為：

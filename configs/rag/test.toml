@@ -7,7 +7,7 @@ chunk_overlap = 100
 paragraph_separator = "\n\n"
 
 [vector_store]
-vector_store_type = "milvus"
+vector_store_type = "milvus" # run name
 milvus_uri = "data/rag/results/milvus.db"
 collection_name = "webpages"
 hybrid_ranker = "WeightedRanker"
@@ -17,7 +17,7 @@ hybrid_ranker_params = { weights = [1.0, 0.5] }
 embedding_name = "text-embedding-3-small"
 
 [retriever]
-query_mode = "hybrid"  # run name
+query_mode = "hybrid"
 similarity_top_k = 10
 hybrid_top_k = 10
 

@@ -218,7 +218,7 @@ Pydantic v2 schema，定義三個參數供 LLM 填寫：
 
 ### 使用方式
 ```python
-tool = create_webpage_retriever_tool(config_name="milvus")
+tool = create_webpage_retriever_tool()  # config_name 預設 "default"（Milvus hybrid）
 agent = create_agent(model, [tool])
 # Agent 執行期間自主呼叫 tool(retriever_input)
 tool.rag.close()  # 釋放向量儲存資源

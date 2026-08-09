@@ -54,10 +54,10 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       └── workflow_manager.py
 ├── configs/
 │   ├── rag/
-│   │   ├── default.toml               # 預設設定
+│   │   ├── default.toml               # 預設設定（Milvus + WeightedRanker hybrid）
 │   │   ├── milvus.toml                 # Milvus + WeightedRanker
 │   │   ├── qdrant.toml                 # Qdrant BM25 Hybrid
-│   │   └── test.toml
+│   │   └── test.toml                   # 測試用（同 default，Milvus hybrid）
 │   ├── webpage_image_summarizer/
 │   │   ├── default.toml
 │   │   ├── test.toml

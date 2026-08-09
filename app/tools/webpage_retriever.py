@@ -43,7 +43,7 @@ class RetrieverInputSchema(BaseModel):
 
 def create_webpage_retriever_tool(
     run_manager: RunManager | None = None,
-    config_name: str = "milvus",
+    config_name: str = "default",
     run_name_use_config_name: bool = False,
     **config_overrides,
 ) -> StructuredTool:

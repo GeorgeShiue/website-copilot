@@ -50,8 +50,8 @@ python cli.py rag-query-cli --run.config-name test --run.force-rebuild --module.
 # 範例：切換至 WeightedRanker 並自訂權重
 python cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker WeightedRanker --module.weights "[1.0, 0.5]"
 
-# 範例：設定 hybrid 檢索參數
-python cli.py rag-query-cli --run.config-name hybrid --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
+# 範例：設定 hybrid 檢索參數（test 與 default 皆為 Milvus hybrid；此處示範 CLI 覆寫）
+python cli.py rag-query-cli --run.config-name test --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
 
 # 範例：RAG 建置時把向量庫存至本次 run 的 results/vector_store/
 python cli.py rag-build-cli --run.config-name default --run.save-vector-store-to-runs

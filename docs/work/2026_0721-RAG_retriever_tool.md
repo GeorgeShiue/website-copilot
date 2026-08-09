@@ -146,7 +146,7 @@
 1. **搬移方向**：高層工廠函數從 `tools.py` 移至 `webpage_retriever.py`，與底層包裝函數 `_webpage_RAG_to_retriever_tool()` 並存。外部使用時可選擇從 `webpage_retriever` 直接 import，或從 `tools` 集中入口 import。
 2. **私有化底層包裝**：`webpage_RAG_to_retriever_tool()` 改名為 `_webpage_RAG_to_retriever_tool()`，標記為內部函數。外部不應直接呼叫此函數，而應使用 `create_webpage_retriever_tool()` 統一取得已建好 pipeline 的工具。
 3. **`tools.py` 角色重定位**：原本 `tools.py` 包含了完整的工廠實作，改為只做 re-export。當未來有其他工具模組（如 Graph RAG Tool）加入時，`tools.py` 就是它們的匯總出口。
-4. **函數簽名調整**：`config_name` 預設值改為 `"milvus"`（暫時），因為測試顯示 milvus hybrid 表現優於 qdrant default。待 `default.toml` 更新後改回 `"default"`。
+4. **函數簽名調整**：`config_name` 預設值改為 `"milvus"`（暫時），因為測試顯示 milvus hybrid 表現優於 qdrant default。~~待 `default.toml` 更新後改回 `"default"`~~。**已於 2026/8/9 改回 `"default"`**（`default.toml` 已更新為 Milvus hybrid，行為不變）。
 
 ### 進度
 
@@ -173,7 +173,7 @@
 ```python
 # 1. 建立工具（內部建立 Rag 實例，自動綁定為 tool.rag）
 from app.tools.webpage_retriever import create_webpage_retriever_tool
-tool = create_webpage_retriever_tool(config_name="milvus")
+tool = create_webpage_retriever_tool()  # config_name 預設 "default"（Milvus hybrid）
 
 # 2. Agent 使用工具進行多次檢索
 agent = create_agent(model, tools=[tool])

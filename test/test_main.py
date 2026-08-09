@@ -9,7 +9,6 @@ from utils.log_helper import setup_logging
 setup_logging("debug")
 
 
-# TODO: 更新測試 config
 def test_main():
     run_manager = RunManager()
 
