@@ -70,7 +70,7 @@ class AgentConfigCLI:
 class AgentRunConfig:
     # ----- run config -----
     query: str
-    config_name: str = "test"
+    config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
     thread_id: str | None = None  # 多輪記憶 session 識別（相同 id 記得上下文）
     stream: bool = False  # True 時逐 token 串流顯示回答
 
@@ -84,7 +84,7 @@ class AgentCLI:
 @dataclass
 class ServerRunConfig:
     # ----- server run config -----
-    config_name: str = "test"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
+    config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
     host: str = "127.0.0.1"
     port: int = 8000
 

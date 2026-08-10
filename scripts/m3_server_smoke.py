@@ -79,7 +79,7 @@ def stream_chat(
 
 
 def check_single_turn(events: list[dict]) -> dict:
-    """驗證單輪 SSE：token 事件 + done 事件（response / sources / thread_id）。"""
+    """驗證單輪 SSE：token 事件 + done 事件（response 含引用 URL / thread_id）。"""
     types = [event["type"] for event in events]
     if "token" not in types:
         raise AssertionError(f"缺少 token 事件（實際事件: {types}）")
@@ -89,15 +89,19 @@ def check_single_turn(events: list[dict]) -> dict:
     done = events[-1]
     if not done["response"].strip():
         raise AssertionError("done 事件的 response 為空")
-    if not done["sources"]:
-        raise AssertionError("done 事件的 sources 為空")
+    if "sites.google.com" not in done["response"]:
+        raise AssertionError(
+            "done 事件的 response 未含引用來源 URL（agent 應將引用寫入回覆）"
+        )
     if not done["thread_id"]:
         raise AssertionError("done 事件缺少 thread_id")
+    # 引用已由 agent 寫入 response；done 事件不再回傳 sources
+    if "sources" in done:
+        raise AssertionError("done 事件不應包含 sources（已由 response 內引用取代）")
 
     return {
         "token_count": types.count("token"),
         "response_chars": len(done["response"]),
-        "source_count": len(done["sources"]),
         "thread_id": done["thread_id"],
     }
 
@@ -113,7 +117,7 @@ def latest_results_json() -> Path | None:
 
 
 def check_persistence(before: Path | None) -> Path:
-    """驗證落盤：驗證後最新 results.json 比驗證前新，且 results 非空。"""
+    """驗證落盤：驗證後最新 results.json 比驗證前新，results 非空且含 sources。"""
     after = latest_results_json()
     if after is None:
         raise AssertionError("找不到 chats/*/agent/*/results.json")
@@ -123,6 +127,9 @@ def check_persistence(before: Path | None) -> Path:
         data = json.load(f)
     if not data.get("results"):
         raise AssertionError(f"results.json 的 results 為空（{after}）")
+    # sources 不回傳前端，但落盤 result 仍須保留
+    if not data["results"][0].get("sources"):
+        raise AssertionError(f"results.json 的 result 缺少 sources（{after}）")
     return after
 
 
@@ -186,7 +193,7 @@ def main() -> int:
         single = check_single_turn(events)
         print(
             f"  ✓ 單輪 SSE：token x{single['token_count']} + done，"
-            f"response {single['response_chars']} 字元、sources x{single['source_count']}、"
+            f"response {single['response_chars']} 字元（含引用 URL）、"
             f"thread_id={single['thread_id']}"
         )
 
@@ -195,7 +202,7 @@ def main() -> int:
         follow_up = check_single_turn(follow_up_events)
         print(
             f"  ✓ 多輪記憶：同 thread 續問「{args.follow_up}」"
-            f"（sources x{follow_up['source_count']}）"
+            f"（response {follow_up['response_chars']} 字元，含引用 URL）"
         )
 
         # 落盤驗證

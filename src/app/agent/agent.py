@@ -1,4 +1,4 @@
-"""Agent 層：以 LangGraph create_agent 包裝 RAG retriever 工具。
+"""Agent 層：以 LangGraph create_agent 包裝 webpage retriever 工具。
 
 M1 提供：
 - RAGAgent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
@@ -123,41 +123,46 @@ def create_rag_agent(
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
-        log_session(run_title, style="purple")
-        log_config("Agent Config Loaded from toml", config)
-
         # ----- 建立 retriever tool（綁定 RAG 資源） -----
         # run_name_use_config_name：讓 tool 的 run path 與 Agent 一致（runs/<ts>/agent/<config_name>/）
         # similarity_top_k 等檢索參數沿用 RAG config 預設，Agent 不覆寫
-        log_session("Building Retriever Tool", style="cyan")
         tool = create_webpage_retriever_tool(
             run_manager=run_manager,
-            config_name="test",
+            config_name="default",
             run_name_use_config_name=True,
         )
 
+        # ----- 輸出開始訊息 -----
+        log_session(run_title, style="purple")
+        log_config("Agent Config Loaded from toml", config)
+
         # ----- 建立 LLM 與 Agent -----
         log_session("Building Agent", style="cyan")
-        logger.info(
-            f"Building agent (llm={config.llm_name}, "
-            "tools=[webpage_retriever], "
-            f"system_prompt={len(config.system_prompt)} chars)"
-        )
+
         llm = create_agent_llm(config.llm_name)
+        logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
+
         # InMemorySaver：多輪對話記憶（M2），以 thread_id 區分 session
         checkpointer = InMemorySaver()
+        logger.info("Successfully built InMemorySaver for multi-turn conversation")
+
         graph = create_agent(
             llm,
             [tool],
             system_prompt=config.system_prompt,
             checkpointer=checkpointer,
         )
+        logger.info(
+            f"Successfully built Agent (llm={config.llm_name}, tools=[webpage_retriever]"
+        )
 
         # ----- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
-
         log_session("Run Paths", style="cyan")
         run_manager.log_run_paths("init")
+
+        # ----- 輸出完成訊息 -----
+        log_session("Agent Ready", style="green")
 
     return RAGAgent(
         graph=graph,

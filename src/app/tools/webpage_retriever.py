@@ -73,7 +73,7 @@ def create_webpage_retriever_tool(
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
-        run_manager = RunManager("rag_retriever_tool")
+        run_manager = RunManager("webpage_retriever_tool")
     if run_name_use_config_name:
         run_manager.set_run_path(config_name)
     else:
@@ -87,11 +87,7 @@ def create_webpage_retriever_tool(
         run_manager.results_folder_path, "qdrant_db"
     )
 
-    run_title = f"RAG Retriever Tool ({config_name})"
-
-    # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----
-    rag = RAGBuilder(config).build_to_retriever()
-
+    run_title = f"Webpage Retriever Tool ({config_name})"
     with (
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
@@ -100,6 +96,10 @@ def create_webpage_retriever_tool(
         log_session(run_title, style="purple")
         log_config("RAG Config Loaded from toml", config)
 
+        # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----
+        log_session("Building Retriever Tool", style="cyan")
+        rag = RAGBuilder(config).build_to_retriever()
+
         # ----- 包裝為工具並回傳 -----
         # 完成宣告由 log_run_time 的 "Completed in ..." 承擔
         tool = _webpage_retriever_to_tool(rag)
@@ -107,11 +107,14 @@ def create_webpage_retriever_tool(
         # ----- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
+        # ---- 輸出完成訊息 -----
+        log_session("Webpage Retriever Tool Ready", style="green")
+
     return tool
 
 
 def _webpage_retriever_to_tool(rag: RAG) -> StructuredTool:
-    """將 RAG retriever 包裝為 LangChain StructuredTool。
+    """將 webpage retriever 包裝為 LangChain StructuredTool。
 
     Args:
         rag: 已初始化至 retriever 層級的 RAG 實例

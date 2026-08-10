@@ -23,6 +23,7 @@ dependencies = [
     "llama-index-vector-stores-qdrant>=0.10.1",
     "mdformat>=1.0.0",
     "mdformat-gfm>=1.0.0",
+    "milvus-lite==3.2.0",
     "playwright>=1.58.0",
     "pyright>=1.1.408",
     "python-dotenv>=1.0.0",

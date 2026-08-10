@@ -714,6 +714,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/ed/57335bc18c9e18677587bec9bf070c675b29c8e683e13f4def0440731ca0/faiss_cpu-1.14.3-cp310-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8780b526c06e57aad90a8c4655dfba2ff1b3195bd600ff4499752fc45159c9fc", size = 18506292, upload-time = "2026-06-13T02:19:09.621Z" },
     { url = "https://files.pythonhosted.org/packages/e7/d3/c6ca8c44a63b909e78aa8a69e14501c79c89613e62261d58455ea603d710/faiss_cpu-1.14.3-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:b28ba083e8c02f2c9be03783402537fd3f00d27e68799c44bf88931500ee12ec", size = 11238800, upload-time = "2026-06-13T02:19:12.821Z" },
     { url = "https://files.pythonhosted.org/packages/93/5f/b405692913a301251749cb175cb3f564ed257fdaa80a22c9a36444d0095d/faiss_cpu-1.14.3-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:cdcb90850cb4b7c27d270839b37bcc0dc8d1fb6a62d1e13053e51ac95061ca25", size = 19237637, upload-time = "2026-06-13T02:19:15.531Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/c1/2fb14f58ff74d7a7d6fd13084c016d9b144ce0bcdf77f6526cc2e4828278/faiss_cpu-1.14.3-cp313-cp313-win_amd64.whl", hash = "sha256:ea2340f675db59af8db6da4535b541ce6948d68a008989c656c292c7b0c77127", size = 16162836, upload-time = "2026-06-13T02:19:25.529Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/aa/100d3b706b8e2aa561e2673ed7d07c4c7c26f92d938a88d193dd54f90c45/faiss_cpu-1.14.3-cp314-cp314-win_amd64.whl", hash = "sha256:54b0ea832be5bce75ef9abf1297fe4613d760bf7cfe7a963da040cb0314e8f58", size = 16444608, upload-time = "2026-06-13T02:19:27.992Z" },
 ]
 
 [[package]]
@@ -2156,7 +2158,7 @@ wheels = [
 
 [[package]]
 name = "milvus-lite"
-version = "3.1.0"
+version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "faiss-cpu" },
@@ -2164,9 +2166,9 @@ dependencies = [
     { name = "numpy" },
     { name = "pyarrow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/58/54c72981958073d365febeae8fed3115c87761f45905f2d4725f506b94d1/milvus_lite-3.1.0.tar.gz", hash = "sha256:8d467ae81173f1ede93723a80f08d85b91988b451cd2b7bbf9b5a7cfb875e04b", size = 636180, upload-time = "2026-07-15T06:40:58.177Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/59/caab693e260fb00704672838f332eb0ffeff552806d270ee61f736e14dd4/milvus_lite-3.2.0.tar.gz", hash = "sha256:d6735d7a5bcb14fed2cc9a42da84d7396fef0040a0f7c2d1cace9f2134925571", size = 719788, upload-time = "2026-08-06T08:58:39.198Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/c2/fb5c2b73618973f943c8064e2d1f076f81731e2fafd5575a6ddaf3deda68/milvus_lite-3.1.0-py3-none-any.whl", hash = "sha256:0d20fffbee3c683eca69c4732a091273123368452159581ed050c933b41a59be", size = 252267, upload-time = "2026-07-15T06:40:52.538Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/f8/1b710dd8cf8d1e957086b59d5cf3a7ca1b0d58b3e5199917c3d02a7b3873/milvus_lite-3.2.0-py3-none-any.whl", hash = "sha256:f0f5656b033b1b5cbcfdfb8a9d676e52236338f102c8011d7bbf611afe512bb4", size = 268734, upload-time = "2026-08-06T08:58:32.811Z" },
 ]
 
 [[package]]
@@ -4392,6 +4394,7 @@ dependencies = [
     { name = "llama-index-vector-stores-qdrant" },
     { name = "mdformat" },
     { name = "mdformat-gfm" },
+    { name = "milvus-lite" },
     { name = "playwright" },
     { name = "pyright" },
     { name = "python-dotenv" },
@@ -4429,6 +4432,7 @@ requires-dist = [
     { name = "llama-index-vector-stores-qdrant", specifier = ">=0.10.1" },
     { name = "mdformat", specifier = ">=1.0.0" },
     { name = "mdformat-gfm", specifier = ">=1.0.0" },
+    { name = "milvus-lite", specifier = "==3.2.0" },
     { name = "playwright", specifier = ">=1.58.0" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "python-dotenv", specifier = ">=1.0.0" },

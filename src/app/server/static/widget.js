@@ -38,9 +38,14 @@
     '.wc-assistant{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;',
     '  border-bottom-left-radius:3px;}',
     '.wc-error{align-self:flex-start;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}',
-    '.wc-sources{margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;font-size:11px;',
-    '  color:#64748b;display:flex;flex-direction:column;gap:3px;}',
-    '.wc-sources a{color:#2563eb;text-decoration:none;word-break:break-all;}',
+    /* markdown 渲染樣式（assistant 訊息內） */
+    '.wc-msg ul,.wc-msg ol{margin:4px 0 4px 1.4em;padding-left:.4em;}',
+    '.wc-msg li{margin:2px 0;}',
+    '.wc-msg strong{font-weight:700;}',
+    '.wc-msg code{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:4px;font-size:.9em;font-family:monospace;}',
+    '.wc-msg a{color:#2563eb;text-decoration:underline;word-break:break-all;}',
+    '.wc-msg blockquote{border-left:3px solid #e2e8f0;padding-left:10px;color:#64748b;margin:4px 0;}',
+    '.wc-msg h1,.wc-msg h2,.wc-msg h3,.wc-msg h4{margin:8px 0 4px;font-size:1.05em;}',
     '.wc-inputbar{display:flex;gap:8px;padding:10px;background:#fff;border-top:1px solid #e2e8f0;}',
     '.wc-inputbar input{flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;',
     '  font-size:13px;outline:none;}',
@@ -82,21 +87,6 @@
     if (panel.classList.contains('open')) inputEl.focus();
   });
 
-  function appendSources(msgEl, sources) {
-    var box = document.createElement('div');
-    box.className = 'wc-sources';
-    sources.forEach(function (url, i) {
-      var a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.textContent = (i + 1) + '. ' + url;
-      box.appendChild(a);
-    });
-    msgEl.appendChild(box);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
   function parseSseEvents(chunk) {
     var events = [];
     chunk.split('\n\n').forEach(function (block) {
@@ -108,6 +98,90 @@
       }
     });
     return events;
+  }
+
+  /* ---------- 輕量 markdown 渲染（先 escape HTML 防 XSS，再轉語法） ---------- */
+  function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderInline(text) {
+    // 先保護 inline code（後續 regex 不影響 code 內容）
+    var blocks = [];
+    text = text.replace(/`([^`]+)`/g, function (m, c) {
+      blocks.push(c);
+      return '\u0000' + (blocks.length - 1) + '\u0000';
+    });
+    // 連結：只允許 http/https
+    text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, label, url) {
+      var safe = /^https?:\/\//i.test(url) ? url : '#';
+      return '<a href="' + safe + '" target="_blank" rel="noopener">' + label + '</a>';
+    });
+    // 粗體 → 斜體（順序：粗體先，避免 **x** 被斜體吃掉）
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // 還原 inline code
+    text = text.replace(/\u0000(\d+)\u0000/g, function (m, i) {
+      return '<code>' + blocks[parseInt(i, 10)] + '</code>';
+    });
+    return text;
+  }
+
+  function renderMarkdown(text) {
+    var escaped = escapeHtml(text);
+    var lines = escaped.split('\n');
+    var html = [];
+    var listType = null;   // 'ul' | 'ol' | null
+    var paragraph = null;
+
+    function closeList() {
+      if (listType) { html.push('</' + listType + '>'); listType = null; }
+    }
+    function closeParagraph() {
+      if (paragraph) { html.push('<p>' + paragraph + '</p>'); paragraph = null; }
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim();
+      if (!trimmed) { closeList(); closeParagraph(); continue; }
+      // 標題 # ~ ######
+      var h = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+      if (h) {
+        closeList(); closeParagraph();
+        var level = h[1].length;
+        html.push('<h' + level + '>' + renderInline(h[2]) + '</h' + level + '>');
+        continue;
+      }
+      // 引用（escape 後 &gt;）
+      var q = /^&gt;\s?(.*)$/.exec(trimmed);
+      if (q) {
+        closeList(); closeParagraph();
+        html.push('<blockquote>' + renderInline(q[1]) + '</blockquote>');
+        continue;
+      }
+      // 無序列表
+      var ul = /^[*\-]\s+(.*)$/.exec(trimmed);
+      if (ul) {
+        closeParagraph();
+        if (listType !== 'ul') { closeList(); html.push('<ul>'); listType = 'ul'; }
+        html.push('<li>' + renderInline(ul[1]) + '</li>');
+        continue;
+      }
+      // 有序列表
+      var ol = /^\d+\.\s+(.*)$/.exec(trimmed);
+      if (ol) {
+        closeParagraph();
+        if (listType !== 'ol') { closeList(); html.push('<ol>'); listType = 'ol'; }
+        html.push('<li>' + renderInline(ol[1]) + '</li>');
+        continue;
+      }
+      // 一般文字：空行隔段落，同段落內以 <br> 接續
+      closeList();
+      if (paragraph) { paragraph += '<br>' + renderInline(trimmed); }
+      else { paragraph = renderInline(trimmed); }
+    }
+    closeList(); closeParagraph();
+    return html.join('');
   }
 
   async function sendQuery(query) {
@@ -146,9 +220,8 @@
             respEl.textContent += ev.content;
             messagesEl.scrollTop = messagesEl.scrollHeight;
           } else if (ev.type === 'done') {
-            respEl.textContent = ev.response;
+            respEl.innerHTML = renderMarkdown(ev.response);   // markdown 渲染（串流期間維持純文字）
             threadId = ev.thread_id;   // 記住，續問記得上下文
-            if (ev.sources && ev.sources.length > 0) appendSources(respEl, ev.sources);
           } else if (ev.type === 'error') {
             respEl.className = 'wc-msg wc-error';
             respEl.textContent = '錯誤：' + ev.message;

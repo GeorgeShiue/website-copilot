@@ -133,10 +133,11 @@ def test_chat_sse_streams_tokens_and_done():
 
     done = events[-1]
     assert done["response"] == "你好"
-    assert done["sources"] == ["https://example.com/page"]
     assert done["thread_id"].startswith("auto-")
+    # 引用已由 agent 寫入 response；done 事件不再回傳 sources
+    assert "sources" not in done
 
-    # 落盤：save_conversation_results 以單輪結果覆寫（與 CLI 慣例一致）
+    # 落盤：save_conversation_results 以單輪結果覆寫（與 CLI 慣例一致），sources 保留
     saved = fake.run_manager.saved
     assert saved is not None
     assert saved["results"][0]["response"] == "你好"

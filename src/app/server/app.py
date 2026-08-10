@@ -10,7 +10,8 @@
 
 SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "token", "content": "..."}：逐 token 串流
-- {"type": "done", "response": "...", "sources": [...], "thread_id": "..."}：完成
+- {"type": "done", "response": "...", "thread_id": "..."}：完成
+  （引用內容已由 agent 寫入 response 內；sources 僅保留於落盤 result）
 - {"type": "error", "message": "..."}：失敗
 
 資源生命週期：agent 於 lifespan 啟動時建立一次、關閉時釋放。
@@ -66,7 +67,11 @@ async def _event_stream(
     query: str,
     thread_id: str,
 ) -> AsyncIterator[str]:
-    """SSE 事件流：逐 token 串流，最後送 done（含回答全文與來源）。"""
+    """SSE 事件流：逐 token 串流，最後送 done（含回答全文）。
+
+    引用內容由 agent 直接寫入 response（system prompt 已要求）；
+    sources 仍擷取並保留於落盤 result，但不回傳前端。
+    """
     chunks: list[str] = []
     try:
         config = thread_config(thread_id)
@@ -88,7 +93,6 @@ async def _event_stream(
             {
                 "type": "done",
                 "response": result["response"],
-                "sources": result["sources"],
                 "thread_id": thread_id,
             }
         )
@@ -98,7 +102,7 @@ async def _event_stream(
 
 
 def create_app(
-    config_name: str = "test",
+    config_name: str = "default",
     agent: RAGAgent | None = None,
 ) -> FastAPI:
     """建立 FastAPI app。
@@ -176,7 +180,7 @@ def create_app(
 
 
 def run_server(
-    config_name: str = "test",
+    config_name: str = "default",
     host: str = "127.0.0.1",
     port: int = 8000,
 ) -> None:
