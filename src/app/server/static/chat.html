@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>實驗室網站問答助理</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --bg: #f8fafc;
+    --bubble-user: #2563eb;
+    --bubble-assistant: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  header small { font-weight: 400; opacity: 0.85; display: block; font-size: 12px; }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user { align-self: flex-end; background: var(--bubble-user); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.assistant { align-self: flex-start; background: var(--bubble-assistant); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.error { align-self: flex-start; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .sources {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sources a { color: var(--primary); text-decoration: none; word-break: break-all; }
+  .sources a:hover { text-decoration: underline; }
+  .typing { color: var(--muted); font-size: 13px; }
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus { border-color: var(--primary); }
+  button {
+    padding: 10px 18px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<header>
+  實驗室網站問答助理
+  <small>回答附參考來源，可連續追問</small>
+</header>
+
+<div id="messages">
+  <div class="msg assistant">你好！我是實驗室網站問答助理。請輸入問題，例如「實驗室的成員有哪些人？」</div>
+</div>
+
+<form id="chat-form">
+  <input id="query" type="text" placeholder="輸入你的問題…" autocomplete="off" autofocus>
+  <button id="send" type="submit">送出</button>
+</form>
+
+<script>
+(function () {
+  'use strict';
+  var messagesEl = document.getElementById('messages');
+  var formEl = document.getElementById('chat-form');
+  var inputEl = document.getElementById('query');
+  var sendBtn = document.getElementById('send');
+  var threadId = null;   // 由 done 事件回傳；帶回續接多輪
+
+  function appendMessage(role, text) {
+    var el = document.createElement('div');
+    el.className = 'msg ' + role;
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return el;
+  }
+
+  function appendSources(sources) {
+    var el = document.createElement('div');
+    el.className = 'msg assistant';
+    var title = document.createElement('div');
+    title.textContent = '參考來源：';
+    el.appendChild(title);
+    var box = document.createElement('div');
+    box.className = 'sources';
+    sources.forEach(function (url, i) {
+      var a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = (i + 1) + '. ' + url;
+      box.appendChild(a);
+    });
+    el.appendChild(box);
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function parseSseEvents(chunk) {
+    // 以空行分隔的 data: JSON 區塊 → 事件列表
+    var events = [];
+    chunk.split('\n\n').forEach(function (block) {
+      var dataLines = block.split('\n').filter(function (line) {
+        return line.startsWith('data:');
+      }).map(function (line) { return line.slice(5); });
+      if (dataLines.length > 0) {
+        try { events.push(JSON.parse(dataLines.join(''))); } catch (e) { /* 忽略不完整 JSON */ }
+      }
+    });
+    return events;
+  }
+
+  async function sendQuery(query) {
+    var msgEl = appendMessage('user', query);
+    var respEl = appendMessage('assistant', '');
+    sendBtn.disabled = true;
+    inputEl.disabled = true;
+    var buffer = '';
+    try {
+      var resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query, thread_id: threadId }),
+      });
+      if (!resp.ok || !resp.body) {
+        throw new Error('伺服器回應異常（HTTP ' + resp.status + '）');
+      }
+      var reader = resp.body.getReader();
+      var decoder = new TextDecoder();
+      while (true) {
+        var r = await reader.read();
+        if (r.done) break;
+        buffer += decoder.decode(r.value, { stream: true });
+        var events = parseSseEvents(buffer);
+        buffer = buffer.slice(buffer.lastIndexOf('\n\n') + 2);
+        events.forEach(function (ev) {
+          if (ev.type === 'token') {
+            respEl.textContent += ev.content;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (ev.type === 'done') {
+            respEl.textContent = ev.response;
+            threadId = ev.thread_id;
+            if (ev.sources && ev.sources.length > 0) appendSources(ev.sources);
+          } else if (ev.type === 'error') {
+            respEl.className = 'msg error';
+            respEl.textContent = '錯誤：' + ev.message;
+          }
+        });
+      }
+    } catch (err) {
+      respEl.className = 'msg error';
+      respEl.textContent = '錯誤：' + err.message;
+    } finally {
+      sendBtn.disabled = false;
+      inputEl.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  formEl.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var query = inputEl.value.trim();
+    if (!query) return;
+    inputEl.value = '';
+    sendQuery(query);
+  });
+})();
+</script>
+</body>
+</html>

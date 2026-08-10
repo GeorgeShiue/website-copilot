@@ -81,9 +81,23 @@ class AgentCLI:
     module: AgentConfigCLI
 
 
+@dataclass
+class ServerRunConfig:
+    # ----- server run config -----
+    config_name: str = "test"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+
+@dataclass
+class ServerCLI:
+    run: ServerRunConfig
+
+
 if __name__ == "__main__":
     import tyro
 
+    from app.server.app import run_server
     from app.workflow.workflow import (
         run_agent,
         run_rag_build,
@@ -107,15 +121,18 @@ if __name__ == "__main__":
         | RAGBuildCLI
         | RAGQueryCLI
         | AgentCLI
+        | ServerCLI
     )
     cli_arg = tyro.cli(cli_args_type)
     module_config_overrides = {}
-    for key, value in vars(cli_arg.module).items():
-        if value is not None:
-            if key == "weights":
-                module_config_overrides["hybrid_ranker_params"] = {"weights": value}
-            else:
-                module_config_overrides[key] = value
+    if not isinstance(cli_arg, ServerCLI):
+        # ServerCLI 無 module 設定（config_name 已含在 run 內）
+        for key, value in vars(cli_arg.module).items():
+            if value is not None:
+                if key == "weights":
+                    module_config_overrides["hybrid_ranker_params"] = {"weights": value}
+                else:
+                    module_config_overrides[key] = value
 
     if isinstance(cli_arg, WebsiteCrawlerCLI):
         run_manager.set_module_path("website_crawler")
@@ -155,7 +172,10 @@ if __name__ == "__main__":
         )
         save_run_config_as_toml(cli_arg.run, agent_run_manager.run_config_toml_path)
         agent_run_manager.log_run_paths("complete")
+    elif isinstance(cli_arg, ServerCLI):
+        # 常駐服務：不落盤 run config（無 run_manager），由 run_server blocking 執行
+        run_server(**vars(cli_arg.run))
 
-    if not isinstance(cli_arg, AgentCLI):
+    if not isinstance(cli_arg, (AgentCLI, ServerCLI)):
         save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)
         run_manager.log_run_paths("complete")

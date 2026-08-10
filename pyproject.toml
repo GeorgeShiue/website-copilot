@@ -33,7 +33,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["prek>=0.3.5", "pytest>=9.0.2", "ruff>=0.15.4"]
+dev = [
+    "httpx>=0.28.1",
+    "prek>=0.3.5",
+    "pytest>=9.0.2",
+    "ruff>=0.15.4",
+]
 
 [tool.ruff]
 exclude = ["dev/**", ".venv"]

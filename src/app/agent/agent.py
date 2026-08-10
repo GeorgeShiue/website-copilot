@@ -4,6 +4,7 @@ M1 提供：
 - RAGAgent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
 - create_rag_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
 - ask_agent()：單輪/多輪問答（thread_id 區分 session），回傳回答與來源 URL
+- astream_text()：串流 model 節點文字 token 的公開核心（CLI 與 M3 server 共用）
 - astream_agent_result()：串流問答並收集完整結果（含來源 URL；CLI 與 M3 server 共用）
 - extract_sources_from_messages()：從 messages 解析工具檢索回的來源 URL
 
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 SOURCE_URL_PATTERN = re.compile(r"URL: (\S+)")
 
 
-def _thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
+def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
     """建立 LangGraph 多輪對話的執行設定（thread_id 區分 session）。
 
     thread_id 為 None 時自動產生唯一 id（每次呼叫獨立，等同單輪）；
@@ -221,7 +222,7 @@ def ask_agent(
     Returns:
         dict：含 query、response（文字）、sources（URL 列表）、timestamp。
     """
-    config = _thread_config(thread_id)
+    config = thread_config(thread_id)
     response = agent.graph.invoke({"messages": [("human", query)]}, config=config)
     messages = response["messages"]
 
@@ -236,12 +237,12 @@ def ask_agent(
     }
 
 
-async def _astream_text(
+async def astream_text(
     agent: RAGAgent,
     query: str,
     config: dict[str, dict[str, str]],
 ) -> AsyncIterator[str]:
-    """依執行設定串流 model 節點的文字 token（astream_agent 系列共用核心）。
+    """依執行設定串流 model 節點的文字 token（CLI 與 M3 server 共用核心）。
 
     只輸出 model 節點的 token（跳過工具呼叫與其他節點）；
     Gemini content 可能是 list[dict]，統一轉純文字。
@@ -265,7 +266,7 @@ async def astream_agent_result(
 ) -> dict[str, Any]:
     """串流問答並收集完整結果（CLI 與 M3 server 共用）。
 
-    以 _astream_text 逐 token 串流輸出；完成後從 graph state
+    以 astream_text 逐 token 串流輸出；完成後從 graph state
     （InMemorySaver）讀回 messages 擷取來源 URL，補齊 M2 已知限制
     「串流模式 sources 為空」。
 
@@ -278,9 +279,9 @@ async def astream_agent_result(
     Returns:
         dict：含 query、response（回答全文）、sources（URL 列表）、timestamp。
     """
-    config = _thread_config(thread_id)
+    config = thread_config(thread_id)
     chunks: list[str] = []
-    async for text in _astream_text(agent, query, config):
+    async for text in astream_text(agent, query, config):
         chunks.append(text)
         if on_token is not None:
             on_token(text)

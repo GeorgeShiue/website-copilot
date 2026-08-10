@@ -4403,6 +4403,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx" },
     { name = "prek" },
     { name = "pytest" },
     { name = "ruff" },
@@ -4439,6 +4440,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "prek", specifier = ">=0.3.5" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff", specifier = ">=0.15.4" },
