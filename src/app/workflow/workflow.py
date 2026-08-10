@@ -1,6 +1,14 @@
+import asyncio
 import os
 import time
 
+from app.agent.agent import (
+    ask_agent,
+    astream_agent_result,
+    create_rag_agent,
+    save_conversation_results,
+)
+from app.configs.agent_config import AgentConfig
 from app.configs.rag_config import (
     RAGConfig,
 )
@@ -15,6 +23,7 @@ from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import (
     log_run_time,
     log_session,
+    print_log,
     save_logging_file,
 )
 from utils.rag_helper import response_to_dict
@@ -330,4 +339,59 @@ def run_rag_query(
             )
 
         # ----- 輸出完成訊息 -----
-        log_session("RAG Query Completed", style="cyan")
+
+
+def run_agent(
+    query: str,
+    config_name: str = "default",
+    thread_id: str | None = None,
+    stream: bool = False,
+    agent_run_manager: RunManager | None = None,
+    **config_overrides,
+) -> None:
+    """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
+
+    流程：create_rag_agent 建立 agent → 問答（stream 決定串流/非串流）
+    → 顯示回答與來源 → 落盤 chats/ → 釋放 RAG 資源（agent.close()）。
+
+    Args:
+        query: 使用者問題。
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
+        thread_id: 多輪記憶 session 識別（None 時每次獨立）。
+        stream: True 時逐 token 串流顯示回答。
+        **config_overrides: AgentConfig 覆寫值（如 llm_name / system_prompt）。
+        agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
+    """
+    if agent_run_manager is None:
+        # 聊天記錄與實驗分離：預設落盤至 chats/
+        agent_run_manager = RunManager("agent", base_folder="chats")
+
+    agent = create_rag_agent(
+        config=AgentConfig.from_toml(config_name, **config_overrides),
+        run_manager=agent_run_manager,
+    )
+    try:
+        # 問答過程也寫入 log 檔（append 至 agent 建立時開啟的同一個 terminal.log）
+        with save_logging_file(agent.run_manager.log_path):
+            if stream:
+                result = asyncio.run(
+                    astream_agent_result(
+                        agent,
+                        query,
+                        thread_id,
+                        on_token=lambda token: print(token, end="", flush=True),
+                    )
+                )
+                print()  # 串流 token 結束後換行
+            else:
+                result = ask_agent(agent, query, thread_id)
+            log_session("Agent Response", style="green")
+            print_log(result["response"])
+            log_session("Sources", style="cyan")
+            for i, url in enumerate(result["sources"], 1):
+                print(f"{i}. {url}")
+            save_conversation_results(agent, [result])
+            log_session("Conversation Saved", style="green")
+            print(f"Results json: {agent.run_manager.results_json_path}")
+    finally:
+        agent.close()

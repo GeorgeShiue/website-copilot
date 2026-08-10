@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 from langchain_core.tools import StructuredTool
@@ -63,6 +64,11 @@ def create_webpage_retriever_tool(
     Returns:
         StructuredTool: 包裝好的 retriever 工具，可直接傳入 create_agent()。
         tool.rag 已自動綁定 RAG 實例，結束後請透過 tool.rag.close() 釋放資源。
+
+    Notes:
+        Vector store 會被隔離至當輪 run 的 results/ 底下
+        （如 chats/<ts>/agent/<config>/results/），避免工具建構時
+        覆寫正式向量庫（data/rag/results/）。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
@@ -73,6 +79,14 @@ def create_webpage_retriever_tool(
     else:
         run_manager.set_run_path(config.run_name)
     run_manager.init_module_run_paths()
+
+    # 隔離 vector store 至當輪 run 的 results/（chats/<ts>/agent/<config>/results/），
+    # 避免 build_to_retriever 重建時覆寫正式向量庫 data/rag/results/
+    config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
+    config.qdrant_db_folder_path = os.path.join(
+        run_manager.results_folder_path, "qdrant_db"
+    )
+
     run_title = f"RAG Retriever Tool ({config_name})"
 
     # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----

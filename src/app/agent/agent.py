@@ -4,7 +4,7 @@ M1 提供：
 - RAGAgent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
 - create_rag_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
 - ask_agent()：單輪/多輪問答（thread_id 區分 session），回傳回答與來源 URL
-- astream_agent()：非同步逐 token 串流介面（M2）
+- astream_agent_result()：串流問答並收集完整結果（含來源 URL；CLI 與 M3 server 共用）
 - extract_sources_from_messages()：從 messages 解析工具檢索回的來源 URL
 
 資源生命週期：結束後由呼叫者呼叫 agent.close() 釋放 RAG 資源。
@@ -16,7 +16,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
@@ -108,7 +108,8 @@ def create_rag_agent(
         結束後呼叫 agent.close() 釋放 RAG 資源。
     """
     if config is None:
-        config = AgentConfig()
+        # 與其他模組一致：預設由 configs/agent/default.toml 載入
+        config = AgentConfig.from_toml()
 
     if run_manager is None:
         # 聊天記錄與實驗分離：預設落盤至 chats/（RunManager base_folder 參數化）
@@ -235,33 +236,63 @@ def ask_agent(
     }
 
 
-async def astream_agent(
+async def _astream_text(
     agent: RAGAgent,
     query: str,
-    thread_id: str | None = None,
+    config: dict[str, dict[str, str]],
 ) -> AsyncIterator[str]:
-    """非同步逐 token 串流 Agent 回答（M2）。
+    """依執行設定串流 model 節點的文字 token（astream_agent 系列共用核心）。
 
-    Args:
-        agent: create_rag_agent() 回傳的 RAGAgent。
-        query: 使用者問題。
-        thread_id: session 識別（None 時每次獨立；相同 thread_id 保留對話記憶）。
-
-    Yields:
-        str：回答的文字片段（僅 model 節點輸出，不含工具呼叫過程）。
+    只輸出 model 節點的 token（跳過工具呼叫與其他節點）；
+    Gemini content 可能是 list[dict]，統一轉純文字。
     """
-    config = _thread_config(thread_id)
     async for chunk, metadata in agent.graph.astream(
         {"messages": [("human", query)]},
         config=config,
         stream_mode="messages",
     ):
-        # 只輸出 model 節點的 token（跳過工具呼叫與其他節點）
         if metadata.get("langgraph_node") == "model":
-            # Gemini content 可能是 list[dict]，統一轉純文字
             text = _message_content_to_text(chunk.content)
             if text:
                 yield text
+
+
+async def astream_agent_result(
+    agent: RAGAgent,
+    query: str,
+    thread_id: str | None = None,
+    on_token: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """串流問答並收集完整結果（CLI 與 M3 server 共用）。
+
+    以 _astream_text 逐 token 串流輸出；完成後從 graph state
+    （InMemorySaver）讀回 messages 擷取來源 URL，補齊 M2 已知限制
+    「串流模式 sources 為空」。
+
+    Args:
+        agent: create_rag_agent() 回傳的 RAGAgent。
+        query: 使用者問題。
+        thread_id: session 識別（None 時每次獨立；相同 thread_id 保留對話記憶）。
+        on_token: 可選的逐 token 回呼（如 CLI 即時列印）。
+
+    Returns:
+        dict：含 query、response（回答全文）、sources（URL 列表）、timestamp。
+    """
+    config = _thread_config(thread_id)
+    chunks: list[str] = []
+    async for text in _astream_text(agent, query, config):
+        chunks.append(text)
+        if on_token is not None:
+            on_token(text)
+
+    state = agent.graph.get_state(config)
+    messages = state.values.get("messages", []) if state.values else []
+    return {
+        "query": query,
+        "response": "".join(chunks),
+        "sources": extract_sources_from_messages(messages),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
 
 def save_conversation_results(

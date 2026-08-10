@@ -1,4 +1,5 @@
 from app.workflow.workflow import (
+    run_agent,
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
@@ -18,3 +19,7 @@ def test_webpage_image_summarizer():
 
 def test_rag():
     run_rag_build(config_name="test", save_vector_store_to_runs=True)
+
+
+def test_agent():
+    run_agent(query="實驗室的成員有哪些人？", config_name="test")
