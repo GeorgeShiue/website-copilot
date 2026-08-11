@@ -11,7 +11,7 @@
 
 ## 二、CLI 解析與 dispatch 流程
 
-1. `src/cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI`。
+1. `src/cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RagBuildCLI | RagQueryCLI | AgentCLI | ServerCLI`。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
    - `RAGConfigCLI.module` 支援以下 hybrid 相關覆寫：
      - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`
@@ -30,6 +30,29 @@
    - 用 `override_config()` 合併 CLI 傳入的 overrides（依 `sections_to_keys` 過濾），
    - 建構 dataclass 並執行模組內驗證。
 6. CLI 主流程結束時，`src/cli.py` 呼叫 `save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)`，把 run-level 參數寫入 `run_config.toml`。
+
+### Agent 問答（agent-cli）
+
+- `AgentCLI.run`（`AgentRunConfig`）：`query`（必填）、`config_name`（預設 `default`）、`thread_id`（多輪 session）、`stream`（逐 token 串流）。
+- 由 `workflow.run_agent` 執行：建立 agent（`create_rag_agent`）→ 問答（stream 決定串流/非串流）→ 顯示回答與來源 → 落盤 `chats/<ts>/agent/<config>/` → `agent.close()` 釋放資源。
+- 聊天記錄與實驗分離：使用獨立 `RunManager(base_folder="chats")`，`save_run_config_as_toml` 與 `log_run_paths("complete")` 於 CLI 分支執行。
+
+```bash
+uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？"
+uv run python src/cli.py agent-cli --run.query "..." --run.thread-id demo --run.stream
+```
+
+### 聊天伺服器（server-cli）
+
+- `ServerCLI.run`（`ServerRunConfig`）：`config_name`（預設 `default`）、`host`、`port`、`allowed_origins`（CORS 限縮，預設 None 全開放）。
+- 呼叫 `server.app.run_server`（常駐服務，不落盤 run config）：`setup_logging` → `create_app` → `uvicorn.run`（傳 app 物件而非 import string，避免 reloader sys.path 問題）。
+- agent 於 FastAPI lifespan 啟動時建立一次、關閉時釋放（`create_rag_agent` 每次會重建向量庫隔離副本，不可 per-request 建立）。
+- 啟動後瀏覽器開啟 `http://localhost:8000/`（redirect 至 `/static/demo.html` 嵌入示範）。
+
+```bash
+uv run python src/cli.py server-cli --run.port 8000
+uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.edu.tw
+```
 
 ## 三、參數覆寫規則要點
 

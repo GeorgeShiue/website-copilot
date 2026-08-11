@@ -105,7 +105,7 @@ def main() -> int:
         print_log(f"[bold red]FAIL: {exc}[/bold red]")
         return 1
     except KeyboardInterrupt:
-        log_session("Shutting Down", style="yellow")
+        log_session("Sever Shutting Down", style="yellow")
         print_log("收到終止訊號，關閉 server...")
     finally:
         if log_handle:

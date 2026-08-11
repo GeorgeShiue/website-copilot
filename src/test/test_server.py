@@ -48,12 +48,18 @@ class FakeRunManager:
     """替身 RunManager：記錄 save_results_as_json 的呼叫內容。"""
 
     run_name: str = "test"
+    run_path: str = ""  # save_conversation_results 分檔路徑需要
 
     def __init__(self) -> None:
         self.saved: dict[str, Any] | None = None
+        self.saved_to: list[tuple[dict[str, Any], str]] = []
 
-    def save_results_as_json(self, results: dict[str, Any]) -> None:
+    def save_results_as_json(
+        self, results: dict[str, Any], file_path: str | None = None
+    ) -> None:
         self.saved = results
+        if file_path is not None:
+            self.saved_to.append((results, file_path))
 
 
 class FakeGraph:
@@ -142,6 +148,9 @@ def test_chat_sse_streams_tokens_and_done():
     assert saved is not None
     assert saved["results"][0]["response"] == "你好"
     assert saved["results"][0]["sources"] == ["https://example.com/page"]
+    # thread_id 分檔：auto-{uuid} 亦寫入 results_<thread_id>.json
+    assert len(fake.run_manager.saved_to) == 1
+    assert fake.run_manager.saved_to[0][1].endswith(".json")
 
 
 def test_chat_thread_id_echo():
@@ -181,6 +190,62 @@ def test_health():
         response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_cors_headers_present():
+    """CORS middleware：跨域請求帶正確 header。"""
+    with _make_client(FakeAgent()) as client:
+        response = client.get("/api/health", headers={"Origin": "http://example.com"})
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "*"
+
+
+def test_cors_preflight():
+    """CORS preflight（OPTIONS）應允許 POST。"""
+    with _make_client(FakeAgent()) as client:
+        response = client.options(
+            "/api/chat",
+            headers={
+                "Origin": "http://example.com",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "*"
+    assert "POST" in response.headers.get("access-control-allow-methods", "")
+
+
+def _make_client_with_origins(agent: FakeAgent, origins: list[str]) -> TestClient:
+    """建立指定 CORS 來源的 TestClient。"""
+    app = create_app(agent=cast(RAGAgent, agent), allowed_origins=origins)
+    return TestClient(app)
+
+
+def test_cors_restricted_origins_allows_listed():
+    """限縮來源時：清單內的 origin 帶 access-control-allow-origin header。"""
+    with _make_client_with_origins(
+        FakeAgent(), ["https://lab.example.edu.tw"]
+    ) as client:
+        response = client.get(
+            "/api/health", headers={"Origin": "https://lab.example.edu.tw"}
+        )
+    assert response.status_code == 200
+    assert (
+        response.headers.get("access-control-allow-origin")
+        == "https://lab.example.edu.tw"
+    )
+
+
+def test_cors_restricted_origins_rejects_others():
+    """限縮來源時：清單外的 origin 不帶 access-control-allow-origin header。"""
+    with _make_client_with_origins(
+        FakeAgent(), ["https://lab.example.edu.tw"]
+    ) as client:
+        response = client.get(
+            "/api/health", headers={"Origin": "https://evil.example.com"}
+        )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") is None
 
 
 def test_static_files_served():

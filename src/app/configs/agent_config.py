@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LLM_NAME = "gemini-3.1-flash-lite"
 DEFAULT_SYSTEM_PROMPT = (
-    "你是實驗室網站問答助理。回答問題前，請先使用 webpage_retriever 工具"
-    "檢索實驗室網站中的相關資訊，再根據檢索結果回答。"
+    "你是網站助理。回答問題前，請先使用 webpage_retriever 工具"
+    "檢索網站中的相關資訊，再根據檢索結果回答。"
     "回答時必須列出參考來源的 URL。若檢索結果不足以回答，請誠實說明。"
 )
 

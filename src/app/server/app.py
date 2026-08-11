@@ -81,14 +81,14 @@ async def _event_stream(
         state = agent.graph.get_state(config)
         messages = state.values.get("messages", []) if state.values else []
         sources = extract_sources_from_messages(messages)
-        # 落盤與 CLI 慣例一致：每輪覆寫 results.json（多輪累積留待 M5 依 thread_id 分檔）
+        # 落盤：每輪覆寫 results.json（最新一輪），並依 thread_id 分檔保留對話歷史
         result = {
             "query": query,
             "response": "".join(chunks),
             "sources": sources,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
-        save_conversation_results(agent, [result])
+        save_conversation_results(agent, [result], thread_id=thread_id)
         yield _sse(
             {
                 "type": "done",
@@ -104,12 +104,14 @@ async def _event_stream(
 def create_app(
     config_name: str = "default",
     agent: RAGAgent | None = None,
+    allowed_origins: list[str] | None = None,
 ) -> FastAPI:
     """建立 FastAPI app。
 
     Args:
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
         agent: 可注入的 RAGAgent（測試替身）；None 時由 lifespan 建立。
+        allowed_origins: CORS 允許的來源列表；None 時預設 ["*"]（demo 全開放）。
 
     Returns:
         FastAPI：含 /api/chat（SSE）、/api/health 與 CORS。
@@ -131,8 +133,8 @@ def create_app(
     app = FastAPI(title="Website Copilot Chat", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
-        # demo 階段全開放；M5 收斂時再限縮至自有網站來源
-        allow_origins=["*"],
+        # 預設 demo 全開放；自有網站部署時可限縮（如 ["https://lab.example.edu.tw"]）
+        allow_origins=allowed_origins if allowed_origins is not None else ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -183,12 +185,18 @@ def run_server(
     config_name: str = "default",
     host: str = "127.0.0.1",
     port: int = 8000,
+    allowed_origins: list[str] | None = None,
 ) -> None:
     """啟動聊天伺服器（cli.py serve 分派入口，blocking）。
+
+    Args:
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
+        host / port: 監聽位址。
+        allowed_origins: CORS 允許來源（None 時全開放）。
 
     傳 app 物件給 uvicorn（而非 import string）：避免 reloader 子程序
     的 sys.path 不含 src/ 導致 ModuleNotFoundError。
     """
     setup_logging("debug")
-    app = create_app(config_name=config_name)
+    app = create_app(config_name=config_name, allowed_origins=allowed_origins)
     uvicorn.run(app, host=host, port=port)

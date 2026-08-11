@@ -3,7 +3,7 @@
 | 項目 | 內容 |
 | --- | --- |
 | 階段 | Phase 2/3（Agent + 聊天介面 MVP），M3 前置選型 |
-| 關聯文件 | `docs/work/2026_0809-phase2_3_mvp.md`（§4.2 聊天介面決策、M3 里程碑） |
+| 關聯文件 | `docs/work/2026_0810-phase2_3_mvp.md`（§4.2 聊天介面決策、M3 里程碑） |
 | 結論 | **採用 SSE**（FastAPI `StreamingResponse`），不採用 WebSocket |
 | 紀錄日期 | 2026/08/10 |
 

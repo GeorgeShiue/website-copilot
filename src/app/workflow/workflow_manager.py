@@ -191,12 +191,22 @@ class RunManager:
         log_path = os.path.join(self.run_path, "terminal.log")
         self.log_path = log_path
 
-    def save_results_as_json(self, results: dict[str, Any]) -> None:
-        """將結果寫入 JSON 檔案（爬取結果或 query 結果皆可）。"""
-        os.makedirs(os.path.dirname(self.results_json_path), exist_ok=True)
-        with open(self.results_json_path, "w", encoding="utf-8") as f:
+    def save_results_as_json(
+        self, results: dict[str, Any], file_path: str | None = None
+    ) -> None:
+        """將結果寫入 JSON 檔案（爬取結果或 query 結果皆可）。
+
+        Args:
+            results: 要寫入的 dict。
+            file_path: 目標檔案路徑（預設 self.results_json_path；
+                亦可傳入其他路徑做分檔落盤，如 results_<thread_id>.json）。
+        """
+        if file_path is None:
+            file_path = self.results_json_path
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
-        self.latest_results_json_path = self.results_json_path
+        self.latest_results_json_path = file_path
 
     def save_results_as_md(
         self,

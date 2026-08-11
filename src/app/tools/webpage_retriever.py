@@ -22,7 +22,7 @@ class RetrieverInputSchema(BaseModel):
     因此 description 應提供足夠的指引，幫助 LLM 判斷何時使用、如何填寫參數。
     """
 
-    query: str = Field(description="搜尋查詢字串，用於檢索實驗室網站中的相關網頁內容")
+    query: str = Field(description="搜尋查詢字串，用於檢索網站中的相關網頁內容")
     filter_dict: dict[str, Any] | None = Field(
         default=None,
         description=(
@@ -146,8 +146,7 @@ def _webpage_retriever_to_tool(rag: RAG) -> StructuredTool:
     tool = StructuredTool(
         name="webpage_retriever",
         description=(
-            "檢索實驗室網站網頁中與查詢相關的內容。"
-            "當你需要查詢實驗室的論文、研究主題、人員資訊、公告時使用此工具。"
+            "檢索網站網頁中與查詢相關的內容。"
             "可透過 filter_dict 過濾特定頁面類型"
             '（如 {"page_type": "paper"} 只查論文），'
             "或調整 similarity_top_k 控制回傳數量。"

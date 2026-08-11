@@ -87,7 +87,7 @@
   ```python
   from app.tools.webpage_retriever import create_webpage_retriever_tool
   tool = create_webpage_retriever_tool()  # config_name 預設 "default"（Milvus hybrid）
-  agent = create_agent(model, [tool], system_prompt="你是實驗室網站問答助理。")
+  agent = create_agent(model, [tool], system_prompt="你是網站助理。")
   result = agent.invoke({"messages": [("human", "實驗室 2024 年後的論文？")]})
   tool.rag.close()
   ```

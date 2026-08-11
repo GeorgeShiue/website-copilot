@@ -12,9 +12,9 @@
 與此並行的尚有**知識圖譜檢索（網站結構）**、**資料庫檢索（多欄位資料）** 兩條策略路徑，依資料類型分流選用。
 
 - **模組實作**
-	- `src/app/modules/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
-	- `src/app/modules/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
-	- `src/app/modules/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
+	- `src/app/engines/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
+	- `src/app/engines/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
+	- `src/app/engines/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
 	- `src/app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
 	- `src/utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
 	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
@@ -153,7 +153,7 @@ RAG（runtime）
 
 ### 5. 成效評估
 
-`evaluate(query, response)` 使用兩項指標評估查詢結果（Prompt 模板定義於 `app/modules/rag_eval_prompts.py`）：
+`evaluate(query, response)` 使用兩項指標評估查詢結果（Prompt 模板定義於 `app/engines/rag_eval_prompts.py`）：
 
 #### Faithfulness（忠實度）
 - `FaithfulnessEvaluator` 搭配自訂 `FAITHFULNESS_EVAL_TEMPLATE` 與 `FAITHFULNESS_REFINE_TEMPLATE`。

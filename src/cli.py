@@ -87,6 +87,7 @@ class ServerRunConfig:
     config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
     host: str = "127.0.0.1"
     port: int = 8000
+    allowed_origins: list[str] | None = None  # CORS 允許來源（None 全開放）
 
 
 @dataclass

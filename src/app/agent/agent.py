@@ -96,7 +96,7 @@ def create_rag_agent(
 
     建立流程：
     1. 初始化 RunManager（module="agent"）與落盤路徑
-    2. 以 RAG config（test）建立 retriever tool（RAG 資源，檢索參數由 RAG 層管理）
+    2. 以 RAG config（default）建立 retriever tool（RAG 資源，檢索參數由 RAG 層管理）
     3. 以 AgentConfig.llm_name 建立 ChatModel
     4. create_agent 組裝並包裝為 RAGAgent
 
@@ -304,12 +304,15 @@ async def astream_agent_result(
 def save_conversation_results(
     agent: RAGAgent,
     results: list[dict[str, Any]],
+    thread_id: str | None = None,
 ) -> None:
-    """將對話結果落盤為 results.json（含設定摘要）。
+    """將對話結果落盤（含設定摘要）。
 
     Args:
         agent: create_rag_agent() 回傳的 RAGAgent。
         results: ask_agent() 回傳的 dict 列表。
+        thread_id: 提供時另以 results_<thread_id>.json 分檔保留對話歷史
+            （results.json 仍維持最新一輪，向後相容）。
     """
     run_manager = agent.run_manager
     config = agent.config
@@ -324,3 +327,10 @@ def save_conversation_results(
         "results": results,
     }
     run_manager.save_results_as_json(results_dict)
+    if thread_id:
+        # 檔名安全化：thread_id 為 auto-{uuid}（無特殊字元），仍以防萬一置換
+        safe_id = thread_id.replace("/", "_")
+        run_manager.save_results_as_json(
+            results_dict,
+            file_path=os.path.join(run_manager.run_path, f"results_{safe_id}.json"),
+        )

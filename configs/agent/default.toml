@@ -1,3 +1,3 @@
 [agent]
 llm_name = "gemini-3.1-flash-lite"
-system_prompt = "你是實驗室網站問答助理。回答問題前，請先使用 webpage_retriever 工具檢索實驗室網站中的相關資訊，再根據檢索結果回答。回答時必須列出參考來源的 URL。若檢索結果不足以回答，請誠實說明。"
+system_prompt = "你是網站助理。回答問題前，請先使用 webpage_retriever 工具檢索網站中的相關資訊，再根據檢索結果回答。回答時必須列出參考來源的 URL。若檢索結果不足以回答，請誠實說明。"

@@ -1,3 +1,5 @@
+import pytest
+
 from app.workflow.workflow import (
     run_agent,
     run_rag_build,
@@ -7,6 +9,9 @@ from app.workflow.workflow import (
 from utils.log_helper import setup_logging
 
 setup_logging("debug")
+
+# 端到端測試（真實爬蟲 / LLM / 建庫），以 pytest -m "not slow" 略過
+pytestmark = pytest.mark.slow
 
 
 def test_website_crawler():

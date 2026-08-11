@@ -1,10 +1,12 @@
 # Website Copilot
-> 專案目前集中在第 1 階段：資訊檢索。後續規劃涵蓋網站導航與專責代理。
+> 專案涵蓋三階段：資訊檢索（Phase 1）、AI Agent（Phase 2）、嵌入式互動介面（Phase 3）。後續規劃涵蓋網站導航與專責代理。
 
-Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的知識庫。它會爬取網頁、清理並格式化內容、使用視覺語言模型摘要圖片，並建立本地向量索引以供檢索。
+Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的知識庫，並以 LangGraph Agent + RAG 檢索回答使用者問題。它會爬取網頁、清理並格式化內容、使用視覺語言模型摘要圖片、建立本地向量索引，並提供可嵌入網站的串流聊天介面（iframe / script widget / Chrome Extension）。
 
 
 ## 專案功能
+
+### Phase 1：資訊檢索
 
 - 爬取網站並匯出已清理的 Markdown 頁面。
 - 摘要網頁圖片並將說明附加到 Markdown 輸出中。
@@ -14,6 +16,20 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 - 使用 Gemini / GPT 驅動的查詢引擎處理索引後內容，並自動評估回答品質。
 - 保存每次執行的輸出 artefacts、日誌和生成的 Markdown。
 
+### Phase 2：AI Agent
+
+- 以 LangGraph `create_agent` 包裝 `webpage_retriever` 工具，自動檢索後回答（回答內含引用來源 URL）。
+- 多輪對話記憶（`InMemorySaver` + `thread_id`）。
+- SSE 逐 token 串流（CLI 與 server 共用 `astream_text` 核心）。
+- 對話落盤 `chats/<ts>/agent/<config>/`（每輪覆寫 `results.json` + 依 thread_id 分檔）。
+
+### Phase 3：嵌入式互動介面
+
+- FastAPI + SSE 聊天 API（`POST /api/chat`，事件協定 token / done / error）。
+- iframe 嵌入（`/static/chat.html`）、script widget（`/static/widget.js`，shadow DOM 隔離樣式）。
+- Chrome Extension（`extension/`，background 代理繞過 CSP/CORS）。
+- 前端 markdown 渲染（粗體 / 列表 / 連結 / 程式碼，先 escape 防 XSS）。
+
 ## 專案流程
 
 1. 爬取目標網站，從 URL 解析頁面類型，將結果儲存為 Markdown 和 JSON。
@@ -21,6 +37,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 3. 將處理後的 Markdown 載入向量索引（Qdrant BM25 或 Milvus BGE-M3），同時建立稠密向量與稀疏向量索引。
 4. 將檢索能力包裝為工具，支援動態過濾條件供 Agent 呼叫。
 5. 執行查詢時以 Dense + Sparse 混合檢索，過濾指定頁面類型，由 LLM 生成有來源的回答。
+6. Agent 以 LangGraph 推理迴圈呼叫檢索工具，回答附引用來源；聊天伺服器以 SSE 串流傳給前端。
+7. 前端以 iframe / widget / Extension 三種表面嵌入網站，支援多輪對話與 markdown 渲染。
 
 ## 檔案結構
 
@@ -33,71 +51,86 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── README.md
 ├── uv.lock
 ├── src/
-│   ├── cli.py                   # CLI 入口
+│   ├── cli.py                   # CLI 入口（含 agent-cli / server-cli）
 │   ├── exp.py                   # 實驗或快速測試入口
 │   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
 │   ├── app/
+│   │   ├── agent/
+│   │   │   └── agent.py         # LangGraph Agent（RAGAgent / create_rag_agent / astream_text）
 │   │   ├── configs/
+│   │   │   ├── agent_config.py
 │   │   │   ├── rag_config.py
 │   │   │   ├── webpage_image_summarizer_config.py
 │   │   │   └── website_crawler_config.py
-│   │   ├── modules/
+│   │   ├── engines/             # 核心引擎層（舊 modules/ 改名）
 │   │   │   ├── rag.py
-│   │   │   ├── rag_factory.py            # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   │   ├── rag_eval_prompts.py       # 評估 Prompt 模板
+│   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   │   ├── rag_eval_prompts.py
 │   │   │   ├── webpage_image_summarizer.py
 │   │   │   └── website_crawler.py
+│   │   ├── server/
+│   │   │   ├── app.py           # FastAPI：/api/chat（SSE）、/api/health、static mount
+│   │   │   └── static/
+│   │   │       ├── chat.html    # iframe 版聊天頁
+│   │   │       ├── widget.js    # 浮動 widget（mount factory，網頁/Extension 共用）
+│   │   │       └── demo.html    # 嵌入示範
 │   │   ├── tools/
-│   │   │   └── webpage_retriever.py      # RAG retriever → LangChain StructuredTool
+│   │   │   └── webpage_retriever.py  # RAG retriever → LangChain StructuredTool
 │   │   └── workflow/
 │   │       ├── workflow.py
 │   │       ├── workflow_config.py
 │   │       └── workflow_manager.py
 │   ├── test/
-│   │   ├── test_main.py
-│   │   └── test_module.py
+│   │   ├── test_main.py         # 主流程端到端
+│   │   ├── test_module.py       # 模組端到端（slow 標記）
+│   │   ├── test_agent.py        # Agent 純函式測試
+│   │   └── test_server.py       # Server SSE / CORS / static 測試
 │   └── utils/
 │       ├── config_helper.py
 │       ├── log_helper.py
 │       └── rag_helper.py
+├── extension/                   # Chrome Extension（M4b）
+│   ├── manifest.json            # MV3：content_scripts + background
+│   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）
+│   ├── content.js               # 注入 widget（streamChat 代理）
+│   └── widget.js                # 複本（與 static/widget.js 同步）
+├── scripts/
+│   ├── server_up.py             # 一條指令啟動 server（rich/tyro）
+│   ├── m3_server_smoke.py       # Server 端到端 smoke
+│   └── m4b_extension_test.py    # Extension 端到端測試
 ├── configs/
+│   ├── agent/                   # Agent 設定（default / test）
 │   ├── rag/
-│   │   ├── default.toml               # 預設設定（Milvus + WeightedRanker hybrid）
-│   │   ├── milvus.toml                 # Milvus + WeightedRanker
-│   │   ├── qdrant.toml                 # Qdrant BM25 Hybrid
-│   │   └── test.toml                   # 測試用（同 default，Milvus hybrid）
+│   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
+│   │   ├── milvus.toml          # Milvus + WeightedRanker
+│   │   ├── qdrant.toml          # Qdrant BM25 Hybrid
+│   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
 │   ├── webpage_image_summarizer/
-│   │   ├── default.toml
-│   │   ├── test.toml
-│   │   └── ...
 │   └── website_crawler/
-│       ├── default.toml
-│       └── test.toml
 ├── data/
 │   ├── rag/
-│   │   └── results/                    # 向量資料庫（qdrant_db/ 或 milvus.db）
+│   │   └── results/             # 向量資料庫（qdrant_db/ 或 milvus.db）
 │   └── webpages/
-│       ├── results/                    # 爬蟲與摘要結果
-│       ├── results.json                # 結果索引
-│       └── module_config.toml          # 模組設定備份
+│       ├── results/             # 爬蟲與摘要結果
+│       ├── results.json         # 結果索引
+│       └── module_config.toml   # 模組設定備份
+├── chats/                       # 聊天記錄（<ts>/agent/<config>/）
 ├── dev/
 ├── docs/
-│   ├── project.md                      # 專案總覽與路線圖
+│   ├── project.md               # 專案總覽與路線圖
 │   ├── code/
-│   │   └── phase1/
-│   │       ├── phase1.md               # Phase 1 實作概覽
-│   │       ├── modules/
-│   │       │   ├── data_collect.md     # 爬蟲模組文件
-│   │       │   ├── data_preprocess.md  # 圖片摘要模組文件
-│   │       │   └── data_retrieve.md    # RAG 檢索模組文件
-│   │       ├── runs/
-│   │       │   ├── cli.md              # CLI 使用方式
-│   │       │   ├── config.md           # 設定機制說明
-│   │       │   └── workflow.md         # Workflow 流程說明
-│   │       └── survey/
-│   │           └── data_process_method.md  # 資料處理方法 survey
-│   └── progress_report/                # 進度報告
-└── runs/                         # 執行輸出（以時間戳資料夾儲存）
+│   │   ├── phase1/
+│   │   │   ├── phase1.md        # Phase 1 實作概覽
+│   │   │   ├── modules/         # 各模組文件
+│   │   │   └── survey/
+│   │   ├── phase2_3_mvp/
+│   │   │   ├── phase2_3_mvp.md  # Phase 2/3 實作概覽
+│   │   │   └── survey/
+│   │   │       └── sse_vs_websocket.md
+│   │   └── runs/                # CLI / config / workflow 說明（跨階段共用）
+│   ├── work/                    # 工作紀錄（2026_0810-phase2_3_mvp.md 等）
+│   └── progress_report/         # 進度報告
+└── runs/                        # 實驗輸出（以時間戳資料夾儲存）
 ```
 
 ## 需求
@@ -138,20 +171,20 @@ playwright install
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/modules/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 Gemini 金鑰。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
+| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`app/agent/agent.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
 | `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
 | `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
 | `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |
-| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | GPT 圖片摘要金鑰。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/modules/webpage_image_summarizer.py` | Gemini 圖片摘要金鑰。 |
+| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/engines/webpage_image_summarizer.py` | GPT 圖片摘要金鑰。 |
+| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/engines/webpage_image_summarizer.py` | Gemini 圖片摘要金鑰。 |
 
 ## 使用方式
 
 ### 執行爬取與圖片摘要流程
 
 ```bash
-python main.py
+uv run python src/main.py
 ```
 
 這會先執行網站爬蟲，然後將爬取結果傳給圖片摘要器。輸出會寫入 `runs/<timestamp>/...`。
@@ -160,26 +193,76 @@ python main.py
 
 ```bash
 # 使用 Milvus + WeightedRanker 執行混合檢索
-python cli.py rag-query-cli --run.config-name milvus
+uv run python src/cli.py rag-query-cli --run.config-name milvus
 
 # 使用 Qdrant BM25 混合檢索
-python cli.py rag-query-cli --run.config-name qdrant
+uv run python src/cli.py rag-query-cli --run.config-name qdrant
 
 # 自訂 top-k 與過濾條件（透過 CLI 覆寫）
-python cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 10 --module.hybrid_top_k 20
+uv run python src/cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 10 --module.hybrid_top_k 20
 ```
 
-也可以透過 `exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
+也可以透過 `src/exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
 
-> **注意**：`exp.py` 內各實驗函式以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `exp.py` 中的 `config_name` 清單。
+> **注意**：`src/exp.py` 內各實驗函式以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `src/exp.py` 中的 `config_name` 清單。
+
+### 執行 Agent 問答（CLI）
+
+```bash
+# 單輪問答（自動檢索 + 附引用來源 + 落盤 chats/）
+uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？"
+
+# 多輪對話（相同 thread-id 記得上下文）
+uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？" --run.thread-id demo
+uv run python src/cli.py agent-cli --run.query "這些人中，有誰是研究生？" --run.thread-id demo
+
+# 串流顯示（逐 token 輸出）
+uv run python src/cli.py agent-cli --run.query "實驗室的研究方向？" --run.stream
+```
+
+### 啟動聊天伺服器（SSE）
+
+```bash
+# 一條指令：啟動 + 等待就緒（約 40 秒建庫）＋保持運行，Ctrl+C 乾淨關閉
+uv run python scripts/server_up.py --port 8000
+
+# 或直接以 CLI 啟動（背景執行）
+uv run python src/cli.py server-cli --run.port 8000
+
+# 限縮 CORS 來源（預設全開放）
+uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.edu.tw
+```
+
+啟動後瀏覽器開啟 **http://localhost:8000/**（自動轉至嵌入示範頁），即可用 iframe 與 widget 兩種方式對話。
+
+### 三種嵌入方式
+
+```html
+<!-- ① iframe：網頁任意位置 -->
+<iframe src="http://localhost:8000/static/chat.html" width="360" height="520"></iframe>
+
+<!-- ② script widget：<\/body> 前加一行（右下角浮動 💬） -->
+<script src="http://localhost:8000/static/widget.js" data-endpoint="http://localhost:8000"><\/script>
+
+<!-- ③ Chrome Extension：chrome://extensions → 載入未封裝項目 → 選 extension/ 資料夾 -->
+<!--    在任何網站右下角浮出 widget（background 代理繞過 CSP/CORS） -->
+```
 
 ### 執行 smoke tests
 
 ```bash
-pytest
-```
+# 快速路徑（不含真實爬蟲 / LLM / 建庫）
+uv run pytest -m "not slow"
 
-`test/` 中的測試會使用 `test` 設定檔，檢查爬蟲與圖片摘要器。
+# 完整測試（含端到端 slow 測試）
+uv run pytest
+
+# Server 端到端驗證
+uv run python scripts/m3_server_smoke.py --start-server
+
+# Extension 端到端驗證（無顯示環境自動 xvfb-run）
+uv run python scripts/m4b_extension_test.py
+```
 
 ## 輸出
 
@@ -197,6 +280,15 @@ pytest
 
 `run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
 
+### 聊天記錄（`chats/`）
+
+Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
+
+- `results.json` — 最新一輪問答（含 config 摘要）
+- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史
+- `results/milvus.db` — 每次建構隔離的向量庫副本（避免覆寫正式庫 `data/rag/results/`）
+- `module_config.toml` / `run_config.toml` / `terminal.log` — 設定備份與日誌
+
 ## 開發
 
 - 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定。
@@ -212,9 +304,9 @@ pytest
 - `docs/code/phase1/modules/data_collect.md` — 爬蟲模組說明
 - `docs/code/phase1/modules/data_preprocess.md` — 圖片摘要模組說明
 - `docs/code/phase1/modules/data_retrieve.md` — RAG 檢索模組說明
-- `docs/code/phase1/runs/cli.md` — CLI 使用方式
-- `docs/code/phase1/runs/config.md` — 設定機制說明
-- `docs/code/phase1/runs/workflow.md` — Workflow 流程說明
+- `docs/code/runs/cli.md` — CLI 使用方式
+- `docs/code/runs/config.md` — 設定機制說明
+- `docs/code/runs/workflow.md` — Workflow 流程說明
 - `docs/code/phase1/survey/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態
