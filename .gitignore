@@ -10,4 +10,6 @@ tmp/
 storage_context/
 ingestion_cache/
 
-runs/
+/runs/
+/chats/
+.DS_Store

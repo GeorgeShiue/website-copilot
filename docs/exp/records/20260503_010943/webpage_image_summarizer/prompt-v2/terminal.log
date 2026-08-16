@@ -1,0 +1,175 @@
+──────────────────────────────────────────────────── Webpage Image Summarizer ─────────────────────────────────────────────────────
+───────────────────────────────────────── WebpageImageSummarizer Config Loaded from toml ──────────────────────────────────────────
+            init
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config            ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ download_timeout  │ 10.0  │
+│ max_retries       │ 6     │
+│ success_threshold │ 0.8   │
+└───────────────────┴───────┘
+                                                             summarize
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                                                                                         ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ image_source    │ markdown                                                                                                      │
+│ model           │ gemini-2.5-flash-lite                                                                                  │
+│ prompt          │ 【角色設定 (Role)】                                                                                           │
+│                 │ 你是一位專業的視覺數據分析師與網頁內容無障礙專家，具備精準解讀各類網頁圖像（包含攝影照片、資訊圖表、UI截圖與… │
+│                 │                                                                                                               │
+│                 │ 【核心任務 (Task)】                                                                                           │
+│                 │ 請分析這張從網頁上下載的圖片，並提供結構化、客觀且具備高度視覺證據支持的詳細描述。                            │
+│                 │                                                                                                               │
+│                 │ 【視覺思維鏈分析步驟 (Visual Chain-of-Thought)】                                                              │
+│                 │ 在給出最終描述前，請務必按照以下步驟進行推理與掃描：                                                          │
+│                 │                                                                                                               │
+│                 │ 全域掃描 (Global                                                                                              │
+│                 │ Scan)：判定圖片的基礎類型（例如：實景照片、電商產品圖、文字海報、數據圖表或軟體截圖）與整體環境氛圍。         │
+│                 │                                                                                                               │
+│                 │ 特徵與文字提取 (Element & Text                                                                                │
+│                 │ Extraction)：條列出畫面中的核心物件、人物特徵或關鍵圖示。若圖片中包含任何可見的印刷或手寫文字（OCR），請精確… │
+│                 │                                                                                                               │
+│                 │ 空間與語境關係 (Spatial & Contextual                                                                          │
+│                 │ Relations)：描述核心物件在畫面中的相對位置（如前景、背景、上下左右）以及它們之間的邏輯互動關係。              │
+│                 │                                                                                                               │
+│                 │ 【輸出約束與格式 (Constraints & Output)】                                                                     │
+│                 │ 請嚴格依照以下的 Markdown 格式輸出。保持語句簡明扼要，絕不能捏造或過度解釋圖片中未明確顯示的細節。            │
+│                 │                                                                                                               │
+│                 │ 1. 圖片類型與主旨                                                                                             │
+│                 │ [請用一句話簡潔總結這張圖片的類型與核心畫面]                                                                  │
+│                 │                                                                                                               │
+│                 │ 2. 核心視覺元素與文字                                                                                         │
+│                 │ 主要物件/特徵： [條列關鍵物件與細節]                                                                          │
+│                 │ 提取文字 (OCR)： [精確列出圖片中的重要文字；若無則填寫「無可見文字」]                                         │
+│                 │                                                                                                               │
+│                 │ 3. 綜合場景敘述                                                                                               │
+│                 │ [基於上述分析，用 2 到 3 個流暢的段落描述圖片的佈局、細節與整體情境]                                          │
+│                 │                                                                                                               │
+│ vlm_max_workers │ 10                                                                                                            │
+└─────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+──────────────────────────────────────────────────────── Experiment Paths ─────────────────────────────────────────────────────────
+
+  Type             Directory                                                              Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base             runs/20260503_010943                                                   created
+  Module           runs/20260503_010943/webpage_image_summarizer                          created
+  Run              runs/20260503_010943/webpage_image_summarizer/prompt-v2                created
+  Results folder   runs/20260503_010943/webpage_image_summarizer/prompt-v2/results        created
+  Results json     runs/20260503_010943/webpage_image_summarizer/prompt-v2/results.json   wait for saving
+  Config toml      runs/20260503_010943/webpage_image_summarizer/prompt-v2/config.toml    wait for saving
+  Log file         runs/20260503_010943/webpage_image_summarizer/prompt-v2/terminal.log   wait for saving
+
+───────────────────────────────────────────────────── Loading Latest Results ──────────────────────────────────────────────────────
+INFO     Latest crawl results found at: ./runs/20260503_010943/webpage_image_summarizer/prompt-v1/results.json
+─────────────────────────────────────────────────────── Image Summarization ───────────────────────────────────────────────────────
+──────────────────────────────────────── Summarizing Images in [Web_智慧與資料探勘實驗室] ─────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAai5IHNB6-zE1qjPXB50gPB_jqvy647AUGMnqA-mIE-tr9Hppddh6nxbJ6OKgZNZ7nFomf
+         I7bSqFc9CH18QhnkUGPN-jymcdMl1IeI5-Tvx260_xvMX4Ler72l6QBd4dVIfH7CEFgwb_4s-jiIOZsLomepLm455t7HdQRU43i8PTw1qYOQLcuDeoHXdtmDLx
+         NLEQduaXmO_94=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUC0peXPemWv5heC1uQUurW6MN0HI8Zh_GfzB5Fp7EHSYsY-jdzWXBJYGqN6hHCaHWUj8lBV
+         TUkYVA3fGdL1vJyjwcQxAswJ_uBBA6Ph4EKOZBC_aVgNsWLrI8e13RY3fsZFedPtjBWZ6jFrF629jXvprIRACq1y6EasttUlZw3xeDD2kOawPcIk5nfv5FrE0k
+         zglf0u8gmVGPqEwncNAkWPIyhU2ICKvbLQtfg=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUCrBJQ_vC6USnVi2JFax3GxDab9V7zdrM8eYsgOi0Kkrs4SgtQKGeRaKiJTUlyeiY4hZNGp
+         QBuoSxwv7BLi75Z1n1rM3qAR6WWEA1tO0mCMp3yvpIbAMFa2joa4M1iXb8ANfOFNuJS8LY6Yn4T5ObtNYFuHiodGdu5Ooe6OMKYeY78z05WMvQpeI2Q=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUD5szDa4qOOQ1N0nidnWxeNdRHqoVDTZF38RiWbBADjHWSRHoecEdSn1WsrraobA5crYt99
+         GMLSqpxxKEOfaKx0oHWhNd6McgotMlkSWXcuTLjfdKi_byY2ECJM_6cWZ09luKLrAxe3zC7kZtQ_wByGRNVUTKzB6TzUORd_4oxlx_gqqmCHeM3GQMYY1OJbHA
+         B6qJe29tUSf8UUR2VpGdZblq7yMIezzkO_o5E=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUBokGSwWG1lSL-1X4yb_-uYyqqK2PzC1ZboNLuIPUueuRWHbQeY1z07d_9vC5lzonUF5I5I
+         LC6-P_jL_9GUwXsIoAja1kpId8w8dwWWG15bn8IT5BeD_rWhF6sYm-Jg4O1MpmuT0iJUqHk72B0qVdgW1VG4g0sxAQp9yPiZiGnjUXJuJfw0JzLfjmk=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.095s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/5 3.144s
+DEBUG    Caption generation succeeded (cost_usd=$0.000177 prompt_tokens=690 completion_tokens=269 total_tokens=959)
+Generating captions... ━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/5 3.871s
+DEBUG    Caption generation succeeded (cost_usd=$0.000205 prompt_tokens=690 completion_tokens=341 total_tokens=1031)
+Generating captions... ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 4.188s
+DEBUG    Caption generation succeeded (cost_usd=$0.000217 prompt_tokens=690 completion_tokens=369 total_tokens=1059)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━ 3/5 4.401s
+DEBUG    Caption generation succeeded (cost_usd=$0.000219 prompt_tokens=690 completion_tokens=375 total_tokens=1065)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╺━━━━━━━ 4/5 5.034s
+DEBUG    Caption generation succeeded (cost_usd=$0.000226 prompt_tokens=690 completion_tokens=393 total_tokens=1083)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 5.110s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001044 │
+│ success           │ 5         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────────────────── Summarizing Images in [Advisor] ─────────────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUAjAL9MmxnnyiwMmLy4NZVov2AvKvh4Kn-iMGcBXiG4G4UGhjTP2MpcWvjLLGeCCnXKCS0M
+         eEZhDf6vQcmM-LqBsVP3BNSuhW3mAcELVoBSlFGpHI9uqcEgYt-Cm5CjMU_E-wzL1s4HNCTiqq-P9TAcYFhgde8kx6pOmWgaSFrXh2_1EQcc8cdzp9nDMB1oVi
+         01q5uKav2kO60cjMzvN23BUOpGNDI3Vj839pE=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.083s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/1 5.023s
+DEBUG    Caption generation succeeded (cost_usd=$0.000198 prompt_tokens=690 completion_tokens=322 total_tokens=1012)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 5.034s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000198 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────── Summarizing Images in [感謝QSAN捐贈雙控網路儲存設備] ───────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 0.000s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUC2KeIT6pD48hiQp5mh9EFhHVb2rHN4qwxekiFIbO8Kzx1ZXxwxujjsk4jwtXOCQ8JPmQGg
+         fB7G-X9_MKhmIwwSKkZnfALfFZTV9qxf05Jbz5OyBNDlJfXzbmbOOOmqKd8ULvHiPXEWj06XMlZkMf9CtSHTYFTSRl-ZyiQxqiQPMh57n08XCMtUKXrpwDmbQ4
+         jrhA=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 0.105s
+DEBUG    Image download succeeded
+         (url=https://lh3.googleusercontent.com/sitesv/AA5AbUDeZrn74LVdeLBH9T5Pvd9I6Ma-sLzV3AHfpqYG8HRL08bkxkPz5jAkA8l-XAUEXMef7ySl
+         aSL9WIVsN96JwH6Zf5u_tTrhkQTo1gBQfdg3u5V9drR_llHerrAAciJtxISOkfFW0xCfuSVrv7rkO-LiUe6rRNLcg0wEFEdBy7yYGRX8YGsZHhm9t9bd4zMgto
+         nuRIYw=w1280)
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.202s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/2 4.106s
+DEBUG    Caption generation succeeded (cost_usd=$0.000289 prompt_tokens=690 completion_tokens=550 total_tokens=1240)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━ 1/2 9.174s
+DEBUG    Caption generation succeeded (cost_usd=$0.000305 prompt_tokens=690 completion_tokens=589 total_tokens=1279)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 9.208s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000594 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────────────────────────────────────── All Image Summarize Stats ────────────────────────────────────────────────────
+┏━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric   ┃ Value     ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd │ $0.001835 │
+│ success  │ 8         │
+│ failure  │ 0         │
+└──────────┴───────────┘
+────────────────────────────────────────────────── Image Summarization Completed ──────────────────────────────────────────────────
+
+  Type           Directory                                                              Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Results json   runs/20260503_010943/webpage_image_summarizer/prompt-v2/results.json   saved
+  Config toml    runs/20260503_010943/webpage_image_summarizer/prompt-v2/config.toml    saved
+  Log file       runs/20260503_010943/webpage_image_summarizer/prompt-v2/terminal.log   saved

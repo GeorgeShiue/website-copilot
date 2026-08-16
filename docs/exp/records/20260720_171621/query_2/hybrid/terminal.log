@@ -1,0 +1,252 @@
+─────────────────────────────────────────────────── RAG Query (hybrid) ────────────────────────────────────────────────────
+─────────────────────────────────────────────── Rag Config Loaded from toml ───────────────────────────────────────────────
+                    init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages │
+└───────────────────────────┴───────────────┘
+                          vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value                                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages                             │
+│ hybrid_ranker         │ WeightedRanker                       │
+│ hybrid_ranker_params  │ {'weights': [1.0, 0.5]}              │
+│ milvus_uri            │ data/rag/results/milvus_hybrid_q2.db │
+│ qdrant_db_folder_path │ data/rag/results/qdrant_db           │
+│ vector_store_type     │ milvus                               │
+└───────────────────────┴──────────────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ alpha            │ 0.5    │
+│ hybrid_top_k     │ 10     │
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+└──────────────────┴────────┘
+              query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                      ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.0                        │
+│ llm_name │ gemini-3.1-flash-lite      │
+│ query    │ 實驗室在2024年有哪些活動？ │
+└──────────┴────────────────────────────┘
+───────────────────────────────────────────────── Building All Resources ──────────────────────────────────────────────────
+
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
+Loading files: 100%|##########| 47/47 [00:00<00:00, 25578.34it/s]
+INFO     Loading 47 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:00<00:00, 19.03it/s]
+Applying transformations: 100%|##########| 5/5 [00:00<00:00, 28.05it/s]
+INFO     Pipeline produced 279 nodes
+
+Downloading (incomplete total...): 0.00B [00:00, ?B/s]
+
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]
+Fetching 30 files: 100%|##########| 30/30 [00:00<00:00, 5578.77it/s]
+
+Download complete: : 0.00B [00:00, ?B/s]
+Download complete: : 0.00B [00:00, ?B/s]
+
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]
+Loading weights: 100%|##########| 391/391 [00:00<00:00, 9480.38it/s]
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     MilvusLite server started for /home/george/website-copilot/data/rag/results/milvus_hybrid_q2.db on port 39397
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+INFO     Successfully built vector store (type=milvus, hybrid_ranker=WeightedRanker)
+
+Generating embeddings:   0%|          | 0/279 [00:00<?, ?it/s]
+Generating embeddings:  92%|#########1| 256/279 [00:03<00:00, 80.83it/s]
+Generating embeddings: 100%|##########| 279/279 [00:04<00:00, 55.46it/s]
+Generating embeddings: 100%|##########| 279/279 [00:04<00:00, 60.70it/s]
+INFO     Successfully built index from nodes
+INFO     Successfully built retriever (query mode=hybrid)
+INFO     Successfully built query engine
+─────────────────────────────────────────────────── Query & Response 1 ────────────────────────────────────────────────────
+INFO     Query: 實驗室在2024年有哪些活動？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 實驗室團隊在2024年的活動與表現如下：
+
+         *   **競賽與獎項：**
+             *   **2024 法律 x 法遵科技黑客松：** 團隊獲得 Lawsnote 法遵/公司治理特別獎。
+             *   **2024 和泰 MaaS 黑客松：** 張勛皓、孫詠淳獲冠軍及獨具匠心獎。
+             *   **第 29 屆人工智慧與應用研討會 (TAAI 2024)：**
+         李倬安、葉展維以「基於深度學習的跨多輸入法編輯整合系統」榮獲 The Appier-Sponsored Award。
+             *   **ROCLING 2024：** 黃懷萱、龔若齊、簡國峻獲 Best Paper Award。
+             *   **第 29 屆 InnoServe 大專校院資訊應用服務創新競賽：** 張勛皓、沈哲寬、曾廷綸獲資安技術組第三名。
+             *   **其他榮譽：** 許耀文、陳冠蓉入圍中技社 AI 創意競賽決賽；張勛皓參與通訊創新節能優化大賽（2024
+         通訊大賽）；葉展維獲選為 2024 時代基金會 Epoch School 實習計畫的參訪代表。
+
+         *   **學術活動：**
+             *   **論壇：** 於 10 月 4 日至 5 日舉辦「人工智慧浪潮下之資訊科學與數位學習之變革與挑戰」論壇。
+───────────────────────────────────────────────────────── Sources ─────────────────────────────────────────────────────────
+INFO     Retrieved 10 sources
+───────────────────────── Page: Letter to potential students  |  Score: 0.982  |  Type: personnel ─────────────────────────
+INFO     ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+───────────────────────── Page: Letter to potential students  |  Score: 0.972  |  Type: personnel ─────────────────────────
+INFO     # Prospective Students
+         ## 專題生/研究生找指導教授的說明
+         ## 研究方向與申請流程
+
+         請仔細檢視LAB的研究領域及近期的發表論文，以確保你的研究意向與實驗室我們的研究活動相符。
+───────────────────────────────── Page: 校外奬項  |  Score: 0.948  |  Type: announcement ──────────────────────────────────
+INFO     ## 校外奬項
+
+         恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名 — Jan. 17,
+         2026
+
+         恭賀張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6%E5%
+         AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E5%90%88%
+         E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhK ...
+────────────────────────────────── Page: Activities  |  Score: 0.947  |  Type: personnel ──────────────────────────────────
+INFO     ### 2022/8/18
+
+
+         > # Image-7
+         >
+         > **圖片摘要：**
+         > 十二名男女站在會議室中，中間女性手持生日卡片，右側女性手持拉拉熊玩偶。
+         >
+         > **主要元素：**
+         > 1. 實體: 會議室, 生日卡片, 拉拉熊玩偶, 口罩, 大學生
+         > 2. OCR文字: Happy birthday to you
+         > 3. 主題標籤: 生日慶祝, 團體合照, 校園生活
+         >
+         > **頁面關聯：**
+         > 本圖片紀錄成員生日慶祝活動，屬於大學實驗室或社團團體合照。
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.947  |  Type: general ──────────────────────
+INFO     恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6%E5%
+         AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E5%90%88%
+         E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmbomtcx ...
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.657  |  Type: general ──────────────────────
+INFO     恭喜！[張嘉惠老師指導 碩一生
+         許耀文同學及陳冠蓉同學以](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%
+         E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%A8%B1%E8%80%80%E6%96%87-%E9%99%B3%E5%86%A0%E8%93%89%E5%90%8C%E5%AD%B8)
+         ESGenius: 永續報告生成AI顧問
+         [入圍](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%E8%80%81%E5%B8%AB%E
+         6%8C%87%E5%B0%8E-%E8%A8%B1%E8%80%80%E6%96%87-%E9%99%B3%E5%86%A0%E8%93%89%E5%90%8C%E5%AD%B8)2024年「[中技社AI創意競
+         賽](https://www.ctci.org.tw/8 ...
+───────────────────────── Page: Letter to potential students  |  Score: 0.645  |  Type: personnel ─────────────────────────
+INFO     ## 專題研究期待
+
+         參加比賽、申請國科會大專生專題計畫、投稿。
+─────────────────────────────────── Page: News  |  Score: 0.640  |  Type: announcement ────────────────────────────────────
+INFO     ## Latest News
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85)
+         [校內奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85)
+         [大專生專題研究](https://sites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%
+         E5%B0%88%E9%A1%8C%E7%A0%94%E7%A9%B6%E8%A8%88%E7%95%AB)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83)
+         [徵人](https://sites.google.com/site/nculab/members/page-4)
+
+         - Cong ...
+───────────────────────── Page: Letter to potential students  |  Score: 0.638  |  Type: personnel ─────────────────────────
+INFO     ## 申請所需材料
+
+         請通過電子郵件將以下材料發送給指導教授：
+
+         1. 個人履歷（CV）含參與過的專案及成果
+         1. 學業成績單
+         1. 簡短的研究計書
+
+         這些資料將幫助我們評估你的背景和研究潛力。
+───────────────────────────────── Page: 校外奬項  |  Score: 0.636  |  Type: announcement ──────────────────────────────────
+INFO     17, 2024
+         - 賀！ [葉展維同學 獲選2024 時代基金會 Epoch
+         School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%
+         E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
+         - 恭喜張勛皓、沈哲寬、曾廷綸同學參加2024第29屆InnoServe大專校院資訊應用服務創新競賽獲資安技術組第三名
+         - 恭喜張勛皓同學 【通訊創新節能優化大賽| 2024 通訊大賽】
+         - 恭喜！[張嘉惠老師指導 碩一生
+         許耀文同學及陳冠蓉同學入圍](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A
+         0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%A8%B1%E8%80%8 ...
+─────────────────────────────────────────────────────── Evaluation ────────────────────────────────────────────────────────
+─────────────────────────────────────────────────── Faithfulness Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確提到多項 2024 年競賽獎項、論壇活動與相關人員表現，足以支持所述資訊。
+INFO     Retrying request to /chat/completions in 0.449067 seconds
+──────────────────────────────────────────────────── Relevancy Result ─────────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應中列出的2024年活動與獎項大多都能在提供的內容中找到對應資訊，整體與上下文一致。
+─────────────────────────────────────────────────── Evaluation Summary ────────────────────────────────────────────────────
+Query times: 1
+Faithfulness: 100.00% (1/1)
+Relevancy: 100.00% (1/1)
+─────────────────────────────────────────────────── RAG Query Completed ───────────────────────────────────────────────────
+INFO     RAG Query (hybrid) Completed in 32.324 seconds

@@ -1,0 +1,31 @@
+[init]
+webpages_data_folder_path = "data/webpages"
+
+[vector_store]
+milvus_uri = "data/rag/results/milvus_hybrid_q2.db"
+vector_store_type = "milvus"
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
+hybrid_ranker = "WeightedRanker"
+collection_name = "webpages"
+
+[vector_store.hybrid_ranker_params]
+weights = [1.0, 0.5]
+
+[nodes]
+chunk_overlap = 100
+paragraph_separator = "\n\n"
+chunk_size = 800
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+alpha = 0.5
+query_mode = "hybrid" # run name
+hybrid_top_k = 10
+similarity_top_k = 10
+
+[query_engine]
+cutoff = 0.0
+llm_name = "gemini-3.1-flash-lite"
+query = "實驗室在2024年有哪些活動？"

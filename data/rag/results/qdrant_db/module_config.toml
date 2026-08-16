@@ -1,0 +1,27 @@
+[init]
+webpages_data_folder_path = "data/webpages"
+
+[vector_store]
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
+collection_name = "webpages"
+vector_store_type = "qdrant"
+milvus_uri = "data/rag/results/milvus.db"
+
+[nodes]
+paragraph_separator = "\n\n"
+chunk_overlap = 100
+chunk_size = 800
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+alpha = 0.5
+similarity_top_k = 10
+hybrid_top_k = 10
+query_mode = "hybrid" # run name
+
+[query_engine]
+llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.4
+query = "實驗室的成員有哪些人？"

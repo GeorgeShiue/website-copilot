@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>網站助理</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --bg: #f8fafc;
+    --bubble-user: #2563eb;
+    --bubble-assistant: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  header small { font-weight: 400; opacity: 0.85; display: block; font-size: 12px; }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user { align-self: flex-end; background: var(--bubble-user); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.assistant { align-self: flex-start; background: var(--bubble-assistant); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.error { align-self: flex-start; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  /* markdown 渲染樣式（assistant 訊息內） */
+  .msg ul, .msg ol { margin: 4px 0 4px 1.4em; padding-left: 0.4em; }
+  .msg li { margin: 2px 0; }
+  .msg strong { font-weight: 700; }
+  .msg code { background: rgba(0, 0, 0, 0.06); padding: 1px 4px; border-radius: 4px; font-size: 0.9em; font-family: monospace; }
+  .msg a { color: var(--primary); text-decoration: underline; word-break: break-all; }
+  .msg blockquote { border-left: 3px solid var(--border); padding-left: 10px; color: var(--muted); margin: 4px 0; }
+  .msg h1, .msg h2, .msg h3, .msg h4 { margin: 8px 0 4px; font-size: 1.05em; }
+  .typing { color: var(--muted); font-size: 13px; }
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus { border-color: var(--primary); }
+  button {
+    padding: 10px 18px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<header>
+  網站助理
+  <small>回答會標註引用來源，可連續追問</small>
+</header>
+
+<div id="messages">
+  <div class="msg assistant">你好！我是網站助理。請輸入問題，例如「實驗室的研究方向？」</div>
+</div>
+
+<form id="chat-form">
+  <input id="query" type="text" placeholder="輸入你的問題…" autocomplete="off" autofocus>
+  <button id="send" type="submit">送出</button>
+</form>
+
+<script>
+(function () {
+  'use strict';
+  var messagesEl = document.getElementById('messages');
+  var formEl = document.getElementById('chat-form');
+  var inputEl = document.getElementById('query');
+  var sendBtn = document.getElementById('send');
+  var threadId = null;   // 由 done 事件回傳；帶回續接多輪
+
+  function appendMessage(role, text) {
+    var el = document.createElement('div');
+    el.className = 'msg ' + role;
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return el;
+  }
+
+  function parseSseEvents(chunk) {
+    // 以空行分隔的 data: JSON 區塊 → 事件列表
+    var events = [];
+    chunk.split('\n\n').forEach(function (block) {
+      var dataLines = block.split('\n').filter(function (line) {
+        return line.startsWith('data:');
+      }).map(function (line) { return line.slice(5); });
+      if (dataLines.length > 0) {
+        try { events.push(JSON.parse(dataLines.join(''))); } catch (e) { /* 忽略不完整 JSON */ }
+      }
+    });
+    return events;
+  }
+
+  /* ---------- 輕量 markdown 渲染（先 escape HTML 防 XSS，再轉語法） ---------- */
+  function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderInline(text) {
+    // 先保護 inline code（後續 regex 不影響 code 內容）
+    var blocks = [];
+    text = text.replace(/`([^`]+)`/g, function (m, c) {
+      blocks.push(c);
+      return '\u0000' + (blocks.length - 1) + '\u0000';
+    });
+    // 連結：只允許 http/https
+    text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, label, url) {
+      var safe = /^https?:\/\//i.test(url) ? url : '#';
+      return '<a href="' + safe + '" target="_blank" rel="noopener">' + label + '</a>';
+    });
+    // 粗體 → 斜體（順序：粗體先，避免 **x** 被斜體吃掉）
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // 還原 inline code
+    text = text.replace(/\u0000(\d+)\u0000/g, function (m, i) {
+      return '<code>' + blocks[parseInt(i, 10)] + '</code>';
+    });
+    return text;
+  }
+
+  function renderMarkdown(text) {
+    var escaped = escapeHtml(text);
+    var lines = escaped.split('\n');
+    var html = [];
+    var listType = null;   // 'ul' | 'ol' | null
+    var paragraph = null;
+
+    function closeList() {
+      if (listType) { html.push('</' + listType + '>'); listType = null; }
+    }
+    function closeParagraph() {
+      if (paragraph) { html.push('<p>' + paragraph + '</p>'); paragraph = null; }
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim();
+      if (!trimmed) { closeList(); closeParagraph(); continue; }
+      // 標題 # ~ ######
+      var h = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+      if (h) {
+        closeList(); closeParagraph();
+        var level = h[1].length;
+        html.push('<h' + level + '>' + renderInline(h[2]) + '</h' + level + '>');
+        continue;
+      }
+      // 引用（escape 後 &gt;）
+      var q = /^&gt;\s?(.*)$/.exec(trimmed);
+      if (q) {
+        closeList(); closeParagraph();
+        html.push('<blockquote>' + renderInline(q[1]) + '</blockquote>');
+        continue;
+      }
+      // 無序列表
+      var ul = /^[*\-]\s+(.*)$/.exec(trimmed);
+      if (ul) {
+        closeParagraph();
+        if (listType !== 'ul') { closeList(); html.push('<ul>'); listType = 'ul'; }
+        html.push('<li>' + renderInline(ul[1]) + '</li>');
+        continue;
+      }
+      // 有序列表
+      var ol = /^\d+\.\s+(.*)$/.exec(trimmed);
+      if (ol) {
+        closeParagraph();
+        if (listType !== 'ol') { closeList(); html.push('<ol>'); listType = 'ol'; }
+        html.push('<li>' + renderInline(ol[1]) + '</li>');
+        continue;
+      }
+      // 一般文字：空行隔段落，同段落內以 <br> 接續
+      closeList();
+      if (paragraph) { paragraph += '<br>' + renderInline(trimmed); }
+      else { paragraph = renderInline(trimmed); }
+    }
+    closeList(); closeParagraph();
+    return html.join('');
+  }
+
+  async function sendQuery(query) {
+    var msgEl = appendMessage('user', query);
+    var respEl = appendMessage('assistant', '');
+    sendBtn.disabled = true;
+    inputEl.disabled = true;
+    var buffer = '';
+    try {
+      var resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query, thread_id: threadId }),
+      });
+      if (!resp.ok || !resp.body) {
+        throw new Error('伺服器回應異常（HTTP ' + resp.status + '）');
+      }
+      var reader = resp.body.getReader();
+      var decoder = new TextDecoder();
+      while (true) {
+        var r = await reader.read();
+        if (r.done) break;
+        buffer += decoder.decode(r.value, { stream: true });
+        var events = parseSseEvents(buffer);
+        buffer = buffer.slice(buffer.lastIndexOf('\n\n') + 2);
+        events.forEach(function (ev) {
+          if (ev.type === 'token') {
+            respEl.textContent += ev.content;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (ev.type === 'done') {
+            respEl.innerHTML = renderMarkdown(ev.response);   // markdown 渲染（串流期間維持純文字）
+            threadId = ev.thread_id;   // 記住，續問記得上下文
+          } else if (ev.type === 'error') {
+            respEl.className = 'msg error';
+            respEl.textContent = '錯誤：' + ev.message;
+          }
+        });
+      }
+    } catch (err) {
+      respEl.className = 'msg error';
+      respEl.textContent = '錯誤：' + err.message;
+    } finally {
+      sendBtn.disabled = false;
+      inputEl.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  formEl.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var query = inputEl.value.trim();
+    if (!query) return;
+    inputEl.value = '';
+    sendQuery(query);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+─────────────────────────────────────────────────── RAG Query (hybrid) ────────────────────────────────────────────────────
+─────────────────────────────────────────────── Rag Config Loaded from toml ───────────────────────────────────────────────
+                    init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages │
+└───────────────────────────┴───────────────┘
+                          vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value                                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages                             │
+│ hybrid_ranker         │ WeightedRanker                       │
+│ hybrid_ranker_params  │ {'weights': [1.0, 0.5]}              │
+│ milvus_uri            │ data/rag/results/milvus_hybrid_q3.db │
+│ qdrant_db_folder_path │ data/rag/results/qdrant_db           │
+│ vector_store_type     │ milvus                               │
+└───────────────────────┴──────────────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ alpha            │ 0.5    │
+│ hybrid_top_k     │ 10     │
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+└──────────────────┴────────┘
+               query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                        ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.0                          │
+│ llm_name │ gemini-3.1-flash-lite        │
+│ query    │ 加入實驗室需要準備哪些資料？ │
+└──────────┴──────────────────────────────┘
+───────────────────────────────────────────────── Building All Resources ──────────────────────────────────────────────────
+
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
+Loading files: 100%|##########| 47/47 [00:00<00:00, 25833.09it/s]
+INFO     Loading 47 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:00<00:00, 21.34it/s]
+Applying transformations: 100%|##########| 5/5 [00:00<00:00, 31.94it/s]
+INFO     Pipeline produced 279 nodes
+
+Downloading (incomplete total...): 0.00B [00:00, ?B/s]
+
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]
+Fetching 30 files: 100%|##########| 30/30 [00:00<00:00, 5505.06it/s]
+
+Download complete: : 0.00B [00:00, ?B/s]
+Download complete: : 0.00B [00:00, ?B/s]
+
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]
+Loading weights: 100%|##########| 391/391 [00:00<00:00, 9656.61it/s]
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     MilvusLite server started for /home/george/website-copilot/data/rag/results/milvus_hybrid_q3.db on port 43985
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+INFO     Successfully built vector store (type=milvus, hybrid_ranker=WeightedRanker)
+
+Generating embeddings:   0%|          | 0/279 [00:00<?, ?it/s]
+Generating embeddings:  92%|#########1| 256/279 [00:01<00:00, 246.27it/s]
+Generating embeddings: 100%|##########| 279/279 [00:02<00:00, 119.53it/s]
+INFO     Successfully built index from nodes
+INFO     Successfully built retriever (query mode=hybrid)
+INFO     Successfully built query engine
+─────────────────────────────────────────────────── Query & Response 1 ────────────────────────────────────────────────────
+INFO     Query: 加入實驗室需要準備哪些資料？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 若有意加入實驗室，請透過電子郵件將以下材料發送給指導教授：
+
+         1. 個人履歷（CV），包含曾參與過的專案及成果。
+         2. 學業成績單。
+         3. 簡短的研究計畫。
+───────────────────────────────────────────────────────── Sources ─────────────────────────────────────────────────────────
+INFO     Retrieved 10 sources
+───────────────────────── Page: Letter to potential students  |  Score: 1.043  |  Type: personnel ─────────────────────────
+INFO     ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+────────────────────────────────── Page: Join WIDM  |  Score: 1.003  |  Type: personnel ───────────────────────────────────
+INFO     ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume (CV),
+         academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to schedule
+         an interview. Priority will be given to students who have taken Professor Chang's courses. Post date: Sep 3, 2017
+         12:46:12 AM
+───────────────────────── Page: Letter to potential students  |  Score: 0.987  |  Type: personnel ─────────────────────────
+INFO     # Prospective Students
+         ## 專題生/研究生找指導教授的說明
+         ## 研究方向與申請流程
+
+         請仔細檢視LAB的研究領域及近期的發表論文，以確保你的研究意向與實驗室我們的研究活動相符。
+────────────────────────── Page: WIDM Lab Tutorial 2016  |  Score: 0.986  |  Type: announcement ───────────────────────────
+INFO     # WIDM Lab Tutorial 2016
+
+         Post date: Jul 27, 2016 4:06:25 AM 歡迎WIDM新同學加入! 為幫助新同學熟悉Web Mining相關的資料分析工具，
+         實驗室成員於2016年暑期安排了一連串Tutorial， 我們的初衷是讓同學們在資料處理上更上手，
+         能夠更加專注於問題的探究與應用服務的設計。 Agenda
+────────────────────────────────── Page: Activities  |  Score: 0.922  |  Type: personnel ──────────────────────────────────
+INFO     ### 2022/8/18
+
+
+         > # Image-7
+         >
+         > **圖片摘要：**
+         > 十二名男女站在會議室中，中間女性手持生日卡片，右側女性手持拉拉熊玩偶。
+         >
+         > **主要元素：**
+         > 1. 實體: 會議室, 生日卡片, 拉拉熊玩偶, 口罩, 大學生
+         > 2. OCR文字: Happy birthday to you
+         > 3. 主題標籤: 生日慶祝, 團體合照, 校園生活
+         >
+         > **頁面關聯：**
+         > 本圖片紀錄成員生日慶祝活動，屬於大學實驗室或社團團體合照。
+───────────────────────── Page: Letter to potential students  |  Score: 0.666  |  Type: personnel ─────────────────────────
+INFO     ## 申請所需材料
+
+         請通過電子郵件將以下材料發送給指導教授：
+
+         1. 個人履歷（CV）含參與過的專案及成果
+         1. 學業成績單
+         1. 簡短的研究計書
+
+         這些資料將幫助我們評估你的背景和研究潛力。
+───────────────────────── Page: Letter to potential students  |  Score: 0.660  |  Type: personnel ─────────────────────────
+INFO     ## 專題研究期待
+
+         參加比賽、申請國科會大專生專題計畫、投稿。
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.619  |  Type: general ──────────────────────
+INFO     恭賀研究生 廖梓逸、簡資烜、張彣謙參加 [2025 NSF HDR (Scientific-Mood)
+         ](https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement)榮獲台灣區第一名
+
+         【恭賀】張嘉惠教授指導實驗室團隊大學部李倬安、資電學士班葉展維以[
+         #基於深度學習的跨多輸入法編輯器整合系統](https://www.facebook.com/hashtag/%E5%9F%BA%E6%96%BC%E6%B7%B1%E5%BA%A6%E5%
+         AD%B8%E7%BF%92%E7%9A%84%E8%B7%A8%E5%A4%9A%E8%BC%B8%E5%85%A5%E6%B3%95%E7%B7%A8%E8%BC%AF%E5%99%A8%E6%95%B4%E5%90%88%
+         E7%B3%BB%E7%B5%B1?__eep__=6&__cft__%5B0%5D=AZVRmV1EX5WZyKDHzDnMXs7C6NpV1-3qLhqguqRhKLPD-BMrfGVLSSJ5nmbomtcx ...
+────────────────────── Page: Web Intelligence and Data Mining Lab  |  Score: 0.616  |  Type: general ──────────────────────
+INFO     # 【最新消息】
+
+         [校外奬項](https://sites.google.com/site/nculab/news/%E6%A0%A1%E5%A4%96%E5%A5%AC%E9%A0%85?authuser=0)[校內奬項](ht
+         tps://sites.google.com/site/nculab/news/%E6%A0%A1%E5%85%A7%E5%A5%AC%E9%A0%85?authuser=0)[大專生專題研究](https://s
+         ites.google.com/site/nculab/news/%E5%9C%8B%E7%A7%91%E6%9C%83%E5%A4%A7%E5%B0%88%E7%94%9F%E5%B0%88%E9%A1%8C%E7%A0%94
+         %E7%A9%B6%E8%A8%88%E7%95%AB?authuser=0)計畫
+         [研討會](https://sites.google.com/site/nculab/news/%E7%A0%94%E8%A8%8E%E6%9C%83?authuser=0)[徵人](https://sites.goo
+         gle.com/ ...
+───────────────────────── Page: 國科會大專生專題研究計畫  |  Score: 0.615  |  Type: announcement ──────────────────────────
+INFO     # 國科會大專生專題研究計畫
+         [國科會大專學生研究計畫補助查詢](https://wsts.nstc.gov.tw/STSWeb/Award/AwardMultiQuery.aspx) 113 李倬安
+         國立中央大學資訊工程學系 計畫名稱：基於深度學習的跨多輸入法編輯器整合系統 計畫編號：113-2813-C-008-024-E
+         執行起迄：2024/07/01~2025/02/28 指導教授：張嘉惠 核定金額：58,000元 113 張勛皓 國立中央大學財務金融學系
+         計畫名稱：基於評價理論與圖神經網路預測匯率之研究 計畫編號：113-2813-C-008-073-E 執行起迄：2024/07/01~2025/02/28
+         指導教授：葉錦徽 核定金額：58,000元 113 江宗翰​ 國立中央大學資訊工程學系 基於語音指令的語音辨識修正系統​ 111 林書宇
+         國立中央大學資訊工程學系 計畫名稱：應用先進的時空圖預測模型到多個台灣的數據集 計畫編號：111-2813-C-008-021-E
+         執行起迄：2022/07/01~2023/02/28 指導教授：張嘉惠 核定金額：48,000元 ...
+─────────────────────────────────────────────────────── Evaluation ────────────────────────────────────────────────────────
+─────────────────────────────────────────────────── Faithfulness Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確寫到需以電子郵件寄送個人履歷、學業成績單與簡短研究計畫給指導教授。
+INFO     Retrying request to /chat/completions in 0.450414 seconds
+──────────────────────────────────────────────────── Relevancy Result ─────────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應所列的履歷、成績單與簡短研究計畫皆與內容中的申請所需材料一致。
+─────────────────────────────────────────────────── Evaluation Summary ────────────────────────────────────────────────────
+Query times: 1
+Faithfulness: 100.00% (1/1)
+Relevancy: 100.00% (1/1)
+─────────────────────────────────────────────────── RAG Query Completed ───────────────────────────────────────────────────
+INFO     RAG Query (hybrid) Completed in 31.208 seconds

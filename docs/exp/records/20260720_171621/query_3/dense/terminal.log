@@ -1,0 +1,187 @@
+──────────────────────────────────────────────────── RAG Query (dense) ────────────────────────────────────────────────────
+─────────────────────────────────────────────── Rag Config Loaded from toml ───────────────────────────────────────────────
+                    init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ webpages_data_folder_path │ data/webpages │
+└───────────────────────────┴───────────────┘
+                         vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value                               ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ collection_name       │ webpages                            │
+│ hybrid_ranker         │ WeightedRanker                      │
+│ hybrid_ranker_params  │ None                                │
+│ milvus_uri            │ data/rag/results/milvus_dense_q3.db │
+│ qdrant_db_folder_path │ data/rag/results/qdrant_db          │
+│ vector_store_type     │ milvus                              │
+└───────────────────────┴─────────────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┓
+┃ Config           ┃ Value   ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
+│ alpha            │ 0.5     │
+│ hybrid_top_k     │ 10      │
+│ query_mode       │ default │
+│ similarity_top_k │ 10      │
+└──────────────────┴─────────┘
+               query_engine
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config   ┃ Value                        ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff   │ 0.4                          │
+│ llm_name │ gemini-3.1-flash-lite        │
+│ query    │ 加入實驗室需要準備哪些資料？ │
+└──────────┴──────────────────────────────┘
+───────────────────────────────────────────────── Building All Resources ──────────────────────────────────────────────────
+
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
+Loading files: 100%|##########| 47/47 [00:00<00:00, 24827.74it/s]
+INFO     Loading 47 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:00<00:00, 20.70it/s]
+Applying transformations: 100%|##########| 5/5 [00:00<00:00, 31.30it/s]
+INFO     Pipeline produced 279 nodes
+
+Downloading (incomplete total...): 0.00B [00:00, ?B/s]
+
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]
+Fetching 30 files: 100%|##########| 30/30 [00:00<00:00, 4341.93it/s]
+
+Download complete: : 0.00B [00:00, ?B/s]
+Download complete: : 0.00B [00:00, ?B/s]
+
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]
+Loading weights: 100%|##########| 391/391 [00:00<00:00, 9188.81it/s]
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     MilvusLite server started for /home/george/website-copilot/data/rag/results/milvus_dense_q3.db on port 35597
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+ERROR    Exception calling application: Method not implemented!
+         ╭────────────────────────────────────── Traceback (most recent call last) ───────────────────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:608 in _call_behavior          │
+         │                                                                                                                │
+         │    605 │   │   │   │   │   argument, context, send_response_callback                                           │
+         │    606 │   │   │   │   )                                                                                       │
+         │    607 │   │   │   else:                                                                                       │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)                                      │
+         │    609 │   │   │   return response_or_iterator, True                                                           │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except                                  │
+         │    611 │   │   │   with state.condition:                                                                       │
+         │                                                                                                                │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen/milvus_pb2_grpc.py:1168 in   │
+         │ AllocTimestamp                                                                                                 │
+         │                                                                                                                │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                                                 │
+         │   1167 │   │   context.set_details('Method not implemented!')                                                  │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')                                            │
+         │   1169 │                                                                                                       │
+         │   1170 │   def CreateDatabase(self, request, context):                                                         │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""                                  │
+         ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+INFO     Successfully built vector store (type=milvus, hybrid_ranker=WeightedRanker)
+
+Generating embeddings:   0%|          | 0/279 [00:00<?, ?it/s]
+Generating embeddings:  92%|#########1| 256/279 [00:00<00:00, 363.59it/s]
+Generating embeddings: 100%|##########| 279/279 [00:01<00:00, 139.88it/s]
+INFO     Successfully built index from nodes
+INFO     Successfully built retriever (query mode=default)
+INFO     Successfully built query engine
+─────────────────────────────────────────────────── Query & Response 1 ────────────────────────────────────────────────────
+INFO     Query: 加入實驗室需要準備哪些資料？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 加入實驗室需要準備並透過電子郵件發送給指導教授的資料如下：
+
+         1. 個人履歷（CV）：需包含參與過的專案及成果。
+         2. 學業成績單。
+         3. 簡短的研究計畫。
+───────────────────────────────────────────────────────── Sources ─────────────────────────────────────────────────────────
+INFO     Retrieved 5 sources
+───────────────────────── Page: Letter to potential students  |  Score: 0.574  |  Type: personnel ─────────────────────────
+INFO     ## 面試與回覆政策
+
+         1. 有關實驗室研究進行方式請先詢問助教及實驗室專題生。
+         1. 如果有意加入實驗室，將再安排與教師面談。曾經修過張教授課程的同學將會優先考慮。
+───────────────────────── Page: Letter to potential students  |  Score: 0.573  |  Type: personnel ─────────────────────────
+INFO     ## 申請所需材料
+
+         請通過電子郵件將以下材料發送給指導教授：
+
+         1. 個人履歷（CV）含參與過的專案及成果
+         1. 學業成績單
+         1. 簡短的研究計書
+
+         這些資料將幫助我們評估你的背景和研究潛力。
+───────────────────────── Page: Letter to potential students  |  Score: 0.548  |  Type: personnel ─────────────────────────
+INFO     ## 專題研究期待
+
+         參加比賽、申請國科會大專生專題計畫、投稿。
+───────────────────────── Page: Letter to potential students  |  Score: 0.537  |  Type: personnel ─────────────────────────
+INFO     # Prospective Students
+         ## 專題生/研究生找指導教授的說明
+         ## 研究方向與申請流程
+
+         請仔細檢視LAB的研究領域及近期的發表論文，以確保你的研究意向與實驗室我們的研究活動相符。
+────────────────────────────────── Page: Join WIDM  |  Score: 0.484  |  Type: personnel ───────────────────────────────────
+INFO     ### 歡迎加入WIDM 實驗室
+         ## Prospective students
+
+         Please carefully review WIDM LAB's research areas and recent published papers to ensure that your research
+         direction are consistent with our research activities in the laboratory. Please send your personal resume (CV),
+         academic transcript, and short research proposal to Prof. Chang [chiahui at g dot ncu dot edu dot tw] to schedule
+         an interview. Priority will be given to students who have taken Professor Chang's courses. Post date: Sep 3, 2017
+         12:46:12 AM
+─────────────────────────────────────────────────────── Evaluation ────────────────────────────────────────────────────────
+─────────────────────────────────────────────────── Faithfulness Result ───────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 內容明確列出需以電子郵件寄送個人履歷、學業成績單與簡短研究計畫給指導教授。
+INFO     Retrying request to /chat/completions in 0.442557 seconds
+──────────────────────────────────────────────────── Relevancy Result ─────────────────────────────────────────────────────
+INFO     Passing: True
+INFO     Reason: 回應內容與上下文中的申請所需材料完全一致，包含履歷、成績單與簡短研究計畫並以電子郵件寄送。
+─────────────────────────────────────────────────── Evaluation Summary ────────────────────────────────────────────────────
+Query times: 1
+Faithfulness: 100.00% (1/1)
+Relevancy: 100.00% (1/1)
+─────────────────────────────────────────────────── RAG Query Completed ───────────────────────────────────────────────────
+INFO     RAG Query (dense) Completed in 30.550 seconds

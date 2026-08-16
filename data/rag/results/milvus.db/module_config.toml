@@ -1,0 +1,32 @@
+[init]
+webpages_data_folder_path = "data/webpages"
+
+[vector_store]
+collection_name = "webpages"
+qdrant_db_folder_path = "data/rag/results/qdrant_db"
+milvus_uri = "data/rag/results/milvus.db"
+hybrid_ranker = "WeightedRanker"
+vector_store_type = "milvus"
+
+[vector_store.hybrid_ranker_params]
+weights = [1.0, 0.5]
+
+[nodes]
+chunk_size = 800
+paragraph_separator = "\n\n"
+chunk_overlap = 100
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+query_mode = "hybrid"  # run name
+similarity_top_k = 10
+hybrid_top_k = 10
+alpha = 0.5
+
+[query_engine]
+evaluator_llm_name = "gpt-5.4"
+cutoff = 0.0
+query_llm_name = "gemini-3.1-flash-lite"
+query = "實驗室的成員有哪些人？"
