@@ -22,7 +22,7 @@
 
 # 功能開發
 
-## Phase 1：資訊檢索 (當前目標)
+## Phase 1：資訊檢索 (階段性完成)
 
 > [docs/code/phase1/phase1.md](code/phase1/phase1.md)
 
@@ -36,6 +36,18 @@
   - **RAG Retriever Tool** — 將檢索能力包裝為可供 Agent 直接呼叫的工具，支援動態調整過濾條件與檢索數量，讓上層應用能靈活運用。
   - **查詢引擎與評估** — 串接 LLM 生成回答，並以忠實度與相關性兩項指標進行自動化成效評估，確保回答品質。
   - **結果落盤** — 每次執行將 query 結果以結構化 JSON（`results.json`）與逐筆 Markdown（`results/query_{index}.md`）保存；RAG 建置可選擇將向量庫存至該次 run 內（`save_vector_store_to_runs`），避免實驗互相覆寫。
+
+## Phase 2/3 MVP（完成）
+
+> [docs/code/phase2_3_mvp/phase2_3_mvp.md](code/phase2_3_mvp/phase2_3_mvp.md)
+
+> **RAG 工具 → Agent → 可嵌入網站的聊天介面 最小驗證**
+
+- 簡介
+  - **AI Agent** — 以 LangGraph `create_agent` 包裝 RAG 檢索工具，由 LLM 推理迴圈自行決定呼叫，回答附引用來源 URL；支援多輪記憶（`InMemorySaver` + `thread_id`）與 SSE 逐 token 串流。
+  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 於 lifespan 建一次、關閉釋放；CORS 可限縮（`allowed_origins`）。
+  - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS。
+  - **對話落盤** — `chats/<ts>/agent/<config>/`，每輪覆寫 `results.json` + 依 thread_id 分檔（`results_<thread_id>.json`）。
 
 ## Phase 2：AI Agent
 

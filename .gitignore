@@ -11,4 +11,5 @@ storage_context/
 ingestion_cache/
 
 /runs/
+/chats/
 .DS_Store

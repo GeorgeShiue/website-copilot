@@ -1,0 +1,12 @@
+flowchart LR
+    subgraph Surface [介面嵌入]
+        A1[iframe] --- A2[widget.js]
+        A2 --- A3[Chrome Extension]
+    end
+    A1 --> B[FastAPI + SSE<br/>POST /api/chat]
+    B --> C[LangGraph Agent<br/>InMemorySaver + thread_id]
+    C --> D[webpage_retriever<br/>StructuredTool]
+    D --> E[Milvus 混合檢索<br/>BGE-M3 + WeightedRanker]
+    E --> F[知識庫<br/>爬蟲 + 圖片摘要 + Metadata]
+    C --> G[回答附來源 URL]
+    G --> H[落盤 chats/]

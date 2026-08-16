@@ -21,6 +21,9 @@ from rich.text import Text
 # 全域變數用於檔案輸出
 _tee_stream: "_TeeStream | None" = None
 _logging_path: str | None = None
+# 巢狀 save_logging_file 計數器（如 agent 內包 retriever tool）：
+# 只有最外層的 with block 結束時才真正還原 stdout/stderr
+_tee_depth: int = 0
 _stdout_original = sys.stdout
 _stderr_original = sys.stderr
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -40,12 +43,19 @@ class _TeeStream:
     def write(self, data: str) -> int:
         self.terminal_stream.write(data)
         # 保留終端彩色輸出，但寫檔時移除 ANSI 控制碼
-        self.file_stream.write(ANSI_ESCAPE_PATTERN.sub("", data))
+        try:
+            self.file_stream.write(ANSI_ESCAPE_PATTERN.sub("", data))
+        except ValueError:
+            # 檔案已關閉（如 milvus_lite 在 tee 關閉後才停止輸出）
+            pass
         return len(data)
 
     def flush(self) -> None:
         self.terminal_stream.flush()
-        self.file_stream.flush()
+        try:
+            self.file_stream.flush()
+        except ValueError:
+            pass
 
     def isatty(self) -> bool:
         return self.terminal_stream.isatty()
@@ -71,9 +81,9 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
     if level.lower() == "debug":
         logging_level = logging.DEBUG
 
-    logging.getLogger("app.modules.website_crawler").setLevel(logging_level)
-    logging.getLogger("app.modules.webpage_image_summarizer").setLevel(logging_level)
-    logging.getLogger("app.modules.rag").setLevel(logging_level)
+    logging.getLogger("app.engines.website_crawler").setLevel(logging_level)
+    logging.getLogger("app.engines.webpage_image_summarizer").setLevel(logging_level)
+    logging.getLogger("app.engines.rag").setLevel(logging_level)
 
     if logger is not None:
         logger.setLevel(logging_level)
@@ -81,7 +91,12 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
 
 def setup_logging_file(log_file_path: str) -> None:
     """設定終端機輸出和日誌同時保存到檔案."""
-    global _tee_stream, _logging_path
+    global _tee_stream, _logging_path, _tee_depth
+
+    if _tee_depth > 0:
+        # 巢狀呼叫（如 agent 內的 tool 建立）：沿用外層 tee，避免關閉外層記錄
+        _tee_depth += 1
+        return
 
     disable_logging_file()
     _logging_path = log_file_path
@@ -93,6 +108,7 @@ def setup_logging_file(log_file_path: str) -> None:
     _tee_stream = _TeeStream(_stdout_original, file_stream)
     sys.stdout = _tee_stream
     sys.stderr = _tee_stream
+    _tee_depth = 1
 
 
 def _is_target_progress_line(line: str) -> bool:
@@ -134,7 +150,11 @@ def _collapse_adjacent_progress_lines(log_file_path: str) -> None:
 
 @contextmanager
 def save_logging_file(log_file_path: str):
-    """Context manager for setup/teardown of run-specific file logging."""
+    """Context manager for setup/teardown of run-specific file logging.
+
+    支援巢狀呼叫（如 agent 內包 retriever tool 建立）：內層 with block
+    結束時沿用外層 tee，只有最外層結束才還原 stdout/stderr。
+    """
     setup_logging_file(log_file_path)
     try:
         yield
@@ -145,14 +165,46 @@ def save_logging_file(log_file_path: str):
 
 def disable_logging_file() -> None:
     """Restore streams and close previous file logging resources."""
-    global _tee_stream
+    global _tee_stream, _tee_depth
+
+    if _tee_depth == 0:
+        return
+
+    _tee_depth -= 1
+    if _tee_depth > 0:
+        # 內層結束：保留外層 tee
+        return
 
     sys.stdout = _stdout_original
     sys.stderr = _stderr_original
 
+    # 根治：將仍引用 tee 的 logging handler（如 milvus_lite 啟動時
+    # 捕捉 sys.stdout 的 StreamHandler）替換為原始 stdout，
+    # 避免 tee 關閉後 logger 寫入已關閉的檔案
+    _detach_handlers_from_tee()
+
     if _tee_stream is not None:
         _tee_stream.file_stream.close()
         _tee_stream = None
+
+
+def _detach_handlers_from_tee() -> None:
+    """將所有 logger 中 stream 仍指向 tee 的 handler 替換為原始 stdout（內部使用）。"""
+    if _tee_stream is None:
+        return
+
+    def _detach(handler: logging.Handler) -> None:
+        if isinstance(handler, logging.StreamHandler):
+            stream = getattr(handler, "stream", None)
+            if stream is _tee_stream:
+                handler.stream = _stdout_original
+
+    for handler in logging.getLogger().handlers:
+        _detach(handler)
+    for logger in logging.Logger.manager.loggerDict.values():
+        if isinstance(logger, logging.Logger):
+            for handler in logger.handlers:
+                _detach(handler)
 
 
 @contextmanager

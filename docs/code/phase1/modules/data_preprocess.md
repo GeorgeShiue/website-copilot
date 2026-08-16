@@ -4,7 +4,7 @@
 此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程會先從爬取結果收集圖片來源，再進行下載、快取、摘要與重試，最後產生包含圖片說明的 `enhanced_markdown` 與統計資訊。
 
 - **模組實作**
-	- `src/app/modules/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
+	- `src/app/engines/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
 	- `src/app/configs/webpage_image_summarizer_config.py`（**設定載入**、**驗證**、**覆寫**，並定義 `VLM_MODEL_TO_API_KEY` 模型→API key 對照表）
 	- `src/utils/log_helper.py`（**日誌**、**進度**與**統計輸出**輔助）
 

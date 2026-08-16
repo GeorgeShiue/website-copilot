@@ -14,13 +14,14 @@
 
 [src/app/workflow/workflow.py](src/app/workflow/workflow.py)、[src/cli.py](src/cli.py) 與 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py) 共同負責執行路徑與檔案留存。
 
-專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`），每個模組由對應的 dataclass 在 `src/app/configs/` 中載入與驗證。根據目前程式碼庫，三個主要 config 類分別位於：
+專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 dataclass 在 `src/app/configs/` 中載入與驗證。根據目前程式碼庫，四個主要 config 類分別位於：
 
 - `src/app/configs/website_crawler_config.py`
 - `src/app/configs/webpage_image_summarizer_config.py`
 - `src/app/configs/rag_config.py`
+- `src/app/configs/agent_config.py`
 
-三個 config class 的載入流程一致：
+四個 config class 的載入流程一致：
 
 1. 由 `config_name` 組出 TOML 檔路徑（例如 `configs/<module>/<config_name>.toml`）
 2. 透過 `sections_to_keys` 定義允許的欄位，逐 section 載入 TOML
@@ -76,6 +77,20 @@
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
 目前 `configs/rag/default.toml` 與 `configs/rag/test.toml` 皆設定為 **Milvus hybrid search**（`vector_store_type="milvus"`、`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）；`milvus.toml` 保留相同設定的對照檔，`qdrant.toml` 則為 Qdrant 後端（`alpha=0.5` 線性融合）的對照。Dense 模式的 `cutoff`（如 `0.4`）在 hybrid 模式下不啟用，由融合分數自然排序。
+
+### Agent
+
+- Config dataclass: `src/app/configs/agent_config.py`
+- TOML 範例與實作：`configs/agent/{config_name}.toml`（`default` / `test`，08/09 M1 新增）
+- 載入流程（與其他模組同一共用機制）：
+  1. `AgentConfig.from_toml(config_name, **overrides)` 依 `DEFAULT_CONFIG_FOLDER_PATH` 組出 `configs/agent/{config_name}.toml`，以 `SECTIONS_TO_KEYS = {"agent": {"llm_name", "system_prompt"}}` 載入。
+  2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 處理合併與覆寫。
+  3. 建構 `AgentConfig` 後執行 `_validate_config()`（`llm_name` / `system_prompt` 型別與非空驗證）。
+
+欄位摘要：
+
+- `agent`：`llm_name`（預設 `gemini-3.1-flash-lite`，與 RAG config 的 `query_llm_name` **解耦**，Agent 可獨立更換不影響檢索）、`system_prompt`（要求先使用 `webpage_retriever` 工具檢索再回答、回答列出參考來源 URL）。
+- `run_name` property：依 TOML 中 `# run name` 註解的欄位生成（如 `llm_name-gemini-3.1-flash-lite`）；無註解時回傳 `default`。
 
 ## 三、共用載入、覆寫與驗證機制
 
@@ -136,11 +151,12 @@ module_config 與 run_config 的寫入機制：
 
 - `RunManager.save_results_as_json()` 會寫出 `results.json`。
 - `RunManager.save_results_as_md()` 會把每頁結果寫入 `results/*.md`。
-- 目前四個主要 workflow 的行為：
+- 目前五個主要 workflow 的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_rag_build()`：寫 `module_config.toml`；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
+  - `run_agent()`：寫 `results.json`（每輪覆寫）+ `results_<thread_id>.json`（依 thread_id 分檔）與 `module_config.toml`；vector store 隔離於 `chats/<ts>/agent/<config>/results/`（`RunManager(base_folder="chats")`）。
 - module_config.toml
 - run_config.toml
 - terminal.log
@@ -175,12 +191,13 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - RunManager.save_results_as_md() 會寫出 results/\*.md
 - RunManager.save_query_results_as_md() 會把每次 query 與回覆寫成 results/query_{index}.md（run_rag_query 專用）
 
-四條流程目前行為：
+五條流程目前行為：
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
 - run_rag_build()：寫 module_config.toml；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`，否則寫入 config 預設位置（`data/rag/results/`）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
+- run_agent()：寫 results.json（每輪覆寫）+ `results_<thread_id>.json`（依 thread_id 分檔）與 module_config.toml；vector store 隔離於 `chats/<ts>/agent/<config>/results/`
 
 ## 五、測試與實驗如何使用 config
 
@@ -202,7 +219,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 重點：
 
-- 三個主要模組（crawler、webpage_image_summarizer、rag）使用一致的 config 載入與覆寫流程。
+- 四個主要模組（crawler、webpage_image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
 - 驗證邏輯被放在各 config 類的 `_validate_config()` 中，以在建構時即捕捉錯誤。
 - `save_module_config_as_toml()` 的 residual section 機制允許像 `litellm_kwargs` 之類的彈性欄位被保留並寫入 module_config.toml。
 
@@ -212,11 +229,9 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)
 - [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)
 - [src/app/configs/rag_config.py](src/app/configs/rag_config.py)
-- [src/app/modules/website_crawler.py](src/app/modules/website_crawler.py)
-- [run.py](run.py)
+- [src/app/configs/agent_config.py](src/app/configs/agent_config.py)
+- [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py)
 - [src/cli.py](src/cli.py)
-- [run_config.py](run_config.py)
-- [utils/run_manager.py](utils/run_manager.py)
 - [src/main.py](src/main.py)
 - [src/test/test_module.py](src/test/test_module.py)
 - [src/test/test_main.py](src/test/test_main.py)

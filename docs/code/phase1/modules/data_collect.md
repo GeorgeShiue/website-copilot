@@ -4,13 +4,13 @@
 此模組以**非同步方式**爬取網站頁面，依設定限制**爬取深度**與**頁數**，並將每頁內容整理成乾淨且格式化的**Markdown**。爬取後的資料會再經過**清理**、**標題整理**、**圖片連結擷取**與**去重**，最後以**頁面標題**作為識別，回傳整理後的頁面資訊並記錄**成功**、**錯誤**與**重複頁面**的統計。
 
 - **模組實作**
-	- `src/app/modules/website_crawler.py`（**主爬蟲實作**，包含**爬取**、**過濾**、**Markdown 清洗**與**輸出邏輯**）
+	- `src/app/engines/website_crawler.py`（**主爬蟲實作**，包含**爬取**、**過濾**、**Markdown 清洗**與**輸出邏輯**）
 	- `src/app/configs/website_crawler_config.py`（**模組內部常數**與**預設設定**，例如**內容門檻**）
 	- `src/utils/log_helper.py`（**日誌**與**統計輸出輔助**）
 
 - **模組設定**
 	- `./configs/website_crawler/{name}.toml`（**爬蟲執行設定**，透過 `src/app/configs/website_crawler_config.py` 載入）
-	- 可在 `src/app/modules/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
+	- 可在 `src/app/engines/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
 - **模組環境**
 	- `Python >= 3.10`（程式使用**現代型別語法**如 `int | None`）
@@ -49,7 +49,7 @@
 
 ### 3. 套用與轉換參數
 - `exclude_words` 保留為**字串列表**（`list[str]`），由 `_validate_config()` 驗證型別、拒絕空列表與非字串元素。
-- 可搭配 `app/modules/website_crawler.py` 調整**瀏覽**與**爬取行為**。
+- 可搭配 `app/engines/website_crawler.py` 調整**瀏覽**與**爬取行為**。
 - 讓設定內容直接對應**實際執行需求**。
 
 ## 補充說明

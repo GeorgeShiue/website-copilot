@@ -26,8 +26,20 @@ logger = logging.getLogger(__name__)
 
 # TODO: 為每個模組客製化 RunManager
 class RunManager:
-    def __init__(self, module_name: str = "") -> None:
+    def __init__(
+        self,
+        module_name: str = "",
+        base_folder: str = "runs",
+    ) -> None:
+        """初始化 RunManager。
+
+        Args:
+            module_name: 模組名稱（可選，之後可再 set_module_path）。
+            base_folder: 執行結果的根資料夾（預設 runs/）。
+                聊天記錄等非實驗資料可傳入其他資料夾（如 chats/）。
+        """
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
+        self.base_folder = base_folder
         self.base_path = self._set_base_path()
 
         self.module_name: str = ""
@@ -50,7 +62,7 @@ class RunManager:
 
     def _set_base_path(self) -> str:
         """設定基本路徑並回傳 Markdown 檔案夾路徑。"""
-        base_path = os.path.join(RUNS_FOLDER_PATH, self.timestamp)
+        base_path = os.path.join(self.base_folder, self.timestamp)
         os.makedirs(base_path, exist_ok=True)
         return base_path
 
@@ -179,12 +191,22 @@ class RunManager:
         log_path = os.path.join(self.run_path, "terminal.log")
         self.log_path = log_path
 
-    def save_results_as_json(self, results: dict[str, Any]) -> None:
-        """將結果寫入 JSON 檔案（爬取結果或 query 結果皆可）。"""
-        os.makedirs(os.path.dirname(self.results_json_path), exist_ok=True)
-        with open(self.results_json_path, "w", encoding="utf-8") as f:
+    def save_results_as_json(
+        self, results: dict[str, Any], file_path: str | None = None
+    ) -> None:
+        """將結果寫入 JSON 檔案（爬取結果或 query 結果皆可）。
+
+        Args:
+            results: 要寫入的 dict。
+            file_path: 目標檔案路徑（預設 self.results_json_path；
+                亦可傳入其他路徑做分檔落盤，如 results_<thread_id>.json）。
+        """
+        if file_path is None:
+            file_path = self.results_json_path
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
-        self.latest_results_json_path = self.results_json_path
+        self.latest_results_json_path = file_path
 
     def save_results_as_md(
         self,

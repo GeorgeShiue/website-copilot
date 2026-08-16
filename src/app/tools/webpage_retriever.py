@@ -1,12 +1,13 @@
 import logging
+import os
 from typing import Any
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from app.configs.rag_config import RAGConfig
-from app.modules.rag import RAG
-from app.modules.rag_factory import RAGBuilder
+from app.engines.rag import RAG
+from app.engines.rag_factory import RAGBuilder
 from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
@@ -21,7 +22,7 @@ class RetrieverInputSchema(BaseModel):
     因此 description 應提供足夠的指引，幫助 LLM 判斷何時使用、如何填寫參數。
     """
 
-    query: str = Field(description="搜尋查詢字串，用於檢索實驗室網站中的相關網頁內容")
+    query: str = Field(description="搜尋查詢字串，用於檢索網站中的相關網頁內容")
     filter_dict: dict[str, Any] | None = Field(
         default=None,
         description=(
@@ -63,21 +64,30 @@ def create_webpage_retriever_tool(
     Returns:
         StructuredTool: 包裝好的 retriever 工具，可直接傳入 create_agent()。
         tool.rag 已自動綁定 RAG 實例，結束後請透過 tool.rag.close() 釋放資源。
+
+    Notes:
+        Vector store 會被隔離至當輪 run 的 results/ 底下
+        （如 chats/<ts>/agent/<config>/results/），避免工具建構時
+        覆寫正式向量庫（data/rag/results/）。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
     if run_manager is None:
-        run_manager = RunManager("rag_retriever_tool")
+        run_manager = RunManager("webpage_retriever_tool")
     if run_name_use_config_name:
         run_manager.set_run_path(config_name)
     else:
         run_manager.set_run_path(config.run_name)
     run_manager.init_module_run_paths()
-    run_title = f"RAG Retriever Tool ({config_name})"
 
-    # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----
-    rag = RAGBuilder(config).build_to_retriever()
+    # 隔離 vector store 至當輪 run 的 results/（chats/<ts>/agent/<config>/results/），
+    # 避免 build_to_retriever 重建時覆寫正式向量庫 data/rag/results/
+    config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
+    config.qdrant_db_folder_path = os.path.join(
+        run_manager.results_folder_path, "qdrant_db"
+    )
 
+    run_title = f"Webpage Retriever Tool ({config_name})"
     with (
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
@@ -86,20 +96,25 @@ def create_webpage_retriever_tool(
         log_session(run_title, style="purple")
         log_config("RAG Config Loaded from toml", config)
 
+        # ----- 使用 RAGBuilder 一鍵建構到 retriever 層級 -----
+        log_session("Building Retriever Tool", style="cyan")
+        rag = RAGBuilder(config).build_to_retriever()
+
         # ----- 包裝為工具並回傳 -----
-        log_session("Wrapping as StructuredTool", style="cyan")
+        # 完成宣告由 log_run_time 的 "Completed in ..." 承擔
         tool = _webpage_retriever_to_tool(rag)
 
         # ----- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-        log_session("RAG Retriever Tool Created", style="green")
+        # ---- 輸出完成訊息 -----
+        log_session("Webpage Retriever Tool Ready", style="green")
 
     return tool
 
 
 def _webpage_retriever_to_tool(rag: RAG) -> StructuredTool:
-    """將 RAG retriever 包裝為 LangChain StructuredTool。
+    """將 webpage retriever 包裝為 LangChain StructuredTool。
 
     Args:
         rag: 已初始化至 retriever 層級的 RAG 實例
@@ -131,8 +146,7 @@ def _webpage_retriever_to_tool(rag: RAG) -> StructuredTool:
     tool = StructuredTool(
         name="webpage_retriever",
         description=(
-            "檢索實驗室網站網頁中與查詢相關的內容。"
-            "當你需要查詢實驗室的論文、研究主題、人員資訊、公告時使用此工具。"
+            "檢索網站網頁中與查詢相關的內容。"
             "可透過 filter_dict 過濾特定頁面類型"
             '（如 {"page_type": "paper"} 只查論文），'
             "或調整 similarity_top_k 控制回傳數量。"
