@@ -28,7 +28,7 @@ data: {"type": "token", "content": "你"}
 
 data: {"type": "token", "content": "好"}
 
-data: {"type": "done", "response": "你好", "sources": [...]}
+data: {"type": "done", "response": "你好", "thread_id": "auto-xxx"}
 ```
 
 ### 1.2 本質

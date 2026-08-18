@@ -72,16 +72,26 @@
 * 0722
 
   > [docs/progress_report/2026_0722/2026_0722_discussion.md](progress_report/2026_0722/2026_0722_discussion.md)
+
   > [docs/progress_report/2026_0722/2026_0722_marp.md](progress_report/2026_0722/2026_0722_marp.md)
-  >
+
 * 0629
 
   > [docs/progress_report/2026_0629/2026_0629_discussion.md](progress_report/2026_0629/2026_0629_discussion.md)
+
   > [docs/progress_report/2026_0629/2026_0629_marp.md](progress_report/2026_0629/2026_0629_marp.md)
-  >
+
 * 0518
 
   > [docs/progress_report/2026_0518.md](progress_report/2026_0518.md)
+
+## Phase 2/3 MVP
+* 0812
+
+  > [docs/progress_report/2026_0812/2026_0812_discussion.md](progress_report/2026_0812/2026_0812_discussion.md)
+
+  > [docs/progress_report/2026_0812/2026_0812_marp.md](progress_report/2026_0812/2026_0812_marp.md)
+
 
 # 未來規劃
 
