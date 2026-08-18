@@ -23,7 +23,7 @@
 	- `host` / `port`：監聽位址（預設 `127.0.0.1:8000`）
 
 - **模組環境**
-	- `Python >= 3.10`
+	- `Python >= 3.13`
 	- **第三方套件**：`fastapi`（**Web 框架**）、`uvicorn`（**ASGI server**）、`pydantic`（**請求驗證**）、`httpx`（dev，TestClient 需要）
 
 ## app.py
@@ -79,7 +79,7 @@ uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.ed
 
 ## 已知問題
 - [ ] SSE 併發（本機多人同時使用）— demo 階段可接受，正式版再上 Redis/queue
-- [ ] `results.json` 多輪覆寫（歷史依 thread_id 分檔）
+- [ ] `results.json` 多輪覆寫（server 模式依 thread_id 分檔 `results_<thread_id>.json` 保留歷史）
 
 ## 未來規劃
 - [ ] 正式部署（uvicorn workers / proxy 設定）

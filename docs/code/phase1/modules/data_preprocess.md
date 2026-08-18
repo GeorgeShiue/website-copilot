@@ -14,7 +14,7 @@
 	- `WebpageImageSummarizer._get_api_key()` 依 `VLM_MODEL_TO_API_KEY` 對照表推斷對應的環境變數，並從 `.env` 或系統環境讀取
 
 - **模組環境**
-	- `Python >= 3.10`（程式使用現代型別語法如 `dict[str, Any]` 與 `Literal`）
+	- `Python >= 3.13`（程式使用現代型別語法如 `dict[str, Any]` 與 `Literal`）
 	- **標準函式庫**：`asyncio`、`base64`、`re`、`time`、`urllib.request`、`concurrent.futures`
 	- **第三方套件**：`litellm`（**LLM 呼叫**與**成本計算**）、`rich`（**表格輸出**）
 

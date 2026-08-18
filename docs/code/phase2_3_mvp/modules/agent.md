@@ -21,7 +21,7 @@
 	- API key 沿用 RAG query LLM 的環境變數：`GEMINI_RAG_QUERY_ENGINE_API_KEY`
 
 - **模組環境**
-	- `Python >= 3.10`（程式使用現代型別語法）
+	- `Python >= 3.13`（程式使用現代型別語法）
 	- **第三方套件**：`langgraph`（**Agent 框架**，`create_agent`）、`langchain-google-genai`（**Gemini ChatModel**）、`langgraph-checkpoint`（**InMemorySaver**）、`langchain-core`（**StructuredTool**）、`python-dotenv`（**環境變數載入**）
 
 ## agent.py
@@ -53,7 +53,7 @@
 
 - **`extract_sources_from_messages(messages)`** — 以正則 `URL: (\S+)` 從 ToolMessage 解析來源 URL（依序去重）
 
-- **`save_conversation_results(agent, results, thread_id)`** — 落盤 `results.json`（含 config 摘要）；提供 `thread_id` 時另寫 `results_<thread_id>.json` 分檔（M5-2）
+- **`save_conversation_results(agent, results, thread_id)`** — 落盤 `results.json`（含 config 摘要）；提供 `thread_id` 時另寫 `results_<thread_id>.json` 分檔。**注意**：CLI 模式的 `run_agent()` 不傳 `thread_id`，因此分檔僅在 server 模式（`_event_stream`）下生效。
 
 ### 多輪記憶流程
 
@@ -66,7 +66,7 @@
 ```
 
 ## 已知問題
-- [ ] 多輪對話的 `results.json` 為每輪覆寫（歷史另存 `results_<thread_id>.json`）
+- [ ] 多輪對話的 `results.json` 為每輪覆寫（歷史另存 `results_<thread_id>.json`，僅 server 模式生效；CLI 模式不建立分檔）
 - [ ] Agent LLM 與 RAG 檢索 LLM 各自獨立設定，更換時需留意相容性
 
 ## 未來規劃

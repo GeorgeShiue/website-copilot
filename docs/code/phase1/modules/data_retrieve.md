@@ -25,7 +25,7 @@
 	- API key 依用途分為三組獨立環境變數：`OPENAI_RAG_EMBEDDING_API_KEY`（Embedding）、`GEMINI_RAG_QUERY_ENGINE_API_KEY` / `OPENAI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`GEMINI_RAG_EVALUATOR_API_KEY` / `OPENAI_RAG_EVALUATOR_API_KEY`（評估）
 
 - **模組環境**
-	- `Python >= 3.10`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
+	- `Python >= 3.13`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
 	- **標準函式庫**：`json`、`os`、`shutil`、`logging`
 	- **第三方套件**：`llama-index`（**核心檢索框架**）、`qdrant-client` / `pymilvus`（**向量資料庫**）、`llama-index-vector-stores-milvus`（**Milvus 整合**）、`llama-index-embeddings-openai`（**OpenAI Embedding**）、`llama-index-llms-google-genai` / `llama-index-llms-openai`（**查詢與評估 LLM**）、`langchain-core`（**StructuredTool**）
 

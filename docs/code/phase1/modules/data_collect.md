@@ -13,7 +13,7 @@
 	- 可在 `src/app/engines/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
 - **模組環境**
-	- `Python >= 3.10`（程式使用**現代型別語法**如 `int | None`）
+	- `Python >= 3.13`（程式使用**現代型別語法**如 `int | None`）
 	- **標準函式庫**：`asyncio`、`re`、`logging`
 	- **第三方套件**：`crawl4ai`（**爬蟲與 Markdown 生成**）、`mdformat`（**Markdown 格式化**）、`rich`（**輸出統計表格**）
 
