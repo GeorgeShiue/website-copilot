@@ -63,9 +63,11 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   ├── webpage_image_summarizer_config.py
 │   │   │   └── website_crawler_config.py
 │   │   ├── engines/             # 核心引擎層（舊 modules/ 改名）
-│   │   │   ├── rag.py
-│   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   │   ├── rag_eval_prompts.py
+│   │   │   ├── rag/
+│   │   │   │   ├── __init__.py  # 匯出 RAG / RAGBuilder / prompts
+│   │   │   │   ├── rag.py
+│   │   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   │   │   └── rag_eval_prompts.py
 │   │   │   ├── webpage_image_summarizer.py
 │   │   │   └── website_crawler.py
 │   │   ├── server/
@@ -87,7 +89,9 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── test_server.py       # Server SSE / CORS / static 測試
 │   └── utils/
 │       ├── config_helper.py
+│       ├── html_date_extractor.py   # HTML 日期擷取（純函數）
 │       ├── log_helper.py
+│       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
 │       └── rag_helper.py
 ├── extension/                   # Chrome Extension（M4b）
 │   ├── manifest.json            # MV3：content_scripts + background
@@ -171,7 +175,7 @@ playwright install
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
 | `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`app/agent/agent.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
 | `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
 | `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |

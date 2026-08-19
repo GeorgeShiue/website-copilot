@@ -1,4 +1,4 @@
-# 多網站 RAG 檢索 (2026/08/18)
+# 多網站 RAG 檢索規劃 (2026/08/19)
 
 ## 1. 摘要
 
@@ -47,21 +47,15 @@
 
 | # | 工作項目 | 涉及模組 | 說明 |
 |---|---------|---------|------|
-| 1-1 | **爬蟲 HTML metadata 擷取** | `website_crawler.py` | 從 `<meta>` 標籤（`article:published_time`、`og:updated_time`、`date`）、`<time datetime>` 元素、JSON-LD `datePublished` 等結構化標籤擷取發佈日期 |
-| 1-2 | **metadata 欄位擴充** | `website_crawler.py` / `_extract_metadata()` | 將擷取到的日期寫入 `crawl_result["metadata"]["published_date"]`（ISO 8601 格式 `YYYY-MM-DD`），供下游直接使用 |
-| 1-3 | **MarkdownDateExtractor 降級改進** | `rag.py` / `NodePipelineBuilder` | 當 HTML metadata 有 `published_date` 時直接注入 node metadata，跳過內容推斷；無 HTML metadata 時才走原有四層策略 |
+| 1-1 | **爬蟲 HTML metadata 擷取** | `website_crawler.py` | 從 `<meta>` 標籤、`<time datetime>` 元素、JSON-LD `datePublished` 等結構化標籤擷取發佈日期 |
+| 1-2 | **metadata 欄位擴充** | `website_crawler.py` / `_extract_metadata()` | 將擷取到的日期寫入 `crawl_result["metadata"]["published_date"]`（ISO 8601 格式） |
+| 1-3 | **MarkdownDateExtractor 降級改進** | `rag.py` / `NodePipelineBuilder` | 當 HTML metadata 有 `published_date` 時直接注入 node metadata，跳過內容推斷 |
 | 1-4 | **日期格式驗證** | `rag_config.py` / `rag_helper.py` | 確保 `published_date` 為有效 ISO 8601，無效則回落到 `MarkdownDateExtractor` |
-| 1-5 | **已有資料重新處理** | 爬蟲 pipeline | 對已爬取的 `data/webpages/results/` 重新執行 metadata 擷取（或重新爬取），補齊時間資訊 |
+| 1-5 | **已有資料重新處理** | 爬蟲 pipeline | 對已爬取的 `data/webpages/results/` 重新執行 metadata 擷取（或重新爬取） |
 
-### 建議執行順序
-
-```
-1-1 爬蟲 HTML metadata 擷取
- → 1-2 metadata 欄位擴充（寫入 crawl_result）
- → 1-3 MarkdownDateExtractor 降級改進（優先使用 HTML metadata）
- → 1-4 日期格式驗證（ISO 8601 校驗）
- → 1-5 重新處理已有資料
-```
+> 具體實作規格（解析優先級、程式碼設計、測試案例），請參閱 [dev_log.md](dev_log.md) §1。
+>
+> **實作成果 (2026/08/19)**：HTML 日期擷取功能已完成實作與 35 個單元測試（全部通過），但經端到端驗證，nculab（Google Sites）與 csie（自架 PHP 站）的所有頁面均無法從 HTML 擷取到日期——兩個網站皆無結構化日期標籤（JSON-LD、OG meta、`<time>` 元素等），伺服器也不回傳 `Last-Modified` 標頭。HTML 日期擷取僅對有 SEO 套件的網站（如 WordPress、Medium）有效，對這兩個目標網站不適用。後續仍須依賴 `MarkdownDateExtractor` 內容推斷作為主要日期來源。
 
 ---
 
@@ -74,23 +68,12 @@
 | # | 工作項目 | 涉及模組 | 說明 |
 |---|---------|---------|------|
 | 2-1 | **資料目錄結構重構** | 專案根目錄 | 改為 `data/webpages/{site_id}/` 結構，每個網站獨立 `results.json` + `results/` 目錄 |
-| 2-2 | **爬蟲設定檔模板化** | `configs/website_crawler/` | 建立 `{site_id}.toml` 模板（`url`、`url_patterns`、`allowed_domains`、`exclude_words` 可調），方便為新網站快速建立設定 |
+| 2-2 | **爬蟲設定檔模板化** | `configs/website_crawler/` | 建立 `{site_id}.toml` 模板（`url`、`url_patterns`、`allowed_domains`、`exclude_words` 可調） |
 | 2-3 | **向量庫隔離** | `rag_config.py` | 每個網站獨立 `collection_name`（如 `webpages_nculab`、`webpages_nctu`）或獨立 Milvus DB 檔案 |
 | 2-4 | **RAG 設定檔 per site** | `configs/rag/` | 建立 `{site_id}.toml`，指定對應的 `webpages_data_folder_path` 與 `collection_name` |
 | 2-5 | **metadata 加入 site_id** | 爬蟲 + RAG pipeline | 所有 node 的 metadata 注入 `site_id` 欄位，作為跨網站檢索的過濾條件 |
-| 2-6 | **Agent 設定檔多 site 支援** | `configs/agent/` | `AgentConfig` 可指定或多個 `rag_config_names`，讓 Agent 知道可呼叫哪些知識庫 |
+| 2-6 | **Agent 設定檔多 site 支援** | `configs/agent/` | `AgentConfig` 可指定多個 `rag_config_names`，讓 Agent 知道可呼叫哪些知識庫 |
 | 2-7 | **腳本化建庫流程** | `scripts/` | 建立一鍵腳本：爬取 → 圖片摘要 → 建索引，支援 `--site-id` 參數 |
-
-### 建議執行順序
-
-```
-2-1 資料目錄結構重構
- → 2-2 爬蟲設定檔模板化
- → 2-3 向量庫隔離
- → 2-5 metadata 加入 site_id
- → 2-7 腳本化建庫流程
- → (後續) 2-4 RAG 設定檔 per site → 2-6 Agent 設定檔
-```
 
 ### 目錄結構（重構後）
 
@@ -113,32 +96,7 @@ data/
 │   └── ...
 ```
 
-### 設定檔結構（重構後）
-
-```toml
-# configs/rag/nculab.toml
-[init]
-webpages_data_folder_path = "data/webpages/nculab"
-
-[vector_store]
-vector_store_type = "milvus"
-milvus_uri = "data/rag/nculab/milvus.db"
-collection_name = "webpages_nculab"
-# ...其餘設定同 default
-```
-
-```toml
-# configs/website_crawler/nculab.toml
-[init]
-max_depth = 2
-content_threshold = 0.25
-
-[crawl]
-url = "https://sites.google.com/site/nculab/labintro"
-url_patterns = ["*nculab*"]
-allowed_domains = ["sites.google.com"]
-exclude_words = ["..."]
-```
+> 具體的 DataManager 介面設計、RunManager 改動、Workflow 函式簽名變化，請參閱 [dev_log.md](dev_log.md) §3。
 
 ---
 
@@ -151,66 +109,13 @@ exclude_words = ["..."]
 | # | 工作項目 | 涉及模組 | 說明 |
 |---|---------|---------|------|
 | 3-1 | **Tool 參數擴充** | `webpage_retriever.py` | 加入 `site_id: str` 參數，Agent 可根據使用者問題選擇目標網站 |
-| 3-2 | **多 RAG 實例管理** | `webpage_retriever.py` / `rag_factory.py` | 建立 `RAGRegistry` 或類似機制，依 `site_id` 載入/快取對應的 RAG 實例（避免每次查詢重建向量庫） |
+| 3-2 | **多 RAG 實例管理** | `webpage_retriever.py` / `rag_factory.py` | 建立 `RAGRegistry`，依 `site_id` 載入/快取對應的 RAG 實例 |
 | 3-3 | **向量庫動態切換** | `RAGBuilder.build_retriever()` | 支援執行期切換 `vector_store` / `collection_name`，或預建多個 retriever 按 site_id 路由 |
-| 3-4 | **Agent tool calling 設計** | Agent system prompt | 在 system prompt 中告知 Agent 可用的 `site_id` 列表與對應網站名稱，讓 LLM 自動判斷該查哪個知識庫 |
+| 3-4 | **Agent tool calling 設計** | Agent system prompt | 在 system prompt 中告知 Agent 可用的 `site_id` 列表與對應網站名稱 |
 | 3-5 | **metadata filter 跨網站** | `retrieve()` / `build_filters()` | 支援 `{"site_id": "nculab"}` 過濾條件，確保檢索範圍正確 |
 | 3-6 | **fallback：跨網站搜尋** | Agent 邏輯 | 當 Agent 不確定目標網站時，可先搜尋所有知識庫再合併排序（或提示使用者指定） |
 
-### 建議執行順序
-
-```
-3-1 Tool 參數擴充
- → 3-2 多 RAG 實例管理（RAGRegistry）
- → 3-3 向量庫動態切換
- → 3-5 metadata filter 跨網站
- → 3-4 Agent tool calling 設計（system prompt）
- → 3-6 fallback 跨網站搜尋
-```
-
-### RAGRegistry 設計概念
-
-```python
-class RAGRegistry:
-    """依 site_id 管理多個 RAG 實例，避免重複建立向量庫。"""
-
-    def __init__(self, config_names: dict[str, str]):
-        """config_names: {"nculab": "rag_nculab", "nctu": "rag_nctu"}"""
-        self._configs = config_names
-        self._instances: dict[str, Rag] = {}
-
-    def get(self, site_id: str) -> Rag:
-        if site_id not in self._instances:
-            config = RagConfig.from_toml(self._configs[site_id])
-            self._instances[site_id] = RAGBuilder(config).build_reusable()
-        return self._instances[site_id]
-
-    def list_sites(self) -> list[str]:
-        return list(self._configs.keys())
-
-    def close(self):
-        for rag in self._instances.values():
-            rag.close()
-```
-
-### Tool 簽名（擴充後）
-
-```python
-webpage_retriever = StructuredTool.from_function(
-    func=retrieve,
-    name="webpage_retriever",
-    description="從指定網站的知識庫檢索相關網頁內容",
-    args_schema=WebpageRetrieverInput,  # 加入 site_id 欄位
-)
-```
-
-```python
-class WebpageRetrieverInput(BaseModel):
-    query: str
-    site_id: str  # 新增：目標網站（如 "nculab"、"nctu"）
-    filter_dict: dict | None = None
-    top_k: int = 10
-```
+> 具體的 RAGRegistry 設計、Tool 簽名、Agent 整合，請參閱 [dev_log.md](dev_log.md) §2–3。
 
 ---
 
@@ -232,7 +137,7 @@ class WebpageRetrieverInput(BaseModel):
 |--------|---------|
 | **M1：時間擷取** | 爬取新網站後，`results.json` 中 ≥80% 頁面有有效 `published_date`；`MarkdownDateExtractor` 在有 HTML metadata 時正確跳過 |
 | **M2：多站基礎建設** | 能為 2+ 個學校網站分別爬取、建庫，目錄與向量庫完全隔離；`--site-id` 參數正常運作 |
-| **M3：多站 RAG 檢索** | `webpage_retriever(site_id="nculab", query="...")` 僅從 nculab 知識庫檢索；`site_id="nctu"` 僅從 nculab 知識庫檢索；`RAGRegistry` 快取正常 |
+| **M3：多站 RAG 檢索** | `webpage_retriever(site_id="nculab", query="...")` 僅從 nculab 知識庫檢索；`RAGRegistry` 快取正常 |
 | **M4：Agent 多站整合** | Agent 收到「中央大學的成員有哪些」自動路由至對應 site_id；收到「所有學校的論文」觸發跨站搜尋 |
 
 ---
