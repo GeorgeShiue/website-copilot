@@ -1,10 +1,14 @@
 import asyncio
+import json
 import logging
 import re
-from typing import Pattern
+from datetime import datetime
+from email.utils import parsedate_to_datetime
+from typing import Any, Pattern
 from urllib.parse import urlparse
 
 import mdformat
+from bs4 import BeautifulSoup
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
@@ -62,6 +66,138 @@ PAGE_TYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+def _extract_from_jsonld(soup: BeautifulSoup) -> tuple[str | None, str | None]:
+    """從 JSON-LD 擷取 datePublished / dateModified。"""
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            data = json.loads(script.string or "")
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                if isinstance(item, dict):
+                    pub = item.get("datePublished") or item.get("dateCreated")
+                    mod = item.get("dateModified")
+                    if pub or mod:
+                        return pub, mod
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return None, None
+
+
+def _extract_meta_property(soup: BeautifulSoup, prop: str) -> str | None:
+    """從 `<meta property="...">` 擷取 content 屬性。"""
+    tag = soup.select_one(f'meta[property="{prop}"]')
+    content = tag.get("content") if tag else None
+    return str(content) if content is not None else None
+
+
+def _extract_time_element(soup: BeautifulSoup) -> str | None:
+    """從 `<time>` 元素擷取 datetime 屬性。"""
+    for selector in (
+        'time[itemprop="datePublished"]',
+        "time[datetime]",
+    ):
+        tag = soup.select_one(selector)
+        if tag:
+            dt = tag.get("datetime")
+            if dt is not None:
+                return str(dt)
+    return None
+
+
+def _extract_meta_name(soup: BeautifulSoup, names: tuple[str, ...]) -> str | None:
+    """從 `<meta name="...">` 擷取 content 屬性（不區分大小寫）。"""
+    for name in names:
+        tag = soup.select_one(f'meta[name="{name}" i]')
+        if tag:
+            content = tag.get("content")
+            if content is not None:
+                return str(content)
+    return None
+
+
+def _parse_http_date(date_str: str | None) -> str | None:
+    """解析 HTTP 日期格式（RFC 7231），回傳 ISO 8601。"""
+    if not date_str:
+        return None
+    try:
+        return parsedate_to_datetime(date_str).isoformat()
+    except (ValueError, TypeError):
+        return None
+
+
+def _normalize_to_iso8601(date_str: str | None) -> str | None:
+    """嘗試將各種日期格式標準化為 ISO 8601（YYYY-MM-DD）。"""
+    if not date_str:
+        return None
+    # 已經是 ISO 格式：取 YYYY-MM-DD 部分
+    if re.match(r"\d{4}-\d{2}-\d{2}", date_str):
+        return date_str[:10]
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def _extract_date_from_html(
+    html: str,
+    response_headers: dict[str, str] | None = None,
+) -> dict[str, str | None]:
+    """從 HTML 原始碼 + HTTP 標頭擷取發佈/修改日期。
+
+    解析優先級：
+      1. JSON-LD datePublished
+      2. <meta property="article:published_time">
+      3. <time datetime> with itemprop="datePublished"
+      4. Generic meta name="date" / "pubdate"
+      5. Dublin Core dc.date
+      6. HTTP Last-Modified
+
+    回傳 ISO 8601 格式（YYYY-MM-DD）。無法擷取時對應值為 None。
+    """
+    published_date: str | None = None
+    modified_date: str | None = None
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+    except Exception:
+        logger.debug("BeautifulSoup parsing failed, skipping HTML date extraction")
+        return {"published_date": None, "modified_date": None}
+
+    # --- Priority 1: JSON-LD datePublished / dateModified ---
+    published_date, modified_date = _extract_from_jsonld(soup)
+
+    # --- Priority 2: <meta property="article:published_time"> ---
+    if published_date is None:
+        published_date = _extract_meta_property(soup, "article:published_time")
+
+    # --- Priority 3: <time datetime> elements ---
+    if published_date is None:
+        published_date = _extract_time_element(soup)
+
+    # --- Priority 4: Generic meta date tags ---
+    if published_date is None:
+        published_date = _extract_meta_name(soup, ("date", "pubdate", "publish_date"))
+
+    # --- Priority 5: Dublin Core dc.date ---
+    if published_date is None:
+        published_date = _extract_meta_name(soup, ("dc.date", "dc.date.created"))
+
+    # --- Priority 6: HTTP Last-Modified ---
+    if published_date is None and response_headers:
+        published_date = _parse_http_date(response_headers.get("Last-Modified"))
+
+    # modified_date 從 article:modified_time 補充
+    if modified_date is None:
+        modified_date = _extract_meta_property(soup, "article:modified_time")
+
+    return {
+        "published_date": _normalize_to_iso8601(published_date),
+        "modified_date": _normalize_to_iso8601(modified_date),
+    }
+
+
 class WebsiteCrawler:
     def __init__(
         self,
@@ -83,6 +219,7 @@ class WebsiteCrawler:
         self.url_patterns: str | Pattern | list[str | Pattern] | None = None
         self.allowed_domains: str | list[str] | None = None
         self.exclude_words: list[str] | None = None
+        self.path_prefix: str = "/"
 
         # ===== internal state =====
         self._crawl_stats: dict[str, int] = self._new_crawl_stats()
@@ -93,6 +230,7 @@ class WebsiteCrawler:
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
         exclude_words: list[str] | None = None,
+        path_prefix: str | None = None,
     ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
@@ -100,6 +238,13 @@ class WebsiteCrawler:
         self.allowed_domains = allowed_domains
         self.exclude_words = exclude_words
         self._crawl_stats = self._new_crawl_stats()
+
+        # path_prefix: 設定檔指定 > 起始 URL 父路徑 > "/"
+        if path_prefix is not None:
+            self.path_prefix = path_prefix.rstrip("/")
+        else:
+            start_path = urlparse(url).path.rstrip("/")
+            self.path_prefix = start_path.rsplit("/", 1)[0] or "/"
 
         try:
             crawl_results = asyncio.run(self._crawl_website_async())
@@ -175,9 +320,12 @@ class WebsiteCrawler:
         self,
         crawl_results: list,
     ) -> dict[str, dict]:
-        """過濾爬取結果：排除 404 與重複頁面，回傳中間資料。"""
-        filtered_results = {}
-        existed_page_title = set()
+        """過濾爬取結果：排除 404 與重複頁面，回傳中間資料。
+
+        去重鍵：從 URL path 截去 path_prefix 後的相對路徑。
+        """
+        filtered_results: dict[str, dict] = {}
+        existed_keys: set[str] = set()
 
         for crawl_result in crawl_results:
             if crawl_result.status_code == 404:
@@ -191,16 +339,15 @@ class WebsiteCrawler:
             fit_markdown = crawl_result.markdown.fit_markdown
             fit_markdown = self._clean_markdown(fit_markdown)
 
-            title = crawl_result.metadata.get("title")
-            page_title = title.split(" - ")[-1].replace("/", "_")
+            dedup_key = self._resolve_dedup_key(crawl_result.url)
 
-            if page_title in existed_page_title:
+            if dedup_key in existed_keys:
                 self._crawl_stats["repeat_pages"] += 1
-                logger.debug(f"Webpage {page_title} already exists, skipping...")
+                logger.debug(f"Webpage {dedup_key} already exists, skipping...")
                 continue
-            existed_page_title.add(page_title)
+            existed_keys.add(dedup_key)
 
-            filtered_results[page_title] = {
+            filtered_results[dedup_key] = {
                 "url": crawl_result.url,
                 "fit_markdown": fit_markdown,
                 "crawl_result": crawl_result,
@@ -208,6 +355,13 @@ class WebsiteCrawler:
             self._crawl_stats["success_pages"] += 1
 
         return filtered_results
+
+    def _resolve_dedup_key(self, url: str) -> str:
+        """從 URL 產生去重鍵：截去 path_prefix 後的相對路徑。"""
+        full_path = urlparse(url).path
+        base = self.path_prefix.rstrip("/")
+        relative = full_path[len(base) :].strip("/") if base else full_path.strip("/")
+        return relative.replace("/", "_") or "index"
 
     def _clean_markdown(self, markdown: str) -> str:
         """優化後的 Markdown 清理邏輯：混合 Regex 與 mdformat。"""
@@ -289,7 +443,12 @@ class WebsiteCrawler:
                 "url": url,
                 "fit_markdown": fit_markdown,
                 "images": self._extract_images(fit_markdown),
-                "metadata": self._extract_metadata(url, raw_metadata),
+                "metadata": self._extract_metadata(
+                    url,
+                    raw_metadata,
+                    html=getattr(crawl_result, "html", None),
+                    response_headers=getattr(crawl_result, "response_headers", None),
+                ),
                 "crawl_info": self._extract_crawl_info(raw_metadata),
             }
 
@@ -300,11 +459,16 @@ class WebsiteCrawler:
         return enriched_results
 
     @staticmethod
-    def _extract_metadata(url: str, raw_metadata: dict) -> dict:
+    def _extract_metadata(
+        url: str,
+        raw_metadata: dict,
+        html: str | None = None,
+        response_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """萃取內容屬性（給 LLM 閱讀 + DB pre-filter 使用）。"""
         path = urlparse(url).path
 
-        metadata = {
+        metadata: dict[str, Any] = {
             "description": raw_metadata.get("description")
             or raw_metadata.get("og:description"),
             "page_type": "general",
@@ -315,6 +479,14 @@ class WebsiteCrawler:
             if pattern.search(path):
                 metadata["page_type"] = label
                 break
+
+        # HTML 日期擷取
+        if html:
+            date_info = _extract_date_from_html(html, response_headers)
+            if date_info["published_date"]:
+                metadata["published_date"] = date_info["published_date"]
+            if date_info["modified_date"]:
+                metadata["modified_date"] = date_info["modified_date"]
 
         return metadata
 

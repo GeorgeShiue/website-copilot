@@ -73,6 +73,7 @@ def run_website_crawler(
             url_patterns=config.url_patterns,
             allowed_domains=config.allowed_domains,
             exclude_words=config.exclude_words,
+            path_prefix=config.path_prefix,
         )
 
         if crawl_results is None:

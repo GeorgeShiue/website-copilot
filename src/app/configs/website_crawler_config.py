@@ -29,6 +29,7 @@ CRAWL_KEYS = {
     "url_patterns",
     "allowed_domains",
     "exclude_words",
+    "path_prefix",
 }
 SECTIONS_TO_KEYS = {
     DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
@@ -52,6 +53,7 @@ class WebsiteCrawlerConfig:
     url_patterns: str | Pattern | list[str | Pattern] | None = None
     allowed_domains: str | list[str] | None = None
     exclude_words: list[str] | None = None
+    path_prefix: str | None = None
     # ----- metadata -----
     sections_to_keys: dict[str, set[str]] = field(
         default_factory=lambda: SECTIONS_TO_KEYS
@@ -171,3 +173,10 @@ def _validate_config(config: dict[str, Any]) -> None:
                 raise ConfigValidationError(
                     "exclude_words 列表中的每個元素必須是非空字串"
                 )
+
+    path_prefix = config.get("path_prefix")
+    if path_prefix is not None:
+        if not isinstance(path_prefix, str):
+            raise ConfigValidationError("path_prefix 必須是字串")
+        if not path_prefix.startswith("/"):
+            raise ConfigValidationError("path_prefix 必須以 / 開頭")

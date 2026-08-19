@@ -72,12 +72,15 @@ class NodePipelineBuilder:
         page_info = results_json.get(page_title, {})
         page_metadata: dict[str, Any] = page_info.get("metadata", {})
 
-        return {
+        file_metadata: dict[str, Any] = {
             "page_title": page_title,
             "page_url": page_info.get("url", ""),
             "page_type": page_metadata.get("page_type", "general"),
+            "published_date": page_metadata.get("published_date", ""),
             "description": page_metadata.get("description", ""),
         }
+
+        return file_metadata
 
     def build(
         self,

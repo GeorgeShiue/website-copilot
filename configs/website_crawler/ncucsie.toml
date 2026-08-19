@@ -1,0 +1,12 @@
+[init]
+max_depth = 2            # run name
+max_pages = 10           # run name
+content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD
+light_mode = true
+wait_for_images = true
+
+[crawl]
+url = "https://www.csie.ncu.edu.tw/"
+url_patterns = ["*csie.ncu.edu.tw*"]
+allowed_domains = ["www.csie.ncu.edu.tw"]
+path_prefix = "/"

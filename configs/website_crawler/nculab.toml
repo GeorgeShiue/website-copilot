@@ -1,6 +1,5 @@
 [init]
 max_depth = 2
-max_pages = 10           # run name
 content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD
 light_mode = true
 wait_for_images = true
