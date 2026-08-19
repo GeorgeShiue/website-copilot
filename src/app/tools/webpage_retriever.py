@@ -6,8 +6,7 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from app.configs.rag_config import RAGConfig
-from app.engines.rag import RAG
-from app.engines.rag_factory import RAGBuilder
+from app.engines.rag import RAG, RAGBuilder
 from app.workflow.workflow_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file

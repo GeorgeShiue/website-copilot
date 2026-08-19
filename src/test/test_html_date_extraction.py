@@ -1,15 +1,15 @@
-"""_extract_date_from_html 及相關輔助函數的單元測試。"""
+"""extract_date_from_html 及相關輔助函數的單元測試。"""
 
 from bs4 import BeautifulSoup
 
-from app.engines.website_crawler import (
-    _extract_date_from_html,
+from utils.html_date_extractor import (
     _extract_from_jsonld,
     _extract_meta_name,
     _extract_meta_property,
     _extract_time_element,
     _normalize_to_iso8601,
     _parse_http_date,
+    extract_date_from_html,
 )
 
 # ── _extract_from_jsonld ──────────────────────────────────────────────
@@ -179,7 +179,7 @@ class TestNormalizeToIso8601:
         assert _normalize_to_iso8601("not-a-date") is None
 
 
-# ── _extract_date_from_html（整合測試）─────────────────────────────────
+# ── extract_date_from_html（整合測試）────────────────────────────────
 
 
 class TestExtractDateFromHtml:
@@ -193,7 +193,7 @@ class TestExtractDateFromHtml:
         </script>
         </head></html>
         """
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-01-15"
 
     def test_og_meta_fallback(self):
@@ -203,7 +203,7 @@ class TestExtractDateFromHtml:
         <meta property="article:published_time" content="2024-03-20T08:30:00+08:00">
         </head></html>
         """
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-03-20"
 
     def test_time_element_fallback(self):
@@ -213,32 +213,32 @@ class TestExtractDateFromHtml:
         <time datetime="2024-05-10" itemprop="datePublished">May 10, 2024</time>
         </body></html>
         """
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-05-10"
 
     def test_generic_meta_date(self):
         """使用 generic meta name="date"。"""
         html = '<html><head><meta name="date" content="2024-02-15"></head></html>'
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-02-15"
 
     def test_dublin_core(self):
         """使用 Dublin Core dc.date。"""
         html = '<html><head><meta name="dc.date" content="2024-04-10"></head></html>'
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-04-10"
 
     def test_http_last_modified(self):
         """所有 HTML 來源都沒有時，fallback 到 Last-Modified。"""
         html = "<html><head></head><body></body></html>"
         headers = {"Last-Modified": "Wed, 15 Jan 2025 12:00:00 GMT"}
-        result = _extract_date_from_html(html, response_headers=headers)
+        result = extract_date_from_html(html, response_headers=headers)
         assert result["published_date"] is not None
 
     def test_no_date_anywhere(self):
         """完全無日期來源時回傳 None。"""
         html = "<html><head></head><body>No dates</body></html>"
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] is None
         assert result["modified_date"] is None
 
@@ -251,7 +251,7 @@ class TestExtractDateFromHtml:
         </script>
         </head></html>
         """
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-01-15"
         assert result["modified_date"] == "2024-06-20"
 
@@ -263,17 +263,17 @@ class TestExtractDateFromHtml:
         <meta property="article:modified_time" content="2024-06-20">
         </head></html>
         """
-        result = _extract_date_from_html(html)
+        result = extract_date_from_html(html)
         assert result["published_date"] == "2024-01-15"
         assert result["modified_date"] == "2024-06-20"
 
     def test_invalid_html_graceful(self):
         """損壞的 HTML 不應拋出異常。"""
-        result = _extract_date_from_html("<<<NOT VALID>>>")
+        result = extract_date_from_html("<<<NOT VALID>>>")
         assert result["published_date"] is None
 
     def test_none_headers(self):
         """response_headers 為 None 時不應拋出異常。"""
         html = '<html><head><meta name="date" content="2024-01-15"></head></html>'
-        result = _extract_date_from_html(html, response_headers=None)
+        result = extract_date_from_html(html, response_headers=None)
         assert result["published_date"] == "2024-01-15"

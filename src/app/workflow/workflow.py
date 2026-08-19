@@ -14,8 +14,7 @@ from app.configs.rag_config import (
 )
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
-from app.engines.rag import RAG
-from app.engines.rag_factory import RAGBuilder
+from app.engines.rag import RAG, RAGBuilder
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.website_crawler import WebsiteCrawler
 from app.workflow.workflow_manager import RunManager

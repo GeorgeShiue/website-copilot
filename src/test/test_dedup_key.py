@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from app.engines.website_crawler import WebsiteCrawler
+from app.engines.website_crawler import WebsiteCrawler, resolve_dedup_key
 
 
 def _make_crawler(url: str, path_prefix: str | None = None) -> WebsiteCrawler:
@@ -27,7 +27,7 @@ def _make_result(url: str, title: str = "Page") -> MagicMock:
     return r
 
 
-# ── _resolve_dedup_key ────────────────────────────────────────────────
+# ── resolve_dedup_key ────────────────────────────────────────────────
 
 
 class TestResolveDedupKey:
@@ -37,7 +37,9 @@ class TestResolveDedupKey:
             path_prefix="/site/nculab",
         )
         assert (
-            c._resolve_dedup_key("https://sites.google.com/site/nculab/news/校內奬項")
+            resolve_dedup_key(
+                "https://sites.google.com/site/nculab/news/校內奬項", c.path_prefix
+            )
             == "news_校內奬項"
         )
 
@@ -48,24 +50,32 @@ class TestResolveDedupKey:
         )
         # /site/nculab/labintro 截去 /site/nculab → labintro
         assert (
-            c._resolve_dedup_key("https://sites.google.com/site/nculab/labintro")
+            resolve_dedup_key(
+                "https://sites.google.com/site/nculab/labintro", c.path_prefix
+            )
             == "labintro"
         )
 
     def test_csie_child_page(self):
         c = _make_crawler("https://www.csie.ncu.edu.tw/", path_prefix="/")
         assert (
-            c._resolve_dedup_key("https://www.csie.ncu.edu.tw/department/member")
+            resolve_dedup_key(
+                "https://www.csie.ncu.edu.tw/department/member", c.path_prefix
+            )
             == "department_member"
         )
 
     def test_csie_root(self):
         c = _make_crawler("https://www.csie.ncu.edu.tw/", path_prefix="/")
-        assert c._resolve_dedup_key("https://www.csie.ncu.edu.tw/") == "index"
+        assert (
+            resolve_dedup_key("https://www.csie.ncu.edu.tw/", c.path_prefix) == "index"
+        )
 
     def test_csie_deep_path(self):
         c = _make_crawler("https://www.csie.ncu.edu.tw/", path_prefix="/")
-        key = c._resolve_dedup_key("https://www.csie.ncu.edu.tw/announcement/abc123")
+        key = resolve_dedup_key(
+            "https://www.csie.ncu.edu.tw/announcement/abc123", c.path_prefix
+        )
         assert key == "announcement_abc123"
 
     def test_no_path_prefix_fallback(self):
@@ -73,13 +83,16 @@ class TestResolveDedupKey:
         c = _make_crawler("https://example.com/blog/post1")
         # parent of /blog/post1 is /blog
         assert c.path_prefix == "/blog"
-        assert c._resolve_dedup_key("https://example.com/blog/post2") == "post2"
+        assert (
+            resolve_dedup_key("https://example.com/blog/post2", c.path_prefix)
+            == "post2"
+        )
 
     def test_no_path_prefix_domain_root(self):
         """起始 URL 在 domain 根時，fallback 到 /"""
         c = _make_crawler("https://example.com/")
         assert c.path_prefix == "/"
-        assert c._resolve_dedup_key("https://example.com/about") == "about"
+        assert resolve_dedup_key("https://example.com/about", c.path_prefix) == "about"
 
 
 # ── _filter_crawl_results ─────────────────────────────────────────────
