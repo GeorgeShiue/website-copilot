@@ -44,6 +44,8 @@ class RunManager:
 
         self.module_name: str = ""
         self.module_path: str = ""
+        self.site_id: str = ""
+        self.site_path: str = ""
         self.run_name: str = ""
         self.run_path: str = ""
 
@@ -76,15 +78,34 @@ class RunManager:
         os.makedirs(module_path, exist_ok=True)
         self.module_path = module_path
 
+    def set_site_path(self, site_id: str) -> None:
+        """設定站點路徑（可選，建立四層結構）。"""
+        if not self.module_name:
+            raise ValueError("Module name must be set before setting site path.")
+        if not site_id:
+            raise ValueError("Site ID must be provided to set site path.")
+
+        self.site_id = site_id
+        site_path = os.path.join(self.module_path, site_id)
+        os.makedirs(site_path, exist_ok=True)
+        self.site_path = site_path
+
+    def clear_site_path(self) -> None:
+        """清除站點路徑，回到三層結構。"""
+        self.site_id = ""
+        self.site_path = ""
+
     def set_run_path(self, run_name: str) -> None:
-        """設定實驗路徑並回傳。"""
+        """設定實驗路徑（支援 site_path）。"""
         if not self.module_name:
             raise ValueError("Module name must be set before setting run path.")
         if not run_name:
             raise ValueError("Run name must be provided to set run path.")
 
         self.run_name = run_name
-        run_path = os.path.join(self.module_path, self.run_name)
+        # 優先使用 site_path（四層結構），否則使用 module_path（三層結構）
+        base_for_run = self.site_path if self.site_path else self.module_path
+        run_path = os.path.join(base_for_run, self.run_name)
         os.makedirs(run_path, exist_ok=True)
         self.run_path = run_path
 
@@ -319,14 +340,14 @@ class RunManager:
         if latest_results is not None:
             return latest_results
 
-        logger.info(f"Looking for run folders in {RUNS_FOLDER_PATH}...")
+        logger.info(f"Looking for run folders in {self.base_folder}...")
         run_folder_names = self._filter_run_folders()
 
         # 由新到舊尋找第一份位於 website_crawler 子目錄中的 results.json
         latest_results_json_path = ""
         for folder_name in sorted(run_folder_names, reverse=True):
             website_crawler_folder_path = os.path.join(
-                RUNS_FOLDER_PATH, folder_name, "website_crawler"
+                self.base_folder, folder_name, "website_crawler"
             )
             if not os.path.isdir(website_crawler_folder_path):
                 continue
@@ -365,14 +386,14 @@ class RunManager:
 
         # 2. 由新到舊尋找第一份 webpage_image_summarizer 子目錄中的 results 資料夾，回傳其 parent
         logger.info(
-            f"Looking for webpage_image_summarizer run path in {RUNS_FOLDER_PATH}..."
+            f"Looking for webpage_image_summarizer run path in {self.base_folder}..."
         )
         run_folder_names = self._filter_run_folders()
 
         latest_run_path = ""
         for folder_name in sorted(run_folder_names, reverse=True):
             webpage_image_summarizer_folder_path = os.path.join(
-                RUNS_FOLDER_PATH, folder_name, "webpage_image_summarizer"
+                self.base_folder, folder_name, "webpage_image_summarizer"
             )
             if not os.path.isdir(webpage_image_summarizer_folder_path):
                 continue
@@ -412,11 +433,11 @@ class RunManager:
 
     def _filter_run_folders(self) -> list[str]:
         """篩選出符合實驗資料夾命名規則的資料夾名稱列表。"""
-        folder_names = os.listdir(RUNS_FOLDER_PATH)
+        folder_names = os.listdir(self.base_folder)
         run_folder_names = []
         for folder_name in folder_names:
             if folder_name.startswith("20") and len(folder_name) == 15:
                 run_folder_names.append(folder_name)
         if not run_folder_names:
-            raise FileNotFoundError(f"No run folders found in {RUNS_FOLDER_PATH}.")
+            raise FileNotFoundError(f"No run folders found in {self.base_folder}.")
         return run_folder_names
