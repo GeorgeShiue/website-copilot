@@ -54,6 +54,7 @@ DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"
 DEFAULT_LITELLM_CONFIG_SECTION = "litellm_kwargs"
 INIT_KEYS = {
+    "site_id",
     "download_timeout",
     "success_threshold",
     "max_retries",
@@ -85,6 +86,7 @@ VLM_MODEL_TO_API_KEY: dict[str, str] = {
 class WebpageImageSummarizerConfig:
     # ----- metadata (no default values)-----
     config_name: str
+    site_id: str
     # ----- init config -----
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
@@ -142,6 +144,11 @@ class WebpageImageSummarizerConfig:
 
 
 def _validate_config(config: dict[str, Any]) -> None:
+    # ----- metadata -----
+    site_id = config.get("site_id")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     # ----- init config -----
     download_timeout = config.get("download_timeout")
     success_threshold = config.get("success_threshold")

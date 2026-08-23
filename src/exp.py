@@ -1,7 +1,7 @@
 import time
 
 from app.workflow.workflow import run_rag_query, run_webpage_image_summarizer
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.log_helper import setup_logging
 
 setup_logging("debug")

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class BaseRunConfig:
     config_name: str = "default"
     run_name_use_config_name: bool = False
+    site_id: str = "default"
 
 
 @dataclass

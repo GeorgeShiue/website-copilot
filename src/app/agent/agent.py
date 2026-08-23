@@ -28,7 +28,7 @@ from app.configs.agent_config import AgentConfig
 from app.tools.webpage_retriever import (
     create_webpage_retriever_tool,
 )
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
 

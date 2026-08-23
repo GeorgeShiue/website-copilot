@@ -1,5 +1,5 @@
 [init]
-webpages_data_folder_path = "data/webpages"
+site_id = "nculab"
 
 [nodes]
 chunk_size = 800
@@ -8,8 +8,6 @@ paragraph_separator = "\n\n"
 
 [vector_store]
 vector_store_type = "qdrant" # run name
-qdrant_db_folder_path = "data/rag/results/qdrant_db"
-collection_name = "webpages"
 
 [index]
 embedding_name = "text-embedding-3-small"

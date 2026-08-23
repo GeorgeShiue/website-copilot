@@ -44,7 +44,7 @@ from app.agent.agent import (
     thread_config,
 )
 from app.configs.agent_config import AgentConfig
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.log_helper import setup_logging
 
 logger = logging.getLogger(__name__)

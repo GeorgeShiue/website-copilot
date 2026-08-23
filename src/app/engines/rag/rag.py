@@ -19,7 +19,6 @@ from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
-from app.configs.rag_config import WEBPAGES_DATA_FOLDER_PATH
 from utils.log_helper import log_session, log_source_title
 from utils.rag_helper import build_filters, extract_sources_info
 
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 class RAG:
     def __init__(
         self,
-        webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH,
+        webpages_data_folder_path: str,
     ) -> None:
         self.webpages_data_folder_path = webpages_data_folder_path
         self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")

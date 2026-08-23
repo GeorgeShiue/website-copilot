@@ -79,7 +79,7 @@ class RunManager:
         self.module_path = module_path
 
     def set_site_path(self, site_id: str) -> None:
-        """設定站點路徑（可選，建立四層結構）。"""
+        """設定站點路徑（必要，建立四層結構）。"""
         if not self.module_name:
             raise ValueError("Module name must be set before setting site path.")
         if not site_id:
@@ -90,13 +90,8 @@ class RunManager:
         os.makedirs(site_path, exist_ok=True)
         self.site_path = site_path
 
-    def clear_site_path(self) -> None:
-        """清除站點路徑，回到三層結構。"""
-        self.site_id = ""
-        self.site_path = ""
-
     def set_run_path(self, run_name: str) -> None:
-        """設定實驗路徑（支援 site_path）。"""
+        """設定實驗路徑（四層結構，依賴 site_path）。"""
         if not self.module_name:
             raise ValueError("Module name must be set before setting run path.")
         if not run_name:

@@ -14,12 +14,7 @@ from utils.config_helper import (
 logger = logging.getLogger(__name__)
 
 
-WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
-RAG_RESULTS_FOLDER_PATH = "data/rag/results"
 DEFAULT_VECTOR_STORE_TYPE = "qdrant"
-DEFAULT_COLLECTION_NAME = "webpages"
-DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
-DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
 DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
@@ -28,12 +23,25 @@ DEFAULT_INDEX_CONFIG_SECTION = "index"
 DEFAULT_RETRIEVER_CONFIG_SECTION = "retriever"
 DEFAULT_QUERY_ENGINE_CONFIG_SECTION = "query_engine"
 
+
+def _default_webpages_path(site_id: str) -> str:
+    return f"data/webpages/{site_id}"
+
+
+def _default_milvus_uri(site_id: str) -> str:
+    return f"data/rag/{site_id}/milvus.db"
+
+
+def _default_qdrant_db_path(site_id: str) -> str:
+    return f"data/rag/{site_id}/qdrant_db"
+
+
 INIT_KEYS = {
+    "site_id",
     "webpages_data_folder_path",
 }
 VECTOR_STORE_KEYS = {
     "qdrant_db_folder_path",
-    "collection_name",
     "vector_store_type",
     "milvus_uri",
     "hybrid_ranker",
@@ -73,13 +81,13 @@ SECTIONS_TO_KEYS = {
 class RAGConfig:
     # ----- metadata (no default values)-----
     config_name: str
+    site_id: str
     # ----- init config -----
-    webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
+    webpages_data_folder_path: str | None = None
     # ----- vector store config -----
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
-    qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
-    milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
-    collection_name: str = DEFAULT_COLLECTION_NAME
+    qdrant_db_folder_path: str | None = None
+    milvus_uri: str | None = None
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----
@@ -105,6 +113,13 @@ class RAGConfig:
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
+        # 未指定路徑時，由 site_id 動態產生預設路徑
+        if self.webpages_data_folder_path is None:
+            self.webpages_data_folder_path = _default_webpages_path(self.site_id)
+        if self.qdrant_db_folder_path is None:
+            self.qdrant_db_folder_path = _default_qdrant_db_path(self.site_id)
+        if self.milvus_uri is None:
+            self.milvus_uri = _default_milvus_uri(self.site_id)
 
     @classmethod
     def from_toml(
@@ -143,6 +158,11 @@ class RAGConfig:
 
 
 def _validate_config(config: dict[str, Any]) -> None:
+    # ----- metadata -----
+    site_id = config.get("site_id")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     # ----- init config -----
     webpages_data_folder_path = config.get("webpages_data_folder_path")
 
@@ -154,7 +174,6 @@ def _validate_config(config: dict[str, Any]) -> None:
 
     # ----- vector store config -----
     qdrant_db_folder_path = config.get("qdrant_db_folder_path")
-    collection_name = config.get("collection_name")
     vector_store_type = config.get("vector_store_type")
 
     if vector_store_type is not None and vector_store_type not in ("qdrant", "milvus"):
@@ -165,12 +184,6 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("qdrant_db_folder_path 必須是字串")
         if not qdrant_db_folder_path.strip():
             raise ConfigValidationError("qdrant_db_folder_path 不可為空字串")
-
-    if collection_name is not None:
-        if not isinstance(collection_name, str):
-            raise ConfigValidationError("collection_name 必須是字串")
-        if not collection_name.strip():
-            raise ConfigValidationError("collection_name 不可為空字串")
 
     hybrid_ranker = config.get("hybrid_ranker")
 

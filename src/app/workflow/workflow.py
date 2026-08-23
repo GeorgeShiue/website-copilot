@@ -19,7 +19,7 @@ from app.engines.rag import RAG, RAGBuilder
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.website_crawler import WebsiteCrawler
 from app.workflow.data_manager import DataManager
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import (
     log_run_time,
@@ -44,21 +44,19 @@ def _init_workflow(
         config: 設定物件（需有 config_name 和 run_name 屬性）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         run_manager: 已建立的 RunManager（可選）。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
 
     Returns:
         初始化完成的 RunManager。
     """
     if run_manager is None:
         run_manager = RunManager(module_name)
+    run_manager.set_site_path(site_id)
     if run_name_use_config_name:
         run_manager.set_run_path(config.config_name)
     else:
         run_manager.set_run_path(config.run_name)
     run_manager.init_module_run_paths()
-
-    if site_id:
-        run_manager.set_site_path(site_id)
 
     return run_manager
 
@@ -77,7 +75,7 @@ def run_website_crawler(
         run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: WebsiteCrawlerConfig 覆寫值。
 
@@ -134,17 +132,16 @@ def run_website_crawler(
         run_manager.save_results_as_json(crawl_results)
         run_manager.save_results_as_md(crawl_results, "fit_markdown")
 
+        if data_manager:
+            data_manager.publish_crawl_results(
+                site_id=site_id,
+                results=crawl_results,
+                results_json_path=run_manager.results_json_path,
+                results_folder_path=run_manager.results_folder_path,
+            )
+
         # ----- 輸出完成訊息 -----
         log_session("Website Crawling Completed", style="cyan")
-
-    # ----- 發布到 data/ 目錄 -----
-    if data_manager and site_id:
-        data_manager.publish_crawl_results(
-            site_id=site_id,
-            results=crawl_results,
-            results_json_path=run_manager.results_json_path,
-            results_folder_path=run_manager.results_folder_path,
-        )
 
     return crawl_results
 
@@ -165,7 +162,7 @@ def run_webpage_image_summarizer(
         config_name: WebpageImageSummarizerConfig 名稱。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從 RunManager 載入最新結果）。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: WebpageImageSummarizerConfig 覆寫值。
 
@@ -227,16 +224,15 @@ def run_webpage_image_summarizer(
         run_manager.save_results_as_json(enhanced_results)
         run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
 
+        if data_manager:
+            data_manager.publish_markdown(
+                site_id=site_id,
+                enhanced_results=enhanced_results,
+                results_folder_path=run_manager.results_folder_path,
+            )
+
         # ----- 輸出完成訊息 -----
         log_session("Image Summarization Completed", style="cyan")
-
-    # ----- 發布到 data/ 目錄 -----
-    if data_manager and site_id:
-        data_manager.publish_markdown(
-            site_id=site_id,
-            enhanced_results=enhanced_results,
-            results_folder_path=run_manager.results_folder_path,
-        )
 
     return enhanced_results
 
@@ -259,7 +255,7 @@ def run_rag_build(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
         save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: RAGConfig 覆寫值。
     """
@@ -276,13 +272,12 @@ def run_rag_build(
 
     # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
     if webpages_data_use_latest_results:
+        if data_manager is None:
+            raise ValueError(
+                "data_manager is required when webpages_data_use_latest_results=True"
+            )
         log_session("Finding Latest Webpages Data", style="cyan")
-        if data_manager and site_id:
-            # 從 DataManager 取得 per-site 路徑
-            webpages_data_folder_path = data_manager.get_webpages_path(site_id)
-        else:
-            # 向後相容：從 RunManager discover
-            webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
+        webpages_data_folder_path = data_manager.get_webpages_path(site_id)
         config.webpages_data_folder_path = webpages_data_folder_path
 
     # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
@@ -321,26 +316,27 @@ def run_rag_build(
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-    # ----- 發布向量庫到 data/ 目錄 -----
-    if data_manager and site_id:
-        # 確定向量庫路徑
-        if save_vector_store_to_runs:
-            vector_store_source = os.path.join(
-                run_manager.results_folder_path, "vector_store"
-            )
-        elif config.vector_store_type == "qdrant":
-            vector_store_source = config.qdrant_db_folder_path
-        elif config.vector_store_type == "milvus":
-            vector_store_source = config.milvus_uri
-        else:
-            vector_store_source = None
+        if data_manager:
+            # 確定向量庫路徑
+            if save_vector_store_to_runs:
+                vector_store_source = os.path.join(
+                    run_manager.results_folder_path, "vector_store"
+                )
+            elif config.vector_store_type == "qdrant":
+                vector_store_source = config.qdrant_db_folder_path
+            elif config.vector_store_type == "milvus":
+                vector_store_source = config.milvus_uri
+            else:
+                vector_store_source = None
 
-        if vector_store_source and os.path.exists(vector_store_source):
-            data_manager.publish_vector_store(
-                site_id=site_id,
-                vector_store_type=config.vector_store_type,
-                source_path=vector_store_source,
-            )
+            if vector_store_source and os.path.exists(vector_store_source):
+                data_manager.publish_vector_store(
+                    site_id=site_id,
+                    vector_store_type=config.vector_store_type,
+                    source_path=vector_store_source,
+                )
+
+        # ----- 輸出完成訊息 -----
 
 
 def run_rag_query(
@@ -360,7 +356,7 @@ def run_rag_query(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         force_rebuild: 是否強制重建向量庫。
         query_times: 查詢次數。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         **config_overrides: RAGConfig 覆寫值。
     """
     # ----- 初始化設定和路徑 -----
@@ -374,7 +370,7 @@ def run_rag_query(
     )
     run_title = f"RAG Query ({config_name})"
 
-    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
+    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
     builder = RAGBuilder(config)
 
     with (
@@ -439,7 +435,7 @@ def run_rag_query(
                 "query_llm_name": config.query_llm_name,
                 "evaluator_llm_name": config.evaluator_llm_name,
                 "vector_store_type": config.vector_store_type,
-                "collection_name": config.collection_name,
+                "collection_name": config.site_id,
                 "query_mode": config.query_mode,
                 "similarity_top_k": config.similarity_top_k,
                 "hybrid_top_k": config.hybrid_top_k,
@@ -468,10 +464,11 @@ def run_rag_query(
                 if config.vector_store_type == "qdrant"
                 else config.milvus_uri
             )
-            save_module_config_as_toml(
-                config,
-                os.path.join(module_config_folder_path, "module_config.toml"),
-            )
+            if module_config_folder_path:
+                save_module_config_as_toml(
+                    config,
+                    os.path.join(module_config_folder_path, "module_config.toml"),
+                )
 
         # ----- 輸出完成訊息 -----
 
@@ -495,7 +492,7 @@ def run_agent(
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
         thread_id: 多輪記憶 session 識別（None 時每次獨立）。
         stream: True 時逐 token 串流顯示回答。
-        site_id: 站點識別碼（可選，建立四層路徑結構）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         **config_overrides: AgentConfig 覆寫值（如 llm_name / system_prompt）。
         agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
     """
@@ -503,11 +500,7 @@ def run_agent(
         # 聊天記錄與實驗分離：預設落盤至 chats/
         agent_run_manager = RunManager("agent", base_folder="chats")
 
-    # 如果有 site_id，設定站點路徑
-    if site_id:
-        agent_run_manager.set_module_path("agent")
-        agent_run_manager.set_site_path(site_id)
-        agent_run_manager = RunManager("agent", base_folder="chats")
+    agent_run_manager.set_site_path(site_id)
 
     agent = create_rag_agent(
         config=AgentConfig.from_toml(config_name, **config_overrides),

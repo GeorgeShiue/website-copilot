@@ -3,7 +3,7 @@ from app.workflow.workflow import (
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.log_helper import setup_logging
 
 setup_logging("debug")

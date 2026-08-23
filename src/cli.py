@@ -73,6 +73,7 @@ class AgentRunConfig:
     config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
     thread_id: str | None = None  # 多輪記憶 session 識別（相同 id 記得上下文）
     stream: bool = False  # True 時逐 token 串流顯示回答
+    site_id: str = "default"
 
 
 @dataclass
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     import tyro
 
     from app.server.app import run_server
+    from app.workflow.run_manager import RunManager
     from app.workflow.workflow import (
         run_agent,
         run_rag_build,
@@ -106,7 +108,6 @@ if __name__ == "__main__":
         run_webpage_image_summarizer,
         run_website_crawler,
     )
-    from app.workflow.workflow_manager import RunManager
     from utils.config_helper import save_run_config_as_toml
     from utils.log_helper import (
         setup_logging,

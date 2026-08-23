@@ -7,7 +7,7 @@ import tempfile
 import pytest
 
 from app.workflow.data_manager import DataManager
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 
 
 class TestRunManagerRefactor:
@@ -130,16 +130,6 @@ class TestRunManagerRefactor:
 
         # 驗證目錄已建立
         assert os.path.isdir(run_manager.run_path)
-
-    def test_clear_site_path(self):
-        """測試 clear_site_path 清除站點路徑。"""
-        run_manager = RunManager(base_folder=self.runs_dir)
-        run_manager.set_module_path("website_crawler")
-        run_manager.set_site_path("nculab")
-        run_manager.clear_site_path()
-
-        assert run_manager.site_id == ""
-        assert run_manager.site_path == ""
 
     def test_agent_base_folder_discover(self):
         """測試 Agent 場景（base_folder="chats"）的 _filter_run_folders 功能。"""

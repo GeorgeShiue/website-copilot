@@ -372,9 +372,11 @@ webpage_retriever = StructuredTool.from_function(
 
 ---
 
-## 3. RunManager Refactor
+## 3. RunManager Refactor（來源：`2026_0823-multi_site_refactor_modules.md`）
 
-### 3-1. RunManager 新增屬性與方法
+> 本段落整合 RunManager Refactor 的**設計規格**與**實作進度**。各 Phase 的改動以實際程式碼呈現，Phase A/B 已完成，Phase C–H 待開始。
+
+### 3-1. RunManager 新增屬性與方法（Phase B ✅ 完成）
 
 ```python
 class RunManager:
@@ -384,15 +386,17 @@ class RunManager:
         self.site_path: str = ""
 
     def set_site_path(self, site_id: str) -> None:
-        """設定 site 路徑（可選）。不呼叫時 run_path 直接掛在 module_path 下。"""
+        """設定 site 路徑（必要）。建立四層結構 runs/<ts>/module/site/。"""
         if not self.module_name:
             raise ValueError("Module name must be set before setting site path.")
+        if not site_id:
+            raise ValueError("Site ID must be provided to set site path.")
         self.site_id = site_id
         self.site_path = os.path.join(self.module_path, site_id)
         os.makedirs(self.site_path, exist_ok=True)
 ```
 
-### 3-2. RunManager `set_run_path()` 變更
+### 3-2. RunManager `set_run_path()` 變更（Phase B ✅ 完成）
 
 ```python
 def set_run_path(self, run_name: str) -> None:
@@ -408,7 +412,7 @@ def set_run_path(self, run_name: str) -> None:
     self.run_path = run_path
 ```
 
-### 3-3. RunManager `_filter_run_folders()` 變更
+### 3-3. RunManager `_filter_run_folders()` 變更（Phase B ✅ 完成）
 
 ```python
 def _filter_run_folders(self) -> list[str]:
@@ -426,59 +430,70 @@ def _filter_run_folders(self) -> list[str]:
 ### 3-4. 路徑結構變化
 
 ```
-# 現在（三層）
+# 重構後（四層，set_site_path 為必要呼叫）
 set_module_path("website_crawler")  → runs/<ts>/website_crawler/
-set_run_path("default")             → runs/<ts>/website_crawler/default/
-
-# 多站（四層，set_site_path 可選）
-set_module_path("website_crawler")  → runs/<ts>/website_crawler/
-set_site_path("nculab")             → runs/<ts>/website_crawler/nculab/
+set_site_path("nculab")             → runs/<ts>/website_crawler/nculab/    ← 必要
 set_run_path("default")             → runs/<ts>/website_crawler/nculab/default/
-
-# 單站（不呼叫 set_site_path，向後相容）
-set_module_path("website_crawler")  → runs/<ts>/website_crawler/
-set_run_path("default")             → runs/<ts>/website_crawler/default/
 ```
 
-### 3-5. DataManager 介面設計
+### 3-5. DataManager 介面設計（Phase B ✅ 完成）
 
 ```python
 class DataManager:
-    """管理 data/ 目錄下的持久化發布結果。
-
-    職責：
-    - publish：將 runs/ 中的執行結果覆蓋發布至 data/
-    - discover：掃描 data/ 目錄，提供 site 列表與路徑
-    - 不負責 runs/ 的建立或發現（那是 RunManager 的職責）
-    """
+    """管理 data/ 目錄下的持久化發布結果。"""
 
     def __init__(self, data_folder: str = "data") -> None:
         self.data_folder = data_folder
 
     # ──────── Publish（寫入 data/）──────
 
-    def publish_crawl_results(self, site_id: str, results: dict) -> None:
+    def publish_crawl_results(self, site_id: str, results: dict,
+                              results_json_path: str | None = None,
+                              results_folder_path: str | None = None) -> str:
         """將爬取結果覆蓋發布至 data/webpages/{site_id}/。"""
-        site_path = self._webpages_site_path(site_id)
-        os.makedirs(os.path.join(site_path, "results"), exist_ok=True)
-        with open(os.path.join(site_path, "results.json"), "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=4)
+        webpages_path = os.path.join(self.data_folder, "webpages", site_id)
+        os.makedirs(webpages_path, exist_ok=True)
+        if results_json_path and os.path.isfile(results_json_path):
+            shutil.copy2(results_json_path, os.path.join(webpages_path, "results.json"))
+        if results_folder_path and os.path.isdir(results_folder_path):
+            dest = os.path.join(webpages_path, "results")
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(results_folder_path, dest)
+        return webpages_path
 
-    def publish_markdown(self, site_id: str, results: dict, markdown_type: str) -> None:
-        """將 Markdown 結果覆蓋發布至 data/webpages/{site_id}/results/。"""
-        site_path = self._webpages_site_path(site_id)
-        results_dir = os.path.join(site_path, "results")
-        os.makedirs(results_dir, exist_ok=True)
-        for page_title, result in results.items():
-            md_file_path = os.path.join(results_dir, page_title + ".md")
-            with open(md_file_path, "w", encoding="utf-8") as f:
-                f.write(result[markdown_type])
+    def publish_markdown(self, site_id: str, enhanced_results: dict,
+                        results_folder_path: str | None = None) -> str:
+        """將增強後的 Markdown 發布至 data/webpages/{site_id}/results/。"""
+        webpages_path = os.path.join(self.data_folder, "webpages", site_id)
+        os.makedirs(webpages_path, exist_ok=True)
+        if results_folder_path and os.path.isdir(results_folder_path):
+            dest = os.path.join(webpages_path, "results")
+            os.makedirs(dest, exist_ok=True)
+            for page_title, result in enhanced_results.items():
+                with open(os.path.join(dest, f"{page_title}.md"), "w") as f:
+                    f.write(result.get("enhanced_markdown", ""))
+        return webpages_path
 
-    def publish_vector_store(self, site_id: str, source_db_path: str) -> None:
+    def publish_vector_store(self, site_id: str, vector_store_type: str,
+                            source_path: str) -> str:
         """將向量庫從 runs/ 複製至 data/rag/{site_id}/。"""
-        dest_dir = self.get_vector_store_path(site_id)
-        os.makedirs(dest_dir, exist_ok=True)
-        # 複製 milvus.db 或 qdrant_db/ 至 dest_dir
+        rag_path = os.path.join(self.data_folder, "rag", site_id)
+        os.makedirs(rag_path, exist_ok=True)
+        if vector_store_type == "milvus":
+            dest = os.path.join(rag_path, "milvus.db")
+            if os.path.isdir(source_path):
+                if os.path.exists(dest):
+                    shutil.rmtree(dest)
+                shutil.copytree(source_path, dest)
+            elif os.path.isfile(source_path):
+                shutil.copy2(source_path, dest)
+        elif vector_store_type == "qdrant":
+            dest = os.path.join(rag_path, "qdrant_db")
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(source_path, dest)
+        return rag_path
 
     # ──────── Discover（掃描 data/）──────
 
@@ -493,37 +508,36 @@ class DataManager:
         )
 
     def get_webpages_path(self, site_id: str) -> str:
-        """回傳 data/webpages/{site_id}/ 路徑（供 RAG 讀取）。"""
-        return self._webpages_site_path(site_id)
+        """回傳 data/webpages/{site_id}/ 路徑。"""
+        return os.path.join(self.data_folder, "webpages", site_id)
 
     def get_vector_store_path(self, site_id: str) -> str:
-        """回傳 data/rag/{site_id}/ 路徑（供 RAGRegistry 讀取）。"""
+        """回傳 data/rag/{site_id}/ 路徑。"""
         return os.path.join(self.data_folder, "rag", site_id)
 
-    # ──────── 內部方法 ────────
-
-    def _webpages_site_path(self, site_id: str) -> str:
-        return os.path.join(self.data_folder, "webpages", site_id)
+    def site_exists(self, site_id: str) -> bool:
+        """檢查 site 是否存在。"""
+        return os.path.isdir(self.get_webpages_path(site_id))
 ```
 
-安放位置：`src/app/workflow/data_manager.py`，與 `workflow_manager.py` 同層。
+安放位置：`src/app/workflow/data_manager.py`，與 `run_manager.py` 同層。
 
-### 3-6. Workflow 函式簽名變化
+### 3-6. Workflow 函式簽名變化（Phase B ✅ 完成）
 
-所有 `run_*` 函式加入 `site_id` 和 `data_manager` 參數（可選），`site_id` 為空時所有新邏輯跳過，向後相容：
+所有 `run_*` 函式加入 `site_id: str`（必要）和 `data_manager: DataManager | None = None` 參數：
 
 ```python
 def run_website_crawler(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
-    site_id: str = "",                            # 新增（可選）
+    site_id: str = "",                            # 新增（必要）
     data_manager: DataManager | None = None,       # 新增（可選）
     **config_overrides,
 ) -> dict[str, dict] | None:
 ```
 
-### 3-7. `run_website_crawler` 完整改動
+### 3-7. `run_website_crawler` 完整改動（Phase B ✅ 完成）
 
 ```python
 def run_website_crawler(
@@ -537,15 +551,8 @@ def run_website_crawler(
     # ----- 初始化設定和路徑 -----
     website_crawler = WebsiteCrawler()
     config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
-    if run_manager is None:
-        run_manager = RunManager("website_crawler")
-    if site_id:
-        run_manager.set_site_path(site_id)
-    if run_name_use_config_name:
-        run_manager.set_run_path(config_name)
-    else:
-        run_manager.set_run_path(config.run_name)
-    run_manager.init_module_run_paths()
+    run_manager = _init_workflow("website_crawler", config,
+                                 run_name_use_config_name, run_manager, site_id)
 
     # ... 現有爬蟲邏輯（不動）...
 
@@ -555,15 +562,18 @@ def run_website_crawler(
     run_manager.save_results_as_md(crawl_results, "fit_markdown")
 
     # ----- 發佈至 data/（持久化）-----
-    if data_manager and site_id:
-        data_manager.publish_crawl_results(site_id, crawl_results)
-        data_manager.publish_markdown(site_id, crawl_results, "fit_markdown")
+    if data_manager:
+        data_manager.publish_crawl_results(
+            site_id=site_id, results=crawl_results,
+            results_json_path=run_manager.results_json_path,
+            results_folder_path=run_manager.results_folder_path,
+        )
 
     log_session("Website Crawling Completed", style="cyan")
     return crawl_results
 ```
 
-### 3-8. `run_webpage_image_summarizer` 改動
+### 3-8. `run_webpage_image_summarizer` 改動（Phase B ✅ 完成）
 
 ```python
 def run_webpage_image_summarizer(
@@ -575,7 +585,7 @@ def run_webpage_image_summarizer(
     data_manager: DataManager | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
-    # ... 初始化（含 set_site_path）...
+    # ... 初始化（含 _init_workflow）...
 
     # ... 現有摘要邏輯（不動）...
 
@@ -584,14 +594,16 @@ def run_webpage_image_summarizer(
     run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
 
     # ----- 發佈至 data/（覆蓋爬取結果為增強版本）-----
-    if data_manager and site_id:
-        data_manager.publish_crawl_results(site_id, enhanced_results)
-        data_manager.publish_markdown(site_id, enhanced_results, "enhanced_markdown")
+    if data_manager:
+        data_manager.publish_markdown(
+            site_id=site_id, enhanced_results=enhanced_results,
+            results_folder_path=run_manager.results_folder_path,
+        )
 
     return enhanced_results
 ```
 
-### 3-9. `run_rag_build` 改動
+### 3-9. `run_rag_build` 改動（Phase B ✅ 完成）
 
 ```python
 def run_rag_build(
@@ -605,26 +617,23 @@ def run_rag_build(
     **config_overrides,
 ) -> None:
     config = RAGConfig.from_toml(config_name, **config_overrides)
+    run_manager = _init_workflow("rag_build", config,
+                                 run_name_use_config_name, run_manager, site_id)
 
-    # ── 多站模式：DataManager 提供路徑 ──
-    if site_id and data_manager:
+    # ── DataManager 提供 webpages 路徑 ──
+    if webpages_data_use_latest_results:
+        if data_manager is None:
+            raise ValueError("data_manager is required when webpages_data_use_latest_results=True")
         config.webpages_data_folder_path = data_manager.get_webpages_path(site_id)
-        config.milvus_uri = os.path.join(
-            data_manager.get_vector_store_path(site_id), "milvus.db"
-        )
-    # ── 單站 fallback：沿用現有邏輯 ──
-    elif webpages_data_use_latest_results:
-        webpages_data_folder_path = run_manager.load_latest_summarizer_run_path()
-        config.webpages_data_folder_path = webpages_data_folder_path
 
     # ... 現有 RAG build 邏輯（不動）...
 
     # ----- publish 向量庫至 data/ -----
-    if data_manager and site_id:
-        data_manager.publish_vector_store(site_id, config.milvus_uri)
+    if data_manager:
+        # 確定向量庫路徑後 publish_vector_store ...
 ```
 
-### 3-10. CLI 與 main.py 改動
+### 3-10. CLI 與 main.py 改動（Phase F 待開始）
 
 **CLI dataclass 新增 `site_id`**：
 
@@ -641,11 +650,6 @@ class WebsiteCrawlerRunConfig:
 **cli.py 分派邏輯**：
 
 ```python
-# 現在
-elif isinstance(cli_arg, WebsiteCrawlerCLI):
-    run_manager.set_module_path("website_crawler")
-    run_website_crawler(run_manager, **vars(cli_arg.run), **module_config_overrides)
-
 # 多站後
 elif isinstance(cli_arg, WebsiteCrawlerCLI):
     run_manager.set_module_path("website_crawler")
@@ -673,15 +677,20 @@ def main() -> None:
     )
 ```
 
-### 3-11. 設定檔結構變化
+### 3-11. 設定檔結構變化（Phase A ✅ 完成）
 
-**RAG 設定檔**（`webpages_data_folder_path` 不再硬編碼，由 DataManager 動態提供）：
+所有 Config dataclass（`WebsiteCrawlerConfig`、`RAGConfig`、`WebpageImageSummarizerConfig`、`AgentConfig`）加入 `site_id: str`（必要）；所有 TOML `[init]` 加入 `site_id = "nculab"`；`INIT_KEYS` 加入 `"site_id"`；`_validate_config` 加入 `site_id` 驗證。
+
+**RAG 設定檔**（`webpages_data_folder_path`、`milvus_uri`、`qdrant_db_folder_path` 不再硬編碼，由 `site_id` 動態產生；`collection_name` 已移除，直接使用 `site_id` 作為 collection name）：
 
 ```toml
 # configs/rag/nculab.toml
+[init]
+site_id = "nculab"
+
 [vector_store]
 vector_store_type = "milvus"
-collection_name = "webpages_nculab"
+# collection_name = site_id（自動同步，無需指定）
 
 [index]
 embedding_name = "text-embedding-3-small"
@@ -808,6 +817,62 @@ data/rag/results/milvus.db       → data/rag/nculab/milvus.db
     └──────────────────┘ └──────────────┘ └──────────────────┘
 ```
 
+### 3-16. 實作進度
+
+| Phase | 狀態 | 改動範圍 |
+|-------|------|----------|
+| **A：Config 層** | ✅ 完成 | 所有 Config dataclass + 21 個 TOML 設定檔 |
+| **B：RunManager + DataManager** | ✅ 完成 | `run_manager.py`、`data_manager.py`（新）、`workflow.py`、`test_runmanager_datamanager.py` |
+| **C：RAGConfig 路徑動態化** | ✅ 完成 | `rag_config.py`、`rag.py`、`rag_factory.py`、`workflow.py`、4 個 RAG TOML 設定檔 |
+| **D：rag_factory metadata 注入** | ✅ 完成 | `rag_factory.py` node metadata 加入 `site_id` |
+| **E：workflow.py 端到端串接** | ✅ 完成 | `_init_workflow()` 修正呼叫順序 + `run_agent()` 移除冗餘呼叫 |
+| **F：CLI / main.py** | ✅ 完成 | `workflow_config.py`、`cli.py`、`main.py` |
+| **G：測試更新** | ⏳ 待開始 | 移除向後相容測試、所有 `run_*` 呼叫加入 `site_id` |
+| **H：文件更新** | ⏳ 待開始 | README.md / project.md 更新 |
+
+**Phase A 驗證結果：**
+
+- ✅ 15/15 RunManager + DataManager 單元測試通過
+- ✅ 4 個 Config 的 `from_toml()` 正確解析 `site_id`
+- ✅ 缺少 `site_id` 時拋出 `TypeError`（必要欄位）
+- ✅ `site_id=""` 時拋出 `ConfigValidationError`
+
+**Phase B 已知問題：**
+
+| # | 問題 | 影響 | 狀態 |
+|---|------|------|------|
+| 1 | `_init_workflow()` 中 `set_site_path()` 在 `init_module_run_paths()` 之後呼叫 | `set_run_path()` 在 `site_path` 尚未設定時已建立三層路徑，`set_site_path()` 之後不會重新建立 | ⚠️ 需確認是否影響四層路徑建立 |
+| 2 | `run_agent()` 中 `set_module_path("agent")` 重複呼叫 | 後續再次呼叫無副作用但冗餘 | 💡 可移除 |
+| 3 | `run_rag_build()` 中 `webpages_data_use_latest_results=True` 時 `data_manager` 無 None 檢查 | 若未傳入 `data_manager` 會拋出 `AttributeError` | ⚠️ 需加入防禦性檢查 |
+
+**Phase C 驗證結果（2026-08-23）：**
+
+- ✅ `RAGConfig.from_toml("default")` → `webpages_data_folder_path == "data/webpages/nculab"`
+- ✅ `RAGConfig.from_toml("default")` → `milvus_uri == "data/rag/nculab/milvus.db"`
+- ✅ `RAGConfig.from_toml("qdrant")` → `qdrant_db_folder_path == "data/rag/nculab/qdrant_db"`
+- ✅ TOML override 仍有效：`from_toml("default", webpages_data_folder_path="custom/path")`
+- ✅ `collection_name` 已移除，`rag_factory.py` 使用 `config.site_id` 作為 collection name
+- ✅ 空 `site_id` 時拋出 `ConfigValidationError`
+- ✅ 15/15 RunManager + DataManager 單元測試通過
+
+**Phase D 驗證結果（2026-08-23）：**
+
+- ✅ `NodePipelineBuilder._build_file_metadata()` 簽名含 `site_id` 參數
+- ✅ `NodePipelineBuilder.build()` 簽名含 `site_id` 參數，`partial()` 正確注入
+- ✅ `RAGBuilder.build_nodes()` 傳入 `site_id=self.config.site_id`
+
+**Phase E 驗證結果（2026-08-23）：**
+
+- ✅ `_init_workflow()` 中 `set_site_path()` 在 `set_run_path()` 之前呼叫
+- ✅ `run_agent()` 中 `set_module_path("agent")` 冗餘呼叫已移除
+
+**Phase F 驗證結果（2026-08-23）：**
+
+- ✅ `BaseRunConfig` 含 `site_id: str = "default"`
+- ✅ `AgentRunConfig` 含 `site_id: str = "default"`
+- ✅ `main.py` 使用 `SITE_ID = "nculab"` 傳入所有 RunConfig
+- ✅ 15/15 RunManager + DataManager 單元測試通過
+
 ---
 
 ## 4. Engines 重構 — Import 變更（來源：`engines_restructure_analysis.md`）
@@ -851,3 +916,7 @@ test/       ──→ WebsiteCrawler, resolve_dedup_key, html_date_extractor
 rag_factory ──→ RAG, rag_eval_prompts
 website_crawler ──→ html_date_extractor, markdown_cleaner
 ```
+
+---
+
+

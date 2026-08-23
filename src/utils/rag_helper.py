@@ -142,7 +142,6 @@ class MarkdownImageExtractor(BaseExtractor):
         return metadata_list
 
 
-# TODO: 支援更多擷取日期的方式
 class MarkdownDateExtractor(BaseExtractor):
     """從 node content 萃取日期資訊寫入 metadata (year/month/day)。
 

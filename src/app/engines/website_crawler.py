@@ -105,7 +105,6 @@ class WebsiteCrawler:
         self.max_depth = max_depth
         self.max_pages = max_pages
         self.content_threshold = content_threshold
-        # TODO: light_mode 尚未實作差異化行為，僅保留介面向後相容
         self.light_mode = light_mode
         self.wait_for_images = wait_for_images
 

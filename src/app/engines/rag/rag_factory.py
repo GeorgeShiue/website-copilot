@@ -66,7 +66,7 @@ class NodePipelineBuilder:
 
     @staticmethod
     def _build_file_metadata(
-        results_json: dict[str, Any], file_path: str
+        results_json: dict[str, Any], file_path: str, site_id: str
     ) -> dict[str, Any]:
         page_title = os.path.basename(file_path).replace(".md", "")
         page_info = results_json.get(page_title, {})
@@ -78,6 +78,7 @@ class NodePipelineBuilder:
             "page_type": page_metadata.get("page_type", "general"),
             "published_date": page_metadata.get("published_date", ""),
             "description": page_metadata.get("description", ""),
+            "site_id": site_id,
         }
 
         return file_metadata
@@ -86,11 +87,14 @@ class NodePipelineBuilder:
         self,
         md_folder_path: str,
         results_json: dict[str, Any],
+        site_id: str,
     ) -> list[BaseNode]:
         if not os.path.isdir(md_folder_path):
             raise FileNotFoundError(f"Markdown folder not found: {md_folder_path}")
 
-        file_metadata_fn = partial(self._build_file_metadata, results_json)
+        file_metadata_fn = partial(
+            self._build_file_metadata, results_json, site_id=site_id
+        )
 
         try:
             md_docs: list[Document] = SimpleDirectoryReader(
@@ -314,6 +318,7 @@ class RAGBuilder:
         """
         if self.config.vector_store_type == "milvus":
             return True
+        assert self.config.qdrant_db_folder_path is not None
         return force_rebuild or not os.path.exists(self.config.qdrant_db_folder_path)
 
     def build_nodes(self, rag: RAG) -> None:
@@ -325,12 +330,13 @@ class RAGBuilder:
         rag.nodes = builder.build(
             md_folder_path=rag.md_docs_folder_path,
             results_json=rag.results_json,
+            site_id=self.config.site_id,
         )
 
     def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
         qdrant_client, vector_store = VectorStoreBuilder.build(
             vector_store_type=self.config.vector_store_type,
-            collection_name=self.config.collection_name,
+            collection_name=self.config.site_id,
             embedding_name=self.config.embedding_name,
             qdrant_db_folder_path=self.config.qdrant_db_folder_path,
             milvus_uri=self.config.milvus_uri,
@@ -455,4 +461,5 @@ class RAGBuilder:
         )
 
     def _create_rag(self) -> RAG:
+        assert self.config.webpages_data_folder_path is not None
         return RAG(webpages_data_folder_path=self.config.webpages_data_folder_path)

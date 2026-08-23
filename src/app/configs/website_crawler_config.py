@@ -18,6 +18,7 @@ DEFAULT_CONFIG_FOLDER_PATH = "configs/website_crawler"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_CRAWL_CONFIG_SECTION = "crawl"
 INIT_KEYS = {
+    "site_id",
     "max_depth",
     "max_pages",
     "content_threshold",
@@ -43,6 +44,7 @@ class WebsiteCrawlerConfig:
     url: str
     # ----- metadata (no default values)-----
     config_name: str
+    site_id: str
     # ----- init config -----
     max_depth: int | None = None
     max_pages: int | None = None
@@ -98,6 +100,11 @@ class WebsiteCrawlerConfig:
 
 
 def _validate_config(config: dict[str, Any]) -> None:
+    # ----- metadata -----
+    site_id = config.get("site_id")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     # ----- init config -----
     max_depth = config.get("max_depth")
     max_pages = config.get("max_pages")

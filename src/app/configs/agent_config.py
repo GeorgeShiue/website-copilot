@@ -34,12 +34,19 @@ DEFAULT_SYSTEM_PROMPT = (
 
 DEFAULT_CONFIG_FOLDER_PATH = "configs/agent"
 DEFAULT_CONFIG_NAME = "default"
+DEFAULT_INIT_CONFIG_SECTION = "init"
 AGENT_SECTION = "agent"
+INIT_KEYS = {
+    "site_id",
+}
 AGENT_KEYS = {
     "llm_name",
     "system_prompt",
 }
-SECTIONS_TO_KEYS = {AGENT_SECTION: AGENT_KEYS}
+SECTIONS_TO_KEYS = {
+    DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
+    AGENT_SECTION: AGENT_KEYS,
+}
 
 
 @dataclass
@@ -48,10 +55,14 @@ class AgentConfig:
 
     Attributes:
         config_name: 設定名稱（用於 run name 與落盤識別）。
+        site_id: 站點識別碼（必要，建立四層路徑結構）。
         llm_name: Agent 使用的 LLM 名稱（與 RAG query LLM 解耦）。
         system_prompt: Agent 的系統提示詞。
     """
 
+    # ----- metadata (no default values)-----
+    site_id: str
+    # ----- config (with defaults)-----
     config_name: str = DEFAULT_CONFIG_NAME
     llm_name: str = DEFAULT_LLM_NAME
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
@@ -97,6 +108,11 @@ class AgentConfig:
 
 
 def _validate_config(config: dict[str, Any]) -> None:
+    # ----- metadata -----
+    site_id = config.get("site_id")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     # ----- agent config -----
     llm_name = config.get("llm_name")
     system_prompt = config.get("system_prompt")
