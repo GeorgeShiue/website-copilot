@@ -1,94 +1,47 @@
 from dataclasses import dataclass
 
-from app.workflow.workflow_config import (
+from app.configs.workflow_config import (
+    AgentModuleConfig,
+    AgentRunConfig,
     RAGBuildRunConfig,
+    RAGModuleConfig,
     RAGQueryRunConfig,
+    ServerRunConfig,
+    WebpageImageSummarizerModuleConfig,
     WebpageImageSummarizerRunConfig,
+    WebsiteCrawlerModuleConfig,
     WebsiteCrawlerRunConfig,
 )
 
 
 @dataclass
-class WebsiteCrawlerConfigCLI:
-    # ----- init config -----
-    max_pages: int | None = None
-
-
-@dataclass
-class WebpageImageSummarizerConfigCLI:
-    # ----- init config -----
-    model: str | None = None
-
-
-@dataclass
-class RAGConfigCLI:
-    # ----- vector store config -----
-    hybrid_ranker: str | None = None
-    weights: list[float] | None = None
-    # ----- retriever config -----
-    similarity_top_k: int | None = None
-    query_mode: str | None = None
-    hybrid_top_k: int | None = None
-    alpha: float | None = None
-    # ----- query engine config -----
-    cutoff: float | None = None
-    query: str | None = None
-
-
-@dataclass
 class WebsiteCrawlerCLI:
     run: WebsiteCrawlerRunConfig
-    module: WebsiteCrawlerConfigCLI
+    module: WebsiteCrawlerModuleConfig
 
 
 @dataclass
 class WebpageImageSummarizerCLI:
     run: WebpageImageSummarizerRunConfig
-    module: WebpageImageSummarizerConfigCLI
+    module: WebpageImageSummarizerModuleConfig
 
 
 @dataclass
 class RAGBuildCLI:
     run: RAGBuildRunConfig
-    module: RAGConfigCLI
+    module: RAGModuleConfig
 
 
 @dataclass
 class RAGQueryCLI:
     run: RAGQueryRunConfig
-    module: RAGConfigCLI
-
-
-@dataclass
-class AgentConfigCLI:
-    # ----- agent config -----
-    llm_name: str | None = None
-    system_prompt: str | None = None
-
-
-@dataclass
-class AgentRunConfig:
-    # ----- run config -----
-    query: str
-    config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
-    thread_id: str | None = None  # 多輪記憶 session 識別（相同 id 記得上下文）
-    stream: bool = False  # True 時逐 token 串流顯示回答
-    site_id: str = "default"
+    module: RAGModuleConfig
 
 
 @dataclass
 class AgentCLI:
     run: AgentRunConfig
-    module: AgentConfigCLI
-
-
-@dataclass
-class ServerRunConfig:
-    # ----- server run config -----
-    config_name: str = "default"  # AgentConfig 名稱（對應 configs/agent/{name}.toml）
-    host: str = "127.0.0.1"
-    port: int = 8000
-    allowed_origins: list[str] | None = None  # CORS 允許來源（None 全開放）
+    module: AgentModuleConfig
 
 
 @dataclass
@@ -100,6 +53,7 @@ if __name__ == "__main__":
     import tyro
 
     from app.server.app import run_server
+    from app.workflow.data_manager import DataManager
     from app.workflow.run_manager import RunManager
     from app.workflow.workflow import (
         run_agent,
@@ -128,7 +82,6 @@ if __name__ == "__main__":
     cli_arg = tyro.cli(cli_args_type)
     module_config_overrides = {}
     if not isinstance(cli_arg, ServerCLI):
-        # ServerCLI 無 module 設定（config_name 已含在 run 內）
         for key, value in vars(cli_arg.module).items():
             if value is not None:
                 if key == "weights":
@@ -136,32 +89,40 @@ if __name__ == "__main__":
                 else:
                     module_config_overrides[key] = value
 
+    # 從 RunConfig 提前取出 publish，避免洩漏進 **config_overrides
+    run_kwargs = vars(cli_arg.run) if not isinstance(cli_arg, ServerCLI) else {}
+    publish = run_kwargs.pop("publish", False) if run_kwargs else False
+    data_manager = DataManager() if publish else None
+
     if isinstance(cli_arg, WebsiteCrawlerCLI):
         run_manager.set_module_path("website_crawler")
         run_website_crawler(
             run_manager,
-            **vars(cli_arg.run),
+            **run_kwargs,
             **module_config_overrides,
+            data_manager=data_manager,
         )
     elif isinstance(cli_arg, WebpageImageSummarizerCLI):
         run_manager.set_module_path("webpage_image_summarizer")
         run_webpage_image_summarizer(
             run_manager,
-            **vars(cli_arg.run),
+            **run_kwargs,
             **module_config_overrides,
+            data_manager=data_manager,
         )
     elif isinstance(cli_arg, RAGBuildCLI):
         run_manager.set_module_path("rag_build")
         run_rag_build(
             run_manager,
-            **vars(cli_arg.run),
+            **run_kwargs,
             **module_config_overrides,
+            data_manager=data_manager,
         )
     elif isinstance(cli_arg, RAGQueryCLI):
         run_manager.set_module_path("rag_query")
         run_rag_query(
             run_manager,
-            **vars(cli_arg.run),
+            **run_kwargs,
             **module_config_overrides,
         )
     elif isinstance(cli_arg, AgentCLI):
@@ -169,7 +130,7 @@ if __name__ == "__main__":
         agent_run_manager = RunManager("agent", base_folder="chats")
         run_agent(
             agent_run_manager=agent_run_manager,
-            **vars(cli_arg.run),
+            **run_kwargs,
             **module_config_overrides,
         )
         save_run_config_as_toml(cli_arg.run, agent_run_manager.run_config_toml_path)

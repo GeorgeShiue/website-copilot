@@ -35,23 +35,21 @@ def _init_workflow(
     config: Any,
     run_name_use_config_name: bool,
     run_manager: RunManager | None = None,
-    site_id: str = "",
 ) -> RunManager:
     """初始化 workflow 的共享邏輯。
 
     Args:
         module_name: 模組名稱。
-        config: 設定物件（需有 config_name 和 run_name 屬性）。
+        config: 設定物件（需有 config_name、site_id 和 run_name 屬性）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         run_manager: 已建立的 RunManager（可選）。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
 
     Returns:
         初始化完成的 RunManager。
     """
     if run_manager is None:
         run_manager = RunManager(module_name)
-    run_manager.set_site_path(site_id)
+    run_manager.set_site_path(config.site_id)
     if run_name_use_config_name:
         run_manager.set_run_path(config.config_name)
     else:
@@ -65,7 +63,6 @@ def run_website_crawler(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
-    site_id: str = "",
     data_manager: DataManager | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
@@ -75,9 +72,8 @@ def run_website_crawler(
         run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
-        **config_overrides: WebsiteCrawlerConfig 覆寫值。
+        **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
 
     Returns:
         爬取結果 dict，失敗時回傳 None。
@@ -90,7 +86,6 @@ def run_website_crawler(
         config=config,
         run_name_use_config_name=run_name_use_config_name,
         run_manager=run_manager,
-        site_id=site_id,
     )
 
     crawl_results = None
@@ -134,7 +129,7 @@ def run_website_crawler(
 
         if data_manager:
             data_manager.publish_crawl_results(
-                site_id=site_id,
+                site_id=config.site_id,
                 results=crawl_results,
                 results_json_path=run_manager.results_json_path,
                 results_folder_path=run_manager.results_folder_path,
@@ -151,7 +146,6 @@ def run_webpage_image_summarizer(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
-    site_id: str = "",
     data_manager: DataManager | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
@@ -162,9 +156,8 @@ def run_webpage_image_summarizer(
         config_name: WebpageImageSummarizerConfig 名稱。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從 RunManager 載入最新結果）。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
-        **config_overrides: WebpageImageSummarizerConfig 覆寫值。
+        **config_overrides: WebpageImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
         增強後的爬取結果 dict，失敗時回傳 None。
@@ -177,7 +170,6 @@ def run_webpage_image_summarizer(
         config=config,
         run_name_use_config_name=run_name_use_config_name,
         run_manager=run_manager,
-        site_id=site_id,
     )
 
     with (
@@ -226,7 +218,7 @@ def run_webpage_image_summarizer(
 
         if data_manager:
             data_manager.publish_markdown(
-                site_id=site_id,
+                site_id=config.site_id,
                 enhanced_results=enhanced_results,
                 results_folder_path=run_manager.results_folder_path,
             )
@@ -243,7 +235,6 @@ def run_rag_build(
     run_name_use_config_name: bool = False,
     webpages_data_use_latest_results: bool = False,
     save_vector_store_to_runs: bool = False,
-    site_id: str = "",
     data_manager: DataManager | None = None,
     **config_overrides,
 ) -> None:
@@ -255,9 +246,8 @@ def run_rag_build(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
         save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
-        **config_overrides: RAGConfig 覆寫值。
+        **config_overrides: RAGConfig 覆寫值（含 site_id）。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
@@ -266,7 +256,6 @@ def run_rag_build(
         config=config,
         run_name_use_config_name=run_name_use_config_name,
         run_manager=run_manager,
-        site_id=site_id,
     )
     run_title = f"RAG Build ({config_name})"
 
@@ -277,7 +266,7 @@ def run_rag_build(
                 "data_manager is required when webpages_data_use_latest_results=True"
             )
         log_session("Finding Latest Webpages Data", style="cyan")
-        webpages_data_folder_path = data_manager.get_webpages_path(site_id)
+        webpages_data_folder_path = data_manager.get_webpages_path(config.site_id)
         config.webpages_data_folder_path = webpages_data_folder_path
 
     # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
@@ -331,7 +320,7 @@ def run_rag_build(
 
             if vector_store_source and os.path.exists(vector_store_source):
                 data_manager.publish_vector_store(
-                    site_id=site_id,
+                    site_id=config.site_id,
                     vector_store_type=config.vector_store_type,
                     source_path=vector_store_source,
                 )
@@ -345,7 +334,6 @@ def run_rag_query(
     run_name_use_config_name: bool = False,
     force_rebuild: bool = False,
     query_times: int = 1,
-    site_id: str = "",
     **config_overrides,
 ) -> None:
     """執行 RAG 查詢工作流程。
@@ -356,8 +344,7 @@ def run_rag_query(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         force_rebuild: 是否強制重建向量庫。
         query_times: 查詢次數。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
-        **config_overrides: RAGConfig 覆寫值。
+        **config_overrides: RAGConfig 覆寫值（含 site_id）。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
@@ -366,7 +353,6 @@ def run_rag_query(
         config=config,
         run_name_use_config_name=run_name_use_config_name,
         run_manager=run_manager,
-        site_id=site_id,
     )
     run_title = f"RAG Query ({config_name})"
 
@@ -478,7 +464,6 @@ def run_agent(
     config_name: str = "default",
     thread_id: str | None = None,
     stream: bool = False,
-    site_id: str = "",
     agent_run_manager: RunManager | None = None,
     **config_overrides,
 ) -> None:
@@ -492,18 +477,19 @@ def run_agent(
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
         thread_id: 多輪記憶 session 識別（None 時每次獨立）。
         stream: True 時逐 token 串流顯示回答。
-        site_id: 站點識別碼（必要，建立四層路徑結構）。
-        **config_overrides: AgentConfig 覆寫值（如 llm_name / system_prompt）。
+        **config_overrides: AgentConfig 覆寫值（含 site_id、llm_name / system_prompt）。
         agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
     """
+    agent_config = AgentConfig.from_toml(config_name, **config_overrides)
+
     if agent_run_manager is None:
         # 聊天記錄與實驗分離：預設落盤至 chats/
         agent_run_manager = RunManager("agent", base_folder="chats")
 
-    agent_run_manager.set_site_path(site_id)
+    agent_run_manager.set_site_path(agent_config.site_id)
 
     agent = create_rag_agent(
-        config=AgentConfig.from_toml(config_name, **config_overrides),
+        config=agent_config,
         run_manager=agent_run_manager,
     )
     try:

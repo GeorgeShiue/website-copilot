@@ -22,223 +22,53 @@
 | 5 | Dublin Core `dc.date` | `soup.select('meta[name="dc.date"], meta[name="DC.date"]')` | ISO 8601 |
 | 6 | HTTP `Last-Modified` | `response_headers.get("Last-Modified")` | ISO 8601 |
 
-**主函數**：
+**函數簽名**：
 
 ```python
-from bs4 import BeautifulSoup
-from datetime import datetime
-
 def _extract_date_from_html(
     html: str,
     response_headers: dict[str, str] | None = None,
 ) -> dict[str, str | None]:
-    """從 HTML 原始碼 + HTTP 標頭擷取發佈/修改日期。
-
-    回傳 ISO 8601 格式（YYYY-MM-DDTHH:MM:SS±HH:MM 或 YYYY-MM-DD）。
-    無法擷取時對應值為 None。
-    """
-    published_date: str | None = None
-    modified_date: str | None = None
-
-    soup = BeautifulSoup(html, "html.parser")
-
-    # --- Priority 1: JSON-LD datePublished / dateModified ---
-    if published_date is None:
-        published_date, modified_date = _extract_from_jsonld(soup)
-
-    # --- Priority 2: <meta property="article:published_time"> ---
-    if published_date is None:
-        published_date = _extract_meta_property(soup, "article:published_time")
-
-    # --- Priority 3: <time datetime> elements ---
-    if published_date is None:
-        published_date = _extract_time_element(soup)
-
-    # --- Priority 4: Generic meta date tags ---
-    if published_date is None:
-        published_date = _extract_meta_name(soup, ("date", "pubdate", "publish_date"))
-
-    # --- Priority 5: Dublin Core dc.date ---
-    if published_date is None:
-        published_date = _extract_meta_name(soup, ("dc.date", "dc.date.created"))
-
-    # --- Priority 6: HTTP Last-Modified ---
-    if published_date is None and response_headers:
-        published_date = _parse_http_date(response_headers.get("Last-Modified"))
-
-    # modified_date 從 JSON-LD 或 article:modified_time 補充
-    if modified_date is None:
-        modified_date = _extract_meta_property(soup, "article:modified_time")
-
-    return {
-        "published_date": _normalize_to_iso8601(published_date),
-        "modified_date": _normalize_to_iso8601(modified_date),
-    }
+    """回傳 ISO 8601 格式（YYYY-MM-DD）。無法擷取時對應值為 None。"""
 ```
 
-**輔助函數**：
-
-```python
-def _extract_from_jsonld(soup: BeautifulSoup) -> tuple[str | None, str | None]:
-    """從 JSON-LD 擷取 datePublished / dateModified。"""
-    for script in soup.select('script[type="application/ld+json"]'):
-        try:
-            data = json.loads(script.string or "")
-            items = data if isinstance(data, list) else [data]
-            for item in items:
-                if isinstance(item, dict):
-                    pub = item.get("datePublished") or item.get("dateCreated")
-                    mod = item.get("dateModified")
-                    if pub or mod:
-                        return pub, mod
-        except (json.JSONDecodeError, TypeError):
-            continue
-    return None, None
-
-def _extract_meta_property(soup: BeautifulSoup, prop: str) -> str | None:
-    tag = soup.select_one(f'meta[property="{prop}"]')
-    return tag.get("content") if tag else None
-
-def _extract_time_element(soup: BeautifulSoup) -> str | None:
-    """從 <time> 元素擷取 datetime 屬性。"""
-    for selector in (
-        'time[itemprop="datePublished"]',
-        'time[datetime]',
-    ):
-        tag = soup.select_one(selector)
-        if tag and tag.get("datetime"):
-            return tag["datetime"]
-    return None
-
-def _extract_meta_name(soup: BeautifulSoup, names: tuple[str, ...]) -> str | None:
-    for name in names:
-        tag = soup.select_one(f'meta[name="{name}" i]')
-        if tag and tag.get("content"):
-            return tag["content"]
-    return None
-
-def _parse_http_date(date_str: str | None) -> str | None:
-    """解析 HTTP 日期格式（RFC 7231）。"""
-    if not date_str:
-        return None
-    try:
-        from email.utils import parsedate_to_datetime
-        return parsedate_to_datetime(date_str).isoformat()
-    except (ValueError, TypeError):
-        return None
-
-def _normalize_to_iso8601(date_str: str | None) -> str | None:
-    """嘗試將各種日期格式標準化為 ISO 8601。"""
-    if not date_str:
-        return None
-    # 已經是 ISO 格式
-    if re.match(r"\d{4}-\d{2}-\d{2}", date_str):
-        return date_str[:10]  # 取 YYYY-MM-DD
-    # 嘗試 dateutil / 手動解析
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-    return None
-```
+依優先級依次嘗試六層策略，每層回傳第一個匹配值；`modified_date` 從 JSON-LD `dateModified` 或 `<meta property="article:modified_time">` 補充。所有日期經 `_normalize_to_iso8601()` 標準化為 `YYYY-MM-DD`。
 
 ### 1-2. `_extract_metadata()` 簽名變更
 
 ```python
-# 現狀
+# Before
 @staticmethod
 def _extract_metadata(url: str, raw_metadata: dict) -> dict:
 
-# 改為
+# After
 @staticmethod
 def _extract_metadata(
-    url: str,
-    raw_metadata: dict,
+    url: str, raw_metadata: dict,
     html: str | None = None,
     response_headers: dict[str, str] | None = None,
 ) -> dict:
 ```
 
-新增邏輯（在現有 `description` + `page_type` 之後）：
+新增邏輯：呼叫 `_extract_date_from_html(html, response_headers)` 並將 `published_date` / `modified_date` 寫入 metadata。
 
-```python
-# --- HTML 日期擷取 ---
-if html:
-    date_info = _extract_date_from_html(html, response_headers)
-    if date_info["published_date"]:
-        metadata["published_date"] = date_info["published_date"]
-    if date_info["modified_date"]:
-        metadata["modified_date"] = date_info["modified_date"]
-```
+### 1-3. 呼叫端變更
 
-### 1-3. `_extract_crawl_results_data()` 呼叫端變更
-
-```python
-# 現狀
-metadata: self._extract_metadata(url, raw_metadata),
-
-# 改為
-metadata: self._extract_metadata(
-    url,
-    raw_metadata,
-    html=getattr(crawl_result, "html", None),
-    response_headers=getattr(crawl_result, "response_headers", None),
-),
-```
+`_extract_crawl_results_data()` 新增 `html=getattr(crawl_result, "html", None)` 與 `response_headers=getattr(crawl_result, "response_headers", None)`。
 
 ### 1-4. `rag_factory.py` — `_build_file_metadata()` 變更
 
-```python
-# 現狀
-return {
-    "page_title": page_title,
-    "page_url": page_info.get("url", ""),
-    "page_type": page_metadata.get("page_type", "general"),
-    "description": page_metadata.get("description", ""),
-}
-
-# 改為
-file_metadata: dict[str, Any] = {
-    "page_title": page_title,
-    "page_url": page_info.get("url", ""),
-    "page_type": page_metadata.get("page_type", "general"),
-    "description": page_metadata.get("description", ""),
-}
-
-# 傳遞 HTML 擷取的日期，供下游 MarkdownDateExtractor 優先使用
-if published_date := page_metadata.get("published_date"):
-    file_metadata["published_date"] = published_date
-
-return file_metadata
-```
+新增 `file_metadata["published_date"] = page_metadata.get("published_date")`，供下游 `MarkdownDateExtractor` 優先使用。
 
 ### 1-5. `rag_helper.py` — `_extract_date()` 優先級變更
 
-```python
-def _extract_date(self, node: BaseNode) -> Dict[str, Any]:
-    # --- Strategy 0: HTML metadata 優先 ---
-    published_date = node.metadata.get("published_date")
-    if published_date:
-        parts = published_date.split("-")
-        result: dict[str, int] = {"year": int(parts[0])}
-        if len(parts) >= 2:
-            result["month"] = int(parts[1])
-        if len(parts) >= 3:
-            result["day"] = int(parts[2])
-        return result
-
-    # --- Strategy 1–4: 原有內容推斷（不變） ---
-    content = node.get_content()
-    # ... 原有四層策略 ...
-```
+新增 Strategy 0：優先從 `node.metadata.get("published_date")` 取得 HTML 擷取的日期；無資料時 fallback 至原有四層文字推斷策略。
 
 ### 1-6. 資料流變更
 
 ```
 [改動前]
-HTML → crawl4ai → CrawlResult.html (未使用)
-                 → CrawlResult.metadata (僅 title/description)
+HTML → crawl4ai → CrawlResult.metadata (僅 title/description)
                  → _extract_metadata() → results.json (無日期)
                  → MarkdownDateExtractor (從 Markdown 文字推斷)
 
@@ -254,61 +84,24 @@ HTML → crawl4ai → CrawlResult.html ──→ _extract_date_from_html()
 ### 1-7. results.json 變更前後對比
 
 ```json
-// [改動前]
-"metadata": {
-    "description": "【Research Interests】",
-    "page_type": "general"
-}
-
-// [改動後]
-"metadata": {
-    "description": "【Research Interests】",
-    "page_type": "general",
-    "published_date": "2024-10-17",
-    "modified_date": "2024-10-20"
-}
+// [改動前]                    // [改動後]
+"metadata": {                  "metadata": {
+  "description": "...",          "description": "...",
+  "page_type": "general"         "page_type": "general"
+}                                "published_date": "2024-10-17",
+                                 "modified_date": "2024-10-20"
+                               }
 ```
 
 ### 1-8. 測試策略
 
 | 測試類型 | 對象 | 驗證內容 |
 |---------|------|---------|
-| **單元測試** | `_extract_date_from_html()` | 各種 HTML 結構的日期擷取正確性 |
+| **單元測試** | `_extract_date_from_html()` | 各種 HTML 結構的日期擷取正確性（JSON-LD / meta property / time element / meta name / HTTP header / 無日期） |
 | **單元測試** | `_normalize_to_iso8601()` | 各種日期格式的標準化 |
 | **單元測試** | `_extract_date()` (MarkdownDateExtractor) | 有/無 `published_date` 時的行為 |
 | **整合測試** | `_extract_metadata()` | 傳入 HTML + headers 後 metadata 包含日期 |
 | **端到端** | 完整爬蟲流程 | `results.json` 中有有效 `published_date` |
-
-關鍵測試案例：
-
-```python
-# HTML 有 JSON-LD datePublished
-html_jsonld = '''
-<html><head>
-<script type="application/ld+json">
-{"@type":"Article","datePublished":"2024-01-15T10:00:00Z","dateModified":"2024-06-20"}
-</script>
-</head></html>'''
-
-# HTML 有 article:published_time
-html_og = '''
-<html><head>
-<meta property="article:published_time" content="2024-03-20T08:30:00+08:00">
-</head></html>'''
-
-# HTML 有 <time> 元素
-html_time = '''
-<html><body>
-<time datetime="2024-05-10" itemprop="datePublished">May 10, 2024</time>
-</body></html>'''
-
-# HTML 無日期標籤，fallback 到 Last-Modified
-html_empty = '<html><head></head><body></body></html>'
-headers = {"Last-Modified": "Wed, 15 Jan 2025 12:00:00 GMT"}
-
-# HTML 完全無日期
-html_no_date = '<html><head></head><body>No dates here</body></html>'
-```
 
 ### 1-9. 實作順序
 
@@ -322,479 +115,164 @@ Step 6: 寫單元測試
 Step 7: 重新爬取 nculab 驗證 results.json 有日期
 ```
 
-> ⚠️ Step 7 前置依賴：重新爬取的結果需寫入多站目錄結構 `data/webpages/nculab/`（而非舊的平坦結構），須等 RunManager Refactor Phase 2 完成後執行。
+> ⚠️ Step 7 前置依賴：須等 RunManager Refactor Phase 2 完成後執行（多站目錄結構）。
 
 ---
 
 ## 2. 多站 RAG — 代碼設計（來源：`2026_0818-multi_site_RAG.md`）
 
-### 2-1. RAGRegistry 設計
+### 2-1. ~~RAGRegistry 設計~~（已過時，已被 §4-6 取代）
 
-```python
-class RAGRegistry:
-    """依 site_id 管理多個 RAG 實例，避免重複建立向量庫。"""
-
-    def __init__(self, config_names: dict[str, str]):
-        """config_names: {"nculab": "rag_nculab", "nctu": "rag_nctu"}"""
-        self._configs = config_names
-        self._instances: dict[str, Rag] = {}
-
-    def get(self, site_id: str) -> Rag:
-        if site_id not in self._instances:
-            config = RagConfig.from_toml(self._configs[site_id])
-            self._instances[site_id] = RAGBuilder(config).build_reusable()
-        return self._instances[site_id]
-
-    def list_sites(self) -> list[str]:
-        return list(self._configs.keys())
-
-    def close(self):
-        for rag in self._instances.values():
-            rag.close()
-```
+> 最終實作版請見 §4-6「Agent 整合」中的 RAGRegistry（整合版）。
 
 ### 2-2. Tool 簽名（擴充後）
 
 ```python
 class WebpageRetrieverInput(BaseModel):
     query: str
-    site_id: str  # 新增：目標網站（如 "nculab"、"nctu"）
+    site_id: str  # 目標網站（如 "nculab"、"nctu"）
     filter_dict: dict | None = None
     top_k: int = 10
-
-webpage_retriever = StructuredTool.from_function(
-    func=retrieve,
-    name="webpage_retriever",
-    description="從指定網站的知識庫檢索相關網頁內容",
-    args_schema=WebpageRetrieverInput,
-)
 ```
 
 ---
 
-## 3. RunManager Refactor（來源：`2026_0823-multi_site_refactor_modules.md`）
+## 3. Engines 重構 — Import 變更（來源：`engines_restructure_analysis.md`）
 
-> 本段落整合 RunManager Refactor 的**設計規格**與**實作進度**。各 Phase 的改動以實際程式碼呈現，Phase A/B 已完成，Phase C–H 待開始。
+### 3-1. 純函數搬移 import 變更（✅ 已完成）
 
-### 3-1. RunManager 新增屬性與方法（Phase B ✅ 完成）
+| 原 import | 新 import | 受影響檔案 |
+|-----------|-----------|-----------|
+| `app.engines.html_date_extractor` | `utils.html_date_extractor` | `website_crawler.py`、`test/test_html_date_extraction.py` |
+| `app.engines.markdown_cleaner` | `utils.markdown_cleaner` | `website_crawler.py` |
 
-```python
-class RunManager:
-    def __init__(self, module_name="", base_folder="runs"):
-        # ... 現有屬性 ...
-        self.site_id: str = ""
-        self.site_path: str = ""
+### 3-2. RAG 子資料夾 import 變更
 
-    def set_site_path(self, site_id: str) -> None:
-        """設定 site 路徑（必要）。建立四層結構 runs/<ts>/module/site/。"""
-        if not self.module_name:
-            raise ValueError("Module name must be set before setting site path.")
-        if not site_id:
-            raise ValueError("Site ID must be provided to set site path.")
-        self.site_id = site_id
-        self.site_path = os.path.join(self.module_path, site_id)
-        os.makedirs(self.site_path, exist_ok=True)
-```
+| 原路徑 | 新路徑 |
+|--------|--------|
+| `app.engines.rag.RAG` | `app.engines.rag.RAG`（不變） |
+| `app.engines.rag_factory.RAGBuilder` | `app.engines.rag.RAGBuilder` |
+| `app.engines.rag_eval_prompts.FAITHFULNESS_*` | `app.engines.rag.rag_eval_prompts.*` |
 
-### 3-2. RunManager `set_run_path()` 變更（Phase B ✅ 完成）
+受影響 consumer：`workflow.py`、`webpage_retriever.py`、`rag_factory.py`（內部），共約 4–5 個 import 語句。
 
-```python
-def set_run_path(self, run_name: str) -> None:
-    if not self.module_name:
-        raise ValueError("Module name must be set before setting run path.")
-    if not run_name:
-        raise ValueError("Run name must be provided to set run path.")
-
-    self.run_name = run_name
-    base = self.site_path if self.site_path else self.module_path
-    run_path = os.path.join(base, self.run_name)
-    os.makedirs(run_path, exist_ok=True)
-    self.run_path = run_path
-```
-
-### 3-3. RunManager `_filter_run_folders()` 變更（Phase B ✅ 完成）
-
-```python
-def _filter_run_folders(self) -> list[str]:
-    """篩選出符合實驗資料夾命名規則的資料夾名稱列表。"""
-    folder_names = os.listdir(self.base_folder)  # 改用 self.base_folder（原本硬編碼 RUNS_FOLDER_PATH）
-    run_folder_names = []
-    for folder_name in folder_names:
-        if folder_name.startswith("20") and len(folder_name) == 15:
-            run_folder_names.append(folder_name)
-    if not run_folder_names:
-        raise FileNotFoundError(f"No run folders found in {self.base_folder}.")
-    return run_folder_names
-```
-
-### 3-4. 路徑結構變化
+### 3-3. engines/ 內部依賴圖
 
 ```
-# 重構後（四層，set_site_path 為必要呼叫）
+workflow.py ──→ RAG / RAGBuilder / WebsiteCrawler / WebpageImageSummarizer
+tools/      ──→ RAG / RAGBuilder
+test/       ──→ WebsiteCrawler, resolve_dedup_key, html_date_extractor
+rag_factory ──→ RAG, rag_eval_prompts
+website_crawler ──→ html_date_extractor, markdown_cleaner
+```
+
+---
+
+## 4. RunManager Refactor（來源：`2026_0823-multi_site_refactor_modules.md`）
+
+> Phase A–F 已完成，Phase G–H 待開始。
+
+### 4-1. RunManager 新增（Phase B ✅）
+
+新增 `site_id: str` 與 `site_path: str` 屬性，以及 `set_site_path(site_id)` 方法——建立 `runs/<ts>/module/site/` 路徑。`set_run_path()` 改為優先使用 `site_path` 作為 base（若已設定），fallback 至 `module_path`。`_filter_run_folders()` 改用 `self.base_folder`（原本硬編碼）。
+
+### 4-2. 路徑結構變化
+
+```
 set_module_path("website_crawler")  → runs/<ts>/website_crawler/
 set_site_path("nculab")             → runs/<ts>/website_crawler/nculab/    ← 必要
 set_run_path("default")             → runs/<ts>/website_crawler/nculab/default/
 ```
 
-### 3-5. DataManager 介面設計（Phase B ✅ 完成）
+### 4-3. DataManager 介面設計（Phase B ✅）
 
-```python
-class DataManager:
-    """管理 data/ 目錄下的持久化發布結果。"""
+安放位置：`src/app/workflow/data_manager.py`。
 
-    def __init__(self, data_folder: str = "data") -> None:
-        self.data_folder = data_folder
+| 方法 | 功能 |
+|------|------|
+| `publish_crawl_results(site_id, results, json_path, folder_path)` | 覆蓋發布至 `data/webpages/{site_id}/` |
+| `publish_markdown(site_id, enhanced_results, folder_path)` | 發布增強 Markdown 至 `data/webpages/{site_id}/results/` |
+| `publish_vector_store(site_id, vector_store_type, source_path)` | 複製向量庫至 `data/rag/{site_id}/` |
+| `list_sites()` | 掃描 `data/webpages/` 回傳所有 site_id |
+| `get_webpages_path(site_id)` | 回傳 `data/webpages/{site_id}/` |
+| `get_vector_store_path(site_id)` | 回傳 `data/rag/{site_id}/` |
+| `site_exists(site_id)` | 檢查 site 是否存在 |
 
-    # ──────── Publish（寫入 data/）──────
+### 4-4. Workflow 函式簽名（最終版）
 
-    def publish_crawl_results(self, site_id: str, results: dict,
-                              results_json_path: str | None = None,
-                              results_folder_path: str | None = None) -> str:
-        """將爬取結果覆蓋發布至 data/webpages/{site_id}/。"""
-        webpages_path = os.path.join(self.data_folder, "webpages", site_id)
-        os.makedirs(webpages_path, exist_ok=True)
-        if results_json_path and os.path.isfile(results_json_path):
-            shutil.copy2(results_json_path, os.path.join(webpages_path, "results.json"))
-        if results_folder_path and os.path.isdir(results_folder_path):
-            dest = os.path.join(webpages_path, "results")
-            if os.path.exists(dest):
-                shutil.rmtree(dest)
-            shutil.copytree(results_folder_path, dest)
-        return webpages_path
-
-    def publish_markdown(self, site_id: str, enhanced_results: dict,
-                        results_folder_path: str | None = None) -> str:
-        """將增強後的 Markdown 發布至 data/webpages/{site_id}/results/。"""
-        webpages_path = os.path.join(self.data_folder, "webpages", site_id)
-        os.makedirs(webpages_path, exist_ok=True)
-        if results_folder_path and os.path.isdir(results_folder_path):
-            dest = os.path.join(webpages_path, "results")
-            os.makedirs(dest, exist_ok=True)
-            for page_title, result in enhanced_results.items():
-                with open(os.path.join(dest, f"{page_title}.md"), "w") as f:
-                    f.write(result.get("enhanced_markdown", ""))
-        return webpages_path
-
-    def publish_vector_store(self, site_id: str, vector_store_type: str,
-                            source_path: str) -> str:
-        """將向量庫從 runs/ 複製至 data/rag/{site_id}/。"""
-        rag_path = os.path.join(self.data_folder, "rag", site_id)
-        os.makedirs(rag_path, exist_ok=True)
-        if vector_store_type == "milvus":
-            dest = os.path.join(rag_path, "milvus.db")
-            if os.path.isdir(source_path):
-                if os.path.exists(dest):
-                    shutil.rmtree(dest)
-                shutil.copytree(source_path, dest)
-            elif os.path.isfile(source_path):
-                shutil.copy2(source_path, dest)
-        elif vector_store_type == "qdrant":
-            dest = os.path.join(rag_path, "qdrant_db")
-            if os.path.exists(dest):
-                shutil.rmtree(dest)
-            shutil.copytree(source_path, dest)
-        return rag_path
-
-    # ──────── Discover（掃描 data/）──────
-
-    def list_sites(self) -> list[str]:
-        """掃描 data/webpages/ 目錄，回傳所有已發佈的 site_id。"""
-        webpages_path = os.path.join(self.data_folder, "webpages")
-        if not os.path.isdir(webpages_path):
-            return []
-        return sorted(
-            d for d in os.listdir(webpages_path)
-            if os.path.isdir(os.path.join(webpages_path, d))
-        )
-
-    def get_webpages_path(self, site_id: str) -> str:
-        """回傳 data/webpages/{site_id}/ 路徑。"""
-        return os.path.join(self.data_folder, "webpages", site_id)
-
-    def get_vector_store_path(self, site_id: str) -> str:
-        """回傳 data/rag/{site_id}/ 路徑。"""
-        return os.path.join(self.data_folder, "rag", site_id)
-
-    def site_exists(self, site_id: str) -> bool:
-        """檢查 site 是否存在。"""
-        return os.path.isdir(self.get_webpages_path(site_id))
-```
-
-安放位置：`src/app/workflow/data_manager.py`，與 `run_manager.py` 同層。
-
-### 3-6. Workflow 函式簽名變化（Phase B ✅ 完成）
-
-所有 `run_*` 函式加入 `site_id: str`（必要）和 `data_manager: DataManager | None = None` 參數：
+> Phase B 時 `run_*` 曾新增 `site_id` 參數，後於 §5-3 階段② 移除。以下為最終簽名：
 
 ```python
 def run_website_crawler(
     run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
-    site_id: str = "",                            # 新增（必要）
-    data_manager: DataManager | None = None,       # 新增（可選）
+    data_manager: DataManager | None = None,       # 可選：傳入則發布至 data/
     **config_overrides,
 ) -> dict[str, dict] | None:
 ```
 
-### 3-7. `run_website_crawler` 完整改動（Phase B ✅ 完成）
+所有 `run_*()` 函式遵循相同模式：`config` 由 `Config.from_toml(config_name, **config_overrides)` 建立，`site_id` 從 `config.site_id` 取得。`run_agent()` 特殊：config 在 `run_manager` 初始化之前建立（因需 `config.site_id`）。
 
-```python
-def run_website_crawler(
-    run_manager: RunManager | None = None,
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
-    site_id: str = "",
-    data_manager: DataManager | None = None,
-    **config_overrides,
-) -> dict[str, dict] | None:
-    # ----- 初始化設定和路徑 -----
-    website_crawler = WebsiteCrawler()
-    config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow("website_crawler", config,
-                                 run_name_use_config_name, run_manager, site_id)
+### 4-5. 設定檔結構變化（Phase A ✅）
 
-    # ... 現有爬蟲邏輯（不動）...
-
-    # ----- 儲存至 runs/（歷史紀錄）-----
-    save_module_config_as_toml(config, run_manager.module_config_toml_path)
-    run_manager.save_results_as_json(crawl_results)
-    run_manager.save_results_as_md(crawl_results, "fit_markdown")
-
-    # ----- 發佈至 data/（持久化）-----
-    if data_manager:
-        data_manager.publish_crawl_results(
-            site_id=site_id, results=crawl_results,
-            results_json_path=run_manager.results_json_path,
-            results_folder_path=run_manager.results_folder_path,
-        )
-
-    log_session("Website Crawling Completed", style="cyan")
-    return crawl_results
-```
-
-### 3-8. `run_webpage_image_summarizer` 改動（Phase B ✅ 完成）
-
-```python
-def run_webpage_image_summarizer(
-    run_manager: RunManager | None = None,
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
-    crawl_results: dict[str, dict] | None = None,
-    site_id: str = "",
-    data_manager: DataManager | None = None,
-    **config_overrides,
-) -> dict[str, dict] | None:
-    # ... 初始化（含 _init_workflow）...
-
-    # ... 現有摘要邏輯（不動）...
-
-    # ----- 儲存至 runs/ -----
-    run_manager.save_results_as_json(enhanced_results)
-    run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
-
-    # ----- 發佈至 data/（覆蓋爬取結果為增強版本）-----
-    if data_manager:
-        data_manager.publish_markdown(
-            site_id=site_id, enhanced_results=enhanced_results,
-            results_folder_path=run_manager.results_folder_path,
-        )
-
-    return enhanced_results
-```
-
-### 3-9. `run_rag_build` 改動（Phase B ✅ 完成）
-
-```python
-def run_rag_build(
-    run_manager: RunManager | None = None,
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
-    webpages_data_use_latest_results: bool = False,
-    save_vector_store_to_runs: bool = False,
-    site_id: str = "",
-    data_manager: DataManager | None = None,
-    **config_overrides,
-) -> None:
-    config = RAGConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow("rag_build", config,
-                                 run_name_use_config_name, run_manager, site_id)
-
-    # ── DataManager 提供 webpages 路徑 ──
-    if webpages_data_use_latest_results:
-        if data_manager is None:
-            raise ValueError("data_manager is required when webpages_data_use_latest_results=True")
-        config.webpages_data_folder_path = data_manager.get_webpages_path(site_id)
-
-    # ... 現有 RAG build 邏輯（不動）...
-
-    # ----- publish 向量庫至 data/ -----
-    if data_manager:
-        # 確定向量庫路徑後 publish_vector_store ...
-```
-
-### 3-10. CLI 與 main.py 改動（Phase F 待開始）
-
-**CLI dataclass 新增 `site_id`**：
-
-```python
-@dataclass
-class WebsiteCrawlerRunConfig:
-    run_name: str = "default"
-    run_name_use_config_name: bool = False
-    site_id: str = ""
-
-# 其他 RunConfig 類比新增
-```
-
-**cli.py 分派邏輯**：
-
-```python
-# 多站後
-elif isinstance(cli_arg, WebsiteCrawlerCLI):
-    run_manager.set_module_path("website_crawler")
-    run_website_crawler(
-        run_manager,
-        data_manager=data_manager,
-        **vars(cli_arg.run),    # 含 site_id
-        **module_config_overrides,
-    )
-```
-
-**main.py**：
-
-```python
-def main() -> None:
-    run_manager = RunManager()
-    data_manager = DataManager()
-
-    run_manager.set_module_path("website_crawler")
-    crawl_results = run_website_crawler(
-        run_manager=run_manager,
-        site_id="nculab",
-        data_manager=data_manager,
-        **vars(website_crawler_run_config),
-    )
-```
-
-### 3-11. 設定檔結構變化（Phase A ✅ 完成）
-
-所有 Config dataclass（`WebsiteCrawlerConfig`、`RAGConfig`、`WebpageImageSummarizerConfig`、`AgentConfig`）加入 `site_id: str`（必要）；所有 TOML `[init]` 加入 `site_id = "nculab"`；`INIT_KEYS` 加入 `"site_id"`；`_validate_config` 加入 `site_id` 驗證。
-
-**RAG 設定檔**（`webpages_data_folder_path`、`milvus_uri`、`qdrant_db_folder_path` 不再硬編碼，由 `site_id` 動態產生；`collection_name` 已移除，直接使用 `site_id` 作為 collection name）：
+所有 Config dataclass 加入 `site_id: str`（必要）；TOML `[init]` 加入 `site_id = "nculab"`；`collection_name` 已移除，直接使用 `site_id` 作為 collection name；`webpages_data_folder_path` / `milvus_uri` 由 `site_id` 動態產生。
 
 ```toml
 # configs/rag/nculab.toml
 [init]
 site_id = "nculab"
-
 [vector_store]
 vector_store_type = "milvus"
-# collection_name = site_id（自動同步，無需指定）
-
 [index]
 embedding_name = "text-embedding-3-small"
-
 [retriever]
 query_mode = "hybrid"
 similarity_top_k = 10
 hybrid_top_k = 10
 ```
 
-### 3-12. Agent 整合
+### 4-6. Agent 整合
 
-**Site Discovery 工具**：
+**Site Discovery 工具**：`create_site_discovery_tool(data_manager)` 回傳 `StructuredTool(name="list_knowledge_bases")`，掃描 `data/rag/` 回傳所有 site_id。
 
-```python
-def create_site_discovery_tool(data_manager: DataManager) -> StructuredTool:
-    """掃描 data/rag/ 目錄，回傳所有已建庫的 site_id 列表。"""
-
-    def _list_sites() -> str:
-        sites = data_manager.list_sites()
-        return "\n".join(f"- {s}" for s in sites) if sites else "No sites available."
-
-    return StructuredTool(
-        name="list_knowledge_bases",
-        description="列出所有可用的知識庫 site_id 列表。",
-        func=_list_sites,
-    )
-```
-
-**RAGRegistry（整合版）**：
+**RAGRegistry（整合版 — 最終設計）**：
 
 ```python
 class RAGRegistry:
-    """依 site_id 管理多個 RAG 實例。"""
-
-    def __init__(self, data_manager: DataManager) -> None:
-        self._data_manager = data_manager
-        self._instances: dict[str, RAG] = {}
-
-    def get(self, site_id: str, config_name: str = "default") -> RAG:
-        if site_id not in self._instances:
-            config = RAGConfig.from_toml(config_name)
-            config.webpages_data_folder_path = self._data_manager.get_webpages_path(site_id)
-            config.milvus_uri = os.path.join(
-                self._data_manager.get_vector_store_path(site_id), "milvus.db"
-            )
-            self._instances[site_id] = RAGBuilder(config).build()
-        return self._instances[site_id]
-
-    def close(self) -> None:
-        for rag in self._instances.values():
-            rag.close()
+    def __init__(self, data_manager: DataManager) -> None: ...
+    def get(self, site_id: str, config_name: str = "default") -> RAG: ...
+    def close(self) -> None: ...
 ```
 
-### 3-13. 目錄結構（重構後）
+依 `site_id` 延遲建立 RAG 實例，由 `data_manager` 動態設定 `webpages_data_folder_path` 與 `milvus_uri`。
+
+### 4-7. 目錄結構（重構後）
 
 ```
 data/
-├── webpages/
-│   ├── nculab/
-│   │   ├── results.json
-│   │   └── results/
-│   │       └── *.md
-│   └── nctu/
-│       ├── results.json
-│       └── results/
-├── rag/
-│   ├── nculab/
-│   │   └── milvus.db
-│   └── nctu/
-│       └── milvus.db
+├── webpages/nculab/  → results.json + results/*.md
+├── webpages/nctu/
+├── rag/nculab/       → milvus.db
+└── rag/nctu/
 
 runs/<ts>/
-├── website_crawler/
-│   └── nculab/
-│       └── default/
-│           ├── results.json
-│           ├── results/*.md
-│           ├── module_config.toml
-│           └── terminal.log
-├── webpage_image_summarizer/
-│   └── nculab/
-│       └── default/
-├── rag_build/
-│   └── nculab/
-│       └── default/
-├── rag_query/
-│   └── nculab/
-│       └── default/
-└── agent/
-    └── nculab/
-        └── default/
+├── website_crawler/nculab/default/   → results.json, results/*.md, module_config.toml
+├── webpage_image_summarizer/nculab/default/
+├── rag_build/nculab/default/
+├── rag_query/nculab/default/
+└── agent/nculab/default/
 ```
 
-### 3-14. 遷移路徑
+### 4-8. 遷移路徑
 
 ```bash
-# Phase 2 的目錄搬移
 data/webpages/results.json       → data/webpages/nculab/results.json
 data/webpages/results/           → data/webpages/nculab/results/
 data/rag/results/milvus.db       → data/rag/nculab/milvus.db
 ```
 
-### 3-15. site_id 完整流動路徑
+### 4-9. site_id 完整流動路徑
 
 ```
                     ┌─────────────────────────────┐
@@ -804,8 +282,8 @@ data/rag/results/milvus.db       → data/rag/nculab/milvus.db
                     └──────────┬──────────────────┘
                                │
                     ┌──────────▼──────────────────┐
-                    │  WorkflowConfig / CLI dataclass│
-                    │  site_id: str                 │
+                    │  BaseModuleConfig            │
+                    │  site_id: str (TOML 唯一來源)│
                     └──────────┬──────────────────┘
                                │
                ┌───────────────┼───────────────┐
@@ -817,106 +295,198 @@ data/rag/results/milvus.db       → data/rag/nculab/milvus.db
     └──────────────────┘ └──────────────┘ └──────────────────┘
 ```
 
-### 3-16. 實作進度
+### 4-10. CLI publish 控制 DataManager 傳遞
+
+**動機**：`exp.py` / `test_module.py` 為實驗性質不需發布；`main.py` 永遠發布；`cli.py` 由 `publish` 參數控制。
+
+**解法**：`BaseRunConfig` 含 `publish: bool = False`，cli.py 在分派前 `pop("publish")` 避免洩漏進 `**config_overrides`，條件建立 `DataManager`。
+
+| 分支 | 傳 data_manager | 理由 |
+|------|:---------------:|------|
+| `WebsiteCrawlerCLI` | ✅ | 函式支援 |
+| `WebpageImageSummarizerCLI` | ✅ | 函式支援 |
+| `RAGBuildCLI` | ✅ | 函式支援 |
+| `RAGQueryCLI` | ❌ | 函式無此參數 |
+| `AgentCLI` | ❌ | 函式無此參數 |
+| `ServerCLI` | ❌ | 常駐服務，不涉及 |
+
+> `vars(cli_arg.run)` 為 dataclass `__dict__` 的參考（非副本），`pop("publish")` 同步移除屬性——`save_run_config_as_toml()` 不會將 `publish` 寫入 TOML，為正確行為。
+
+**CLI 使用方式**：
+
+```bash
+uv run python src/cli.py website-crawler-cli              # 實驗（publish=False）
+uv run python src/cli.py website-crawler-cli --run.publish  # 發布至 data/
+```
+
+### 4-11. 實作進度
 
 | Phase | 狀態 | 改動範圍 |
 |-------|------|----------|
-| **A：Config 層** | ✅ 完成 | 所有 Config dataclass + 21 個 TOML 設定檔 |
-| **B：RunManager + DataManager** | ✅ 完成 | `run_manager.py`、`data_manager.py`（新）、`workflow.py`、`test_runmanager_datamanager.py` |
-| **C：RAGConfig 路徑動態化** | ✅ 完成 | `rag_config.py`、`rag.py`、`rag_factory.py`、`workflow.py`、4 個 RAG TOML 設定檔 |
-| **D：rag_factory metadata 注入** | ✅ 完成 | `rag_factory.py` node metadata 加入 `site_id` |
-| **E：workflow.py 端到端串接** | ✅ 完成 | `_init_workflow()` 修正呼叫順序 + `run_agent()` 移除冗餘呼叫 |
-| **F：CLI / main.py** | ✅ 完成 | `workflow_config.py`、`cli.py`、`main.py` |
-| **G：測試更新** | ⏳ 待開始 | 移除向後相容測試、所有 `run_*` 呼叫加入 `site_id` |
-| **H：文件更新** | ⏳ 待開始 | README.md / project.md 更新 |
+| **A：Config 層** | ✅ | 所有 Config dataclass + 21 個 TOML |
+| **B：RunManager + DataManager** | ✅ | `run_manager.py`、`data_manager.py`（新）、`workflow.py` |
+| **C：RAGConfig 路徑動態化** | ✅ | `rag_config.py`、`rag.py`、`rag_factory.py`、`workflow.py`、4 個 RAG TOML |
+| **D：rag_factory metadata 注入** | ✅ | `rag_factory.py` node metadata 加入 `site_id` |
+| **E：workflow.py 端到端串接** | ✅ | `_init_workflow()` 呼叫順序修正 + `run_agent()` 冗餘移除 |
+| **F：CLI / main.py** | ✅ | `workflow_config.py`、`cli.py`、`main.py`（含 publish 控制） |
+| **G：測試更新** | ✅ | 移除向後相容測試 + 過渡性測試檔案（2026-08-24：移除 `test_phase_a_f.py`（28 tests）、`test_set_run_path_without_site_path`、`test_main_py_has_site_id_constant`；84 tests passed） |
+| **H：文件更新** | ⏳ | README.md / project.md 更新 |
 
-**Phase A 驗證結果：**
+**Phase A 驗證**：15/15 單元測試通過；4 Config `from_toml()` 正確解析 `site_id`；空/缺 `site_id` 正確拋出異常。
 
-- ✅ 15/15 RunManager + DataManager 單元測試通過
-- ✅ 4 個 Config 的 `from_toml()` 正確解析 `site_id`
-- ✅ 缺少 `site_id` 時拋出 `TypeError`（必要欄位）
-- ✅ `site_id=""` 時拋出 `ConfigValidationError`
+**Phase B 已知問題**：
 
-**Phase B 已知問題：**
+| # | 問題 | 狀態 |
+|---|------|------|
+| 1 | ~~`_init_workflow()` 中 `set_site_path()` 呼叫順序~~ | ✅ Phase E 已修正 |
+| 2 | `run_agent()` 中 `set_module_path("agent")` 冗餘呼叫 | 💡 可移除（無副作用） |
+| 3 | ~~`run_rag_build()` 中 `data_manager` 無 None 檢查~~ | ✅ 已加入 ValueError 防禦 |
 
-| # | 問題 | 影響 | 狀態 |
-|---|------|------|------|
-| 1 | `_init_workflow()` 中 `set_site_path()` 在 `init_module_run_paths()` 之後呼叫 | `set_run_path()` 在 `site_path` 尚未設定時已建立三層路徑，`set_site_path()` 之後不會重新建立 | ⚠️ 需確認是否影響四層路徑建立 |
-| 2 | `run_agent()` 中 `set_module_path("agent")` 重複呼叫 | 後續再次呼叫無副作用但冗餘 | 💡 可移除 |
-| 3 | `run_rag_build()` 中 `webpages_data_use_latest_results=True` 時 `data_manager` 無 None 檢查 | 若未傳入 `data_manager` 會拋出 `AttributeError` | ⚠️ 需加入防禦性檢查 |
+**Phase C 驗證**：`RAGConfig.from_toml()` 路徑動態產生正確；TOML override 有效；`collection_name` 已移除改用 `site_id`。
 
-**Phase C 驗證結果（2026-08-23）：**
+**Phase D 驗證**：`NodePipelineBuilder` 簽名含 `site_id`；`partial()` 正確注入；`RAGBuilder.build_nodes()` 傳入 `site_id`。
 
-- ✅ `RAGConfig.from_toml("default")` → `webpages_data_folder_path == "data/webpages/nculab"`
-- ✅ `RAGConfig.from_toml("default")` → `milvus_uri == "data/rag/nculab/milvus.db"`
-- ✅ `RAGConfig.from_toml("qdrant")` → `qdrant_db_folder_path == "data/rag/nculab/qdrant_db"`
-- ✅ TOML override 仍有效：`from_toml("default", webpages_data_folder_path="custom/path")`
-- ✅ `collection_name` 已移除，`rag_factory.py` 使用 `config.site_id` 作為 collection name
-- ✅ 空 `site_id` 時拋出 `ConfigValidationError`
-- ✅ 15/15 RunManager + DataManager 單元測試通過
+**Phase E 驗證**：`set_site_path()` 在 `set_run_path()` 之前呼叫；`run_agent()` 冗餘呼叫已移除。
 
-**Phase D 驗證結果（2026-08-23）：**
+**Phase F 驗證**：`BaseRunConfig` 含 `site_id`（後於 §5-3 移至 `BaseModuleConfig`）；`main.py` 傳入 `SITE_ID`。
 
-- ✅ `NodePipelineBuilder._build_file_metadata()` 簽名含 `site_id` 參數
-- ✅ `NodePipelineBuilder.build()` 簽名含 `site_id` 參數，`partial()` 正確注入
-- ✅ `RAGBuilder.build_nodes()` 傳入 `site_id=self.config.site_id`
-
-**Phase E 驗證結果（2026-08-23）：**
-
-- ✅ `_init_workflow()` 中 `set_site_path()` 在 `set_run_path()` 之前呼叫
-- ✅ `run_agent()` 中 `set_module_path("agent")` 冗餘呼叫已移除
-
-**Phase F 驗證結果（2026-08-23）：**
-
-- ✅ `BaseRunConfig` 含 `site_id: str = "default"`
-- ✅ `AgentRunConfig` 含 `site_id: str = "default"`
-- ✅ `main.py` 使用 `SITE_ID = "nculab"` 傳入所有 RunConfig
-- ✅ 15/15 RunManager + DataManager 單元測試通過
+**Phase F+ 驗證（2026-08-24）**：`publish` 控制正確；`test_main.py` 通過（1 passed, 83.80s）；ruff + pyright 0 errors。
 
 ---
 
-## 4. Engines 重構 — Import 變更（來源：`engines_restructure_analysis.md`）
+## 7. Phase G — 測試更新：移除向後相容測試 + 過渡性測試檔案（2026-08-24）
 
-### 4-1. 純函數搬移 import 變更
+### 7-1. 移除原因
 
-| 原 import | 新 import | 受影響檔案 |
-|-----------|-----------|-----------|
-| `app.engines.html_date_extractor` | `utils.html_date_extractor` | `website_crawler.py`、`test/test_html_date_extraction.py` |
-| `app.engines.markdown_cleaner` | `utils.markdown_cleaner` | `website_crawler.py` |
+Phase A–F 完成後，`_init_workflow()` 統一在 `set_run_path()` 前呼叫 `set_site_path()`，四層路徑結構為唯一路徑。`set_run_path()` 中「不呼叫 `set_site_path` 時 fallback 至 module_path（三層結構）」的向後相容分支已無消費者。`test_phase_a_f.py` 作為重構過程的過渡驗證檔案已完成使命。
 
-共 **3 個 import 語句**需修改。
+### 7-2. 移除清單
 
-### 4-2. RAG 子資料夾 import 變更
+| 測試 / 檔案 | 移除原因 |
+|-------------|----------|
+| `test_set_run_path_without_site_path` | 測試三層路徑 fallback，已無實際使用路徑 |
+| `test_main_py_has_site_id_constant` | Phase F 遺留，`main.py` 已無 `SITE_ID` 常數（§5-3 移至 `BaseModuleConfig`），且已處於 FAIL 狀態 |
+| **`test_phase_a_f.py`**（整個檔案，28 tests） | Phase A–F 重構過渡性驗證：使用 `inspect.getsource()`/`ast.parse()` 檢查源碼結構（脆弱）、驗證 TOML 欄位不存在、驗證 `BaseRunConfig` 無 `site_id`；永久行為已由其他測試檔覆蓋 |
 
-| 原路徑 | 新路徑（有 `__init__.py` 匯出後） |
-|--------|----------------------------------|
-| `app.engines.rag.RAG` | `app.engines.rag.RAG`（不變） |
-| `app.engines.rag_factory.RAGBuilder` | `app.engines.rag.RAGBuilder` |
-| `app.engines.rag_eval_prompts.FAITHFULNESS_*` | `app.engines.rag.rag_eval_prompts.*` |
+### 7-3. 驗證結果
 
-受影響的 consumer：
+- ruff check：通過
+- 完整 dev 測試 suite：**84 passed, 0 failed**（移除前 119 個 → 117 個 → 84 個）
 
-| 檔案 | 變更 |
-|------|------|
-| `app/workflow/workflow.py` | `from app.engines.rag import RAG`（不變）+ `from app.engines.rag_factory` → `from app.engines.rag` |
-| `app/tools/webpage_retriever.py` | 同上 |
-| `app/engines/rag_factory.py`（內部） | `from app.engines.rag import RAG`（不變）+ `from app.engines.rag_eval_prompts` → `from app.engines.rag.rag_eval_prompts`（或相對 import） |
+### 7-4. 保留的 dev 測試檔案
 
-共約 **4–5 個 import 語句**需修改。
+| 檔案 | 測試數 | 性質 |
+|------|--------|------|
+| `test_runmanager_datamanager.py` | 14 | RunManager / DataManager 行為測試 |
+| `test_agent.py` | 12 | Agent 純函式行為測試 |
+| `test_dedup_key.py` | 12 | 去重邏輯行為測試 |
+| `test_html_date_extraction.py` | 30 | HTML 日期擷取行為測試 |
+| `test_server.py` | 11 | Server API 端點行為測試 |
+
+### 7-5. 建議後續清理
+
+- `set_run_path()` 中 `base_for_run = self.site_path if self.site_path else self.module_path` 的 fallback 可進一步移除，改為強制要求 `site_path` 已設定
 
 ---
 
-## 5. engines/ 內部依賴圖
+## 5. Config 重構 — BaseModuleConfig 抽取 + CLI 重構（2026-08-24）
+
+> **動機**：四個 module config 有大量重複（`config_name`/`site_id`、`from_toml()`、`run_name`、`site_id` 驗證）；`site_id` 在 `BaseRunConfig` 和 module config 雙重持有；CLI 命名不一致。
+
+### 5-1. 三個 TODO 依賴關係
 
 ```
-workflow.py ──→ RAG / RAGBuilder / WebsiteCrawler / WebpageImageSummarizer
-tools/      ──→ RAG / RAGBuilder
-test/       ──→ WebsiteCrawler, resolve_dedup_key, html_date_extractor
-
-rag_factory ──→ RAG, rag_eval_prompts
-website_crawler ──→ html_date_extractor, markdown_cleaner
+TODO 1: 抽取 BaseModuleConfig          ← 階段 ① 基礎
+    │
+    ├─→ TODO 2: site_id 從 RunConfig    ← 階段 ② 依賴 ①
+    │     移至 BaseModuleConfig
+    │
+    └─→ TODO 3: CLI 重構               ← 階段 ③ 依賴 ①②
+          ├─ Step 3a: 改名 ...ConfigCLI → ...ModuleConfig
+          ├─ Step 3b: 移動 config class 至 workflow_config.py
+          ├─ Step 3c: 移動 → src/app/configs/
+          └─ Step 3d: cli.py 清理
 ```
 
----
+### 5-2. 階段 ① — BaseModuleConfig（`src/app/configs/base_config.py`）
 
+```python
+@dataclass
+class BaseModuleConfig:
+    _CONFIG_FOLDER_PATH: ClassVar[str] = ""       # 子類覆寫
+    sections_to_keys: ClassVar[dict[str, set[str]]] = {}
 
+    config_name: str
+    site_id: str
+
+    @classmethod
+    def from_toml(cls, config_name: str, **overrides) -> Self: ...
+
+    @property
+    def run_name(self) -> str: ...                 # Template Method
+
+    def _post_process_run_name(self, run_name: str) -> str:  # 子類 hook
+        return run_name
+
+    @staticmethod
+    def validate_site_id(site_id: str) -> None: ...
+```
+
+**設計決策**：`_CONFIG_FOLDER_PATH` / `sections_to_keys` 使用 `ClassVar` 避免 dataclass 繼承 ordering 問題。
+
+**重複消除**：~56 行（4 模組 × 欄位/`from_toml`/`run_name`/驗證）。
+
+**`_post_process_run_name()` 覆寫**：`RAGConfig` 用 `.replace("/", "-")` + 移除 `-gemini`；`WebpageImageSummarizerConfig` 用 `.replace("/", "-")`；其餘不覆寫。
+
+### 5-3. 階段 ② — site_id 從 RunConfig 移至 BaseModuleConfig
+
+- `BaseRunConfig` 移除 `site_id: str = "default"`
+- `_init_workflow()` 改為 `run_manager.set_site_path(config.site_id)`
+- 所有 `run_*()` 移除 `site_id` 參數，改由 `**config_overrides` 傳入 `from_toml()`
+- `run_agent()` 特殊：config 在 `run_manager` 初始化之前建立
+- `main.py` 確認 TOML 已有正確值後移除冗餘傳入
+
+### 5-4. 階段 ③ — CLI 重構
+
+| Before | After |
+|--------|-------|
+| `WebsiteCrawlerConfigCLI` | `WebsiteCrawlerModuleConfig` |
+| `WebpageImageSummarizerConfigCLI` | `WebpageImageSummarizerModuleConfig` |
+| `RAGConfigCLI` | `RAGModuleConfig` |
+| `AgentConfigCLI` | `AgentModuleConfig` |
+
+所有 config class 從 `cli.py` 移出至 `src/app/configs/workflow_config.py`（原 `src/app/workflow/workflow_config.py` 已刪除）。`cli.py` 僅保留複合 CLI class + 分派邏輯。`AgentModuleConfig` 新增 `site_id`（替代原 `AgentRunConfig.site_id`）。
+
+### 5-5. site_id 唯一來源原則
+
+`site_id` 的唯一真實來源是 TOML `[init]` section。外部 override 僅在「同一份 config 跑不同站點」或「TOML 為佔位符」時需要。
+
+### 5-6. 最終檔案結構
+
+```
+src/app/configs/
+├── base_config.py                              ← BaseModuleConfig（新增）
+├── workflow_config.py                          ← RunConfig + ModuleConfig
+├── website_crawler_config.py                   ← 繼承 BaseModuleConfig
+├── rag_config.py                               ← 繼承 BaseModuleConfig
+├── webpage_image_summarizer_config.py          ← 繼承 BaseModuleConfig
+└── agent_config.py                             ← 繼承 BaseModuleConfig
+
+src/app/workflow/
+├── workflow.py          ← _init_workflow + run_*() 更新
+├── run_manager.py       ← 不變
+└── data_manager.py      ← 不變
+
+src/cli.py    ← 僅保留複合 CLI class + 分派邏輯
+src/main.py   ← import 路徑更新，移除冗餘 site_id
+```
+
+### 5-7. 驗證結果（2026-08-24）
+
+**Phase ①**：4 config 繼承 `BaseModuleConfig`、`from_toml()` / `run_name` / `validate_site_id()` 正確、pyright + ruff 0 errors。
+
+**Phase ②**：`BaseRunConfig` 不再含 `site_id`、`_init_workflow()` 使用 `config.site_id`、所有 `run_*()` 移除 `site_id`。
+
+**Phase ③**：`...ConfigCLI` 全部改名、config class 搬移完成、import 路徑更新完成。
+
+**端到端測試（`test_main.py`）**：爬蟲 → 圖片摘要 → RAG 建庫 → hybrid query → 四層路徑結構正確。1 passed, 45.3s。

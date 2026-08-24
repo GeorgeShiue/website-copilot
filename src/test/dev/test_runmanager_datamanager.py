@@ -114,23 +114,6 @@ class TestRunManagerRefactor:
         assert os.path.isdir(run_manager.site_path)
         assert os.path.isdir(run_manager.run_path)
 
-    def test_set_run_path_without_site_path(self):
-        """測試不呼叫 set_site_path 時的向後相容。"""
-        run_manager = RunManager(base_folder=self.runs_dir)
-        run_manager.set_module_path("website_crawler")
-        run_manager.set_run_path("default")
-
-        # 驗證路徑結構
-        assert run_manager.site_id == ""
-        assert run_manager.site_path == ""
-        # run_path 應該在 module_path 下，而非 site_path 下
-        assert run_manager.run_path.startswith(run_manager.module_path)
-        assert "website_crawler" in run_manager.run_path
-        assert "website_crawler/default" in run_manager.run_path
-
-        # 驗證目錄已建立
-        assert os.path.isdir(run_manager.run_path)
-
     def test_agent_base_folder_discover(self):
         """測試 Agent 場景（base_folder="chats"）的 _filter_run_folders 功能。"""
         # 建立 chats/ 目錄下的測試資料

@@ -1,21 +1,17 @@
 import logging
-import os
-from dataclasses import dataclass, field
-from typing import Any, Self
+from dataclasses import dataclass
+from typing import Any, ClassVar
 
+from app.configs.base_config import BaseModuleConfig
 from utils.config_helper import (
     ConfigValidationError,
     _normalize_toml_types,
-    filter_commented_configs,
-    load_config_from_toml,
-    override_config,
 )
 
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_VECTOR_STORE_TYPE = "qdrant"
-DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
 DEFAULT_NODES_CONFIG_SECTION = "nodes"
@@ -78,10 +74,10 @@ SECTIONS_TO_KEYS = {
 
 
 @dataclass
-class RAGConfig:
-    # ----- metadata (no default values)-----
-    config_name: str
-    site_id: str
+class RAGConfig(BaseModuleConfig):
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/rag"
+    sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
+
     # ----- init config -----
     webpages_data_folder_path: str | None = None
     # ----- vector store config -----
@@ -106,10 +102,6 @@ class RAGConfig:
     evaluator_llm_name: str = "gpt-5.4"
     cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
-    # ----- metadata -----
-    sections_to_keys: dict[str, set[str]] = field(
-        default_factory=lambda: SECTIONS_TO_KEYS
-    )
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
@@ -126,42 +118,20 @@ class RAGConfig:
         cls,
         config_name: str = "default",
         **overrides,
-    ) -> Self:
+    ):
         """從 TOML 設定檔建立 RAGConfig。"""
-        config_path = os.path.join(DEFAULT_CONFIG_FOLDER_PATH, f"{config_name}.toml")
-        config = load_config_from_toml(config_path, SECTIONS_TO_KEYS)
-        config = override_config(config, overrides, SECTIONS_TO_KEYS)
-        config["config_name"] = config_name
-        return cls(**config)
+        return super().from_toml(config_name, **overrides)
 
-    @property
-    def run_name(self) -> str:
-        """根據 config TOML 中的註解生成 run name。"""
-        config_path = os.path.join(
-            DEFAULT_CONFIG_FOLDER_PATH, f"{self.config_name}.toml"
-        )
-        commented_configs = filter_commented_configs(config_path, "run name")
-        if not commented_configs:
-            return "default"
-
-        run_name = ""
-        for config in commented_configs:
-            value = getattr(self, config, None)
-            if value is not None:
-                run_name += f"{config}-{value}_"
-        run_name = run_name.rstrip("_").replace("/", "-")
-
+    def _post_process_run_name(self, run_name: str) -> str:
+        run_name = run_name.replace("/", "-")
         if run_name.find("-gemini") > 1:
             run_name = run_name.replace("-gemini", "", 1)
-
         return run_name
 
 
 def _validate_config(config: dict[str, Any]) -> None:
     # ----- metadata -----
-    site_id = config.get("site_id")
-    if not isinstance(site_id, str) or not site_id.strip():
-        raise ConfigValidationError("site_id 必須是非空字串")
+    BaseModuleConfig.validate_site_id(config.get("site_id", ""))
 
     # ----- init config -----
     webpages_data_folder_path = config.get("webpages_data_folder_path")
