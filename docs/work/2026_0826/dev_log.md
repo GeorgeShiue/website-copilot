@@ -557,3 +557,378 @@ runs/20260825_111615/  ← ncucsie
 - **Milvus gRPC `AllocTimestamp: Method not implemented!`**：milvus-lite 3.2.0 與 pymilvus 之間的已知相容性警告，不影響向量庫建構與查詢功能。
 
 ---
+
+## 8. DataManager publish_run_metadata（2026-08-25）
+
+### 8-1. 動機
+
+`runs/` 目錄儲存四個核心檔案（`results.json`、`results/`、`module_config.toml`、`run_config.toml`、`terminal.log`），但 `data/` 目錄僅 publish 結果資料（`results.json`、`results/`、向量庫），缺少元資料檔。需要在 publish 時一併複製元資料，確保 `data/` 為完整的持久化快照。
+
+### 8-2. DataManager 新增方法
+
+| 方法 | 功能 |
+|------|------|
+| `_copy_single_file(source_path, dest_folder, filename)` | 內部工具，複製單一檔案（接受 `str | None`） |
+| `publish_module_config(site_id, category, source_path)` | 複製 `module_config.toml` |
+| `publish_run_config(site_id, category, source_path)` | 複製 `run_config.toml` |
+| `publish_log(site_id, category, source_path)` | 複製 `terminal.log` |
+| `publish_run_metadata(site_id, category, module_config_path, run_config_path, log_path)` | 便利方法，一次發布三個元資料檔 |
+
+`category` 參數決定目標路徑：`"webpages"` → `data/webpages/{site_id}/`，`"rag"` → `data/rag/{site_id}/`。
+
+### 8-3. main.py 呼叫點
+
+在每個模組的 `save_run_config_as_toml()` 之後，呼叫 `data_manager.publish_run_metadata()`：
+
+```python
+data_manager.publish_run_metadata(
+    site_id=run_manager.site_id,
+    category="webpages",  # 或 "rag"
+    module_config_path=run_manager.module_config_toml_path,
+    run_config_path=run_manager.run_config_toml_path,
+    log_path=run_manager.log_path,
+)
+```
+
+`run_manager.site_id` 由 `_init_workflow()` 內的 `set_site_path(config.site_id)` 設定，時序正確。
+
+### 8-4. 發布後的 `data/` 結構
+
+```
+data/
+├── webpages/{site_id}/
+│   ├── results.json          ← 已有
+│   ├── results/              ← 已有
+│   ├── module_config.toml    ← 新增
+│   ├── run_config.toml       ← 新增
+│   └── terminal.log          ← 新增
+└── rag/{site_id}/
+    ├── milvus.db/            ← 已有
+    ├── module_config.toml    ← 新增
+    ├── run_config.toml       ← 新增
+    └── terminal.log          ← 新增
+```
+
+### 8-5. `publish_crawl_results` 重構
+
+`results.json` 的複製邏輯從 4 行手寫改為 `_copy_single_file()` 一行：
+
+```python
+# Before
+if results_json_path and os.path.isfile(results_json_path):
+    dest_json = os.path.join(webpages_path, "results.json")
+    shutil.copy2(results_json_path, dest_json)
+    logger.info(f"Published results.json to {dest_json}")
+
+# After
+self._copy_single_file(results_json_path, webpages_path, "results.json")
+```
+
+### 8-6. 驗證結果
+
+`test_multi_site.py` 更新後對 nculab 與 ncucsie 兩站執行完整 pipeline，12 個元資料檔全部 `[OK]`：
+
+| Site | Category | module_config.toml | run_config.toml | terminal.log |
+|------|----------|-------------------|-----------------|-------------|
+| nculab | webpages | ✅ | ✅ | ✅ |
+| nculab | rag | ✅ | ✅ | ✅ |
+| ncucsie | webpages | ✅ | ✅ | ✅ |
+| ncucsie | rag | ✅ | ✅ | ✅ |
+
+---
+
+## 9. main.py MainCLI — tyro 整合（2026-08-26）
+
+### 9-1. 動機
+
+`main.py` 原本硬編碼所有參數，無法從 CLI 傳入。需改用 `tyro` 使 `config_name` 可從命令列控制。
+
+### 9-2. MainCLI dataclass
+
+```python
+@dataclass
+class MainCLI:
+    """完整流水線：爬蟲 → 圖片摘要 → RAG 建庫，所有模組使用同一個 config_name。"""
+    config_name: str = "default"
+```
+
+僅保留 `config_name`，其餘參數（`publish`、`webpages_data_use_latest_results` 等）維持硬編碼，確保 `main.py` 為正式完整流水線的單一入口。
+
+### 9-3. 使用方式
+
+```bash
+uv run python src/main.py                          # 預設 config
+uv run python src/main.py --config-name nculab     # 指定 config
+uv run python src/main.py --config-name ncucsie    # 指定 config
+```
+
+### 9-4. main() 簽名
+
+```python
+def main(cli: MainCLI | None = None) -> None:
+    if cli is None:
+        cli = MainCLI()
+    ...
+
+if __name__ == "__main__":
+    import tyro
+    main(tyro.cli(MainCLI))
+```
+
+保留 `cli: MainCLI | None = None` 參數，方便程式碼直接呼叫（如 `main(MainCLI(config_name="nculab"))`）而不必經過 tyro 解析。
+
+---
+
+## 10. website_crawler.py — NoneType 防護（2026-08-26）
+
+### 10-1. 問題
+
+ncucsie 爬蟲執行時抛出 `Error during filtering crawl results: 'NoneType' object has no attribute 'fit_markdown'`。
+
+原因：crawl4ai 回傳的某些頁面 `crawl_result.markdown` 為 `None`，`_filter_crawl_results()` 未做防護直接存取 `crawl_result.markdown.fit_markdown`。
+
+### 10-2. 修正
+
+在 `_filter_crawl_results()` 中新增 `crawl_result.markdown is None` 檢查：
+
+```python
+if crawl_result.markdown is None:
+    self._crawl_stats["error_pages"] += 1
+    logger.debug(f"Webpage {crawl_result.url} has no markdown, skipping...")
+    continue
+```
+
+跳過無法解析的頁面，避免整體流程中斷。
+
+---
+
+## 11. workflow.py — RAG 建構移入 `with` 區塊（2026-08-26）
+
+### 11-1. 動機
+
+`run_rag_build()` 中 `RAGBuilder(config).build()` 在 `with (rag, log_run_time(...))` 區塊**外面**執行，導致 nodes → vector store → index → retriever → query engine 的建構時間不被 `log_run_time` 計算。
+
+### 11-2. 修正
+
+```python
+# Before
+rag = RAGBuilder(config).build()    # 建構在 with 外，不計時
+with (rag, log_run_time(run_title)):
+    rag.query(...)                  # 只計 query
+
+# After
+rag = RAG(webpages_data_folder_path=...)
+builder = RAGBuilder(config)
+with (rag, log_run_time(run_title)):
+    builder.build(rag)              # 建構 + query 全部計時
+    rag.query(...)
+```
+
+現在 `log_run_time` 涵蓋完整的 nodes → vector store → index → retriever → query engine → query 流程。
+
+---
+
+## 12. rag_factory.py — build() 可選 rag 參數（2026-08-26）
+
+### 12-1. 動機
+
+`RAGBuilder.build()` 和 `build_to_retriever()` 內部透過 `_create_rag()` 建立新 `RAG` 物件，無法接受外部已建立的 `RAG`。為配合 §11 將建構移入 `with` 區塊，需支援外部傳入 `RAG`。
+
+### 12-2. 修正
+
+```python
+# Before
+def build(self) -> RAG:
+    rag = self._create_rag()         # 內部建立
+    ...
+
+# After
+def build(self, rag: RAG | None = None) -> RAG:
+    rag = rag or self._create_rag()  # 有傳入就用，沒有就自動建立
+    ...
+```
+
+`build_to_retriever()` 同理。完全向後相容：不傳 `rag` 時行為不變。
+
+### 12-3. 影響評估
+
+| 呼叫點 | 影響 |
+|--------|------|
+| `rag_factory.py:build()` 內部 | 無影響 |
+| `webpage_retriever.py:build_to_retriever()` | 無影響，不傳 `rag` 時自動建立 |
+| `workflow.py:run_rag_build` | 從 5 行改為 `builder.build(rag)` 一行 |
+| `workflow.py:run_rag_query` | 已用 `build_reusable(rag)`，不受影響 |
+
+---
+
+## 13. 端到端流水線驗證（2026-08-26）
+
+### 13-1. nculab 完整流水線
+
+```bash
+uv run python src/main.py --config-name nculab
+```
+
+| 模組 | 狀態 |
+|------|------|
+| Website Crawler | ✅ 完成 |
+| Webpage Image Summarizer | ✅ 完成 |
+| RAG Build | ✅ 完成（2.27s） |
+
+`data/webpages/nculab/`：`results.json`（334 KB）+ `results/` + `module_config.toml` + `run_config.toml` + `terminal.log`
+
+`data/rag/nculab/`：`milvus.db/` + `module_config.toml` + `run_config.toml` + `terminal.log`
+
+### 13-2. ncucsie 完整流水線
+
+```bash
+uv run python src/main.py --config-name ncucsie
+```
+
+首次執行因 §10 的 NoneType 問題失敗，修正後重新執行成功。
+
+| 模組 | 狀態 |
+|------|------|
+| Website Crawler | ✅ 完成 |
+| Webpage Image Summarizer | ✅ 完成 |
+| RAG Build | ✅ 完成（2.49s） |
+
+`data/webpages/ncucsie/`：`results.json`（396 KB）+ `results/` + `module_config.toml` + `run_config.toml` + `terminal.log`
+
+`data/rag/ncucsie/`：`milvus.db/` + `module_config.toml` + `run_config.toml` + `terminal.log`
+
+### 13-3. 兩站總覽
+
+| Site | Crawler | Image | RAG | Publish |
+|------|---------|-------|-----|---------|
+| nculab | ✅ | ✅ | ✅ | ✅ 8/8 檔案 |
+| ncucsie | ✅ | ✅ | ✅ | ✅ 8/8 檔案 |
+
+---
+
+## 14. Milvus Vector Store 重用機制（2026-08-26）
+
+> 規劃文件已整合至本節，原 `milvus_reuse_plan.md` 已刪除。
+
+### 14-1. 動機
+
+`_should_rebuild()` 對 Milvus 硬編回傳 `True`，每次 `build_reusable()` 都刪除舊 DB + 重跑 nodes pipeline + 重建 index。 llama-index 的 `MilvusVectorStore(overwrite=False)` 本身支援連上既有 collection，但專案未利用此能力。
+
+### 14-2. 根因分析
+
+追溯 `llama-index-vector-stores-milvus` v1.1.0 原始碼（`base.py` L318-420）：
+
+```python
+# MilvusVectorStore.__init__ 的核心邏輯
+if overwrite and collection_name in self.client.list_collections():
+    self.client.drop_collection(collection_name)  # overwrite=True 才 drop
+
+if collection_name in self.client.list_collections():
+    self._collection_initialized = True           # 直接連上既有 collection
+    self._create_index_if_required()              # 只補建 index，不動資料
+```
+
+`overwrite=False`（也是預設值）時，只要 collection 已存在就直接連上，不做任何破壞。
+
+### 14-3. 實作變更（`rag_factory.py`，3 處修改）
+
+#### 變更 A：`_should_rebuild()` 統一邏輯
+
+```python
+# BEFORE
+def _should_rebuild(self, force_rebuild: bool) -> bool:
+    if self.config.vector_store_type == "milvus":
+        return True                                    # ← Milvus 特例硬編
+    assert self.config.qdrant_db_folder_path is not None
+    return force_rebuild or not os.path.exists(self.config.qdrant_db_folder_path)
+
+# AFTER
+def _should_rebuild(self, force_rebuild: bool) -> bool:
+    if force_rebuild:
+        return True
+    if self.config.vector_store_type == "qdrant":
+        assert self.config.qdrant_db_folder_path is not None
+        return not os.path.exists(self.config.qdrant_db_folder_path)
+    elif self.config.vector_store_type == "milvus":
+        assert self.config.milvus_uri is not None
+        return not os.path.exists(self.config.milvus_uri)
+    raise ValueError(f"Unsupported vector_store_type: {self.config.vector_store_type}")
+```
+
+#### 變更 B：`build_reusable()` docstring 更新
+
+移除「Milvus 一律重建（現有設計限制）」及 `Returns` 段落（回傳值已於近期重構中移除）。
+
+#### 變更 C：`build_reusable()` 重用分支加入 `load_collection()`
+
+```python
+# BEFORE
+        else:
+            self.build_vector_store(rag, overwrite=False)
+            self.load_index(rag)
+
+# AFTER
+        else:
+            self.build_vector_store(rag, overwrite=False)
+            # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
+            if self.config.vector_store_type == "milvus":
+                assert rag.vector_store is not None
+                rag.vector_store.client.load_collection(
+                    rag.vector_store.collection_name
+                )
+            self.load_index(rag)
+```
+
+**變更理由**：整合測試中發現 `MilvusVectorStore(overwrite=False)` 連上既有 collection 後，collection 處於 `released` 狀態，查詢時拋出 `MilvusException: Collection 'xxx' is in state 'released'`。需手動 `load_collection()` 將其載入記憶體。
+
+### 14-4. 單元測試（`src/test/dev/test_rag_reuse.py`，14 項）
+
+使用 `_FakeRAGConfig` + `patch("os.path.exists")` 驗證 `_should_rebuild()` 邏輯，無需實際 Milvus 連線：
+
+| 測試群組 | 項數 | 驗證 |
+|----------|------|------|
+| `TestShouldRebuildMilvus` | 4 | Milvus 路徑判斷 + force_rebuild |
+| `TestShouldRebuildQdrant` | 3 | Qdrant 路徑判斷（不受影響） |
+| `TestShouldRebuildUnified` | 7 | parametrized 驗證兩種 store 統一邏輯 + unsupported 例外 |
+
+### 14-5. 整合測試結果
+
+```bash
+uv run python src/cli.py rag-query-cli --run.config-name ncucsie
+```
+
+| 指標 | 結果 |
+|------|------|
+| `Cleaned Milvus vector store` | **無** — 舊 DB 未被刪除 ✓ |
+| `Loading Markdown Documents` | **無** — nodes pipeline 跳過 ✓ |
+| `Successfully loaded index from vector store` | ✓ 既有 index 載入成功 |
+| Query 回應 | ✓ 正確回覆「資工系課程」 |
+| Faithfulness / Relevancy | **100% / 100%** |
+| 執行時間 | **13.4s**（重建約 30s+） |
+
+### 14-6. 行為對照
+
+| 情境 | 改前 | 改後 |
+|------|------|------|
+| `milvus.db` 不存在 | 全新建構 | 全新建構（不變） |
+| `milvus.db` 已存在 + `force_rebuild=False` | 刪除重建 | **直接載入** |
+| `milvus.db` 已存在 + `force_rebuild=True` | 刪除重建 | 刪除重建（不變） |
+| Qdrant 行為 | 不變 | 不變 |
+
+### 14-7. 影響範圍
+
+| Workflow | 影響 |
+|----------|------|
+| `run_rag_query()` | **受益**：milvus.db 已存在時跳過重建 |
+| `run_rag_build()` | 無影響——使用 `build()` 全新建構 |
+| `create_webpage_retriever_tool()` | 無影響——使用 `build_to_retriever()` |
+| Server 端 (`create_rag_agent`) | 無影響 |
+
+### 14-8. 檔案變更總覽
+
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `src/app/engines/rag/rag_factory.py` | 修改 | `_should_rebuild()` 統一邏輯 + `build_reusable()` docstring + `load_collection()` |
+| `src/test/dev/test_rag_reuse.py` | 新增 | `_should_rebuild` 單元測試（14 項） |
+
+---

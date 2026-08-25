@@ -219,6 +219,12 @@ class WebsiteCrawler:
                 logger.debug("-" * 30)
                 continue
 
+            if crawl_result.markdown is None:
+                self._crawl_stats["error_pages"] += 1
+                logger.debug(f"Webpage {crawl_result.url} has no markdown, skipping...")
+                logger.debug("-" * 30)
+                continue
+
             fit_markdown = clean_markdown(
                 crawl_result.markdown.fit_markdown,
                 exclude_words=self.exclude_words,

@@ -286,8 +286,7 @@ def run_rag_build(
                 f"Unsupported vector_store_type: {config.vector_store_type}"
             )
 
-    # ----- 使用 RAGBuilder 一鍵建構 -----
-    rag = RAGBuilder(config).build()
+    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
 
     with (
         rag,
@@ -297,6 +296,11 @@ def run_rag_build(
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
         log_config("RAG Config Loaded from toml", config)
+
+        # ----- 建立 RAG -----
+        log_session("Building RAG", style="cyan")
+        builder = RAGBuilder(config)
+        builder.build(rag)
 
         # ----- Query & Response -----
         log_session("Query & Response", style="cyan")
@@ -323,6 +327,7 @@ def run_rag_build(
                 )
 
         # ----- 輸出完成訊息 -----
+        log_session("RAG Build Completed", style="cyan")
 
 
 def run_rag_query(
@@ -354,16 +359,20 @@ def run_rag_query(
     run_title = f"RAG Query ({config_name})"
 
     rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
-    builder = RAGBuilder(config)
 
     with (
         rag,
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
+        # ----- 輸出開始訊息 -----
+        log_session(run_title, style="purple")
+        log_config("RAG Config Loaded from toml", config)
+
         # ----- 建立所有資源 -----
         log_session("Building All Resources", style="cyan")
-        rebuild = builder.build_reusable(rag, force_rebuild=force_rebuild)
+        builder = RAGBuilder(config)
+        builder.build_reusable(rag, force_rebuild=force_rebuild)
         builder.build_evaluators(rag)
 
         # ----- Query -----
@@ -408,8 +417,7 @@ def run_rag_query(
         )
         print(f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})")
 
-        # ----- 儲存 query 結果 -----
-        log_session("Saving Query Results", style="cyan")
+        # ----- 儲存設定和結果 -----
         query_results_dict = {
             "config": {
                 "config_name": config.config_name,
@@ -438,22 +446,10 @@ def run_rag_query(
         run_manager.save_results_as_json(query_results_dict)
         run_manager.save_query_results_as_md(query_results_dict)
 
-        # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
-        if rebuild:
-            module_config_folder_path = (
-                config.qdrant_db_folder_path
-                if config.vector_store_type == "qdrant"
-                else config.milvus_uri
-            )
-            if module_config_folder_path:
-                save_module_config_as_toml(
-                    config,
-                    os.path.join(module_config_folder_path, "module_config.toml"),
-                )
-
         # ----- 輸出完成訊息 -----
+        log_session("RAG Query Completed", style="cyan")
 
 
 def run_agent(

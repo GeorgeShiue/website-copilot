@@ -1,0 +1,255 @@
+──────────────────────────────────────────────── RAG Build (ncucsie) ─────────────────────────────────────────────────
+──────────────────────────────────────────── RAG Config Loaded from toml ─────────────────────────────────────────────
+                        init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value                 ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
+│ site_id                   │ ncucsie               │
+│ webpages_data_folder_path │ data/webpages/ncucsie │
+└───────────────────────────┴───────────────────────┘
+                     vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                ┃ Value                      ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ hybrid_ranker         │ WeightedRanker             │
+│ hybrid_ranker_params  │ {'weights': [1.0, 0.5]}    │
+│ milvus_uri            │ data/rag/ncucsie/milvus.db │
+│ qdrant_db_folder_path │ data/rag/ncucsie/qdrant_db │
+│ vector_store_type     │ milvus                     │
+└───────────────────────┴────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ alpha            │ 0.5    │
+│ hybrid_top_k     │ 10     │
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+└──────────────────┴────────┘
+                 query_engine
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config             ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff             │ 0.0                    │
+│ evaluator_llm_name │ gpt-5.4                │
+│ query              │ 實驗室的成員有哪些人？ │
+│ query_llm_name     │ gemini-3.1-flash-lite  │
+└────────────────────┴────────────────────────┘
+────────────────────────────────────────────────── Query & Response ──────────────────────────────────────────────────
+INFO     Query: 實驗室的成員有哪些人？
+INFO     AFC is enabled with max remote calls: 10.
+INFO     Response: 根據提供的實驗室資訊，各實驗室的指導老師如下：
+
+         *   **人機互動與學習實驗室**：陳國棟教授
+         *   **大型資料分析與倉儲實驗室**：蔡孟峰助理教授
+         *   **多媒體訊號處理實驗室**：蘇柏齊教授
+         *   **人工智慧與圖形識別實驗室**：鄭旭詠教授、范國清教授
+         *   **深度學習及媒體系統實驗室**：王家慶教授
+         *   **智慧型資訊服務研發實驗室**：蔡宗翰教授
+         *   **無線隨意與感測網路實驗室**：孫敏德教授
+         *   **機器學習與生物辨識實驗室**：栗永徽教授
+         *   **基於虛實整合技術的智慧醫療實驗室**：葉士青教授
+         *   **資料分析科學實驗室**：陳弘軒教授
+         *   **智慧軟體系統實驗室**：梁德容教授
+         *   **元宇宙智慧醫療實驗室**：葉士青教授
+         *   **資料庫相關實驗室**：洪炯宗教授
+         *   **人工智慧與知識系統實驗室**：楊鎮華教授
+         *   **電腦視覺與影像處理相關實驗室**：曾定章教授
+         *   **人工智慧與資訊安全實驗室 (SALLY Lab)**：林家瑜助理教授
+         *   **物件導向實驗室**：鄭永斌教授
+────────────────────────────────────────────────────── Sources ───────────────────────────────────────────────────────
+INFO     Retrieved 10 sources
+────────────────────────────── Page: department_lab  |  Score: 0.947  |  Type: general ───────────────────────────────
+INFO     ### 人機互動與學習實驗室 Human Computer Interaction & Learning Lab
+
+         本實驗室研究方向包括：
+
+         - 學習遊樂場(Digital Learning Playground)
+         - 電子書組(E-book)
+
+         實驗室位置：工程五館 E6-A307 分機號碼：35327 指導老師：[陳國棟教授](http://hci.csie.ncu.edu.tw/)
+         [[相關連結]](http://hci.csie.ncu.edu.tw/)
+────────────────────────────── Page: department_lab  |  Score: 0.649  |  Type: general ───────────────────────────────
+INFO     ### 大型資料分析與倉儲實驗室 Large-scale Data Analysis and Data Warehouse Lab
+
+         本實驗室研究方向包括：
+
+         - 資料倉儲
+         - 資料探勘
+         - 決策支援系統
+         - 分散式系統
+         - 巨量資料分析
+         - 雲端運算
+         - 科學計算
+
+         實驗室位置：工程五館 E6-A309 分機號碼：35329
+         指導老師：[蔡孟峰助理教授](https://staff.csie.ncu.edu.tw/mftsai/)
+         [[相關連結]](https://dwlab.csie.ncu.edu.tw/zh/)
+─────────────────────────── Page: information_research  |  Score: 0.646  |  Type: general ────────────────────────────
+INFO     - 多媒體訊號處理實驗室（指導教授：蘇柏齊）
+           - 人工智慧與圖形識別實驗室 （指導教授：鄭旭詠）
+           - 深度學習及媒體系統實驗室 （指導教授：王家慶）
+           - 智慧型資訊服務研發實驗室 （指導教授：蔡宗翰）
+           - 無線隨意與感測網路實驗室 （指導教授：孫敏德）
+           - 機器學習與生物辨識實驗室（指導教授：栗永徽）
+           - 基於虛實整合技術的智慧醫療實驗室 （指導教授：葉士青）
+           - 資料分析科學實驗室（指導教授：陳弘軒）
+           - 智慧軟體系統實驗室 （指導教授：梁德容）
+────────────────────────────── Page: department_lab  |  Score: 0.645  |  Type: general ───────────────────────────────
+INFO     ### 元宇宙智慧醫療實驗室 VR/AR/MR for Intellingent Medicine Lab
+
+         本實驗室研究方向包括：
+
+         - 機器學習 (Machine Learning)
+         - 虛擬實境 (Virtual Reality)
+         - 混合實境 (Augmented Reality)
+         - 擴增現實 (Mixed Reality)
+         - 傳感技術 (Sensing Technologies)
+
+         實驗室位置：工程五館 E6-B317 分機號碼：35347
+         指導老師：[葉士青教授](https://staff.csie.ncu.edu.tw/shihchingyeh/generic.html)
+         [[相關連結]](https://staff.csie.ncu.edu.tw/shihchingyeh/index2.html)
+────────────────────────────── Page: department_lab  |  Score: 0.641  |  Type: general ───────────────────────────────
+INFO     - 資料倉儲
+         - 資料庫知識擷取
+         - 資料系統工作流管理
+         - 資料庫技術在全球資訊網路與網路虛擬教室的應用
+
+         上述之研究課題主要針對物件關連模式資料庫系統。研究生的訓練以研究
+         能力的培養，資料庫管理系統的製作及現行資料庫與程式設計技術的掌握為主。 實驗室位置：工程五館 E6-A307
+         分機號碼：35327、57868-70 指導老師：[洪炯宗教授](https://sites.google.com/db.csie.ncu.edu.tw/fdblab/home)
+         [[相關連結]](https://sites.google.com/db.csie.ncu.edu.tw/fdblab/home)
+────────────────────────────── Page: department_lab  |  Score: 0.640  |  Type: general ───────────────────────────────
+INFO     ### 人工智慧與知識系統實驗室 Artificial Intelligence and Knowledge System Lab
+
+         enter image description here
+         > # Image-8
+         >
+         > **圖片摘要：**
+         > 人工智慧與知識系統實驗室標誌，上方為數位電路構成的人形圖示，下方排列中英文實驗室名稱。
+         >
+         > **主要元素：**
+         > 1. 實體: 人工智慧與知識系統實驗室, 實驗室標誌, 數位電路圖示
+         > 2. OCR文字:
+         > 人工智慧與知識系統實驗室
+         > Artificial Intelligence & Knowledge System Lab
+         > 3. 主題標籤: 人工智慧, 知識系統, 實驗室, 資訊工程
+         >
+         > **頁面關聯：**
+         > 本圖片為人工智慧與知識系統實驗室的組織標識，作為該單位官方頁面的識別錨點。
+         本實驗室研究方向包括：
+
+         - 人工智慧 (Artificial Intelligence)
+         - 知識系統 (Knowledge system)
+         - 機器學習 (Machine learning)
+         - 自然語言處理 (Nat ...
+────────────────────────────── Page: department_lab  |  Score: 0.639  |  Type: general ───────────────────────────────
+INFO     1.
+         自動光學檢測SMT元件分類、電子元件的字元偵測與辨識、PCB元件定位與分類、3C產品表面瑕疵檢測、半督導式的錫球瑕疵
+         判定、生成電子元件瑕疵影像樣本
+         1. 3D物件偵測/辨識/定位機器手臂取放物體、大型衍生物件偵測/辨識/定位
+         1. 先進駕駛輔助系統前車碰撞警示、行人碰撞警示、倒車碰撞警示、自動跟隨巡航
+         1. 人體特徵偵測與辨識臉部偵測與辨識、手勢辨識、身體姿勢辨識
+         1. 動態追蹤與監視居家照護、安全監視、多相機聯合監視
+         1. 影像生成與轉換影像合成、影像內容轉換、影像風格轉換、提高影像解析度
+
+         實驗室位置：工程五館 E6-B221-1 分機號碼：35241
+         指導老師：[曾定章教授](http://ip.csie.ncu.edu.tw/people/tsengdc-c.htm)
+         [[相關連結]](http://ip.csie.ncu.edu.tw/)
+────────────────────────────── Page: department_lab  |  Score: 0.636  |  Type: general ───────────────────────────────
+INFO     ### 人工智慧與資訊安全實驗室 Security, Artificial inteLLigence labortarY （SALLY Lab）
+
+         enter image description here
+         > # Image-25
+         >
+         > **圖片摘要：**
+         > SALLY LAB 標誌由左側 AI 晶片圖示、中間品牌名稱與右側鎖頭盾牌圖示組成。
+         >
+         > **主要元素：**
+         > 1. 實體: SALLY LAB, AI 晶片, 鎖頭盾牌
+         > 2. OCR文字:
+         > AI SALLY LAB
+         > Security and Artificial inteLLigence labortarY
+         > 3. 主題標籤: 人工智慧, 資訊安全, 研究室
+         >
+         > **頁面關聯：**
+         > 本圖片為 SALLY LAB 研究室品牌識別標誌。
+         本實驗室研究方向包括：
+
+         - 人工智慧 (Artificial Intelligence)
+         - 人工智慧安全 (Security of Artificial Intelligence)
+         - 智慧製造 (Smart Manufacturing )
+         - 雲端 ...
+────────────────────────────── Page: department_lab  |  Score: 0.635  |  Type: general ───────────────────────────────
+INFO     ## 實驗室簡介
+         ### 人工智慧與圖形識別實驗室 Artificial Intelligence & Pattern Recognition Lab
+
+         topic5.jpg
+         > # Image-1
+         >
+         > **圖片摘要：**
+         > 電路板紋理的大腦圖示位於右側，左側疊放書籍、螢幕顯示維特魯威人與麥克風，下方標示文字。
+         >
+         > **主要元素：**
+         > 1. 實體: 大腦電路圖, 螢幕, 書籍, 麥克風, 維特魯威人
+         > 2. OCR文字:
+         > standards
+         > brains
+         > and
+         > machines
+         > 3. 主題標籤: 人工智慧, 機器學習, 電腦科學, 資訊技術
+         >
+         > **頁面關聯：**
+         > 呈現Brains and Machines研究主題，連結人工智慧與技術標準相關論述。
+         本實驗室研究方向包括：
+
+         - 圖形識別
+         - 文件分析
+         - 人工智慧
+         - 影像處理
+         - 電腦視覺
+         - 文字辨識
+
+         實驗室位置：工程五館 E6-A308 分機號碼：35328
+         指導老師：[范國清教授](https://sites.google.com/view/kuo-chin-fan ...
+────────────────────────────── Page: department_lab  |  Score: 0.635  |  Type: general ───────────────────────────────
+INFO     ### 物件導向實驗室 Object-Oriented Technology Lab
+
+         物件導向實驗室
+         > # Image-19
+         >
+         > **圖片摘要：**
+         > OOLAB 標誌由上方無限符號與下方英文名稱組成，呈現垂直排列結構。
+         >
+         > **主要元素：**
+         > 1. 實體: OOLAB, 無限符號, Object Oriented Lab
+         > 2. OCR文字:
+         > OOLAB
+         > Object Oriented Lab
+         > 3. 主題標籤: 軟體開發, 物件導向, 程式設計, 實驗室
+         >
+         > **頁面關聯：**
+         > 隸屬於 OOLAB 組織，作為品牌識別標誌。
+         本實驗室研究方向包括：
+
+         - Software Visualization (3D Debugging Visualization, Program animations...)
+         - Software Testing and Test Automation
+         - Program Comprehension -
+         - Object-Oriented Analysis and Design
+         - Source code  ...
+INFO     Milvus vector store already at data/rag/ncucsie/milvus.db, skipping publish
+INFO     RAG Build (ncucsie) Completed in 2.492 seconds

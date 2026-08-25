@@ -48,11 +48,7 @@ class DataManager:
         webpages_path = os.path.join(self.base_folder, "webpages", site_id)
         os.makedirs(webpages_path, exist_ok=True)
 
-        # 複製 results.json
-        if results_json_path and os.path.isfile(results_json_path):
-            dest_json = os.path.join(webpages_path, "results.json")
-            shutil.copy2(results_json_path, dest_json)
-            logger.info(f"Published results.json to {dest_json}")
+        self._copy_single_file(results_json_path, webpages_path, "results.json")
 
         # 複製 results/ 資料夾（Markdown 檔案）
         if results_folder_path and os.path.isdir(results_folder_path):
@@ -144,6 +140,111 @@ class DataManager:
             raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
 
         return rag_path
+
+    # ----- Publish 元資料方法 -----
+
+    def _copy_single_file(
+        self,
+        source_path: str | None,
+        dest_folder: str,
+        filename: str,
+    ) -> None:
+        """複製單一檔案到目標資料夾。"""
+        if not source_path or not os.path.isfile(source_path):
+            return
+        dest_path = os.path.join(dest_folder, filename)
+        shutil.copy2(source_path, dest_path)
+        logger.info(f"Published {filename} to {dest_path}")
+
+    def publish_module_config(
+        self,
+        site_id: str,
+        category: str,
+        source_path: str,
+    ) -> str:
+        """複製 module_config.toml 到 data/{category}/{site_id}/。
+
+        Args:
+            site_id: 站點識別碼。
+            category: 目標子目錄（"webpages" 或 "rag"）。
+            source_path: 原始 module_config.toml 路徑。
+
+        Returns:
+            發布後的目標資料夾路徑。
+        """
+        dest_folder = os.path.join(self.base_folder, category, site_id)
+        os.makedirs(dest_folder, exist_ok=True)
+        self._copy_single_file(source_path, dest_folder, "module_config.toml")
+        return dest_folder
+
+    def publish_run_config(
+        self,
+        site_id: str,
+        category: str,
+        source_path: str,
+    ) -> str:
+        """複製 run_config.toml 到 data/{category}/{site_id}/。
+
+        Args:
+            site_id: 站點識別碼。
+            category: 目標子目錄（"webpages" 或 "rag"）。
+            source_path: 原始 run_config.toml 路徑。
+
+        Returns:
+            發布後的目標資料夾路徑。
+        """
+        dest_folder = os.path.join(self.base_folder, category, site_id)
+        os.makedirs(dest_folder, exist_ok=True)
+        self._copy_single_file(source_path, dest_folder, "run_config.toml")
+        return dest_folder
+
+    def publish_log(
+        self,
+        site_id: str,
+        category: str,
+        source_path: str,
+    ) -> str:
+        """複製 terminal.log 到 data/{category}/{site_id}/。
+
+        Args:
+            site_id: 站點識別碼。
+            category: 目標子目錄（"webpages" 或 "rag"）。
+            source_path: 原始 terminal.log 路徑。
+
+        Returns:
+            發布後的目標資料夾路徑。
+        """
+        dest_folder = os.path.join(self.base_folder, category, site_id)
+        os.makedirs(dest_folder, exist_ok=True)
+        self._copy_single_file(source_path, dest_folder, "terminal.log")
+        return dest_folder
+
+    def publish_run_metadata(
+        self,
+        site_id: str,
+        category: str,
+        module_config_path: str | None = None,
+        run_config_path: str | None = None,
+        log_path: str | None = None,
+    ) -> str:
+        """一次發布三個元資料檔到 data/{category}/{site_id}/。
+
+        Args:
+            site_id: 站點識別碼。
+            category: 目標子目錄（"webpages" 或 "rag"）。
+            module_config_path: 原始 module_config.toml 路徑（可選）。
+            run_config_path: 原始 run_config.toml 路徑（可選）。
+            log_path: 原始 terminal.log 路徑（可選）。
+
+        Returns:
+            發布後的目標資料夾路徑。
+        """
+        dest_folder = os.path.join(self.base_folder, category, site_id)
+        os.makedirs(dest_folder, exist_ok=True)
+        self._copy_single_file(module_config_path, dest_folder, "module_config.toml")
+        self._copy_single_file(run_config_path, dest_folder, "run_config.toml")
+        self._copy_single_file(log_path, dest_folder, "terminal.log")
+        return dest_folder
 
     # ----- Discover 方法 -----
 

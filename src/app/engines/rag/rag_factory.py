@@ -272,30 +272,27 @@ class RAGBuilder:
     def __init__(self, config: RAGConfig) -> None:
         self.config = config
 
-    def build(self) -> RAG:
-        rag = self.build_to_retriever()
+    def build(self, rag: RAG | None = None) -> RAG:
+        rag = rag or self._create_rag()
+        self.build_to_retriever(rag)
         self.build_query_engine(rag)
         return rag
 
-    def build_to_retriever(self) -> RAG:
-        rag = self._create_rag()
+    def build_to_retriever(self, rag: RAG | None = None) -> RAG:
+        rag = rag or self._create_rag()
         self.build_nodes(rag)
         self.build_vector_store(rag)
         self.build_index(rag)
         self.build_retriever(rag)
         return rag
 
-    def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> bool:
+    def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> None:
         """建到 query engine 層級，視情況重建或載入既有 index。
 
-        - Milvus 一律重建（現有設計限制）。
-        - 其他 store：force_rebuild=True 或 store 路徑不存在時重建。
+        - force_rebuild=True 或 store 路徑不存在時重建。
         - 重建：clean → nodes → vector store → index。
         - 載入：build_vector_store(overwrite=False) → load_index。
         - 最後一律 build_retriever → build_query_engine。
-
-        Returns:
-            是否執行了重建，供 caller 判斷後續處理（例如儲存 module_config）。
         """
         rebuild = self._should_rebuild(force_rebuild)
         if rebuild:
@@ -305,21 +302,34 @@ class RAGBuilder:
             self.build_index(rag)
         else:
             self.build_vector_store(rag, overwrite=False)
+            # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
+            if self.config.vector_store_type == "milvus":
+                assert rag.vector_store is not None
+                rag.vector_store.client.load_collection(
+                    rag.vector_store.collection_name
+                )
             self.load_index(rag)
 
         self.build_retriever(rag)
         self.build_query_engine(rag)
-        return rebuild
 
     def _should_rebuild(self, force_rebuild: bool) -> bool:
         """決定是否需要重建 vector store / index。
 
-        Milvus 一律重建；Qdrant 在 force_rebuild 或 store 路徑不存在時重建。
+        force_rebuild=True 或 store 路徑不存在時重建。
         """
-        if self.config.vector_store_type == "milvus":
+        if force_rebuild:
             return True
-        assert self.config.qdrant_db_folder_path is not None
-        return force_rebuild or not os.path.exists(self.config.qdrant_db_folder_path)
+        if self.config.vector_store_type == "qdrant":
+            assert self.config.qdrant_db_folder_path is not None
+            return not os.path.exists(self.config.qdrant_db_folder_path)
+        elif self.config.vector_store_type == "milvus":
+            assert self.config.milvus_uri is not None
+            return not os.path.exists(self.config.milvus_uri)
+        raise ValueError(
+            f"Unsupported vector_store_type: {self.config.vector_store_type}. "
+            f"Supported: 'qdrant', 'milvus'."
+        )
 
     def build_nodes(self, rag: RAG) -> None:
         builder = NodePipelineBuilder(

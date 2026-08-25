@@ -1,0 +1,5 @@
+config_name = "nculab"
+run_name_use_config_name = false
+publish = false
+webpages_data_use_latest_results = true
+save_vector_store_to_runs = false
