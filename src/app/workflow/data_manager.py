@@ -120,14 +120,20 @@ class DataManager:
 
         if vector_store_type == "milvus":
             dest_path = os.path.join(rag_path, "milvus.db")
-            if os.path.isdir(source_path):
+            # source == dest 時跳過，避免 rmtree 銷毀 source 後 copytree 失敗
+            if os.path.realpath(source_path) == os.path.realpath(dest_path):
+                logger.info(
+                    f"Milvus vector store already at {dest_path}, skipping publish"
+                )
+            elif os.path.isdir(source_path):
                 # Milvus 資料夾結構
                 if os.path.exists(dest_path):
                     shutil.rmtree(dest_path)
                 shutil.copytree(source_path, dest_path)
+                logger.info(f"Published Milvus vector store to {dest_path}")
             elif os.path.isfile(source_path):
                 shutil.copy2(source_path, dest_path)
-            logger.info(f"Published Milvus vector store to {dest_path}")
+                logger.info(f"Published Milvus vector store to {dest_path}")
         elif vector_store_type == "qdrant":
             dest_path = os.path.join(rag_path, "qdrant_db")
             if os.path.exists(dest_path):

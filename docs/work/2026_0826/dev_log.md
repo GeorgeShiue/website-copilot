@@ -354,41 +354,6 @@ uv run python src/cli.py website-crawler-cli --run.publish  # 發布至 data/
 
 ---
 
-## 7. Phase G — 測試更新：移除向後相容測試 + 過渡性測試檔案（2026-08-24）
-
-### 7-1. 移除原因
-
-Phase A–F 完成後，`_init_workflow()` 統一在 `set_run_path()` 前呼叫 `set_site_path()`，四層路徑結構為唯一路徑。`set_run_path()` 中「不呼叫 `set_site_path` 時 fallback 至 module_path（三層結構）」的向後相容分支已無消費者。`test_phase_a_f.py` 作為重構過程的過渡驗證檔案已完成使命。
-
-### 7-2. 移除清單
-
-| 測試 / 檔案 | 移除原因 |
-|-------------|----------|
-| `test_set_run_path_without_site_path` | 測試三層路徑 fallback，已無實際使用路徑 |
-| `test_main_py_has_site_id_constant` | Phase F 遺留，`main.py` 已無 `SITE_ID` 常數（§5-3 移至 `BaseModuleConfig`），且已處於 FAIL 狀態 |
-| **`test_phase_a_f.py`**（整個檔案，28 tests） | Phase A–F 重構過渡性驗證：使用 `inspect.getsource()`/`ast.parse()` 檢查源碼結構（脆弱）、驗證 TOML 欄位不存在、驗證 `BaseRunConfig` 無 `site_id`；永久行為已由其他測試檔覆蓋 |
-
-### 7-3. 驗證結果
-
-- ruff check：通過
-- 完整 dev 測試 suite：**84 passed, 0 failed**（移除前 119 個 → 117 個 → 84 個）
-
-### 7-4. 保留的 dev 測試檔案
-
-| 檔案 | 測試數 | 性質 |
-|------|--------|------|
-| `test_runmanager_datamanager.py` | 14 | RunManager / DataManager 行為測試 |
-| `test_agent.py` | 12 | Agent 純函式行為測試 |
-| `test_dedup_key.py` | 12 | 去重邏輯行為測試 |
-| `test_html_date_extraction.py` | 30 | HTML 日期擷取行為測試 |
-| `test_server.py` | 11 | Server API 端點行為測試 |
-
-### 7-5. 建議後續清理
-
-- `set_run_path()` 中 `base_for_run = self.site_path if self.site_path else self.module_path` 的 fallback 可進一步移除，改為強制要求 `site_path` 已設定
-
----
-
 ## 5. Config 重構 — BaseModuleConfig 抽取 + CLI 重構（2026-08-24）
 
 > **動機**：四個 module config 有大量重複（`config_name`/`site_id`、`from_toml()`、`run_name`、`site_id` 驗證）；`site_id` 在 `BaseRunConfig` 和 module config 雙重持有；CLI 命名不一致。
@@ -490,3 +455,105 @@ src/main.py   ← import 路徑更新，移除冗餘 site_id
 **Phase ③**：`...ConfigCLI` 全部改名、config class 搬移完成、import 路徑更新完成。
 
 **端到端測試（`test_main.py`）**：爬蟲 → 圖片摘要 → RAG 建庫 → hybrid query → 四層路徑結構正確。1 passed, 45.3s。
+
+---
+
+## 6. 測試更新：移除向後相容測試 + 過渡性測試檔案（2026-08-24）
+
+### 6-1. 移除原因
+
+Phase A–F 完成後，`_init_workflow()` 統一在 `set_run_path()` 前呼叫 `set_site_path()`，四層路徑結構為唯一路徑。`set_run_path()` 中「不呼叫 `set_site_path` 時 fallback 至 module_path（三層結構）」的向後相容分支已無消費者。`test_phase_a_f.py` 作為重構過程的過渡驗證檔案已完成使命。
+
+### 6-2. 移除清單
+
+| 測試 / 檔案 | 移除原因 |
+|-------------|----------|
+| `test_set_run_path_without_site_path` | 測試三層路徑 fallback，已無實際使用路徑 |
+| `test_main_py_has_site_id_constant` | Phase F 遺留，`main.py` 已無 `SITE_ID` 常數（§5-3 移至 `BaseModuleConfig`），且已處於 FAIL 狀態 |
+| **`test_phase_a_f.py`**（整個檔案，28 tests） | Phase A–F 重構過渡性驗證：使用 `inspect.getsource()`/`ast.parse()` 檢查源碼結構（脆弱）、驗證 TOML 欄位不存在、驗證 `BaseRunConfig` 無 `site_id`；永久行為已由其他測試檔覆蓋 |
+
+### 6-3. 驗證結果
+
+- ruff check：通過
+- 完整 dev 測試 suite：**84 passed, 0 failed**（移除前 119 個 → 117 個 → 84 個）
+
+### 6-4. 保留的 dev 測試檔案
+
+| 檔案 | 測試數 | 性質 |
+|------|--------|------|
+| `test_runmanager_datamanager.py` | 14 | RunManager / DataManager 行為測試 |
+| `test_agent.py` | 12 | Agent 純函式行為測試 |
+| `test_dedup_key.py` | 12 | 去重邏輯行為測試 |
+| `test_html_date_extraction.py` | 30 | HTML 日期擷取行為測試 |
+| `test_server.py` | 11 | Server API 端點行為測試 |
+
+### 6-5. 建議後續清理
+
+- `set_run_path()` 中 `base_for_run = self.site_path if self.site_path else self.module_path` 的 fallback 可進一步移除，改為強制要求 `site_path` 已設定
+
+---
+
+## 7. 多站 RAG 小範圍端到端驗證（2026-08-25）
+
+### 7-1. 測試腳本
+
+`src/test/dev/test_multi_site.py`：對 nculab 與 ncucsie 兩個 site 各爬取 10 頁，執行圖片摘要與 RAG 建庫，驗證 DataManager 多 site 隔離機制。
+
+Pipeline 流程（每 site）：
+
+```
+run_website_crawler(config_name="test_{site}")
+    → run_webpage_image_summarizer(config_name="test_{site}", crawl_results=...)
+        → run_rag_build(config_name="test_{site}", save_vector_store_to_runs=True)
+```
+
+`save_vector_store_to_runs=True`：向量庫先建在 `runs/` 再 publish 到 `data/rag/`，避免 `config.milvus_uri` 與 publish 目標路徑相同導致 self-copy 錯誤。
+
+### 7-2. 測試結果
+
+| Site | 爬蟲 | 圖片摘要 | RAG 建庫 | 狀態 |
+|------|------|----------|----------|------|
+| **nculab** | ✅ 9 頁 | ✅ 96 張圖片，$0.03 USD | ✅ 向量庫已建立 | **PASS** |
+| **ncucsie** | ✅ 9 頁 | ✅ 96 張圖片，$0.03 USD | ✅ 向量庫已建立 | **PASS** |
+
+- 圖片摘要合計：192 張，0 失敗，花費約 $0.06 USD
+- RAG 查詢驗證（ncucsie）：「實驗室的成員有哪些人？」成功回覆各實驗室指導老師資訊
+
+### 7-3. 資料隔離驗證
+
+```
+data/webpages/nculab/          → results.json (9 頁) + results/*.md
+data/webpages/ncucsie/         → results.json (9 頁) + results/*.md
+data/rag/nculab/milvus.db/     → 獨立向量庫
+data/rag/ncucsie/milvus.db/    → 獨立向量庫
+```
+
+兩個 site 的頁面名稱完全不同（nculab: `labintro`, `advisor`, …；ncucsie: `index`, `admission_undergraduate`, …），確認資料隔離機制正常。
+
+### 7-4. Runs 目錄結構
+
+```
+runs/20260825_111507/  ← nculab
+├── website_crawler/nculab/max_pages-10/
+├── webpage_image_summarizer/nculab/model-gemini-3.1-flash-lite/
+└── rag_build/nculab/vector_store_type-milvus/
+
+runs/20260825_111615/  ← ncucsie
+├── website_crawler/ncucsie/max_pages-10/
+├── webpage_image_summarizer/ncucsie/model-gemini-3.1-flash-lite/
+└── rag_build/ncucsie/vector_store_type-milvus/
+```
+
+四層路徑結構（`runs/<ts>/module/site/run_name/`）正確建立，兩 site 完全獨立。
+
+### 7-5. 發現並修正的 Bug
+
+**`configs/webpage_image_summarizer/test_ncucsie.toml`** 的 `site_id` 錯誤設為 `"nculab"`，已修正為 `"ncucsie"`。
+
+此 bug 會導致 ncucsie 的圖片摘要結果被 `publish_markdown()` 寫入 `data/webpages/nculab/results/`，污染 nculab 的 Markdown 檔案。
+
+### 7-6. 已知非阻斷性警告
+
+- **Milvus gRPC `AllocTimestamp: Method not implemented!`**：milvus-lite 3.2.0 與 pymilvus 之間的已知相容性警告，不影響向量庫建構與查詢功能。
+
+---

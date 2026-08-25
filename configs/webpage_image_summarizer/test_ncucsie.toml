@@ -1,11 +1,15 @@
 [init]
-cache_image_captions = true
-success_threshold = 0.8
-cache_download_images = true
-max_retries = 6
+site_id = "ncucsie"
 download_timeout = 10.0
+success_threshold = 0.8
+max_retries = 6
+cache_download_images = true
+cache_image_captions = true
 
 [summarize]
+model = "gemini-3.1-flash-lite" # run name
+vlm_max_workers = 20
+image_source = "markdown"
 prompt = """
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。
 
@@ -42,8 +46,8 @@ prompt = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-vlm_max_workers = 20
-image_source = "markdown"
-model = "gemini-3.1-flash-lite"
 
 [litellm_kwargs]
+# temperature = 0.2 ＃ gpt-5系列不支援
+# timeout = 10
+# max_tokens = 300

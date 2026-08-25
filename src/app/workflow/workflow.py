@@ -306,15 +306,12 @@ def run_rag_build(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
         if data_manager:
-            # 確定向量庫路徑
-            if save_vector_store_to_runs:
-                vector_store_source = os.path.join(
-                    run_manager.results_folder_path, "vector_store"
-                )
+            # config.milvus_uri / qdrant_db_folder_path 在上游已因
+            # save_vector_store_to_runs 被改指到正確路徑，此處直接讀取即可。
+            if config.vector_store_type == "milvus":
+                vector_store_source = config.milvus_uri
             elif config.vector_store_type == "qdrant":
                 vector_store_source = config.qdrant_db_folder_path
-            elif config.vector_store_type == "milvus":
-                vector_store_source = config.milvus_uri
             else:
                 vector_store_source = None
 

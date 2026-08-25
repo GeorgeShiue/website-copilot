@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 from rich.table import Table
+from rich.text import Text
 
 from app.configs.webpage_image_summarizer_config import (
     DEFAULT_PROMPT,
@@ -130,7 +131,7 @@ class WebpageImageSummarizer:
                 continue
 
             log_session(
-                f"Summarizing Images in [{page_title}]",
+                Text.assemble("Summarizing Images in [", page_title, "]"),
                 style="blue",
             )
             fit_markdown, image_urls = crawl_result_content
