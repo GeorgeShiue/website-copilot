@@ -55,6 +55,36 @@ class ChatRequest(BaseModel):
 
     query: str
     thread_id: str | None = None
+    page_url: str | None = None
+
+
+DOMAIN_SITE_MAP: dict[str, str] = {
+    "nculab.csie.ncu.edu.tw": "nculab",
+    "csie.ncu.edu.tw": "ncucsie",
+}
+
+
+def resolve_site_id(page_url: str | None) -> str | None:
+    """從 hostname 解析 site_id。
+
+    支援精確匹配與子域名 suffix 匹配。
+    """
+    if not page_url:
+        return None
+    hostname = page_url.strip().lower()
+    if hostname in DOMAIN_SITE_MAP:
+        return DOMAIN_SITE_MAP[hostname]
+    for domain, site_id in DOMAIN_SITE_MAP.items():
+        if hostname.endswith("." + domain):
+            return site_id
+    return None
+
+
+def _enrich_query_with_site_context(query: str, site_id: str | None) -> str:
+    """將 site_id 前綴至 query，供 LLM 感知當前站點。"""
+    if not site_id:
+        return query
+    return f"[使用者瀏覽 {site_id} 網站] {query}"
 
 
 def _sse(data: dict[str, Any]) -> str:
@@ -66,6 +96,7 @@ async def _event_stream(
     agent: RAGAgent,
     query: str,
     thread_id: str,
+    site_id: str | None = None,
 ) -> AsyncIterator[str]:
     """SSE 事件流：逐 token 串流，最後送 done（含回答全文）。
 
@@ -73,9 +104,10 @@ async def _event_stream(
     sources 仍擷取並保留於落盤 result，但不回傳前端。
     """
     chunks: list[str] = []
+    enriched_query = _enrich_query_with_site_context(query, site_id)
     try:
         config = thread_config(thread_id)
-        async for text in astream_text(agent, query, config):
+        async for text in astream_text(agent, enriched_query, config):
             chunks.append(text)
             yield _sse({"type": "token", "content": text})
         state = agent.graph.get_state(config)
@@ -172,8 +204,9 @@ def create_app(
                 media_type="text/event-stream",
             )
         thread_id = req.thread_id or f"auto-{uuid.uuid4().hex[:8]}"
+        site_id = resolve_site_id(req.page_url)
         return StreamingResponse(
-            _event_stream(agent, req.query, thread_id),
+            _event_stream(agent, req.query, thread_id, site_id=site_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

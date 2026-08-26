@@ -86,7 +86,7 @@
   panel.innerHTML = [
     '<div class="wc-header">網站助理</div>',
     '<div class="wc-messages">',
-    '  <div class="wc-msg wc-assistant">你好！請輸入問題，例如「實驗室的研究方向？」</div>',
+    '  <div class="wc-msg wc-assistant">你好！我是你的網站助手，請輸入你的問題。</div>',
     '</div>',
     '<div class="wc-inputbar">',
     '  <input type="text" name="wc-query" placeholder="輸入你的問題…" autocomplete="off">',

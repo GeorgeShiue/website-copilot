@@ -11,7 +11,11 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 
 from app.agent.agent import RAGAgent
-from app.server.app import create_app
+from app.server.app import (
+    _enrich_query_with_site_context,
+    create_app,
+    resolve_site_id,
+)
 
 
 @dataclass
@@ -262,3 +266,55 @@ def test_root_redirects_to_demo():
         response = client.get("/", follow_redirects=False)
     assert response.status_code in (301, 302, 307)
     assert response.headers["location"] == "/static/demo.html"
+
+
+# ---------------------------------------------------------------------------
+# M4: resolve_site_id / _enrich_query_with_site_context
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_site_id_exact_match():
+    assert resolve_site_id("nculab.csie.ncu.edu.tw") == "nculab"
+    assert resolve_site_id("csie.ncu.edu.tw") == "ncucsie"
+
+
+def test_resolve_site_id_suffix_match():
+    assert resolve_site_id("lab.nculab.csie.ncu.edu.tw") == "nculab"
+    assert resolve_site_id("www.csie.ncu.edu.tw") == "ncucsie"
+
+
+def test_resolve_site_id_none_and_empty():
+    assert resolve_site_id(None) is None
+    assert resolve_site_id("") is None
+    assert resolve_site_id("  ") is None
+
+
+def test_resolve_site_id_unknown():
+    assert resolve_site_id("localhost") is None
+    assert resolve_site_id("example.com") is None
+
+
+def test_enrich_query_with_site_context():
+    assert (
+        _enrich_query_with_site_context("hello", "nculab")
+        == "[使用者瀏覽 nculab 網站] hello"
+    )
+
+
+def test_enrich_query_with_site_context_none():
+    assert _enrich_query_with_site_context("hello", None) == "hello"
+
+
+def test_chat_page_url_routed_to_enriched_query():
+    """page_url 帶入後，_event_stream 使用 enriched_query 呼叫 agent。"""
+    graph = FakeGraph()
+    fake = FakeAgent(graph=graph)
+    with _make_client(fake) as client:
+        with client.stream(
+            "POST",
+            "/api/chat",
+            json={"query": "成員", "page_url": "nculab.csie.ncu.edu.tw"},
+        ) as response:
+            body = "".join(response.iter_text())
+    events = _parse_events(body)
+    assert events[-1]["type"] == "done"

@@ -1194,3 +1194,178 @@ uv run pytest src/test/test_module.py::test_agent -v -m slow
 | `src/test/dev/test_multi_site_tool.py` | **新增** | 381 | 多站工具整合測試（26 項） |
 
 ---
+
+## 16. Chrome Extension 站點偵測與 Server 路由（2026-08-26）
+
+> 規劃文件：`2026_0826-chrome_extension_site_detection.md`（M4：Extension 站點偵測與路由）。
+
+### 16-1. 動機
+
+M3 完成後 Agent 工具層已支援多站 RAG 路由（`webpage_retriever(site_id=...)`），但 Chrome Extension 未能偵測使用者瀏覽的網站，無法自動帶入 `site_id`。需在 Extension 偵測 `window.location.hostname`、經後端映射為 `site_id`、前綴至 user query 供 LLM 感知站點。
+
+### 16-2. 變更範圍
+
+```
+extension/content.js        ← 修改：偵測 window.location.hostname + 帶入 page_url
+extension/background.js     ← 修改：轉發 page_url 至 Server
+src/app/server/app.py       ← 修改：ChatRequest + DOMAIN_SITE_MAP + resolve_site_id + _enrich_query
+src/test/dev/test_server.py ← 修改：新增 M4 單元測試（7 項）
+```
+
+### 16-3. Extension content.js
+
+在 IIFE 內、`proxyStreamChat` 外部一次性偵測 hostname：
+
+```javascript
+const currentHostname = window.location.hostname;
+```
+
+`port.postMessage` 時帶入 `page_url: currentHostname`。
+
+### 16-4. Extension background.js
+
+`JSON.stringify` 時透傳 `page_url: msg.page_url` 至 Server。
+
+### 16-5. Server app.py — mapping + enrichment
+
+**`DOMAIN_SITE_MAP`**：模組層級 dict，支援精確匹配與子域名 suffix 匹配。
+
+**`resolve_site_id(page_url)`**：從 hostname 解析 site_id；無匹配回傳 None。
+
+**`_enrich_query_with_site_context(query, site_id)`**：將 site_id 前綴至 query（如 `[使用者瀏覽 nculab 網站] ...`），供 LLM 感知當前站點。
+
+**endpoint 整合**：`chat()` 呼叫 `resolve_site_id(req.page_url)`，傳入 `_event_stream(..., site_id=site_id)`；`_event_stream` 內以 `_enrich_query_with_site_context()` 產生 `enriched_query` 替代原始 query。
+
+### 16-6. 協定變更摘要
+
+| 欄位 | Before | After |
+|------|--------|-------|
+| `content → background` | `{ type, query, thread_id }` | `{ type, query, thread_id, page_url }` |
+| `background → server` | `{ query, thread_id }` | `{ query, thread_id, page_url }` |
+| `ChatRequest` | `query, thread_id` | `query, thread_id, page_url` |
+
+### 16-7. 測試結果
+
+```bash
+uv run pytest src/test/dev/test_server.py -v
+```
+
+**18 passed, 0 failed**（原 11 項 + M4 新增 7 項）
+
+| 測試 | 驗證 |
+|------|------|
+| `test_resolve_site_id_exact_match` | 精確匹配 nculab / ncucsie |
+| `test_resolve_site_id_suffix_match` | 子域名 suffix 匹配 |
+| `test_resolve_site_id_none_and_empty` | None / 空字串 / 空白 → None |
+| `test_resolve_site_id_unknown` | localhost / example.com → None |
+| `test_enrich_query_with_site_context` | 有 site_id 時前綴正確 |
+| `test_enrich_query_with_site_context_none` | None 時原樣回傳 |
+| `test_chat_page_url_routed_to_enriched_query` | page_url 串接 endpoint 完整流程 |
+
+**ruff check**：通過（0 errors）。
+
+### 16-8. 檔案變更總覽
+
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `extension/content.js` | 修改 | 偵測 `window.location.hostname` + 帶入 `page_url` |
+| `extension/background.js` | 修改 | 轉發 `page_url` 至 Server |
+| `src/app/server/app.py` | 修改 | `ChatRequest.page_url` + `DOMAIN_SITE_MAP` + `resolve_site_id` + `_enrich_query_with_site_context` + endpoint 整合 |
+| `src/test/dev/test_server.py` | 修改 | 新增 M4 單元測試（7 項） |
+
+---
+
+## 17. Chrome Extension Service Worker Keepalive 修正（2026-08-26）
+
+### 17-1. 問題
+
+M4 站點偵測功能完成後，手動測試發現：在 nculab 問答成功後，切至 ncucsie 頁面問答時 widget 顯示「錯誤：與背景程序連線中斷」。
+
+錯誤來源為 `content.js` 的 `port.onDisconnect` 監聽器：
+
+```javascript
+port.onDisconnect.addListener(() => {
+    controller.error(new Error('與背景程序連線中斷'));
+});
+```
+
+### 17-2. 根因分析
+
+Manifest V3 的 `background.js` 為 Service Worker，Chrome 會在 **~30 秒無活動** 待終止它。時序如下：
+
+```
+1. nculab 問答 → port 連線正常 → 收到回應 ✓
+2. 切到 ncucsie 頁面 → nculab 的 port 斷開（正常）
+3. ncucsie 送出查詢 → chrome.runtime.connect() 建新 port
+4. Service Worker 剛被 Chrome 終止又重啟
+   → 新 port 的背景端尚未就緒
+   → 立即觸發 onDisconnect → 錯誤
+```
+
+### 17-3. 修正方案：chrome.alarms Keepalive
+
+使用 `chrome.alarms` API 保持 Service Worker 活躍。每 25 秒觸發 alarm，SW 收到 alarm 事件後重新計時，避免被 Chrome 終止。
+
+**運作機制**：
+
+```
+content.js 建立 port
+  → background.js 建立 alarm（每 25 秒）
+  → SW 被 alarm 喚醒 → 重新計時 → 避免被終止
+port 斷開 → alarm 清除
+```
+
+**為何選用 chrome.alarms 而非 port.postMessage keepalive**：
+- `port.postMessage` 會在 content.js 端產生實際的 message 事件，需額外處理過濾
+- `chrome.alarms` 是 Chrome 官方推薦的 SW 保持活躍機制，不產生額外的 port 事件
+- alarm 事件在 SW 端處理，content.js 完全不感知
+
+### 17-4. 變更內容
+
+**`extension/manifest.json`**：新增 `"permissions": ["alarms"]`（Chrome 要求明確聲明 alarms 權限）。
+
+**`extension/background.js`**：
+
+```javascript
+// 頂層：alarm 事件處理（SW 被喚醒時不做任何事，僅保持活躍）
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'wc-keepalive') return;
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'wc-chat') return;
+
+  // 建立 keepalive alarm（每 25 秒）
+  const ALARM_NAME = 'wc-keepalive';
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 25 / 60 });
+
+  // port 斷開時清除 alarm
+  port.onDisconnect.addListener(() => {
+    chrome.alarms.clear(ALARM_NAME);
+  });
+
+  port.onMessage.addListener(async (msg) => {
+    // ... 原有 fetch 邏輯不變
+    // onDisconnect 內同時 abort + clear alarm
+  });
+});
+```
+
+### 17-5. 測試結果
+
+手動 E2E 驗證：
+
+| 步驟 | 預期 | 結果 |
+|------|------|------|
+| nculab 問答 | site_id="nculab"，正確回答 | ✅ |
+| 切至 ncucsie 問答 | site_id="ncucsie"，正確回答 | ✅ 無「連線中斷」錯誤 |
+| 快速切換多站 | 各站獨立回答 | ✅ |
+
+### 17-6. 檔案變更總覽
+
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `extension/manifest.json` | 修改 | 新增 `"permissions": ["alarms"]` |
+| `extension/background.js` | 修改 | 新增 `chrome.alarms` keepalive 機制（alarm 建立 / 清除 / 事件處理） |
+
+---
