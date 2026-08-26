@@ -11,21 +11,35 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from app.tools.rag_registry import RAGRegistry
 from app.tools.webpage_retriever import create_webpage_retriever_tool
+from app.workflow.data_manager import DataManager
 
 
 def main() -> None:
-    tool = create_webpage_retriever_tool(config_name="test")
+    registry = RAGRegistry(DataManager(), default_config_name="test")
+    tool = create_webpage_retriever_tool(registry)
     try:
-        result = tool.invoke({"query": "實驗室的成員有哪些人？", "similarity_top_k": 3})
+        # 以第一個可用 site_id 做 smoke test
+        sites = registry.list_sites()
+        if not sites:
+            print("SMOKE SKIP: no sites available")
+            return
+        site_id = sites[0]
+        result = tool.invoke(
+            {
+                "site_id": site_id,
+                "query": "實驗室的成員有哪些人？",
+                "similarity_top_k": 3,
+            }
+        )
         assert isinstance(result, str) and len(result) > 0, "檢索結果為空"
-        print("SMOKE RESULT (前 500 字元):")
+        print(f"SMOKE RESULT (site_id={site_id}, 前 500 字元):")
         print(result[:500])
         print("\nSMOKE OK: retriever tool 檢索正常")
     finally:
-        # tool.rag 為 create_webpage_retriever_tool 動態綁定的屬性（Pydantic v2 繞過驗證）
-        getattr(tool, "rag").close()
-        print("SMOKE CLEANUP: rag.close() 已釋放資源")
+        registry.close()
+        print("SMOKE CLEANUP: registry.close() 已釋放資源")
 
 
 if __name__ == "__main__":

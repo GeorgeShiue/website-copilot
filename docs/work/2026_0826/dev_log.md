@@ -932,3 +932,265 @@ uv run python src/cli.py rag-query-cli --run.config-name ncucsie
 | `src/test/dev/test_rag_reuse.py` | 新增 | `_should_rebuild` 單元測試（14 項） |
 
 ---
+
+## 15. 多站 RAG 工具實作（2026-08-26）
+
+> 規劃文件：`2026_0826-multi_site_RAG_tool.md`（M3：多站 RAG 檢索）。
+
+### 15-1. 動機
+
+M2 完成後資料與向量庫已按 `site_id` 隔離（`data/webpages/{site_id}/`、`data/rag/{site_id}/`），但 Agent 工具層仍硬綁單一 RAG 實例（`create_webpage_retriever_tool(config_name="default")`），無法同時存取多站知識庫。需要：
+- `RAGRegistry` 管理多站 RAG 的延遲建立、LRU 快取與生命週期
+- `webpage_retriever` 改為依 `site_id` 路由至對應 RAG 實例
+- `list_knowledge_bases` 工具供 LLM 發現可用站點
+- System prompt 引導 LLM 正確使用多站工具
+
+### 15-2. 變更範圍
+
+```
+src/app/tools/rag_registry.py       ← 新增（100 行）
+src/app/tools/webpage_retriever.py  ← 修改（126 行，原 ~130 行精簡重寫）
+src/app/agent/agent.py              ← 修改（369 行）
+src/app/configs/agent_config.py     ← 修改（DEFAULT_SYSTEM_PROMPT）
+configs/agent/default.toml          ← 修改（system_prompt）
+configs/agent/test.toml             ← 修改（system_prompt）
+scripts/m0_rag_smoke.py             ← 修改（改用新 API）
+src/test/dev/test_rag_registry.py   ← 新增（354 行，13 項測試）
+src/test/dev/test_multi_site_tool.py ← 新增（381 行，26 項測試）
+```
+
+### 15-3. 模組一：RAGRegistry（`src/app/tools/rag_registry.py`）
+
+```python
+class RAGRegistry:
+    _cache: OrderedDict[str, RAG]     # site_id → RAG 的 LRU 快取
+    _data_manager: DataManager        # site 存在性驗證
+    _default_config_name: str         # 預設 "default"
+    _max_cached: int                  # 快取上限，預設 5
+
+    def list_sites(self) -> list[str]: ...
+    def get(self, site_id: str) -> RAG: ...
+    def close(self) -> None: ...
+    def _evict_if_needed(self) -> None: ...
+```
+
+**`get(site_id)` 流程**：
+
+1. cache hit → `move_to_end` 更新 LRU 順序 → 直接回傳
+2. `DataManager.site_exists(site_id)` → 不存在則 `ValueError`
+3. `RAGConfig.from_toml("default", site_id=site_id)` — 路徑由 site_id 動態產生
+4. `RAG(webpages_data_folder_path=...)` + `RAGBuilder(config).build_reusable(rag, force_rebuild=False)`
+5. 存入 `_cache` → 超出 `max_cached` 則 `popitem(last=False)` eviction + `rag.close()`
+
+**設計決策**：
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| 快取資料結構 | `OrderedDict`（手動 LRU） | 比 `functools.lru_cache` 更可控，支援 eviction 時釋放 RAG |
+| RAG 路徑來源 | 直接指向 `data/rag/{site_id}/` | Agent 問答不經 runs/ 中間層，直接指向正式資料 |
+| Config 建立 | `RAGConfig.from_toml("default", site_id=site_id)` | 用 default 設定 + override site_id，避免每個站都要一份 config |
+| Build 策略 | `build_reusable(force_rebuild=False)` | 利用 §14 Milvus 重用機制：skip nodes pipeline，`load_collection()` ~13s |
+| 不需 RunManager | Registry 不建立 RunManager | Agent 問答指向正式 data/；RunManager 僅供建庫流程使用 |
+
+### 15-4. 模組二：webpage_retriever.py — 多站路由
+
+**RetrieverInputSchema 變更**：
+
+```python
+class RetrieverInputSchema(BaseModel):
+    site_id: str = Field(description="目標知識庫的 site_id（如 'nculab'、'ncucsie'）")
+    query: str = Field(description="搜尋查詢字串")
+    filter_dict: dict[str, Any] | None = Field(default=None, ...)
+    similarity_top_k: int | None = Field(default=None, ...)
+```
+
+**`create_webpage_retriever_tool` 簽名變更**：
+
+```python
+# BEFORE（~90 行，含 RunManager / config / RAGBuilder / 隔離邏輯）
+def create_webpage_retriever_tool(
+    run_manager: RunManager | None = None,
+    config_name: str = "default",
+    run_name_use_config_name: bool = False,
+    **config_overrides,
+) -> StructuredTool:
+
+# AFTER（~30 行，Registry 延遲載入）
+def create_webpage_retriever_tool(
+    registry: RAGRegistry,
+) -> StructuredTool:
+```
+
+精簡幅度：RunManager、config 載入、vector store 隔離等全部移至 RAGRegistry，工具層僅負責 `registry.get(site_id)` → `rag.retrieve()` 路由。
+
+### 15-5. 模組三：agent.py — 站點發現工具與 Agent 整合
+
+**`create_site_discovery_tool`（新增）**：
+
+```python
+class _DiscoveryInputSchema(BaseModel):
+    """list_knowledge_bases 工具的輸入 schema（無參數）。"""
+
+def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
+    """建立 list_knowledge_bases 工具。掃描 data/webpages/ 回傳所有可用 site_id。"""
+```
+
+> `StructuredTool` 在 langchain-core 中要求 `args_schema` 為必填欄位，即使工具無參數也需提供空 schema。
+
+**`create_rag_agent` 流程變更**：
+
+```python
+# BEFORE
+tool = create_webpage_retriever_tool(run_manager=run_manager, config_name="default", ...)
+graph = create_agent(llm, [tool], system_prompt=config.system_prompt, ...)
+return RAGAgent(graph=graph, tool=tool, ...)
+
+# AFTER
+registry = RAGRegistry(DataManager())
+discovery_tool = create_site_discovery_tool(registry)
+retriever_tool = create_webpage_retriever_tool(registry)
+graph = create_agent(llm, [discovery_tool, retriever_tool], system_prompt=config.system_prompt, ...)
+return RAGAgent(graph=graph, tools=[discovery_tool, retriever_tool], registry=registry, ...)
+```
+
+**RAGAgent dataclass 擴充**：
+
+```python
+@dataclass
+class RAGAgent:
+    graph: Any
+    tools: list[StructuredTool]             # 改為 list（原 tool: Any）
+    run_manager: RunManager
+    config: AgentConfig
+    checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
+    registry: RAGRegistry | None = None     # 新增
+
+    def close(self) -> None:
+        if self.registry is not None:
+            self.registry.close()
+```
+
+### 15-6. System Prompt 更新
+
+```python
+DEFAULT_SYSTEM_PROMPT = (
+    "你是多站網站助理，可從多個學校網站知識庫中檢索資訊。\n\n"
+    "## 使用工具的流程\n"
+    "1. 若不確定有哪些可用的知識庫，先使用 list_knowledge_bases 查詢\n"
+    "2. 使用 webpage_retriever 時必須提供 site_id 參數\n"
+    "3. 若問題來自特定網站（如對話中有 site 語境），直接使用該 site 檢索\n\n"
+    "## 回答規則\n"
+    "- 根據檢索結果回答，必須列出參考來源的 URL\n"
+    "- 若檢索結果不足以回答，請誠實說明\n"
+    "- 若問題可能涉及多個站點，可分別檢索後合併回答"
+)
+```
+
+`configs/agent/default.toml` 與 `configs/agent/test.toml` 同步更新。
+
+### 15-7. 資料流變更
+
+```
+[改動前]
+Agent query → create_webpage_retriever_tool(config_name="default")
+            → RAGBuilder.build_to_retriever() → 單一 RAG 實例
+            → rag.retrieve(query) → 回傳結果
+
+[改動後]
+Agent query → webpage_retriever(site_id="nculab", query="...")
+            → RAGRegistry.get("nculab")
+              ├─ 快取命中 → 直接回傳已有 RAG（<1ms）
+              └─ 快取未命中 → RAGConfig + RAG + build_reusable（~13s）
+            → rag.retrieve(query) → 回傳結果
+```
+
+### 15-8. 向後相容性
+
+| 呼叫點 | 影響 |
+|--------|------|
+| `create_rag_agent()` | **改動**：建立 Registry + 兩個工具 |
+| `run_agent()` (workflow.py) | **不受影響**：`agent.close()` 呼叫不變，內部改為 `registry.close()` |
+| `app.py` (Server) | **M4 改動**：此階段不受影響（Server 層尚未加 `page_url`） |
+| `run_rag_query()` (workflow.py) | **不受影響**：使用 `build_reusable()` 開獨立 RAG |
+| `run_rag_build()` (workflow.py) | **不受影響**：使用 `build()` 全新建構 |
+
+**不受影響的檔案**：`rag.py`、`rag_factory.py`、`rag_config.py`、`data_manager.py`、`cli.py`。
+
+### 15-9. 測試策略
+
+#### 單元測試：`test_rag_registry.py`（13 項，全部 mock）
+
+| 測試群組 | 項數 | 驗證 |
+|----------|------|------|
+| `TestListSites` | 2 | 委派 DataManager / 空站點 |
+| `TestGetSiteNotFound` | 3 | ValueError / 錯誤訊息含可用站點 / 空站點顯示「（無）」 |
+| `TestGetCacheMiss` | 2 | 首次呼叫觸發 RAGConfig + RAG + build_reusable / 結果存入快取 |
+| `TestGetCacheHit` | 2 | 第二次呼叫回傳相同實例 / move_to_end 更新 LRU 順序 |
+| `TestLRUEviction` | 2 | 超出 max_cached 淘汰最久未使用項 / 未超出不淘汰 |
+| `TestClose` | 2 | 釋放所有快取中 RAG / 空快取不報錯 |
+
+#### 整合測試：`test_multi_site_tool.py`（26 項，全部 mock）
+
+| 測試群組 | 項數 | 驗證 |
+|----------|------|------|
+| `TestRetrieverInputSchema` | 4 | site_id 欄位存在 / 必填 / 有效建構 / 選項預設值 |
+| `TestCreateWebpageRetrieverTool` | 5 | 回傳 StructuredTool / name / description 含 site_id / 含 list_knowledge_bases / args_schema |
+| `TestRetrieveRouting` | 3 | 呼叫 registry.get(site_id) / filter/top_k 傳遞 / 錯誤傳播 |
+| `TestFormatRetrievalResults` | 3 | 空結果 / 單筆含標題分數URL / 多筆計數正確 |
+| `TestCreateSiteDiscoveryTool` | 5 | StructuredTool / name / description / 有站點格式化 / 空站點提示 |
+| `TestRAGAgent` | 4 | tools+registry 欄位 / close 呼叫 registry.close() / None 安全 / tools 為 list |
+| `TestEndToEndFlow` | 2 | discovery → retrieve 串接 / 多站結果不混雜 |
+
+#### 端到端驗證
+
+| 測試 | 驗證 | 結果 |
+|------|------|------|
+| `test_module.py::test_agent` | 真實 LLM + Milvus：Agent 自動帶入 `site_id=nculab` → 正確檢索 → 回答含 6 個來源 URL | ✅ PASSED（25.5s） |
+| `m0_rag_smoke.py` | 改用新 API（`RAGRegistry` + `site_id`）的 smoke test | ✅ 通過 |
+| 回歸測試 | 既有 37 個相關測試（`test_agent.py` / `test_server.py` / `test_rag_reuse.py`） | ✅ 37 passed |
+
+#### 測試過程修正的問題
+
+| # | 問題 | 修正 |
+|---|------|------|
+| 1 | `create_site_discovery_tool` 缺少 `args_schema` | 新增 `_DiscoveryInputSchema`（空 schema），langchain-core 要求 `StructuredTool` 必須有 `args_schema` |
+| 2 | `agent.py` 缺少 `from pydantic import BaseModel` | 新增 import |
+| 3 | LRU eviction 測試中 mock RAG 路徑全部相同 | 改用 `config_side_effect` 為每 site 產生獨立 `webpages_data_folder_path` |
+
+### 15-10. 端到端 E2E 驗證結果
+
+```bash
+uv run pytest src/test/test_module.py::test_agent -v -m slow
+```
+
+**Agent 建立階段**：
+- `RAGRegistry(DataManager())` 建立成功
+- `list_knowledge_bases` + `webpage_retriever` 兩個工具正確綁定
+- LLM `gemini-3.1-flash-lite` 成功載入
+
+**問答階段**（query: "實驗室的成員有哪些人？"）：
+- LLM 正確選擇 `webpage_retriever` 並帶入 `site_id="nculab"`
+- Registry cache miss → `build_reusable(force_rebuild=False)` → Milvus `load_collection` ~13s
+- Hybrid 檢索回傳結果，LLM 回答含教授與學生名單
+- 6 個參考來源 URL 全部來自 `sites.google.com/site/nculab/`
+
+**資源釋放**：
+- `agent.close()` → `registry.close()` → `Closing RAG for site_id=nculab` ✓
+
+**落盤**：`chats/20260826_095040/agent/nculab/test/results.json`
+
+### 15-11. 檔案變更總覽
+
+| 檔案 | 操作 | 行數 | 說明 |
+|------|------|------|------|
+| `src/app/tools/rag_registry.py` | **新增** | 100 | RAGRegistry（lazy + LRU + close） |
+| `src/app/tools/webpage_retriever.py` | 修改 | 126 | RetrieverInputSchema 加 site_id；工具改用 registry 路由 |
+| `src/app/agent/agent.py` | 修改 | 369 | create_site_discovery_tool + RAGAgent tools/registry + create_rag_agent |
+| `src/app/configs/agent_config.py` | 修改 | — | DEFAULT_SYSTEM_PROMPT 更新為多站路由版 |
+| `configs/agent/default.toml` | 修改 | — | system_prompt 同步更新 |
+| `configs/agent/test.toml` | 修改 | — | system_prompt 同步更新 |
+| `scripts/m0_rag_smoke.py` | 修改 | 44 | 改用新 API（RAGRegistry + site_id） |
+| `src/test/dev/test_rag_registry.py` | **新增** | 354 | RAGRegistry 單元測試（13 項） |
+| `src/test/dev/test_multi_site_tool.py` | **新增** | 381 | 多站工具整合測試（26 項） |
+
+---

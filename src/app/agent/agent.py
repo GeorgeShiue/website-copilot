@@ -21,13 +21,17 @@ from typing import Any, AsyncIterator, Callable
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
+from langchain_core.tools import StructuredTool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import InMemorySaver
+from pydantic import BaseModel
 
 from app.configs.agent_config import AgentConfig
+from app.tools.rag_registry import RAGRegistry
 from app.tools.webpage_retriever import (
     create_webpage_retriever_tool,
 )
+from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
@@ -55,21 +59,24 @@ class RAGAgent:
 
     Attributes:
         graph: LangGraph CompiledStateGraph（create_agent 回傳）。
-        tool: 綁定的 retriever StructuredTool（含動態綁定的 .rag 資源）。
+        tools: 綁定的 StructuredTool 列表（含 discover + retriever）。
         run_manager: 本次執行的 RunManager（供落盤）。
         config: Agent 設定。
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
+        registry: 多站 RAG 實例管理器（M3）。
     """
 
     graph: Any
-    tool: Any
+    tools: list[StructuredTool]
     run_manager: RunManager
     config: AgentConfig
     checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
+    registry: RAGRegistry | None = None
 
     def close(self) -> None:
-        """釋放 RAG 資源（tool.rag.close()）。"""
-        getattr(self.tool, "rag").close()
+        """釋放 RAG 資源（registry.close()）。"""
+        if self.registry is not None:
+            self.registry.close()
 
 
 def create_agent_llm(llm_name: str) -> ChatGoogleGenerativeAI:
@@ -88,32 +95,58 @@ def create_agent_llm(llm_name: str) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(model=llm_name, api_key=api_key)
 
 
+class _DiscoveryInputSchema(BaseModel):
+    """list_knowledge_bases 工具的輸入 schema（無參數）。"""
+
+
+def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
+    """建立 list_knowledge_bases 工具。
+
+    掃描 data/webpages/ 回傳所有可用 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
+    """
+
+    def _list_sites() -> str:
+        sites = registry.list_sites()
+        if not sites:
+            return "目前沒有可用的知識庫。"
+        return "可用的知識庫：" + "、".join(sites)
+
+    return StructuredTool(
+        name="list_knowledge_bases",
+        description=(
+            "列出所有可用的知識庫站點。"
+            "在呼叫 webpage_retriever 前應先確認可用的 site_id。"
+        ),
+        args_schema=_DiscoveryInputSchema,
+        func=_list_sites,
+    )
+
+
 def create_rag_agent(
     config: AgentConfig | None = None,
     run_manager: RunManager | None = None,
 ) -> RAGAgent:
-    """建立綁定 webpage_retriever 工具的 LangGraph Agent。
+    """建立綁定多站 retriever 工具的 LangGraph Agent。
 
     建立流程：
     1. 初始化 RunManager（module="agent"）與落盤路徑
-    2. 以 RAG config（default）建立 retriever tool（RAG 資源，檢索參數由 RAG 層管理）
-    3. 以 AgentConfig.llm_name 建立 ChatModel
-    4. create_agent 組裝並包裝為 RAGAgent
+    2. 建立 RAGRegistry（多站 RAG 實例管理）
+    3. 建立 list_knowledge_bases + webpage_retriever 兩個工具
+    4. 以 AgentConfig.llm_name 建立 ChatModel
+    5. create_agent 組裝並包裝為 RAGAgent
 
     Args:
         config: Agent 設定（None 時使用預設）。
         run_manager: 可選的 RunManager（傳 None 時內部自動建立）。
 
     Returns:
-        RAGAgent：包裝 Agent、tool、run_manager 與 config。
+        RAGAgent：包裝 Agent、tools、run_manager、registry 與 config。
         結束後呼叫 agent.close() 釋放 RAG 資源。
     """
     if config is None:
-        # 與其他模組一致：預設由 configs/agent/default.toml 載入
         config = AgentConfig.from_toml()
 
     if run_manager is None:
-        # 聊天記錄與實驗分離：預設落盤至 chats/（RunManager base_folder 參數化）
         run_manager = RunManager("agent", base_folder="chats")
     run_manager.set_run_path(config.config_name)
     run_manager.init_module_run_paths()
@@ -123,14 +156,12 @@ def create_rag_agent(
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
-        # ----- 建立 retriever tool（綁定 RAG 資源） -----
-        # run_name_use_config_name：讓 tool 的 run path 與 Agent 一致（runs/<ts>/agent/<config_name>/）
-        # similarity_top_k 等檢索參數沿用 RAG config 預設，Agent 不覆寫
-        tool = create_webpage_retriever_tool(
-            run_manager=run_manager,
-            config_name="default",
-            run_name_use_config_name=True,
-        )
+        # ----- 建立多站 RAG Registry -----
+        registry = RAGRegistry(DataManager())
+
+        # ----- 建立工具（discover + retriever） -----
+        discovery_tool = create_site_discovery_tool(registry)
+        retriever_tool = create_webpage_retriever_tool(registry)
 
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
@@ -142,18 +173,19 @@ def create_rag_agent(
         llm = create_agent_llm(config.llm_name)
         logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
 
-        # InMemorySaver：多輪對話記憶（M2），以 thread_id 區分 session
         checkpointer = InMemorySaver()
         logger.info("Successfully built InMemorySaver for multi-turn conversation")
 
         graph = create_agent(
             llm,
-            [tool],
+            [discovery_tool, retriever_tool],
             system_prompt=config.system_prompt,
             checkpointer=checkpointer,
         )
         logger.info(
-            f"Successfully built Agent (llm={config.llm_name}, tools=[webpage_retriever]"
+            "Successfully built Agent (llm=%s, tools=[list_knowledge_bases, "
+            "webpage_retriever])",
+            config.llm_name,
         )
 
         # ----- 儲存設定 -----
@@ -166,10 +198,11 @@ def create_rag_agent(
 
     return RAGAgent(
         graph=graph,
-        tool=tool,
+        tools=[discovery_tool, retriever_tool],
         run_manager=run_manager,
         config=config,
         checkpointer=checkpointer,
+        registry=registry,
     )
 
 

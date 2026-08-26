@@ -7,23 +7,24 @@
 | **擷取網頁時間資訊** | 目前時間 metadata 僅靠 `MarkdownDateExtractor` 從內容推斷，頁面無明顯日期時不精確；應在爬蟲階段從 HTML 結構化標籤擷取 | 高 |
 | **建置多個不同學校網站知識庫** | 爬蟲設定、資料目錄、向量庫全部指向單一網站（`nculab`），缺乏多網站隔離機制 | 高 |
 | **RAG 工具支援檢索不同網站知識庫** | `webpage_retriever` StructuredTool 目前硬綁單一 RAG 實例，無法根據查詢目標切換知識庫 | 高 |
+| **Chrome Extension 站點偵測與 Agent 路由** | Extension 無法得知使用者正在瀏覽哪個網站，Server 無法自動路由至對應知識庫 | 高 |
 
-**結論**：三個目標有明確的依賴順序——先完成時間擷取與多站基礎建設（可並行），再改造 RAG 工具支援多站檢索，最後整合 Agent 讓 LLM 自動路由。
+**結論**：四個目標有明確的依賴順序——先完成時間擷取與多站基礎建設（可並行），再改造 RAG 工具支援多站檢索，最後結合 Chrome Extension 站點偵測讓 Agent 自動路由。
 
 ---
 
 ## 2. 里程碑與執行順序
 
 ```
-目標 1（時間擷取）         目標 2（多站建庫）           目標 3（多站檢索）
-─────────────────         ──────────────────           ──────────────────
-1-1 HTML metadata          2-1 目錄重構 ←───────────── 依賴 2-1
-1-2 metadata 欄位擴充      2-2 設定檔模板化            3-1 Tool 參數擴充 ←── 依賴 2-4
-1-3 降級改進               2-3 向量庫隔離              3-2 多 RAG 實例 ←──── 依賴 2-3
-1-4 日期格式驗證           2-4 RAG 設定檔 per site     3-3 動態切換 ←────── 依賴 3-2
-1-5 重新處理               2-5 metadata 加入 site_id   3-4 Agent prompt ←── 依賴 3-1
-                           2-6 Agent 設定檔            3-5 metadata filter
-                           2-7 腳本化建庫              3-6 fallback
+目標 1（時間擷取）         目標 2（多站建庫）           目標 3（多站 RAG 檢索）      目標 4（Extension 站點偵測）
+─────────────────         ──────────────────           ────────────────────          ───────────────────────
+1-1 HTML metadata          2-1 目錄重構 ←───────────── 依賴 2-1                       4-1 Extension 偵測 URL
+1-2 metadata 欄位擴充      2-2 設定檔模板化            3-1 Tool 參數擴充 ←── 依賴 2-4  4-2 Background 轉發
+1-3 降級改進               2-3 向量庫隔離              3-2 RAGRegistry ←─── 依賴 2-3   4-3 後端 domain mapping
+1-4 日期格式驗證           2-4 RAG 設定檔 per site     3-3 Tool 改用 Registry ← 3-2     4-4 query 前綴 site 語境
+1-5 重新處理               2-5 metadata 加入 site_id   3-4 站點發現工具                  4-5 Agent 整合（M3+M4 串接）
+                           2-6 Agent 設定檔            3-5 System prompt 更新          4-6 端到端測試
+                           2-7 腳本化建庫              3-6 Agent 整合（Registry）
 ```
 
 ### 里程碑切分
@@ -32,10 +33,10 @@
 |--------|------|------|-----------|
 | **M1：時間擷取** | 1-1 → 1-2 → 1-3 → 1-4 → 1-5 | 無 | 中 |
 | **M2：多站基礎建設** | 2-1 → 2-2 → 2-3 → 2-5 → 2-7 | 無 | 中 |
-| **M3：多站 RAG 檢索** | 2-4 → 2-6 → 3-1 → 3-2 → 3-3 → 3-5 | M2 | 高（核心改造） |
-| **M4：Agent 多站整合** | 3-4 → 3-6 → Agent prompt 調校 → 端到端測試 | M3 | 中 |
+| **M3：多站 RAG 檢索** | 3-1 → 3-2 → 3-3 → 3-4 → 3-5 → 3-6 | M2 | 高（核心改造） |
+| **M4：Extension 站點偵測與路由** | 4-1 → 4-2 → 4-3 → 4-4 → 4-5 → 4-6 | M3 | 中 |
 
-> **M1 與 M2 可並行**（互不依賴）；M3 必須等 M2 完成後才能開始；M4 為最後收斂。
+> **M1 與 M2 可並行**（互不依賴）；M3 必須等 M2 完成後才能開始；M4 必須等 M3 完成後才能開始。M3 可獨立驗證（CLI Agent + site_id 前綴）；M4 為 Chrome Extension 端到端整合。
 
 ---
 
@@ -103,52 +104,112 @@ data/
 ## 5. 目標 3：RAG 工具支援檢索不同網站知識庫
 
 > **核心問題**：`webpage_retriever` StructuredTool 目前硬綁單一 RAG 實例，無法根據查詢目標切換知識庫。
+> M2 完成後，資料與向量庫已按 site_id 隔離，但 Agent 工具層仍缺少多站路由能力。
 
 ### 工作項目
 
 | # | 工作項目 | 涉及模組 | 說明 |
 |---|---------|---------|------|
-| 3-1 | **Tool 參數擴充** | `webpage_retriever.py` | 加入 `site_id: str` 參數，Agent 可根據使用者問題選擇目標網站 |
-| 3-2 | **多 RAG 實例管理** | `webpage_retriever.py` / `rag_factory.py` | 建立 `RAGRegistry`，依 `site_id` 載入/快取對應的 RAG 實例 |
-| 3-3 | **向量庫動態切換** | `RAGBuilder.build_retriever()` | 支援執行期切換 `vector_store` / `collection_name`，或預建多個 retriever 按 site_id 路由 |
-| 3-4 | **Agent tool calling 設計** | Agent system prompt | 在 system prompt 中告知 Agent 可用的 `site_id` 列表與對應網站名稱 |
-| 3-5 | **metadata filter 跨網站** | `retrieve()` / `build_filters()` | 支援 `{"site_id": "nculab"}` 過濾條件，確保檢索範圍正確 |
-| 3-6 | **fallback：跨網站搜尋** | Agent 邏輯 | 當 Agent 不確定目標網站時，可先搜尋所有知識庫再合併排序（或提示使用者指定） |
+| 3-1 | **Tool 參數擴充** | `webpage_retriever.py` | `RetrieverInputSchema` 加入 `site_id: str` 參數，Agent 可根據使用者問題選擇目標網站 |
+| 3-2 | **多 RAG 實例管理** | `rag_registry.py`（新） | 建立 `RAGRegistry`，依 `site_id` 延遲建立 RAG 實例並以 LRU 快取；利用 Milvus 重用機制（§14）避免每次重建 |
+| 3-3 | **Tool 改用 Registry** | `webpage_retriever.py` | `create_webpage_retriever_tool` 改為接收 `RAGRegistry`；`_retrieve` 內部以 `registry.get(site_id)` 路由至對應 RAG |
+| 3-4 | **站點發現工具** | `agent.py` | 新增 `create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具，掃描 `data/rag/` 回傳可用 site_id |
+| 3-5 | **System prompt 更新** | `agent_config.py` / TOML | 更新為多站路由版本，指引 LLM 先用 `list_knowledge_bases` 確認站點再呼叫 `webpage_retriever` |
+| 3-6 | **Agent 整合** | `agent.py` | `create_rag_agent` 建立 Registry + 兩個工具；`RAGAgent` 新增 `registry` 欄位，`close()` 改用 `registry.close()` |
 
-> 具體的 RAGRegistry 設計、Tool 簽名、Agent 整合，請參閱 [dev_log.md](dev_log.md) §2–3。
+> 具體的 RAGRegistry 設計、Tool 簽名變更、Agent 整合流程，請參閱 [2026_0826-multi_site_RAG_tool.md](2026_0826-multi_site_RAG_tool.md)。
 
 ---
 
-## 6. 風險與注意事項
+## 6. 目標 4：Chrome Extension 站點偵測與 Agent 路由
+
+> **核心問題**：Chrome Extension 無法得知使用者正在瀏覽哪個網站，Server 無法自動路由至對應知識庫。
+> M3 完成後 Agent 工具已支援 `site_id` 多站路由，但 `site_id` 來源仍依賴 LLM 自行判斷。
+> 本目標從 Extension 前端偵測 → 後端映射 → query 語境注入，實現無感的自動多站路由。
+
+### 工作項目
+
+| # | 工作項目 | 涉及模組 | 說明 |
+|---|---------|---------|------|
+| 4-1 | **Extension 偵測當前 URL** | `extension/content.js` | `content.js` 讀取 `window.location.hostname`，在每次 chat 請求時帶入 `page_url` 欄位 |
+| 4-2 | **Background 轉發 page_url** | `extension/background.js` | `background.js` 將 `page_url` 透傳至 Server `/api/chat` endpoint |
+| 4-3 | **後端 domain → site_id 映射** | `src/app/server/app.py` | `ChatRequest` 新增 `page_url` 欄位；`DOMAIN_SITE_MAP` dict + `resolve_site_id()` 函數，支援精確匹配與子域名 suffix 匹配 |
+| 4-4 | **query 前綴 site 語境** | `src/app/server/app.py` | `_enrich_query_with_site_context()` 將 site_id 前綴至 user query（如 `[使用者瀏覽 nculab 網站] 實驗室成員`），讓 LLM 從 message 內容感知當前站點 |
+| 4-5 | **Agent 整合** | `src/app/agent/agent.py` | M3 的 `RAGAgent` + `RAGRegistry` 與 M4 的 `site_id` 前綴機制串接，`_event_stream` 接收 `site_id` 參數 |
+| 4-6 | **端到端測試** | Chrome + Server + Agent | Chrome 開啟 nculab 頁面 → Extension 自動偵測 → Server 映射 → Agent 路由 → 正確檢索；切換至 csie 頁面 → 自動切換 |
+
+### 全域資料流
+
+```
+Extension content.js                    Server app.py                     Agent + RAG
+───────────────────                     ─────────────                     ───────────
+window.location.hostname                ChatRequest.page_url
+        │                                      │
+        ├─ port.postMessage({                  ├─ resolve_site_id(page_url)
+        │    page_url: hostname })              │   → "nculab"
+        │                                      │
+        └─ background.js                       └─ _enrich_query_with_site_context(
+             fetch POST {                            query, "nculab"
+               page_url: hostname               ) → "[使用者瀏覽 nculab 網站] 實驗室成員"
+             }                                        │
+                                                  agent.graph.invoke(...)
+                                                       │
+                                                  LLM 看到 site 語境
+                                                       │
+                                                  webpage_retriever(
+                                                    site_id="nculab",
+                                                    query="實驗室成員"
+                                                  )
+                                                       │
+                                                  RAGRegistry.get("nculab")
+                                                       │
+                                                  rag.retrieve(...) → 正確結果
+```
+
+### 三種介面的 site_id 來源
+
+| 介面 | site_id 來源 | 改動量 |
+|------|-------------|--------|
+| **Chrome Extension** | `window.location.hostname` → 後端 `DOMAIN_SITE_MAP` 映射 | content.js + background.js + app.py |
+| **CLI** | `--site-id` 手動指定（已有）或 query 帶 site_id 前綴 | 無需改動 |
+| **Server API** | 請求參數 `page_url`（可選） | ChatRequest model + mapping |
+
+> 具體的 Extension 改動規格、後端映射設計、query 前綴機制，請參閱 [2026_0826-chrome_extension_site_detection.md](2026_0826-chrome_extension_site_detection.md)。
+
+---
+
+## 7. 風險與注意事項
 
 | # | 風險 | 影響 | 緩解措施 |
 |---|------|------|---------|
 | 1 | 資料目錄重構影響既有流程 | 既有 `data/webpages/` 下的資料與設定檔路徑全部失效 | 建立 migration 腳本自動搬移；保留 fallback 讀取舊路徑 |
 | 2 | 多向量庫占用磁碟空間 | 每個網站的 Milvus DB 約數十 MB~數百 MB | 先以 2-3 個學校試驗，確認规模後再擴展 |
 | 3 | 多 RAG 實例記憶體壓力 | 同時載入多個向量庫可能消耗大量 RAM | `RAGRegistry` 採用 LRU 快取策略，超出數量上限時釋放最久未用的實例 |
-| 4 | Agent 多站路由準確度 | LLM 可能選錯 site_id 或遺漏相關網站 | 在 system prompt 提供明確的網站描述；加入 fallback 機制 |
+| 4 | Agent 多站路由準確度 | LLM 可能選錯 site_id 或遺漏相關網站 | 在 system prompt 提供明確的網站描述；Chrome Extension 自動偵測 site_id 輔助路由 |
 | 5 | HTML 日期標籤格式不一致 | 不同網站的 `<meta>` 標籤格式差異大 | 建立日期解析器支援多種格式；無效時回落到內容推斷 |
+| 6 | Extension hostname 無法映射 | 內網 IP / localhost 等無對應 site_id | `resolve_site_id` 回傳 None → LLM 自行用 `list_knowledge_bases` 確認 |
+| 7 | query 前綴 token 佔用 | `"[使用者瀏覽 nculab 網站]"` 佔 ~15 tokens | 可忽略；LLM context window 128K+；或未來改為 per-request system prompt |
 
 ---
 
-## 7. 驗證標準
+## 8. 驗證標準
 
 | 里程碑 | 驗證標準 |
 |--------|---------|
 | **M1：時間擷取** | 爬取新網站後，`results.json` 中 ≥80% 頁面有有效 `published_date`；`MarkdownDateExtractor` 在有 HTML metadata 時正確跳過 |
 | **M2：多站基礎建設** | 能為 2+ 個學校網站分別爬取、建庫，目錄與向量庫完全隔離；`--site-id` 參數正常運作 |
-| **M3：多站 RAG 檢索** | `webpage_retriever(site_id="nculab", query="...")` 僅從 nculab 知識庫檢索；`RAGRegistry` 快取正常 |
-| **M4：Agent 多站整合** | Agent 收到「中央大學的成員有哪些」自動路由至對應 site_id；收到「所有學校的論文」觸發跨站搜尋 |
+| **M3：多站 RAG 檢索** | `webpage_retriever(site_id="nculab", query="...")` 僅從 nculab 知識庫檢索；`RAGRegistry` 快取命中 < 3s；CLI Agent query 帶 site_id 前綴後正確路由 |
+| **M4：Extension 站點偵測** | Chrome 開啟 nculab 頁面問答 → 自動路由至 nculab RAG；切換至 csie 頁面 → 自動切換至 ncucsie；Server `resolve_site_id()` 正確映射 |
 
 ---
 
-## 8. 結論
+## 9. 結論
 
-三個目標的改造範圍涵蓋從**爬蟲底層**到**Agent 上層**的完整鏈路：
+四個目標的改造範圍涵蓋從**爬蟲底層**到**Chrome Extension 前端**的完整鏈路：
 
 1. **M1（時間擷取）** 解決 metadata 品質問題，提升檢索精準度。
 2. **M2（多站建庫）** 建立多站隔離的基礎設施，是 M3 的必要前置。
-3. **M3（多站 RAG 檢索）** 核心改造，讓 RAG 工具從單站升級為多站。
-4. **M4（Agent 整合）** 收斂端到端體驗，讓 LLM 自動路由至正確知識庫。
+3. **M3（多站 RAG 檢索）** 核心改造，讓 RAG 工具從單站升級為多站（`RAGRegistry` + `site_id` 路由）。
+4. **M4（Extension 站點偵測）** 結合 Chrome Extension 自動偵測使用者瀏覽的網站，透過後端 domain → site_id 映射與 query 前綴機制，實現無感多站路由。
 
-建議 **M1 與 M2 並行啟動**，預計 M1 完成後立即可提升現有檢索品質；M2 完成後再推進 M3、M4，逐步擴展至更多學校網站。
+建議 **M1 與 M2 並行啟動**；M2 完成後推進 M3（可用 CLI Agent 獨立驗證）；M3 完成後進行 M4（Chrome Extension 端到端整合）。
