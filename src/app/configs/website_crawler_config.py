@@ -37,6 +37,8 @@ class WebsiteCrawlerConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/website_crawler"
     sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
 
+    # ----- init config -----
+    site_id: str
     # ----- crawl config (no default values) -----
     url: str
     # ----- init config -----
@@ -56,10 +58,11 @@ class WebsiteCrawlerConfig(BaseModuleConfig):
 
 
 def _validate_config(config: dict[str, Any]) -> None:
-    # ----- metadata -----
-    BaseModuleConfig.validate_site_id(config.get("site_id", ""))
-
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     max_depth = config.get("max_depth")
     max_pages = config.get("max_pages")
     content_threshold = config.get("content_threshold")

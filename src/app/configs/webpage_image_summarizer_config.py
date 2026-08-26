@@ -85,6 +85,7 @@ class WebpageImageSummarizerConfig(BaseModuleConfig):
     }
 
     # ----- init config -----
+    site_id: str
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
     max_retries: int = 6  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
@@ -114,10 +115,11 @@ class WebpageImageSummarizerConfig(BaseModuleConfig):
 
 
 def _validate_config(config: dict[str, Any]) -> None:
-    # ----- metadata -----
-    BaseModuleConfig.validate_site_id(config.get("site_id", ""))
-
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     download_timeout = config.get("download_timeout")
     success_threshold = config.get("success_threshold")
     max_retries = config.get("max_retries")

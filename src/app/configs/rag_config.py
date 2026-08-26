@@ -79,6 +79,7 @@ class RAGConfig(BaseModuleConfig):
     sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
 
     # ----- init config -----
+    site_id: str
     webpages_data_folder_path: str | None = None
     # ----- vector store config -----
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
@@ -130,10 +131,11 @@ class RAGConfig(BaseModuleConfig):
 
 
 def _validate_config(config: dict[str, Any]) -> None:
-    # ----- metadata -----
-    BaseModuleConfig.validate_site_id(config.get("site_id", ""))
-
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     webpages_data_folder_path = config.get("webpages_data_folder_path")
 
     if webpages_data_folder_path is not None:

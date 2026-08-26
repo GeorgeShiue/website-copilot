@@ -71,13 +71,23 @@
     '.wc-inputbar input:focus{border-color:#2563eb;}',
     '.wc-inputbar button{padding:8px 14px;background:#2563eb;color:#fff;border:none;',
     '  border-radius:8px;font-size:13px;cursor:pointer;}',
-    '.wc-inputbar button:disabled{opacity:.6;cursor:not-allowed;}'
+    '.wc-inputbar button:disabled{opacity:.6;cursor:not-allowed;}',
+    /* typing indicator（等待後端回應時顯示三個跳動圓點） */
+    '.wc-typing{display:flex;align-items:center;gap:4px;padding:4px 0;min-height:20px;}',
+    '.wc-typing span{width:6px;height:6px;border-radius:50%;background:#94a3b8;',
+    '  -webkit-animation:wc-bounce 1.4s infinite ease-in-out;',
+    '  animation:wc-bounce 1.4s infinite ease-in-out;}',
+    '.wc-typing span:nth-child(1){-webkit-animation-delay:0s;animation-delay:0s;}',
+    '.wc-typing span:nth-child(2){-webkit-animation-delay:.2s;animation-delay:.2s;}',
+    '.wc-typing span:nth-child(3){-webkit-animation-delay:.4s;animation-delay:.4s;}',
+    '@-webkit-keyframes wc-bounce{0%,80%,100%{-webkit-transform:scale(.6);transform:scale(.6);opacity:.4;}40%{-webkit-transform:scale(1);transform:scale(1);opacity:1;}}',
+    '@keyframes wc-bounce{0%,80%,100%{transform:scale(.6);opacity:.4;}40%{transform:scale(1);opacity:1;}}'
   ].join('');
   shadow.appendChild(style);
 
   var toggleBtn = document.createElement('button');
   toggleBtn.className = 'wc-toggle';
-  toggleBtn.textContent = '💬';
+  toggleBtn.textContent = '🤖';
   toggleBtn.title = '問網站助理';
   shadow.appendChild(toggleBtn);
 
@@ -203,6 +213,13 @@
     return html.join('');
   }
 
+  function createTypingIndicator() {
+    var el = document.createElement('div');
+    el.className = 'wc-typing';
+    el.innerHTML = '<span></span><span></span><span></span>';
+    return el;
+  }
+
   async function sendQuery(query) {
     var userEl = document.createElement('div');
     userEl.className = 'wc-msg wc-user';
@@ -211,12 +228,17 @@
 
     var respEl = document.createElement('div');
     respEl.className = 'wc-msg wc-assistant';
+    var typingEl = createTypingIndicator();
+    respEl.appendChild(typingEl);
     messagesEl.appendChild(respEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     sendBtn.disabled = true;
     inputEl.disabled = true;
     var buffer = '';
+    var gotFirstToken = false;
+    var sendTime = Date.now();
+    var MIN_LOADING_MS = 300;
     try {
       var resp = await streamChat({ query: query, thread_id: threadId });
       if (!resp.ok || !resp.body) {
@@ -232,18 +254,34 @@
         buffer = buffer.slice(buffer.lastIndexOf('\n\n') + 2);
         events.forEach(function (ev) {
           if (ev.type === 'token') {
-            respEl.textContent += ev.content;
+            if (!gotFirstToken) {
+              var elapsed = Date.now() - sendTime;
+              if (elapsed < MIN_LOADING_MS) {
+                respEl.removeChild(typingEl);
+              } else {
+                typingEl.style.transition = 'opacity .15s';
+                typingEl.style.opacity = '0';
+                typingEl.addEventListener('transitionend', function handler() {
+                  typingEl.removeEventListener('transitionend', handler);
+                  if (typingEl.parentNode === respEl) respEl.removeChild(typingEl);
+                }, { once: true });
+              }
+              gotFirstToken = true;
+            }
+            respEl.appendChild(document.createTextNode(ev.content));
             messagesEl.scrollTop = messagesEl.scrollHeight;
           } else if (ev.type === 'done') {
-            respEl.innerHTML = renderMarkdown(ev.response);   // markdown 渲染（串流期間維持純文字）
-            threadId = ev.thread_id;   // 記住，續問記得上下文
+            respEl.innerHTML = renderMarkdown(ev.response);
+            threadId = ev.thread_id;
           } else if (ev.type === 'error') {
+            respEl.textContent = '';
             respEl.className = 'wc-msg wc-error';
             respEl.textContent = '錯誤：' + ev.message;
           }
         });
       }
     } catch (err) {
+      respEl.textContent = '';
       respEl.className = 'wc-msg wc-error';
       respEl.textContent = '錯誤：' + err.message;
     } finally {

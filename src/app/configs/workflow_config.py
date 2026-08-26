@@ -85,6 +85,5 @@ class RAGModuleConfig:
 
 @dataclass
 class AgentModuleConfig:
-    site_id: str | None = None
     llm_name: str | None = None
     system_prompt: str | None = None

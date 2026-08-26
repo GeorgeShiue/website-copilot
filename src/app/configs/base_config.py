@@ -1,14 +1,15 @@
 """模組 config 的共用基底類。
 
 BaseModuleConfig 提供所有 module config 的共通欄位與行為：
-- config_name / site_id / sections_to_keys
+- config_name / sections_to_keys
 - from_toml() classmethod
 - run_name property
-- validate_site_id() 靜態方法
 
 子類必須設定 ClassVar：
 - _CONFIG_FOLDER_PATH: TOML 設定檔所在目錄
 - sections_to_keys: section → keys 對照表（用於 TOML 讀寫）
+
+需要 site_id 的子類自行宣告欄位（如 WebsiteCrawlerConfig、RAGConfig）。
 """
 
 import logging
@@ -17,7 +18,6 @@ from dataclasses import dataclass
 from typing import ClassVar, Self
 
 from utils.config_helper import (
-    ConfigValidationError,
     filter_commented_configs,
     load_config_from_toml,
     override_config,
@@ -35,7 +35,6 @@ class BaseModuleConfig:
 
     # ----- metadata (no default values) -----
     config_name: str
-    site_id: str
 
     @classmethod
     def from_toml(cls, config_name: str, **overrides) -> Self:
@@ -65,9 +64,3 @@ class BaseModuleConfig:
     def _post_process_run_name(self, run_name: str) -> str:
         """子類可覆寫以自訂 run_name 的後處理邏輯。"""
         return run_name
-
-    @staticmethod
-    def validate_site_id(site_id: str) -> None:
-        """驗證 site_id 非空字串。"""
-        if not isinstance(site_id, str) or not site_id.strip():
-            raise ConfigValidationError("site_id 必須是非空字串")

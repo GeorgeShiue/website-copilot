@@ -470,7 +470,7 @@ def run_agent(
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
         thread_id: 多輪記憶 session 識別（None 時每次獨立）。
         stream: True 時逐 token 串流顯示回答。
-        **config_overrides: AgentConfig 覆寫值（含 site_id、llm_name / system_prompt）。
+        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
         agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
     """
     agent_config = AgentConfig.from_toml(config_name, **config_overrides)
@@ -478,8 +478,6 @@ def run_agent(
     if agent_run_manager is None:
         # 聊天記錄與實驗分離：預設落盤至 chats/
         agent_run_manager = RunManager("agent", base_folder="chats")
-
-    agent_run_manager.set_site_path(agent_config.site_id)
 
     agent = create_rag_agent(
         config=agent_config,
