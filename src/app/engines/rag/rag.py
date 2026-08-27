@@ -16,8 +16,6 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.utils import truncate_text
 from llama_index.vector_stores.milvus import MilvusVectorStore
-from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 
 from utils.log_helper import log_session, log_source_title
 from utils.rag_helper import build_filters, extract_sources_info
@@ -35,8 +33,7 @@ class RAG:
         self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
 
-        self.qdrant_client: QdrantClient | None = None
-        self.vector_store: QdrantVectorStore | MilvusVectorStore | None = None
+        self.vector_store: MilvusVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.nodes: Sequence[BaseNode] | None = None
         self.retriever: VectorIndexRetriever | None = None
@@ -75,16 +72,12 @@ class RAG:
             return
         self._closed = True
 
-        if self.qdrant_client is not None:
-            self.qdrant_client.close()
-
         if isinstance(self.vector_store, MilvusVectorStore):
             try:
                 self.vector_store._milvusclient.close()
             except Exception:
                 pass
 
-        self.qdrant_client = None
         self.vector_store = None
         self.index = None
         self.retriever = None

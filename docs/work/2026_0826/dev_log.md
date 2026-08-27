@@ -445,3 +445,57 @@ content.js → background.js → Server
 | `src/app/configs/agent_config.py` | `DEFAULT_SYSTEM_PROMPT` 更新 |
 | `configs/agent/default.toml` | `system_prompt` 同步更新 |
 | `configs/agent/test.toml` | `system_prompt` 同步更新 |
+
+---
+
+## 17. 移除 Qdrant Vector Store（2026-08-26）
+
+### 17-1. 動機
+
+Qdrant 不支援 hybrid search 的 BGE-M3 稀疏向量，自 §9 改用 Milvus BGE-M3 後已無實際使用。移除可減少依賴套件（qdrant-client、fastembed 等 11 個）、簡化型別系統（消除 `QdrantVectorStore | MilvusVectorStore` union），並統一 codebase 僅保留 Milvus 路徑。
+
+### 17-2. 依賴清理
+
+`pyproject.toml` 移除 `llama-index-vector-stores-qdrant>=0.10.1` + `fastembed>=0.8.0`；`uv lock` 移除 11 個套件：
+
+| 套件 | 原因 |
+|------|------|
+| `llama-index-vector-stores-qdrant` | Qdrant 向量庫整合 |
+| `qdrant-client` | Qdrant 客戶端 |
+| `fastembed` | Qdrant BM25 稀疏向量生成 |
+| `onnxruntime`、`mmh3`、`loguru`、`flatbuffers`、`portalocker`、`py-rust-stemmers`、`pywin32`、`win32-setctime` | fastembed 傳遞依賴 |
+
+### 17-3. 型別簡化
+
+```
+VectorStoreBuilder.build()     → 回傳 MilvusVectorStore（原為 tuple[QdrantClient | None, QdrantVectorStore | MilvusVectorStore]）
+RAG.qdrant_client              → 整個刪除
+RAG.vector_store               → MilvusVectorStore（原為 QdrantVectorStore | MilvusVectorStore）
+RAGBuilder.clean_vector_store() → 直接呼叫 clean_milvus()（原為 if/elif 分支）
+RAGBuilder._should_rebuild()   → 僅 milvus 路徑判斷（原為 if qdrant / elif milvus / raise）
+```
+
+### 17-4. 變更範圍
+
+| 檔案 | 變更 |
+|------|------|
+| `pyproject.toml` | 移除 `llama-index-vector-stores-qdrant`、`fastembed` |
+| `uv.lock` | 自動更新（移除 11 套件） |
+| `configs/rag/qdrant.toml` | **整檔刪除** |
+| `src/app/configs/rag_config.py` | `DEFAULT_VECTOR_STORE_TYPE` 改 `"milvus"`；刪除 `_default_qdrant_db_path()`、`qdrant_db_folder_path` 欄位/keys/驗證；`vector_store_type` 驗證改為僅允許 `"milvus"` |
+| `src/app/engines/rag/rag_factory.py` | 刪除 Qdrant imports、`build_qdrant()`、`clean_qdrant()`；`VectorStoreBuilder.build()` 簡化回傳型別；`build_vector_store()` 不再設定 `rag.qdrant_client`；`clean_vector_store()` 直接呼叫 `clean_milvus()` |
+| `src/app/engines/rag/rag.py` | 刪除 Qdrant imports；`RAG.__init__` 移除 `self.qdrant_client`；`close()` 移除 qdrant_client 關閉；`vector_store` 型別簡化 |
+| `src/app/workflow/workflow.py` | `run_rag_build()` 移除 qdrant 分支，僅保留 milvus 路徑 |
+| `src/app/workflow/data_manager.py` | `publish_vector_store()` 移除 `vector_store_type` 參數，固定為 Milvus |
+| `src/test/dev/test_rag_reuse.py` | 刪除 `TestShouldRebuildQdrant` 測試類別；`TestShouldRebuildUnified` 移除 qdrant parametrize |
+| `src/test/dev/test_runmanager_datamanager.py` | 刪除 `test_publish_vector_store_qdrant` |
+| `src/test/dev/test_legacy_results_removal.py` | 從 parametrize 移除 `"qdrant"` |
+| `README.md` | 功能描述改為 Milvus only |
+
+### 17-5. 驗證
+
+| 項目 | 結果 |
+|------|------|
+| `uv lock` | 11 套件移除 |
+| Pylance 診斷 | 0 errors（所有修改檔案） |
+| `pytest src/test/test_module.py::test_rag` | **PASSED**（45s，完整 RAG 建構 + hybrid query） |

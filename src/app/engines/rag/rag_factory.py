@@ -26,8 +26,6 @@ from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.vector_stores.milvus.utils import (
     BGEM3SparseEmbeddingFunction,
 )
-from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 
 from app.configs.rag_config import RAGConfig
 from app.engines.rag.rag import RAG
@@ -154,12 +152,6 @@ class VectorStoreBuilder:
             )
 
     @staticmethod
-    def clean_qdrant(db_folder_path: str | None) -> None:
-        if db_folder_path and os.path.exists(db_folder_path):
-            shutil.rmtree(db_folder_path)
-            logger.info("Cleaned Qdrant vector store: %s", db_folder_path)
-
-    @staticmethod
     def clean_milvus(milvus_uri: str | None) -> None:
         if milvus_uri and os.path.exists(milvus_uri):
             if os.path.isdir(milvus_uri):
@@ -167,27 +159,6 @@ class VectorStoreBuilder:
             else:
                 os.remove(milvus_uri)
             logger.info("Cleaned Milvus vector store: %s", milvus_uri)
-
-    @staticmethod
-    def build_qdrant(
-        collection_name: str,
-        db_folder_path: str,
-    ) -> tuple[QdrantClient, QdrantVectorStore]:
-        os.makedirs(db_folder_path, exist_ok=True)
-        qdrant_client = QdrantClient(path=db_folder_path)
-        vector_store = QdrantVectorStore(
-            collection_name,
-            qdrant_client,
-            index_doc_id=False,
-            enable_hybrid=True,
-            fastembed_sparse_model="Qdrant/bm25",
-        )
-        logger.debug(
-            "Built QdrantVectorStore at %s (collection=%s)",
-            db_folder_path,
-            collection_name,
-        )
-        return qdrant_client, vector_store
 
     @staticmethod
     def build_milvus(
@@ -229,43 +200,21 @@ class VectorStoreBuilder:
 
     @staticmethod
     def build(
-        vector_store_type: str,
         collection_name: str,
         embedding_name: str,
-        qdrant_db_folder_path: str | None = None,
-        milvus_uri: str | None = None,
+        milvus_uri: str,
         overwrite: bool = True,
         hybrid_ranker: str = "WeightedRanker",
         hybrid_ranker_params: dict | None = None,
-    ) -> tuple[QdrantClient | None, QdrantVectorStore | MilvusVectorStore]:
-        if vector_store_type == "qdrant":
-            if qdrant_db_folder_path is None:
-                raise ValueError(
-                    "qdrant_db_folder_path is required for vector_store_type='qdrant'"
-                )
-            return VectorStoreBuilder.build_qdrant(
-                collection_name=collection_name,
-                db_folder_path=qdrant_db_folder_path,
-            )
-        elif vector_store_type == "milvus":
-            if milvus_uri is None:
-                raise ValueError(
-                    "milvus_uri is required for vector_store_type='milvus'"
-                )
-            vector_store = VectorStoreBuilder.build_milvus(
-                collection_name=collection_name,
-                milvus_uri=milvus_uri,
-                embedding_name=embedding_name,
-                overwrite=overwrite,
-                hybrid_ranker=hybrid_ranker,
-                hybrid_ranker_params=hybrid_ranker_params,
-            )
-            return None, vector_store
-        else:
-            raise ValueError(
-                f"Unsupported vector_store_type: '{vector_store_type}'. "
-                f"Supported: 'qdrant', 'milvus'."
-            )
+    ) -> MilvusVectorStore:
+        return VectorStoreBuilder.build_milvus(
+            collection_name=collection_name,
+            milvus_uri=milvus_uri,
+            embedding_name=embedding_name,
+            overwrite=overwrite,
+            hybrid_ranker=hybrid_ranker,
+            hybrid_ranker_params=hybrid_ranker_params,
+        )
 
 
 class RAGBuilder:
@@ -320,16 +269,8 @@ class RAGBuilder:
         """
         if force_rebuild:
             return True
-        if self.config.vector_store_type == "qdrant":
-            assert self.config.qdrant_db_folder_path is not None
-            return not os.path.exists(self.config.qdrant_db_folder_path)
-        elif self.config.vector_store_type == "milvus":
-            assert self.config.milvus_uri is not None
-            return not os.path.exists(self.config.milvus_uri)
-        raise ValueError(
-            f"Unsupported vector_store_type: {self.config.vector_store_type}. "
-            f"Supported: 'qdrant', 'milvus'."
-        )
+        assert self.config.milvus_uri is not None
+        return not os.path.exists(self.config.milvus_uri)
 
     def build_nodes(self, rag: RAG) -> None:
         builder = NodePipelineBuilder(
@@ -344,17 +285,14 @@ class RAGBuilder:
         )
 
     def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
-        qdrant_client, vector_store = VectorStoreBuilder.build(
-            vector_store_type=self.config.vector_store_type,
+        vector_store = VectorStoreBuilder.build(
             collection_name=self.config.site_id,
             embedding_name=self.config.embedding_name,
-            qdrant_db_folder_path=self.config.qdrant_db_folder_path,
             milvus_uri=self.config.milvus_uri,
             overwrite=overwrite,
             hybrid_ranker=self.config.hybrid_ranker,
             hybrid_ranker_params=self.config.hybrid_ranker_params,
         )
-        rag.qdrant_client = qdrant_client
         rag.vector_store = vector_store
         logger.info(
             "Successfully built vector store (type=%s, hybrid_ranker=%s)",
@@ -363,10 +301,7 @@ class RAGBuilder:
         )
 
     def clean_vector_store(self, rag: RAG) -> None:
-        if self.config.vector_store_type == "qdrant":
-            VectorStoreBuilder.clean_qdrant(self.config.qdrant_db_folder_path)
-        elif self.config.vector_store_type == "milvus":
-            VectorStoreBuilder.clean_milvus(self.config.milvus_uri)
+        VectorStoreBuilder.clean_milvus(self.config.milvus_uri)
 
     def build_index(self, rag: RAG) -> None:
         if rag.vector_store is None:

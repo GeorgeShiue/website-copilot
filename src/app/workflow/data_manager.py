@@ -98,46 +98,32 @@ class DataManager:
     def publish_vector_store(
         self,
         site_id: str,
-        vector_store_type: str,
         source_path: str,
     ) -> str:
-        """發布向量庫到 data/rag/{site_id}/。
+        """發布 Milvus 向量庫到 data/rag/{site_id}/。
 
         Args:
             site_id: 站點識別碼。
-            vector_store_type: 向量庫類型（milvus 或 qdrant）。
             source_path: 原始向量庫路徑。
 
         Returns:
-            發布後的向量庫路徑。
+            發布後的向量庫所在資料夾路徑。
         """
         rag_path = os.path.join(self.base_folder, "rag", site_id)
         os.makedirs(rag_path, exist_ok=True)
 
-        if vector_store_type == "milvus":
-            dest_path = os.path.join(rag_path, "milvus.db")
-            # source == dest 時跳過，避免 rmtree 銷毀 source 後 copytree 失敗
-            if os.path.realpath(source_path) == os.path.realpath(dest_path):
-                logger.info(
-                    f"Milvus vector store already at {dest_path}, skipping publish"
-                )
-            elif os.path.isdir(source_path):
-                # Milvus 資料夾結構
-                if os.path.exists(dest_path):
-                    shutil.rmtree(dest_path)
-                shutil.copytree(source_path, dest_path)
-                logger.info(f"Published Milvus vector store to {dest_path}")
-            elif os.path.isfile(source_path):
-                shutil.copy2(source_path, dest_path)
-                logger.info(f"Published Milvus vector store to {dest_path}")
-        elif vector_store_type == "qdrant":
-            dest_path = os.path.join(rag_path, "qdrant_db")
+        dest_path = os.path.join(rag_path, "milvus.db")
+        # source == dest 時跳過，避免 rmtree 銷毀 source 後 copytree 失敗
+        if os.path.realpath(source_path) == os.path.realpath(dest_path):
+            logger.info(f"Milvus vector store already at {dest_path}, skipping publish")
+        elif os.path.isdir(source_path):
             if os.path.exists(dest_path):
                 shutil.rmtree(dest_path)
             shutil.copytree(source_path, dest_path)
-            logger.info(f"Published Qdrant vector store to {dest_path}")
-        else:
-            raise ValueError(f"Unsupported vector_store_type: {vector_store_type}")
+            logger.info(f"Published Milvus vector store to {dest_path}")
+        elif os.path.isfile(source_path):
+            shutil.copy2(source_path, dest_path)
+            logger.info(f"Published Milvus vector store to {dest_path}")
 
         return rag_path
 

@@ -34,7 +34,6 @@ class TestRAGConfigPathResolution:
             "test_nculab",
             "test_ncucsie",
             "milvus",
-            "qdrant",
         ],
     )
     def test_webpages_path_contains_site_id(self, config_name: str) -> None:
@@ -52,29 +51,12 @@ class TestRAGConfigPathResolution:
             "test_nculab",
             "test_ncucsie",
             "milvus",
-            "qdrant",
         ],
     )
     def test_milvus_uri_contains_site_id(self, config_name: str) -> None:
         config = RAGConfig.from_toml(config_name)
         assert config.site_id in config.milvus_uri
         assert f"data/rag/{config.site_id}/milvus.db" == config.milvus_uri
-
-    @pytest.mark.parametrize(
-        "config_name",
-        [
-            "default",
-            "test",
-            "test_nculab",
-            "test_ncucsie",
-            "milvus",
-            "qdrant",
-        ],
-    )
-    def test_qdrant_path_contains_site_id(self, config_name: str) -> None:
-        config = RAGConfig.from_toml(config_name)
-        assert config.site_id in config.qdrant_db_folder_path
-        assert f"data/rag/{config.site_id}/qdrant_db" == config.qdrant_db_folder_path
 
     def test_no_config_references_legacy_paths(self) -> None:
         """Confirm none of the active config files hardcode legacy paths."""
@@ -114,7 +96,6 @@ class DataManagerPublishPaths:
         dm = DataManager(base_folder=str(PROJECT_ROOT / "data"))
         result_path = dm.publish_vector_store(
             site_id="nculab",
-            vector_store_type="milvus",
             source_path="/tmp/fake_milvus.db",
         )
         assert "nculab" in result_path

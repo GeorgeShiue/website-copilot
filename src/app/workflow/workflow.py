@@ -275,16 +275,7 @@ def run_rag_build(
         vector_store_folder = os.path.join(
             run_manager.results_folder_path, "vector_store"
         )
-        if config.vector_store_type == "qdrant":
-            config.qdrant_db_folder_path = os.path.join(
-                vector_store_folder, "qdrant_db"
-            )
-        elif config.vector_store_type == "milvus":
-            config.milvus_uri = os.path.join(vector_store_folder, "milvus.db")
-        else:
-            raise ValueError(
-                f"Unsupported vector_store_type: {config.vector_store_type}"
-            )
+        config.milvus_uri = os.path.join(vector_store_folder, "milvus.db")
 
     rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
 
@@ -310,20 +301,10 @@ def run_rag_build(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
         if data_manager:
-            # config.milvus_uri / qdrant_db_folder_path 在上游已因
-            # save_vector_store_to_runs 被改指到正確路徑，此處直接讀取即可。
-            if config.vector_store_type == "milvus":
-                vector_store_source = config.milvus_uri
-            elif config.vector_store_type == "qdrant":
-                vector_store_source = config.qdrant_db_folder_path
-            else:
-                vector_store_source = None
-
-            if vector_store_source and os.path.exists(vector_store_source):
+            if config.milvus_uri and os.path.exists(config.milvus_uri):
                 data_manager.publish_vector_store(
                     site_id=config.site_id,
-                    vector_store_type=config.vector_store_type,
-                    source_path=vector_store_source,
+                    source_path=config.milvus_uri,
                 )
 
         # ----- 輸出完成訊息 -----

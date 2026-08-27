@@ -246,35 +246,10 @@ class TestDataManager:
         # 發布
         published_path = data_manager.publish_vector_store(
             site_id="nculab",
-            vector_store_type="milvus",
             source_path=source_dir,
         )
 
         # 驗證發布結果
         dest_path = os.path.join(published_path, "milvus.db")
-        assert os.path.isdir(dest_path)
-        assert os.path.isfile(os.path.join(dest_path, "test.db"))
-
-    def test_publish_vector_store_qdrant(self):
-        """測試 publish_vector_store 正確複製 Qdrant 向量庫。"""
-        data_manager = DataManager(base_folder=self.data_dir)
-
-        # 建立來源 Qdrant 資料夾
-        source_dir = os.path.join(self.temp_dir, "source_qdrant")
-        os.makedirs(source_dir)
-
-        # 寫入測試資料
-        with open(os.path.join(source_dir, "test.db"), "w") as f:
-            f.write("test")
-
-        # 發布
-        published_path = data_manager.publish_vector_store(
-            site_id="nculab",
-            vector_store_type="qdrant",
-            source_path=source_dir,
-        )
-
-        # 驗證發布結果
-        dest_path = os.path.join(published_path, "qdrant_db")
         assert os.path.isdir(dest_path)
         assert os.path.isfile(os.path.join(dest_path, "test.db"))

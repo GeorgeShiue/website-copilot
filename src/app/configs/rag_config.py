@@ -11,7 +11,7 @@ from utils.config_helper import (
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_VECTOR_STORE_TYPE = "qdrant"
+DEFAULT_VECTOR_STORE_TYPE = "milvus"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
 DEFAULT_NODES_CONFIG_SECTION = "nodes"
@@ -28,16 +28,11 @@ def _default_milvus_uri(site_id: str) -> str:
     return f"data/rag/{site_id}/milvus.db"
 
 
-def _default_qdrant_db_path(site_id: str) -> str:
-    return f"data/rag/{site_id}/qdrant_db"
-
-
 INIT_KEYS = {
     "site_id",
     "webpages_data_folder_path",
 }
 VECTOR_STORE_KEYS = {
-    "qdrant_db_folder_path",
     "vector_store_type",
     "milvus_uri",
     "hybrid_ranker",
@@ -83,7 +78,6 @@ class RAGConfig(BaseModuleConfig):
     webpages_data_folder_path: str | None = None
     # ----- vector store config -----
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
-    qdrant_db_folder_path: str | None = None
     milvus_uri: str | None = None
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None
@@ -109,8 +103,6 @@ class RAGConfig(BaseModuleConfig):
         # 未指定路徑時，由 site_id 動態產生預設路徑
         if self.webpages_data_folder_path is None:
             self.webpages_data_folder_path = _default_webpages_path(self.site_id)
-        if self.qdrant_db_folder_path is None:
-            self.qdrant_db_folder_path = _default_qdrant_db_path(self.site_id)
         if self.milvus_uri is None:
             self.milvus_uri = _default_milvus_uri(self.site_id)
 
@@ -145,17 +137,10 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("webpages_data_folder_path 不可為空字串")
 
     # ----- vector store config -----
-    qdrant_db_folder_path = config.get("qdrant_db_folder_path")
     vector_store_type = config.get("vector_store_type")
 
-    if vector_store_type is not None and vector_store_type not in ("qdrant", "milvus"):
-        raise ConfigValidationError("vector_store_type 必須是 'qdrant' 或 'milvus'")
-
-    if qdrant_db_folder_path is not None:
-        if not isinstance(qdrant_db_folder_path, str):
-            raise ConfigValidationError("qdrant_db_folder_path 必須是字串")
-        if not qdrant_db_folder_path.strip():
-            raise ConfigValidationError("qdrant_db_folder_path 不可為空字串")
+    if vector_store_type is not None and vector_store_type != "milvus":
+        raise ConfigValidationError("vector_store_type 必須是 'milvus'")
 
     hybrid_ranker = config.get("hybrid_ranker")
 
