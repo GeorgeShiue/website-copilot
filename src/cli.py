@@ -52,13 +52,13 @@ class ServerCLI:
 if __name__ == "__main__":
     import tyro
 
-    from app.server.app import run_server
     from app.workflow.data_manager import DataManager
     from app.workflow.run_manager import RunManager
     from app.workflow.workflow import (
         run_agent,
         run_rag_build,
         run_rag_query,
+        run_server,
         run_webpage_image_summarizer,
         run_website_crawler,
     )
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         agent_run_manager.log_run_paths("complete")
     elif isinstance(cli_arg, ServerCLI):
         # 常駐服務：不落盤 run config（無 run_manager），由 run_server blocking 執行
-        run_server(**vars(cli_arg.run))
+        run_server(**vars(cli_arg.run), mode="block")
 
     if not isinstance(cli_arg, (AgentCLI, ServerCLI)):
         save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)

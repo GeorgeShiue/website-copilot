@@ -6,7 +6,7 @@
 - GET /api/health：健康檢查
 - GET /：redirect 至 /static/demo.html（嵌入示範）
 - /static/：chat.html（iframe）、widget.js（script 嵌入）、demo.html
-- run_server()：uvicorn 啟動入口（供 cli.py serve 分派）
+- start_uvicorn()：uvicorn 啟動入口
 
 SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "token", "content": "..."}：逐 token 串流
@@ -214,13 +214,13 @@ def create_app(
     return app
 
 
-def run_server(
+def start_uvicorn(
     config_name: str = "default",
     host: str = "127.0.0.1",
     port: int = 8000,
     allowed_origins: list[str] | None = None,
 ) -> None:
-    """啟動聊天伺服器（cli.py serve 分派入口，blocking）。
+    """啟動 uvicorn 伺服器（blocking）。
 
     Args:
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。

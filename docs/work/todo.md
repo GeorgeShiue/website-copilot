@@ -5,12 +5,17 @@
 ---
 
 - [x] 移除 Qdrant Vector Store
-- [ ] workflow.py logging 改善
-- [ ] exception handling 回報錯誤
-- [ ] 清理和更新測試檔案
+- [x] exception handling 回報錯誤
+- [x] 刪除、合併現有測試
+- [x] 重構 server 引用架構
+- [x] 整併新增 server 測試
+- [ ] 拆分 run manager
+- [ ] 重構 agent chat 儲存架構
+- [ ] 更新完整流程測試
 
 ---
 
+- [ ] workflow.py logging 改善
 - [ ] 整理 sever log
 - [ ] 輸出 workflow 執行時間和成本計算
 

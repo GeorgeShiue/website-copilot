@@ -1,4 +1,4 @@
-# 開發實作紀錄 (2026/08/18–08/26)
+# 開發實作紀錄 (2026/08/18–08/28)
 
 > 彙整 `docs/work/2026_0826/` 中所有規劃文件的實作規格與程式碼設計。各規劃文件保留動機與決策面內容，實作細節集中於此。
 
@@ -662,13 +662,184 @@ src/test/dev/  (10 → 6 檔案，40% 減少)
 ├── test_runmanager_datamanager.py ← 保留 + 精簡
 └── test_multi_site.py            ← 保留（整合測試）
 
-scripts/
-├── m3_server_smoke.py            ← 保留（E2E smoke）
-├── m4b_extension_test.py         ← 保留（Playwright E2E）
-└── server_up.py                  ← 保留（工具腳本）
+scripts/  ← §21 整個刪除
 ```
 
 | 項目 | 結果 |
 |------|------|
 | `pytest src/test/dev/` | **125 passed**, 0 failed |
 | Pylance 診斷（全部 dev 測試） | 0 errors |
+
+---
+
+## 20. Server 架構重構 — 統一入口與工具抽取（2026-08-28）
+
+> 目標：消除 server 啟動/測試的重工，建立單一統一入口 `workflow.run_server()`。
+
+### 20-1. 問題
+
+重構前 server 相關程式碼分散於三個檔案，呼叫鏈冗長：
+
+```
+server_up.py → spawn(cli.py server-cli) → app.run_server()
+m3_server_smoke.py → spawn(cli.py server-cli) → app.run_server()
+test_module.py → workflow.run_server() → spawn(cli.py server-cli) → app.run_server()
+cli.py server-cli → app.run_server()（一行轉發）
+```
+
+問題：
+- `cli.py ServerCLI` 分支僅一行轉發，是多餘的間接層
+- `server_up.py` 與 `cli.py server-cli` 功能完全重疊
+- `app.run_server` 與 `workflow.run_server` 命名衝突
+- subprocess command 路徑過長（3 層間接）
+
+### 20-2. 新架構
+
+```
+cli.py server-cli → workflow.run_server(mode="block")
+                       └─→ spawn(app.start_uvicorn()) → app.start_uvicorn()
+
+test_module.py    → workflow.run_server(mode="validate")
+                       └─→ spawn(app.start_uvicorn()) → app.start_uvicorn()
+                           → validate SSE → shutdown
+```
+
+### 20-3. 新增 `src/utils/server_helper.py`
+
+從 `server_up.py` 和 `m3_server_smoke.py` 提取共用工具：
+
+| 函式 | 職責 | 來源 |
+|------|------|------|
+| `spawn_server()` | subprocess 啟動 `app.start_uvicorn()` | 兩者共有 |
+| `wait_ready()` | health polling (`/api/health`) | 兩者共有 |
+| `shutdown_server()` | SIGTERM → SIGKILL 優雅關閉 | 兩者共有 |
+| `parse_sse_events()` | SSE body → event dict 列表 | `m3_server_smoke.py` |
+| `stream_chat()` | POST `/api/chat` | `m3_server_smoke.py` |
+| `check_single_turn()` | SSE 協定驗證 | `m3_server_smoke.py` |
+| `latest_results_json()` | 最新 results.json 查找 | `m3_server_smoke.py` |
+| `check_persistence()` | 落盤驗證 | `m3_server_smoke.py` |
+
+**常數**：`HEALTH_TIMEOUT_SEC=600`、`DEFAULT_QUERY`、`DEFAULT_FOLLOW_UP`。
+
+**`spawn_server()` 設計**：
+- `output` 參數：`Literal["inherit", "devnull"] | Path`（三種模式）
+- `config_name` 以 `assert config_name.isidentifier()` 防禦注入
+- subprocess command 直接呼叫 `app.start_uvicorn()`（跳過 `cli.py server-cli`）
+- file handle 生命週期：`proc._output_fh` 附加，由 `shutdown_server()` 關閉
+
+### 20-4. `workflow.run_server()` 重構
+
+```python
+def run_server(
+    host, port, config_name,
+    mode: Literal["validate", "block"] = "validate",
+    *, output, allowed_origins, startup_timeout,
+    query, follow_up,
+) -> None:
+```
+
+| mode | 行為 |
+|------|------|
+| `"validate"` | spawn → wait_ready → SSE 單輪/多輪 → 落盤 → shutdown |
+| `"block"` | spawn → wait_ready → `proc.wait()` → Ctrl+C → shutdown |
+
+validate 核心邏輯抽取為 `_validate_server()` 私有函式。
+
+### 20-5. `app.run_server()` → `app.start_uvicorn()`
+
+解決 `app.run_server` 與 `workflow.run_server` 的命名衝突：
+
+```python
+# app.py — 純 factory + 啟動器
+def create_app()      → FastAPI app
+def start_uvicorn()   → setup_logging + create_app + uvicorn.run
+
+# workflow.py — 生命週期管理
+def run_server()      → spawn + wait + validate/block + shutdown
+```
+
+### 20-6. `cli.py` 改動
+
+- import 從 `from app.server.app import run_server` 改為 `from app.workflow.workflow import run_server`
+- ServerCLI 分支：`run_server(**vars(cli_arg.run), mode="block")`
+- 合併重複的 `from app.workflow.workflow import` 區塊
+
+### 20-7. `test_module.py` 改動
+
+```python
+# Before（~30 行）
+def test_server():
+    proc = spawn_server(...)
+    try:
+        elapsed = wait_ready(...)
+        events = stream_chat(...)
+        single = check_single_turn(events)
+        ...
+    finally:
+        shutdown_server(proc)
+
+# After（2 行）
+def test_server():
+    """驗證 server 啟動、health check、SSE 單輪/多輪、落盤。"""
+    run_server(host="127.0.0.1", port=SERVER_PORT, config_name="test")
+```
+
+### 20-8. 變更範圍
+
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `src/utils/server_helper.py` | **新增** | 共用 server 工具（8 函式 + 4 常數） |
+| `src/app/workflow/workflow.py` | 修改 | `run_server()` 重構 + `_validate_server()` + `Literal` import |
+| `src/app/server/app.py` | 修改 | `run_server` → `start_uvicorn`（函式名 + docstring） |
+| `src/cli.py` | 修改 | import 改為 `workflow.run_server` + `mode="block"` + 合併 import |
+| `src/test/test_module.py` | 修改 | 新增 `test_server()`（2 行呼叫） |
+| `scripts/server_up.py` | **刪除** | 功能由 `cli.py server-cli` 取代 |
+| `scripts/m3_server_smoke.py` | **刪除** | 功能由 `workflow.run_server()` 取代 |
+
+### 20-9. 驗證
+
+| 項目 | 結果 |
+|------|------|
+| Pylance 診斷（4 個修改檔案） | 0 errors |
+| Ruff lint | 0 issues |
+| Import 解析 | ✅ |
+| server_up.py 已刪除 | ✅ |
+
+---
+
+## 21. Scripts 資料夾刪除（2026-08-28）
+
+### 21-1. 動機
+
+`scripts/` 資料夾原存放三個腳本：
+
+| 檔案 | 狀態 |
+|------|------|
+| `server_up.py` | §20 已刪除（功能由 `cli.py server-cli` 取代） |
+| `m3_server_smoke.py` | §20 已刪除（功能由 `workflow.run_server()` 取代） |
+| `m4b_extension_test.py` | Playwright E2E 測試，尚在使用 |
+
+§20 重構後，`server_up.py` 和 `m3_server_smoke.py` 已無功能殘留。`m4b_extension_test.py` 為 Chrome Extension 的 E2E 測試，獨立於 server 架構。
+
+### 21-2. 改動
+
+| 操作 | 說明 |
+|------|------|
+| 刪除 `scripts/` 資料夾 | 整個目錄（含 `m4b_extension_test.py`） |
+
+> ⚠️ `m4b_extension_test.py` 被一併刪除。如需恢復，可從 git 歷史還原。
+
+### 21-3. 測試檔案結構（改後）
+
+```
+src/test/
+├── test_module.py        ← 端到端測試（5 tests：crawler、summarizer、rag、agent、server）
+├── test_main.py          ← 主流程測試
+└── dev/
+    ├── test_agent_server.py
+    ├── test_rag_tools.py
+    ├── test_dedup_key.py
+    ├── test_html_date_extraction.py
+    ├── test_runmanager_datamanager.py
+    └── test_multi_site.py
+```

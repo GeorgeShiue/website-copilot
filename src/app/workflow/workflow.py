@@ -1,7 +1,8 @@
 import asyncio
 import os
 import time
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 from app.agent.agent import (
     ask_agent,
@@ -28,6 +29,14 @@ from utils.log_helper import (
     save_logging_file,
 )
 from utils.rag_helper import response_to_dict
+from utils.server_helper import (
+    DEFAULT_FOLLOW_UP,
+    DEFAULT_QUERY,
+    shutdown_server,
+    spawn_server,
+    validate_server,
+    wait_ready,
+)
 
 
 def _init_workflow(
@@ -489,3 +498,67 @@ def run_agent(
             print(f"Results json: {agent.run_manager.results_json_path}")
     finally:
         agent.close()
+
+
+def run_server(
+    host: str = "127.0.0.1",
+    port: int = 8001,
+    config_name: str = "default",
+    mode: Literal["validate", "block"] = "validate",
+    *,
+    output: Literal["inherit", "devnull"] | Path = "devnull",
+    allowed_origins: list[str] | None = None,
+    startup_timeout: int = 600,
+    query: str = DEFAULT_QUERY,
+    follow_up: str = DEFAULT_FOLLOW_UP,
+) -> None:
+    """Server 生命週期統一入口。
+
+    mode="validate" → 啟動 → health check → SSE 驗證 → 落盤 → 關閉
+    mode="block"    → 啟動 → health check → 等待 Ctrl+C → 關閉
+
+    Args:
+        host: server 監聽位址。
+        port: server 監聽 port。
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
+        mode: "validate"（測試）或 "block"（互動/正式）。
+        output: subprocess stdout/stderr 去向。
+        allowed_origins: CORS 允許來源。
+        startup_timeout: 等待 server 就緒的最長秒數。
+        query: validate 模式單輪測試問題。
+        follow_up: validate 模式多輪測試問題。
+    """
+    base_url = f"http://{host}:{port}"
+
+    # allowed_origins: subprocess calls app.run_server() without this param;
+    # it defaults to ["*"] (full CORS). Override via app-level config if needed.
+    proc = spawn_server(
+        host,
+        port,
+        config_name,
+        output=output,
+    )
+    try:
+        log_session("Waiting for Server Ready", style="cyan")
+        elapsed = wait_ready(base_url, timeout=startup_timeout)
+        print_log(f"Server ready ({elapsed:.1f}s)")
+
+        if mode == "validate":
+            validate_server(base_url, query, follow_up)
+        else:  # block
+            log_session(
+                f"Server running at {base_url}",
+                style="green",
+            )
+            print_log("使用 Ctrl+C 關閉 server")
+            proc.wait()
+
+    except TimeoutError as exc:
+        print_log(f"[bold red]FAIL: {exc}[/bold red]")
+        raise
+    except KeyboardInterrupt:
+        log_session("Server Shutting Down", style="yellow")
+        print_log("收到終止訊號，關閉 server...")
+    finally:
+        shutdown_server(proc)
+        log_session("Server Stopped", style="red")
