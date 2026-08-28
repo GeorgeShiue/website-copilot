@@ -70,14 +70,14 @@ class RAG:
     def close(self) -> None:
         if getattr(self, "_closed", False):
             return
-        self._closed = True
 
         if isinstance(self.vector_store, MilvusVectorStore):
             try:
                 self.vector_store._milvusclient.close()
             except Exception:
-                pass
+                logger.warning("Milvus client close() failed", exc_info=True)
 
+        self._closed = True
         self.vector_store = None
         self.index = None
         self.retriever = None

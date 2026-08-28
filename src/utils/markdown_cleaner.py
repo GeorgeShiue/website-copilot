@@ -87,8 +87,8 @@ def clean_markdown(
             options={"wrap": "no"},
             extensions={"gfm"},
         )
-    except Exception as e:
-        logger.error(f"Error during mdformat formatting: {e}")
+    except (ValueError, KeyError) as e:
+        logger.warning("mdformat failed, using unformatted markdown: %s", e)
 
     # ----- 結構修復 (後) -----
     markdown = IMAGE_FOLLOW_TEXT_PATTERN.sub(r"\1\n", markdown)

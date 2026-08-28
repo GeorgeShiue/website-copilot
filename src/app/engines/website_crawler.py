@@ -292,7 +292,7 @@ class WebsiteCrawler:
         try:
             return fn()
         except Exception as e:
-            logger.error(f"Error during {label}: {e}")
+            logger.error("Error during %s: %s", label, e, exc_info=True)
             return None
 
     @staticmethod

@@ -254,18 +254,10 @@ class MarkdownDateExtractor(BaseExtractor):
 
 
 def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
-    try:
-        page_title = source_node.node.metadata.get("page_title", "Unknown")
-    except Exception:
-        page_title = "Unknown"
-
+    metadata = getattr(source_node.node, "metadata", None) or {}
+    page_title = metadata.get("page_title", "Unknown")
     score = source_node.get_score()
-
-    try:
-        page_type = source_node.node.metadata.get("page_type", "Unknown")
-    except Exception:
-        page_type = "Unknown"
-
+    page_type = metadata.get("page_type", "Unknown")
     return page_title, score, page_type
 
 

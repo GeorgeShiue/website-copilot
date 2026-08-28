@@ -499,3 +499,176 @@ RAGBuilder._should_rebuild()   → 僅 milvus 路徑判斷（原為 if qdrant / 
 | `uv lock` | 11 套件移除 |
 | Pylance 診斷 | 0 errors（所有修改檔案） |
 | `pytest src/test/test_module.py::test_rag` | **PASSED**（45s，完整 RAG 建構 + hybrid query） |
+
+---
+
+## 18. Exception Handling 改善（2026-08-27）
+
+> 技術債分析：`docs/work/issiue.md` H2 節。專案中 10 處 `except Exception` 分布於 7 個檔案，存在靜默吞錯誤、log level 誤用、exception 類型過寬等問題。
+
+### 18-1. 問題分類
+
+| 嚴重度 | 檔案 | 問題 |
+|--------|------|------|
+| 🔴 Critical | `rag.py` L78 | `except Exception: pass` — Milvus client 關閉失敗完全靜默，`_closed = True` 在 try 之前導致不可重入，連接洩漏風險 |
+| 🟠 Medium | `rag_helper.py` L259+L266 | 用 `except Exception` 包 `.get()` — 過度防禦，掩盖 API 變動 |
+| 🟡 Low-Med | `html_date_extractor.py` L111 | `logger.debug` — BeautifulSoup 失敗應為 `warning`，且缺 `exc_info=True` |
+| 🟠 Medium | `markdown_cleaner.py` L90 | `except Exception` — `mdformat` 只會拋 `ValueError`/`KeyError`，過寬；`logger.error` 應改 `warning` |
+| 🟡 Medium | `webpage_image_summarizer.py` L293 | `except Exception` — 圖片下載失敗應用 `URLError`/`TimeoutError`/`OSError` |
+| 🟡 Medium | `webpage_image_summarizer.py` L379+L438 | 缺 `exc_info=True`，async task traceback 喪失 |
+| 🟠 Medium | `website_crawler.py` L294 | `_safe_step` f-string + 缺 `exc_info=True` |
+
+`server/app.py` L131 的 `except Exception` 使用 `logger.exception()` + SSE 錯誤回傳，為合理模式，不需修改。
+
+### 18-2. 修正策略
+
+三層原則：
+1. **收窄 exception 類型**：能確定的用具體 exception（`URLError`、`ValueError`、`KeyError`），不確定的保留 `Exception` 但加 `exc_info`
+2. **不再靜默吞錯誤**：所有 `except Exception` 至少有 `logger.warning/error` + `exc_info=True`
+3. **修復控制流缺陷**：`rag.py` 的 `_closed = True` 移至 close 成功之後
+
+### 18-3. 變更範圍
+
+| 優先序 | 檔案 | 變更 |
+|--------|------|------|
+| P0 | `src/app/engines/rag/rag.py` | `except Exception: pass` → `logger.warning("Milvus client close() failed", exc_info=True)`；`_closed = True` 從 try 前移至 try 後，確保 close 失敗仍可重試 |
+| P1 | `src/utils/markdown_cleaner.py` | `except Exception as e` → `except (ValueError, KeyError) as e`；`logger.error(f"...")` → `logger.warning("mdformat failed, using unformatted markdown: %s", e)` |
+| P1 | `src/app/engines/website_crawler.py` | `_safe_step` 加 `exc_info=True`；f-string → `%s` lazy formatting |
+| P2 | `src/utils/rag_helper.py` | 移除兩處 `except Exception`，改用 `getattr(source_node.node, "metadata", None) or {}` null 檢查 |
+| P2 | `src/utils/html_date_extractor.py` | `logger.debug` → `logger.warning(..., exc_info=True)` |
+| P2 | `src/app/engines/webpage_image_summarizer.py` | E6：`except Exception` → `except (URLError, TimeoutError, OSError)`，新增 `from urllib.error import URLError`；E7+E8：加 `exc_info=True` |
+
+### 18-4. 關鍵修正詳解
+
+**P0 — `rag.py` close() 連接洩漏修復**
+
+```python
+# Before
+def close(self) -> None:
+    if getattr(self, "_closed", False):
+        return
+    self._closed = True          # ← close 前就標記，失敗不可重試
+    if isinstance(self.vector_store, MilvusVectorStore):
+        try:
+            self.vector_store._milvusclient.close()
+        except Exception:
+            pass                 # ← 完全靜默，連接可能洩漏
+    self.vector_store = None     # ← 即使 close 失敗仍清 reference
+
+# After
+def close(self) -> None:
+    if getattr(self, "_closed", False):
+        return
+    if isinstance(self.vector_store, MilvusVectorStore):
+        try:
+            self.vector_store._milvusclient.close()
+        except Exception:
+            logger.warning("Milvus client close() failed", exc_info=True)
+    self._closed = True          # ← close 成功後才標記
+    self.vector_store = None
+```
+
+**P2 — `rag_helper.py` 消除不必要 exception handling**
+
+```python
+# Before
+try:
+    page_title = source_node.node.metadata.get("page_title", "Unknown")
+except Exception:
+    page_title = "Unknown"
+
+# After — null 檢查取代 exception
+metadata = getattr(source_node.node, "metadata", None) or {}
+page_title = metadata.get("page_title", "Unknown")
+```
+
+**P2 — `webpage_image_summarizer.py` exception 收窄**
+
+```python
+# Before
+except Exception as e:
+    logger.warning("Image download failed (url=%s) : %s", url, e)
+
+# After — 僅捕獲網路 I/O 相關 exception
+except (URLError, TimeoutError, OSError) as e:
+    logger.warning("Image download failed (url=%s): %s", url, e)
+```
+
+### 18-5. 驗證
+
+| 項目 | 結果 |
+|------|------|
+| `pytest src/test/dev/test_html_date_extraction.py` | 35 passed |
+| `pytest src/test/dev/test_dedup_key.py` | 12 passed |
+| Pylance 診斷（6 個修改檔案） | 0 errors |
+| 語法檢查（`get_errors`） | 0 errors |
+
+---
+
+## 19. 測試檔案整合（2026-08-27）
+
+### 19-1. 動機
+
+`src/test/dev/` 累積 10 個測試檔案，部分檔案測試同一子系統的不同層面（如 `test_agent.py` 純函式 vs `test_server.py` SSE/CORS），替身基礎設施重複。另有 `test_legacy_results_removal.py` 測試前提已不存在（legacy 目錄已移除），`scripts/m0_rag_smoke.py` 功能可被單元測試取代。
+
+### 19-2. 刪除
+
+| 檔案 | 原因 |
+|------|------|
+| `test_legacy_results_removal.py` | legacy 目錄（`data/rag/results`、`data/webpages/results`）已不存在，`TestLegacyDirectoriesExist` 會直接 FAIL |
+| `scripts/m0_rag_smoke.py` | 功能合併至 `test_rag_tools.py` 的 `TestRAGRetrieverSmoke` |
+
+### 19-3. 合併 A：`test_agent.py` + `test_server.py` → `test_agent_server.py`
+
+兩者測試同一個 agent 層（`app.agent.agent` 和 `app.server.app`），共用相似的替身概念（`_FakeConfig` / `FakeRunManager` / `FakeAgent`）。合併後統一替身基礎設施，消除重複。
+
+| 來源 | 合併內容 |
+|------|---------|
+| `test_agent.py` | Agent 純函式：`thread_config` / `extract_sources_from_messages` / `_message_content_to_text` / `save_conversation_results` |
+| `test_server.py` | Server 層：SSE 串流 / error 事件 / health / CORS / static files / `resolve_site_id` / `_enrich_query_with_site_context` |
+
+衝突處理：兩邊的 `_FakeConfig` 完全相同 → 保留一份；`_FakeRunManager` 統一採用 test_server.py 版本（`saved` 初始為 `{}` 而非 `None`，兼容兩邊測試）。
+
+### 19-4. 合併 B：`test_rag_registry.py` + `test_rag_reuse.py` + `test_multi_site_tool.py` + `m0_rag_smoke.py` → `test_rag_tools.py`
+
+四者都測試 RAG 子系統（registry 快取、builder 重建、retriever 工具、smoke 驗證），共用 mock 基礎設施（`_make_mock_registry`、`_make_fake_retrieval_results`）。
+
+| 來源 | 合併內容 |
+|------|---------|
+| `test_rag_registry.py` | `RAGRegistry`：cache hit / cache miss / LRU eviction / close / list_sites |
+| `test_rag_reuse.py` | `RAGBuilder._should_rebuild`：Milvus 路徑判斷 |
+| `test_multi_site_tool.py` | Retriever 工具：schema 驗證、tool 建立、retrieve 路由、格式化 |
+| `m0_rag_smoke.py` | Smoke 驗證：registry + tool 建立 → invoke → close（改用 mock registry） |
+
+衝突處理：`_make_mock_registry` 保留使用 `spec=RAGRegistry` 的版本（更嚴謹）。`_FakeRAGConfig` 從 15 個欄位精簡至 2 個（`vector_store_type`、`milvus_uri`），因 `_should_rebuild` 僅讀取這兩個欄位。
+
+### 19-5. 內部精簡
+
+| 檔案 | 精簡 |
+|------|------|
+| `test_runmanager_datamanager.py` | `import json` 從 test method 內部移至模組頂端 |
+| `test_rag_tools.py` | `_FakeRAGConfig` 精簡（15 → 2 欄位）；`_make_builder` 加 `# type: ignore[arg-type]` |
+| `test_html_date_extraction.py` | `TestParseHttpDate`（4 tests）+ `TestNormalizeToIso8601`（6 tests）改用 `@pytest.mark.parametrize` |
+| `test_dedup_key.py` | `from urllib.parse import urlparse` 從 `_make_crawler` 內部移至模組頂端 |
+
+### 19-6. 結果
+
+```
+src/test/dev/  (10 → 6 檔案，40% 減少)
+├── test_agent_server.py          ← 合併 A + 精簡
+├── test_rag_tools.py             ← 合併 B + 精簡
+├── test_dedup_key.py             ← 保留 + 精簡
+├── test_html_date_extraction.py  ← 保留 + 精簡
+├── test_runmanager_datamanager.py ← 保留 + 精簡
+└── test_multi_site.py            ← 保留（整合測試）
+
+scripts/
+├── m3_server_smoke.py            ← 保留（E2E smoke）
+├── m4b_extension_test.py         ← 保留（Playwright E2E）
+└── server_up.py                  ← 保留（工具腳本）
+```
+
+| 項目 | 結果 |
+|------|------|
+| `pytest src/test/dev/` | **125 passed**, 0 failed |
+| Pylance 診斷（全部 dev 測試） | 0 errors |

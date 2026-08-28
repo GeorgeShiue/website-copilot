@@ -109,7 +109,10 @@ def extract_date_from_html(
     try:
         soup = BeautifulSoup(html, "html.parser")
     except Exception:
-        logger.debug("BeautifulSoup parsing failed, skipping HTML date extraction")
+        logger.warning(
+            "BeautifulSoup parsing failed, skipping HTML date extraction",
+            exc_info=True,
+        )
         return {"published_date": None, "modified_date": None}
 
     # --- Priority 1: JSON-LD datePublished / dateModified ---

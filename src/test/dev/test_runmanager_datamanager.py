@@ -1,5 +1,6 @@
 """RunManager + DataManager 重構單元測試。"""
 
+import json
 import os
 import shutil
 import tempfile
@@ -71,7 +72,6 @@ class TestRunManagerRefactor:
         # 建立測試 results.json
         test_results = {"page1": {"url": "http://example.com", "content": "test"}}
         results_json_path = os.path.join(run_dir, "results.json")
-        import json
 
         with open(results_json_path, "w") as f:
             json.dump(test_results, f)
@@ -124,7 +124,6 @@ class TestRunManagerRefactor:
         # 建立測試 results.json
         test_results = {"response": "test response"}
         results_json_path = os.path.join(agent_dir, "results.json")
-        import json
 
         with open(results_json_path, "w") as f:
             json.dump(test_results, f)
@@ -203,8 +202,6 @@ class TestDataManager:
         os.makedirs(results_folder_path)
 
         # 寫入測試資料
-        import json
-
         test_results = {"page1": {"url": "http://example.com"}}
         with open(results_json_path, "w") as f:
             json.dump(test_results, f)

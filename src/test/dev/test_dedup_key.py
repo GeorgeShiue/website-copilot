@@ -1,6 +1,7 @@
 """WebsiteCrawler 去重邏輯與 path_prefix 的單元測試。"""
 
 from unittest.mock import MagicMock
+from urllib.parse import urlparse
 
 from app.engines.website_crawler import WebsiteCrawler, resolve_dedup_key
 
@@ -11,8 +12,6 @@ def _make_crawler(url: str, path_prefix: str | None = None) -> WebsiteCrawler:
     if path_prefix is not None:
         crawler.path_prefix = path_prefix.rstrip("/")
     else:
-        from urllib.parse import urlparse
-
         start_path = urlparse(url).path.rstrip("/")
         crawler.path_prefix = start_path.rsplit("/", 1)[0] or "/"
     return crawler

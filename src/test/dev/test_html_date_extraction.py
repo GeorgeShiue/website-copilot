@@ -1,5 +1,6 @@
 """extract_date_from_html 及相關輔助函數的單元測試。"""
 
+import pytest
 from bs4 import BeautifulSoup
 
 from utils.html_date_extractor import (
@@ -142,41 +143,39 @@ class TestExtractMetaName:
 # ── _parse_http_date ──────────────────────────────────────────────────
 
 
-class TestParseHttpDate:
-    def test_rfc7231_format(self):
-        assert _parse_http_date("Wed, 15 Jan 2025 12:00:00 GMT") is not None
-
-    def test_none_input(self):
-        assert _parse_http_date(None) is None
-
-    def test_empty_string(self):
-        assert _parse_http_date("") is None
-
-    def test_invalid_format(self):
-        assert _parse_http_date("not-a-date") is None
+@pytest.mark.parametrize(
+    "input_val, expected",
+    [
+        pytest.param("Wed, 15 Jan 2025 12:00:00 GMT", True, id="rfc7231-format"),
+        pytest.param(None, None, id="none-input"),
+        pytest.param("", None, id="empty-string"),
+        pytest.param("not-a-date", None, id="invalid-format"),
+    ],
+)
+def test_parse_http_date(input_val: str | None, expected: str | None) -> None:
+    result = _parse_http_date(input_val)
+    if expected is None:
+        assert result is None
+    else:
+        assert result is not None
 
 
 # ── _normalize_to_iso8601 ─────────────────────────────────────────────
 
 
-class TestNormalizeToIso8601:
-    def test_already_iso(self):
-        assert _normalize_to_iso8601("2024-01-15") == "2024-01-15"
-
-    def test_iso_with_time(self):
-        assert _normalize_to_iso8601("2024-01-15T10:00:00Z") == "2024-01-15"
-
-    def test_iso_with_timezone(self):
-        assert _normalize_to_iso8601("2024-03-20T08:30:00+08:00") == "2024-03-20"
-
-    def test_none(self):
-        assert _normalize_to_iso8601(None) is None
-
-    def test_empty(self):
-        assert _normalize_to_iso8601("") is None
-
-    def test_invalid(self):
-        assert _normalize_to_iso8601("not-a-date") is None
+@pytest.mark.parametrize(
+    "input_val, expected",
+    [
+        pytest.param("2024-01-15", "2024-01-15", id="already-iso"),
+        pytest.param("2024-01-15T10:00:00Z", "2024-01-15", id="iso-with-time"),
+        pytest.param("2024-03-20T08:30:00+08:00", "2024-03-20", id="iso-with-tz"),
+        pytest.param(None, None, id="none"),
+        pytest.param("", None, id="empty"),
+        pytest.param("not-a-date", None, id="invalid"),
+    ],
+)
+def test_normalize_to_iso8601(input_val: str | None, expected: str | None) -> None:
+    assert _normalize_to_iso8601(input_val) == expected
 
 
 # ── extract_date_from_html（整合測試）────────────────────────────────
