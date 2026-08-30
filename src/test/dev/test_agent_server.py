@@ -47,6 +47,8 @@ class _FakeRunManager:
 
     run_name: str = "test"
     run_path: str = ""
+    base_folder: str = "runs"
+    module_name: str = "agent"
     saved: dict[str, Any] = field(default_factory=dict)
     saved_to: list[tuple[dict[str, Any], str]] = field(default_factory=list)
 
@@ -229,7 +231,7 @@ def test_save_conversation_results_builds_dict():
     """落盤 dict 含 config 摘要與 results 列表。"""
     agent = _FakeAgent()
     results = [{"query": "Q", "response": "A", "sources": ["u1"], "timestamp": "t"}]
-    save_conversation_results(agent, results)  # type: ignore[arg-type]
+    save_conversation_results(agent, results, thread_id="test-thread")  # type: ignore[arg-type]
 
     saved = agent.run_manager.saved
     assert saved["config"]["config_name"] == "test"
@@ -240,21 +242,22 @@ def test_save_conversation_results_builds_dict():
 
 
 def test_save_conversation_results_with_thread_id_splits_file():
-    """提供 thread_id 時另寫入 results_<thread_id>.json 分檔。"""
+    """提供 thread_id 時寫入 results_<thread_id>.json 累積多輪歷史。"""
     agent = _FakeAgent()
     results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
     save_conversation_results(agent, results, thread_id="demo-1")  # type: ignore[arg-type]
 
-    assert agent.run_manager.saved["results"] == results  # results.json 仍寫
     assert len(agent.run_manager.saved_to) == 1
     file_path = agent.run_manager.saved_to[0][1]
     assert file_path.endswith("results_demo-1.json")
+    assert agent.run_manager.saved["results"] == results
 
 
 def test_save_conversation_results_sanitizes_thread_id():
     """thread_id 含 / 時置換為 _（檔名安全）。"""
     agent = _FakeAgent()
-    save_conversation_results(agent, [], thread_id="a/b")  # type: ignore[arg-type]
+    results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
+    save_conversation_results(agent, results, thread_id="a/b")  # type: ignore[arg-type]
 
     file_path = agent.run_manager.saved_to[0][1]
     assert file_path.endswith("results_a_b.json")

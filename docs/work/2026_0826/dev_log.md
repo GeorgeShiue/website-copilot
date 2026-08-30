@@ -685,3 +685,120 @@ Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 |------|------|
 | Pylance 診斷（15 個修改檔案） | 0 errors |
 | Ruff lint | 0 issues |
+
+---
+
+## 23. 統一各模組留檔機制（2026-08-30）
+
+> 將 `rag_build`、`rag_query`、`agent` 三個模組的留檔機制對齊 crawler + image_summarizer 的完整度。
+
+### 23-1. 動機
+
+§3–§5 建立 RunManager + DataManager 留檔機制時，僅 crawler 與 image_summarizer 完整串接。三個模組存在以下缺口：
+
+| 模組 | 缺口 |
+|------|------|
+| `rag_build` | `run_rag_build()` 未呼叫 `save_results_as_json()`，無 `results.json` 落盤 |
+| `rag_query` | `cli.py` 的 `RAGQueryCLI` 區塊未呼叫 `publish_run_metadata()`，`publish=True` 時不會發布 metadata |
+| `agent` | `cli.py` 的 `AgentCLI` 區塊未呼叫 `publish_run_metadata()`；`AgentRunConfig` 無 `publish` 欄位，CLI 無法接收 `--publish` 參數 |
+
+### 23-2. 改動
+
+| 檔案 | 變更 |
+|------|------|
+| `src/app/configs/workflow_config.py` | `AgentRunConfig` 新增 `publish: bool = False`（L48） |
+| `src/app/workflow/workflow.py` | `run_rag_build()` 儲存設定和結果區塊新增 `results_dict` + `save_results_as_json()`（L296–317） |
+| `src/cli.py` | 共用區塊後新增 `RAGQueryCLI` 的 `publish_run_metadata()` 呼叫（L143–151） |
+| `src/cli.py` | `AgentCLI` 區塊內新增 `publish_run_metadata()` 呼叫（L113–128） |
+
+**設計決策**：
+
+- `AgentRunConfig` 不繼承 `BaseRunConfig`（`query: str` 無預設值會導致 dataclass `TypeError: non-default argument follows default argument`），直接加 `publish` 欄位。
+- `publish` 在 `cli.py` 分派前經 `pop("publish")` 提取，不會洩漏進 `**config_overrides`。
+- `run_rag_build` 的 `results_dict` 在 `with (rag, ...)` context 內執行，確保 `rag` 屬性尚未關閉。
+
+### 23-3. JSON Structure for rag_build results.json
+
+`run_rag_build()` 新增的 `results.json` 結構：
+
+```json
+{
+    "config": {
+        "config_name": "default",
+        "run_name": "20260830_100000",
+        "site_id": "nculab",
+        "query": "...",
+        "embedding_name": "bge-m3",
+        "vector_store_type": "milvus",
+        "collection_name": "nculab",
+        "chunk_size": 512,
+        "chunk_overlap": 50
+    },
+    "summary": {
+        "total_nodes": 1234,
+        "total_pages": 90
+    },
+    "vector_store": {
+        "uri": "data/rag/nculab/milvus.db",
+        "saved_to_runs": false
+    }
+}
+```
+
+| 欄位 | 來源 | 說明 |
+|------|------|------|
+| `config.*` | `RAGBuildConfig` + `RunManager` | 建庫設定全貌 |
+| `summary.total_nodes` | `len(rag.nodes)` | build_nodes 產出的 node 數量 |
+| `summary.total_pages` | `len(rag.results_json)` | 載入的 crawl results 頁數 |
+| `vector_store.uri` | `config.milvus_uri` | 向量庫檔案路徑 |
+| `vector_store.saved_to_runs` | `save_vector_store_to_runs` 參數 | 是否複製至 `runs/` 目錄 |
+
+### 23-4. Agent site_id Decision
+
+Agent 模組的 `publish_run_metadata()` 使用 `cli_arg.run.config_name` 作為 `site_id`，而非其他值。
+
+**理由**：Agent 為跨站查詢工具，透過 `RAGRegistry` 同時檢索多個知識庫，無單一站點可對應。`config_name` 是唯一有意義的識別碼（如 `"default"`），`category` 固定為 `"agent"`。`AgentRunManager` 由 `RunManager.for_run_no_site()` 建立，`site_id` 為空字串 `""`；若直接使用會導致目標路徑為 `data/agent//`，不正確。
+
+### 23-5. CR Review Notes
+
+Code Review（Round 1, 2026-08-30 01:00）結果：**pass**，無 CRITICAL 或 MAJOR issue。2 項非阻斷建議：
+
+**S1 — `rag.results_json` null guard 不必要**
+
+`src/app/workflow/workflow.py:309`
+
+`rag.results_json` 型別為 `dict[str, Any]`，在 `RAG.__init__` 經 `_load_results_json()` 初始化，永遠不會是 `None`。`if rag.results_json else 0` 防禦無害但誤導（暗示可能為 `None`）。空 dict `{}` 亦為 falsy，但 `len({})` 已為 0，guard 無實際作用。
+
+```python
+# 現行（無害但誤導）：
+"total_pages": len(rag.results_json) if rag.results_json else 0,
+
+# 較簡潔：
+"total_pages": len(rag.results_json),
+```
+
+> 注意：`rag.nodes` 型別為 `Sequence[BaseNode] | None`，初始值為 `None`，null check 確實必要且正確。
+
+**S2 — AgentCLI `module_config.toml` 不會被發布**
+
+`src/cli.py:127`
+
+`publish_run_metadata()` 會複製 `module_config.toml`，但 `run_agent()` 從未呼叫 `save_module_config_as_toml()`。`_copy_single_file` 輔助函式在檔案不存在時靜默跳過，不會崩潰。結果是 `data/agent/{config_name}/` 僅包含 `run_config.toml` 與 `terminal.log`，無 `module_config.toml`。
+
+此行為可接受：`AgentModuleConfig` 僅含 optional 的 `llm_name` 與 `system_prompt`，無實質 module config 需持久化。
+
+### 23-6. 驗證
+
+| 項目 | 結果 |
+|------|------|
+| `pytest src/test/dev/` | **45/45 passed** |
+| `pyright` | 0 errors |
+| `ruff check` | 0 issues |
+| 既有測試不受影響 | ✅ `test_runmanager_datamanager.py` 15/15、`test_agent_server.py` 30/30 |
+
+**結構驗證**：
+
+- [x] `AgentRunConfig` 有 `publish: bool = False` 欄位（L48）
+- [x] `run_rag_build()` 呼叫 `save_results_as_json(results_dict)`，結構為 `{config, summary, vector_store}`（L296–317）
+- [x] `cli.py` `RAGQueryCLI` 的 `publish_run_metadata()` 置於共用區塊之後，guards 為 `isinstance(cli_arg, RAGQueryCLI) and data_manager is not None and run_manager is not None`（L143–151）
+- [x] `cli.py` `AgentCLI` 的 `publish_run_metadata()` 置於 `save_run_config_as_toml` + `log_run_paths` 之後，以 `cli_arg.run.config_name` 作為 `site_id`（L113–128）

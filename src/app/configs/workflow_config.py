@@ -46,6 +46,7 @@ class AgentRunConfig:
     config_name: str = "default"
     thread_id: str | None = None
     stream: bool = False
+    publish: bool = False
 
 
 @dataclass

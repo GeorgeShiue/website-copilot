@@ -11,6 +11,7 @@ M1 提供：
 資源生命週期：結束後由呼叫者呼叫 agent.close() 釋放 RAG 資源。
 """
 
+import json
 import logging
 import os
 import re
@@ -150,7 +151,7 @@ def create_rag_agent(
         run_manager = RunManager.for_run_no_site(
             module="agent",
             run_name=config.config_name,
-            base_folder="chats",
+            base_folder="runs",
         )
     run_title = f"RAG Agent ({config.config_name})"
 
@@ -336,6 +337,47 @@ async def astream_agent_result(
     }
 
 
+def _find_thread_history_path(
+    base_folder: str,
+    module_name: str,
+    history_filename: str,
+) -> str | None:
+    """跨 run 目錄搜尋 thread 歷史檔（結果為最新時間戳的那份）。
+
+    CLI 每次執行建立新的 timestamped run 目錄，但 thread 歷史需跨 run 累積。
+    從 base_folder 下所有 timestamped 子目錄搜尋符合的歷史檔，
+    回傳時間戳最新（lexicographically last）的那一個完整路徑；找不到回傳 None。
+
+    Args:
+        base_folder: runs/ 或 chats/ 根目錄。
+        module_name: 模組名稱（如 "agent"）。
+        history_filename: 要搜尋的檔名（如 "results_auto-87d6ce91.json"）。
+    """
+    if not os.path.isdir(base_folder):
+        return None
+
+    latest_path: str | None = None
+    for entry in sorted(os.listdir(base_folder), reverse=True):
+        entry_path = os.path.join(base_folder, entry)
+        if not os.path.isdir(entry_path):
+            continue
+        # timestamped folder: 20260830_172330 (15 chars, starts with 20)
+        if not (entry.startswith("20") and len(entry) == 15):
+            continue
+        module_path = os.path.join(entry_path, module_name)
+        if not os.path.isdir(module_path):
+            continue
+        # recursively search for the history file
+        for root, _dirs, files in os.walk(module_path):
+            if history_filename in files:
+                candidate = os.path.join(root, history_filename)
+                if latest_path is None or candidate > latest_path:
+                    latest_path = candidate
+        if latest_path is not None:
+            break  # already got the latest timestamp
+    return latest_path
+
+
 def save_conversation_results(
     agent: RAGAgent,
     results: list[dict[str, Any]],
@@ -346,11 +388,41 @@ def save_conversation_results(
     Args:
         agent: create_rag_agent() 回傳的 RAGAgent。
         results: ask_agent() 回傳的 dict 列表。
-        thread_id: 提供時另以 results_<thread_id>.json 分檔保留對話歷史
-            （results.json 仍維持最新一輪，向後相容）。
+        thread_id: session 識別（必填）；提供時以 results_<thread_id>.json 分檔
+            保留完整多輪對話歷史。None 時不落盤。
     """
+    if not thread_id:
+        return
+
     run_manager = agent.run_manager
     config = agent.config
+
+    # 讀取既有歷史（如有）
+    safe_id = thread_id.replace("/", "_")
+    history_filename = f"results_{safe_id}.json"
+    history_path = os.path.join(run_manager.run_path, history_filename)
+    existing_results: list[dict[str, Any]] = []
+
+    # 若當前 run 目錄無歷史檔，跨 run 目錄搜尋（CLI 多輪累積場景）
+    if not os.path.isfile(history_path):
+        found = _find_thread_history_path(
+            run_manager.base_folder,
+            run_manager.module_name,
+            history_filename,
+        )
+        if found:
+            history_path = found
+
+    if os.path.isfile(history_path):
+        try:
+            with open(history_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+                existing_results = existing.get("results", [])
+        except (json.JSONDecodeError, OSError):
+            existing_results = []
+
+    # 追加新輪
+    existing_results.extend(results)
 
     results_dict = {
         "config": {
@@ -359,13 +431,6 @@ def save_conversation_results(
             "llm_name": config.llm_name,
             "system_prompt": config.system_prompt,
         },
-        "results": results,
+        "results": existing_results,
     }
-    run_manager.save_results_as_json(results_dict)
-    if thread_id:
-        # 檔名安全化：thread_id 為 auto-{uuid}（無特殊字元），仍以防萬一置換
-        safe_id = thread_id.replace("/", "_")
-        run_manager.save_results_as_json(
-            results_dict,
-            file_path=os.path.join(run_manager.run_path, f"results_{safe_id}.json"),
-        )
+    run_manager.save_results_as_json(results_dict, file_path=history_path)

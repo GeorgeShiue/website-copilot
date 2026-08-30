@@ -123,6 +123,14 @@ if __name__ == "__main__":
         )
         save_run_config_as_toml(cli_arg.run, agent_run_manager.run_config_toml_path)
         agent_run_manager.log_run_paths("complete")
+        if data_manager is not None:
+            data_manager.publish_run_metadata(
+                site_id=cli_arg.run.config_name,
+                category="agent",
+                module_config_path=agent_run_manager.module_config_toml_path,
+                run_config_path=agent_run_manager.run_config_toml_path,
+                log_path=agent_run_manager.log_path,
+            )
     elif isinstance(cli_arg, ServerCLI):
         # 常駐服務：不落盤 run config（無 run_manager），由 run_server blocking 執行
         run_server(**vars(cli_arg.run), mode="block")
@@ -130,3 +138,16 @@ if __name__ == "__main__":
     if run_manager is not None and not isinstance(cli_arg, ServerCLI):
         save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)
         run_manager.log_run_paths("complete")
+
+    if (
+        isinstance(cli_arg, RAGQueryCLI)
+        and data_manager is not None
+        and run_manager is not None
+    ):
+        data_manager.publish_run_metadata(
+            site_id=run_manager.site_id,
+            category="rag",
+            module_config_path=run_manager.module_config_toml_path,
+            run_config_path=run_manager.run_config_toml_path,
+            log_path=run_manager.log_path,
+        )

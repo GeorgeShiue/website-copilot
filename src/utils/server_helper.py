@@ -240,9 +240,9 @@ def check_single_turn(events: list[dict]) -> dict:
 
 
 def latest_results_json(project_root: Path) -> Path | None:
-    """Return the most recent ``chats/*/agent/*/results.json`` by mtime."""
+    """Return the most recent ``chats/*/agent/*/results*.json`` by mtime."""
     files = sorted(
-        project_root.glob("chats/*/agent/*/results.json"),
+        project_root.glob("chats/*/agent/*/results*.json"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )

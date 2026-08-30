@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Literal
 
@@ -260,10 +261,7 @@ def run_rag_build(
     # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
     if save_vector_store_to_runs:
         log_session("Saving Vector Store to Run Results", style="cyan")
-        vector_store_folder = os.path.join(
-            run_manager.results_folder_path, "vector_store"
-        )
-        config.milvus_uri = os.path.join(vector_store_folder, "milvus.db")
+        config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
 
     rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
 
@@ -287,6 +285,29 @@ def run_rag_build(
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
+
+        results_dict = {
+            "config": {
+                "config_name": config.config_name,
+                "run_name": run_manager.run_name,
+                "site_id": config.site_id,
+                "query": config.query,
+                "embedding_name": config.embedding_name,
+                "vector_store_type": config.vector_store_type,
+                "collection_name": config.site_id,
+                "chunk_size": config.chunk_size,
+                "chunk_overlap": config.chunk_overlap,
+            },
+            "summary": {
+                "total_nodes": len(rag.nodes) if rag.nodes else 0,
+                "total_pages": len(rag.results_json) if rag.results_json else 0,
+            },
+            "vector_store": {
+                "uri": config.milvus_uri,
+                "saved_to_runs": save_vector_store_to_runs,
+            },
+        }
+        run_manager.save_results_as_json(results_dict)
 
         if data_manager:
             if config.milvus_uri and os.path.exists(config.milvus_uri):
@@ -437,7 +458,7 @@ def run_agent(
     """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
 
     流程：create_rag_agent 建立 agent → 問答（stream 決定串流/非串流）
-    → 顯示回答與來源 → 落盤 chats/ → 釋放 RAG 資源（agent.close()）。
+    → 顯示回答與來源 → 落盤 runs/ → 釋放 RAG 資源（agent.close()）。
 
     Args:
         query: 使用者問題。
@@ -445,7 +466,7 @@ def run_agent(
         thread_id: 多輪記憶 session 識別（None 時每次獨立）。
         stream: True 時逐 token 串流顯示回答。
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
-        agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
+        agent_run_manager: 聊天專用 RunManager（base_folder="runs"，None 時自動建立）。
     """
     agent_config = AgentConfig.from_toml(config_name, **config_overrides)
 
@@ -473,7 +494,10 @@ def run_agent(
             log_session("Sources", style="cyan")
             for i, url in enumerate(result["sources"], 1):
                 print(f"{i}. {url}")
-            save_conversation_results(agent, [result])
+            # 無 thread_id 時自動產生（確保每次執行都有結果檔）
+            if thread_id is None:
+                thread_id = f"auto-{uuid.uuid4().hex[:8]}"
+            save_conversation_results(agent, [result], thread_id=thread_id)
             log_session("Conversation Saved", style="green")
             print(f"Results json: {agent.run_manager.results_json_path}")
     finally:

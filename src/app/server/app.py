@@ -113,7 +113,7 @@ async def _event_stream(
         state = agent.graph.get_state(config)
         messages = state.values.get("messages", []) if state.values else []
         sources = extract_sources_from_messages(messages)
-        # 落盤：每輪覆寫 results.json（最新一輪），並依 thread_id 分檔保留對話歷史
+        # 落盤：以 thread_id 分檔保留完整多輪對話歷史
         result = {
             "query": query,
             "response": "".join(chunks),
@@ -152,7 +152,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if agent is None:
-            # 與 workflow.run_agent 的呼叫模式對齊：明確指定 chats/ 落盤
+            # Server 使用 chats/ 作為聊天 session 的落盤位置（與 runs/ 實驗結果分開）
             app.state.agent = create_rag_agent(
                 config=AgentConfig.from_toml(config_name),
                 run_manager=RunManager.for_run_no_site(
