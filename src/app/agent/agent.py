@@ -144,12 +144,14 @@ def create_rag_agent(
         結束後呼叫 agent.close() 釋放 RAG 資源。
     """
     if config is None:
-        config = AgentConfig.from_toml()
+        config = AgentConfig.from_toml("default")
 
     if run_manager is None:
-        run_manager = RunManager("agent", base_folder="chats")
-    run_manager.set_run_path(config.config_name)
-    run_manager.init_module_run_paths()
+        run_manager = RunManager.for_run_no_site(
+            module="agent",
+            run_name=config.config_name,
+            base_folder="chats",
+        )
     run_title = f"RAG Agent ({config.config_name})"
 
     with (

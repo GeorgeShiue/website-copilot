@@ -84,12 +84,25 @@ def spawn_server(
         stdout_kw = fh
         stderr_kw = fh
 
+    # Ensure the child process can import app.* even when launched via
+    # ``python -c`` (which unlike ``python src/script.py`` does NOT put
+    # src/ on sys.path automatically).
+    import os
+
+    src_dir = str(PROJECT_ROOT / "src")
+    child_env = os.environ.copy()
+    existing = child_env.get("PYTHONPATH")
+    child_env["PYTHONPATH"] = (
+        f"{src_dir}{os.pathsep}{existing}" if existing else src_dir
+    )
+
     logger.info("Spawning server on %s:%d (config=%s)", host, port, config_name)
     proc = subprocess.Popen(
         cmd,
         cwd=cwd,
         stdout=stdout_kw,
         stderr=stderr_kw,
+        env=child_env,
     )
     # Attach file handle so shutdown_server can close it.
     if isinstance(output, Path):
@@ -101,7 +114,7 @@ def wait_ready(
     base_url: str,
     timeout: int = HEALTH_TIMEOUT_SEC,
     interval: int = HEALTH_INTERVAL_SEC,
-) -> float:
+) -> None:
     """Poll ``GET {base_url}/api/health`` until the server is ready.
 
     Returns elapsed seconds.  Raises ``TimeoutError`` if the deadline
@@ -114,7 +127,9 @@ def wait_ready(
         try:
             with urllib.request.urlopen(url, timeout=3) as resp:
                 if resp.status == 200 and json.loads(resp.read())["status"] == "ok":
-                    return time.monotonic() - start
+                    wait_time = time.monotonic() - start
+                    logger.info("Waited server ready for %.1f seconds", wait_time)
+                    return
         except (urllib.error.URLError, OSError, json.JSONDecodeError):
             pass
         time.sleep(interval)

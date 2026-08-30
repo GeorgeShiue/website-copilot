@@ -2,7 +2,7 @@ import asyncio
 import os
 import time
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from app.agent.agent import (
     ask_agent,
@@ -21,6 +21,11 @@ from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.website_crawler import WebsiteCrawler
 from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
+from app.workflow.run_persistence import (
+    load_latest_results,
+    save_query_results_as_md,
+    save_results_as_md,
+)
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import (
     log_run_time,
@@ -39,62 +44,31 @@ from utils.server_helper import (
 )
 
 
-def _init_workflow(
-    module_name: str,
-    config: Any,
-    run_name_use_config_name: bool,
-    run_manager: RunManager | None = None,
-) -> RunManager:
-    """初始化 workflow 的共享邏輯。
-
-    Args:
-        module_name: 模組名稱。
-        config: 設定物件（需有 config_name、site_id 和 run_name 屬性）。
-        run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        run_manager: 已建立的 RunManager（可選）。
-
-    Returns:
-        初始化完成的 RunManager。
-    """
-    if run_manager is None:
-        run_manager = RunManager(module_name)
-    run_manager.set_site_path(config.site_id)
-    if run_name_use_config_name:
-        run_manager.set_run_path(config.config_name)
-    else:
-        run_manager.set_run_path(config.run_name)
-    run_manager.init_module_run_paths()
-
-    return run_manager
-
-
 def run_website_crawler(
-    run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     data_manager: DataManager | None = None,
     **config_overrides,
-) -> dict[str, dict] | None:
+) -> tuple[dict[str, dict] | None, RunManager]:
     """執行網站爬蟲工作流程。
 
     Args:
-        run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
 
     Returns:
-        爬取結果 dict，失敗時回傳 None。
+        (爬取結果 dict | None, RunManager)。
     """
     # ----- 初始化設定和路徑 -----
     website_crawler = WebsiteCrawler()
     config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow(
-        module_name="website_crawler",
-        config=config,
-        run_name_use_config_name=run_name_use_config_name,
-        run_manager=run_manager,
+    run_name = config.config_name if run_name_use_config_name else config.run_name
+    run_manager = RunManager.for_run(
+        module="website_crawler",
+        site_id=config.site_id,
+        run_name=run_name,
     )
 
     crawl_results = None
@@ -129,12 +103,14 @@ def run_website_crawler(
 
         if crawl_results is None:
             log_session("Website Crawling Failed", style="red")
-            return None
+            return None, run_manager
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         run_manager.save_results_as_json(crawl_results)
-        run_manager.save_results_as_md(crawl_results, "fit_markdown")
+        save_results_as_md(
+            crawl_results, run_manager.results_folder_path, "fit_markdown"
+        )
 
         if data_manager:
             data_manager.publish_crawl_results(
@@ -147,38 +123,36 @@ def run_website_crawler(
         # ----- 輸出完成訊息 -----
         log_session("Website Crawling Completed", style="cyan")
 
-    return crawl_results
+    return crawl_results, run_manager
 
 
 def run_webpage_image_summarizer(
-    run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
     data_manager: DataManager | None = None,
     **config_overrides,
-) -> dict[str, dict] | None:
+) -> tuple[dict[str, dict] | None, RunManager]:
     """執行網頁圖片摘要工作流程。
 
     Args:
-        run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: WebpageImageSummarizerConfig 名稱。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        crawl_results: 爬取結果 dict（可選，None 時從 RunManager 載入最新結果）。
+        crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: WebpageImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
-        增強後的爬取結果 dict，失敗時回傳 None。
+        (增強後的爬取結果 dict | None, RunManager)。
     """
     # ----- 初始化設定和路徑 -----
     webpage_image_summarizer = WebpageImageSummarizer()
     config = WebpageImageSummarizerConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow(
-        module_name="webpage_image_summarizer",
-        config=config,
-        run_name_use_config_name=run_name_use_config_name,
-        run_manager=run_manager,
+    run_name = config.config_name if run_name_use_config_name else config.run_name
+    run_manager = RunManager.for_run(
+        module="webpage_image_summarizer",
+        site_id=config.site_id,
+        run_name=run_name,
     )
 
     with (
@@ -203,7 +177,9 @@ def run_webpage_image_summarizer(
         # ----- 獲取最近一次結果 -----
         if crawl_results is None:
             log_session("Loading Latest Results", style="cyan")
-            crawl_results = run_manager.load_latest_results_from_json()
+            crawl_results = load_latest_results(
+                run_manager.base_folder, "website_crawler"
+            )
 
         # ---- 執行圖片摘要 -----
         log_session("Image Summarization", style="cyan")
@@ -218,12 +194,14 @@ def run_webpage_image_summarizer(
 
         if enhanced_results is None:
             log_session("Image Summarization Failed", style="red")
-            return None
+            return None, run_manager
 
         # ----- 儲存設定和結果 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         run_manager.save_results_as_json(enhanced_results)
-        run_manager.save_results_as_md(enhanced_results, "enhanced_markdown")
+        save_results_as_md(
+            enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
+        )
 
         if data_manager:
             data_manager.publish_markdown(
@@ -235,36 +213,37 @@ def run_webpage_image_summarizer(
         # ----- 輸出完成訊息 -----
         log_session("Image Summarization Completed", style="cyan")
 
-    return enhanced_results
+    return enhanced_results, run_manager
 
 
 def run_rag_build(
-    run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     webpages_data_use_latest_results: bool = False,
     save_vector_store_to_runs: bool = False,
     data_manager: DataManager | None = None,
     **config_overrides,
-) -> None:
+) -> RunManager:
     """執行 RAG 建構工作流程。
 
     Args:
-        run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
         save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
         **config_overrides: RAGConfig 覆寫值（含 site_id）。
+
+    Returns:
+        RunManager。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow(
-        module_name="rag_build",
-        config=config,
-        run_name_use_config_name=run_name_use_config_name,
-        run_manager=run_manager,
+    run_name = config.config_name if run_name_use_config_name else config.run_name
+    run_manager = RunManager.for_run(
+        module="rag_build",
+        site_id=config.site_id,
+        run_name=run_name,
     )
     run_title = f"RAG Build ({config_name})"
 
@@ -319,32 +298,35 @@ def run_rag_build(
         # ----- 輸出完成訊息 -----
         log_session("RAG Build Completed", style="cyan")
 
+    return run_manager
+
 
 def run_rag_query(
-    run_manager: RunManager | None = None,
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     force_rebuild: bool = False,
     query_times: int = 1,
     **config_overrides,
-) -> None:
+) -> RunManager:
     """執行 RAG 查詢工作流程。
 
     Args:
-        run_manager: 已建立的 RunManager（可選，None 時自動建立）。
         config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         force_rebuild: 是否強制重建向量庫。
         query_times: 查詢次數。
         **config_overrides: RAGConfig 覆寫值（含 site_id）。
+
+    Returns:
+        RunManager。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
-    run_manager = _init_workflow(
-        module_name="rag_query",
-        config=config,
-        run_name_use_config_name=run_name_use_config_name,
-        run_manager=run_manager,
+    run_name = config.config_name if run_name_use_config_name else config.run_name
+    run_manager = RunManager.for_run(
+        module="rag_query",
+        site_id=config.site_id,
+        run_name=run_name,
     )
     run_title = f"RAG Query ({config_name})"
 
@@ -434,12 +416,14 @@ def run_rag_query(
             "results": query_results,
         }
         run_manager.save_results_as_json(query_results_dict)
-        run_manager.save_query_results_as_md(query_results_dict)
+        save_query_results_as_md(query_results_dict, run_manager.results_folder_path)
 
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
+
+    return run_manager
 
 
 def run_agent(
@@ -449,7 +433,7 @@ def run_agent(
     stream: bool = False,
     agent_run_manager: RunManager | None = None,
     **config_overrides,
-) -> None:
+) -> RunManager:
     """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
 
     流程：create_rag_agent 建立 agent → 問答（stream 決定串流/非串流）
@@ -464,10 +448,6 @@ def run_agent(
         agent_run_manager: 聊天專用 RunManager（base_folder="chats"，None 時自動建立）。
     """
     agent_config = AgentConfig.from_toml(config_name, **config_overrides)
-
-    if agent_run_manager is None:
-        # 聊天記錄與實驗分離：預設落盤至 chats/
-        agent_run_manager = RunManager("agent", base_folder="chats")
 
     agent = create_rag_agent(
         config=agent_config,
@@ -498,6 +478,8 @@ def run_agent(
             print(f"Results json: {agent.run_manager.results_json_path}")
     finally:
         agent.close()
+
+    return agent.run_manager
 
 
 def run_server(
@@ -532,6 +514,7 @@ def run_server(
 
     # allowed_origins: subprocess calls app.run_server() without this param;
     # it defaults to ["*"] (full CORS). Override via app-level config if needed.
+    log_session(f"Starting Server ({mode})", style="purple")
     proc = spawn_server(
         host,
         port,
@@ -539,18 +522,12 @@ def run_server(
         output=output,
     )
     try:
-        log_session("Waiting for Server Ready", style="cyan")
-        elapsed = wait_ready(base_url, timeout=startup_timeout)
-        print_log(f"Server ready ({elapsed:.1f}s)")
-
+        wait_ready(base_url, timeout=startup_timeout)
         if mode == "validate":
             validate_server(base_url, query, follow_up)
         else:  # block
-            log_session(
-                f"Server running at {base_url}",
-                style="green",
-            )
-            print_log("使用 Ctrl+C 關閉 server")
+            log_session("Server Ready", style="green")
+            print_log(f"Server ready at {base_url} , use Ctrl+C to stop.")
             proc.wait()
 
     except TimeoutError as exc:

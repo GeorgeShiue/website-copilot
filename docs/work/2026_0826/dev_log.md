@@ -504,342 +504,184 @@ RAGBuilder._should_rebuild()   → 僅 milvus 路徑判斷（原為 if qdrant / 
 
 ## 18. Exception Handling 改善（2026-08-27）
 
-> 技術債分析：`docs/work/issiue.md` H2 節。專案中 10 處 `except Exception` 分布於 7 個檔案，存在靜默吞錯誤、log level 誤用、exception 類型過寬等問題。
+> 技術債：10 處 `except Exception` 分布於 7 個檔案，存在靜默吞錯誤、log level 誤用、exception 類型過寬。
 
-### 18-1. 問題分類
+### 18-1. 問題與修正
 
-| 嚴重度 | 檔案 | 問題 |
-|--------|------|------|
-| 🔴 Critical | `rag.py` L78 | `except Exception: pass` — Milvus client 關閉失敗完全靜默，`_closed = True` 在 try 之前導致不可重入，連接洩漏風險 |
-| 🟠 Medium | `rag_helper.py` L259+L266 | 用 `except Exception` 包 `.get()` — 過度防禦，掩盖 API 變動 |
-| 🟡 Low-Med | `html_date_extractor.py` L111 | `logger.debug` — BeautifulSoup 失敗應為 `warning`，且缺 `exc_info=True` |
-| 🟠 Medium | `markdown_cleaner.py` L90 | `except Exception` — `mdformat` 只會拋 `ValueError`/`KeyError`，過寬；`logger.error` 應改 `warning` |
-| 🟡 Medium | `webpage_image_summarizer.py` L293 | `except Exception` — 圖片下載失敗應用 `URLError`/`TimeoutError`/`OSError` |
-| 🟡 Medium | `webpage_image_summarizer.py` L379+L438 | 缺 `exc_info=True`，async task traceback 喪失 |
-| 🟠 Medium | `website_crawler.py` L294 | `_safe_step` f-string + 缺 `exc_info=True` |
+三層原則：(1) 能確定的用具體 exception（`URLError`、`ValueError`、`KeyError`）；(2) 不再靜默吞錯誤，至少 `logger.warning` + `exc_info=True`；(3) `rag.py` 的 `_closed = True` 移至 close 成功之後。
 
-`server/app.py` L131 的 `except Exception` 使用 `logger.exception()` + SSE 錯誤回傳，為合理模式，不需修改。
+| 嚴重度 | 檔案 | 問題 → 修正 |
+|--------|------|-------------|
+| 🔴 P0 | `rag.py` | `except Exception: pass` → `logger.warning` + `_closed` 移至 try 後 |
+| 🟠 P1 | `markdown_cleaner.py` | `except Exception` → `except (ValueError, KeyError)`；`logger.error` → `warning` |
+| 🟠 P1 | `website_crawler.py` | `_safe_step` 加 `exc_info=True`；f-string → `%s` lazy formatting |
+| 🟡 P2 | `rag_helper.py` | 移除 `except Exception`，改用 `getattr(..., "metadata", None) or {}` |
+| 🟡 P2 | `html_date_extractor.py` | `logger.debug` → `logger.warning(..., exc_info=True)` |
+| 🟡 P2 | `webpage_image_summarizer.py` | `except Exception` → `except (URLError, TimeoutError, OSError)`；補 `exc_info=True` |
 
-### 18-2. 修正策略
+### 18-2. 驗證
 
-三層原則：
-1. **收窄 exception 類型**：能確定的用具體 exception（`URLError`、`ValueError`、`KeyError`），不確定的保留 `Exception` 但加 `exc_info`
-2. **不再靜默吞錯誤**：所有 `except Exception` 至少有 `logger.warning/error` + `exc_info=True`
-3. **修復控制流缺陷**：`rag.py` 的 `_closed = True` 移至 close 成功之後
-
-### 18-3. 變更範圍
-
-| 優先序 | 檔案 | 變更 |
-|--------|------|------|
-| P0 | `src/app/engines/rag/rag.py` | `except Exception: pass` → `logger.warning("Milvus client close() failed", exc_info=True)`；`_closed = True` 從 try 前移至 try 後，確保 close 失敗仍可重試 |
-| P1 | `src/utils/markdown_cleaner.py` | `except Exception as e` → `except (ValueError, KeyError) as e`；`logger.error(f"...")` → `logger.warning("mdformat failed, using unformatted markdown: %s", e)` |
-| P1 | `src/app/engines/website_crawler.py` | `_safe_step` 加 `exc_info=True`；f-string → `%s` lazy formatting |
-| P2 | `src/utils/rag_helper.py` | 移除兩處 `except Exception`，改用 `getattr(source_node.node, "metadata", None) or {}` null 檢查 |
-| P2 | `src/utils/html_date_extractor.py` | `logger.debug` → `logger.warning(..., exc_info=True)` |
-| P2 | `src/app/engines/webpage_image_summarizer.py` | E6：`except Exception` → `except (URLError, TimeoutError, OSError)`，新增 `from urllib.error import URLError`；E7+E8：加 `exc_info=True` |
-
-### 18-4. 關鍵修正詳解
-
-**P0 — `rag.py` close() 連接洩漏修復**
-
-```python
-# Before
-def close(self) -> None:
-    if getattr(self, "_closed", False):
-        return
-    self._closed = True          # ← close 前就標記，失敗不可重試
-    if isinstance(self.vector_store, MilvusVectorStore):
-        try:
-            self.vector_store._milvusclient.close()
-        except Exception:
-            pass                 # ← 完全靜默，連接可能洩漏
-    self.vector_store = None     # ← 即使 close 失敗仍清 reference
-
-# After
-def close(self) -> None:
-    if getattr(self, "_closed", False):
-        return
-    if isinstance(self.vector_store, MilvusVectorStore):
-        try:
-            self.vector_store._milvusclient.close()
-        except Exception:
-            logger.warning("Milvus client close() failed", exc_info=True)
-    self._closed = True          # ← close 成功後才標記
-    self.vector_store = None
-```
-
-**P2 — `rag_helper.py` 消除不必要 exception handling**
-
-```python
-# Before
-try:
-    page_title = source_node.node.metadata.get("page_title", "Unknown")
-except Exception:
-    page_title = "Unknown"
-
-# After — null 檢查取代 exception
-metadata = getattr(source_node.node, "metadata", None) or {}
-page_title = metadata.get("page_title", "Unknown")
-```
-
-**P2 — `webpage_image_summarizer.py` exception 收窄**
-
-```python
-# Before
-except Exception as e:
-    logger.warning("Image download failed (url=%s) : %s", url, e)
-
-# After — 僅捕獲網路 I/O 相關 exception
-except (URLError, TimeoutError, OSError) as e:
-    logger.warning("Image download failed (url=%s): %s", url, e)
-```
-
-### 18-5. 驗證
-
-| 項目 | 結果 |
-|------|------|
-| `pytest src/test/dev/test_html_date_extraction.py` | 35 passed |
-| `pytest src/test/dev/test_dedup_key.py` | 12 passed |
-| Pylance 診斷（6 個修改檔案） | 0 errors |
-| 語法檢查（`get_errors`） | 0 errors |
+Pylance 0 errors（6 個修改檔案）；`pytest test_html_date_extraction` 35 passed、`test_dedup_key` 12 passed。
 
 ---
 
 ## 19. 測試檔案整合（2026-08-27）
 
-### 19-1. 動機
+`src/test/dev/` 從 10 → 6 個檔案（-40%），移除已失效測試，合併同子系統測試。
 
-`src/test/dev/` 累積 10 個測試檔案，部分檔案測試同一子系統的不同層面（如 `test_agent.py` 純函式 vs `test_server.py` SSE/CORS），替身基礎設施重複。另有 `test_legacy_results_removal.py` 測試前提已不存在（legacy 目錄已移除），`scripts/m0_rag_smoke.py` 功能可被單元測試取代。
-
-### 19-2. 刪除
+### 19-1. 刪除
 
 | 檔案 | 原因 |
 |------|------|
-| `test_legacy_results_removal.py` | legacy 目錄（`data/rag/results`、`data/webpages/results`）已不存在，`TestLegacyDirectoriesExist` 會直接 FAIL |
-| `scripts/m0_rag_smoke.py` | 功能合併至 `test_rag_tools.py` 的 `TestRAGRetrieverSmoke` |
+| `test_legacy_results_removal.py` | legacy 目錄已不存在，測試前提失效 |
+| `scripts/m0_rag_smoke.py` | 功能合併至 `test_rag_tools.py` |
 
-### 19-3. 合併 A：`test_agent.py` + `test_server.py` → `test_agent_server.py`
+### 19-2. 合併
 
-兩者測試同一個 agent 層（`app.agent.agent` 和 `app.server.app`），共用相似的替身概念（`_FakeConfig` / `FakeRunManager` / `FakeAgent`）。合併後統一替身基礎設施，消除重複。
+| 合併結果 | 來源 | 合併原因 |
+|----------|------|----------|
+| `test_agent_server.py` | `test_agent.py` + `test_server.py` | 同 agent 層，共用替身（`_FakeConfig` / `FakeRunManager`） |
+| `test_rag_tools.py` | `test_rag_registry.py` + `test_rag_reuse.py` + `test_multi_site_tool.py` + `m0_rag_smoke.py` | 同 RAG 子系統，共用 mock 基礎設施 |
 
-| 來源 | 合併內容 |
-|------|---------|
-| `test_agent.py` | Agent 純函式：`thread_config` / `extract_sources_from_messages` / `_message_content_to_text` / `save_conversation_results` |
-| `test_server.py` | Server 層：SSE 串流 / error 事件 / health / CORS / static files / `resolve_site_id` / `_enrich_query_with_site_context` |
+### 19-3. 內部精簡
 
-衝突處理：兩邊的 `_FakeConfig` 完全相同 → 保留一份；`_FakeRunManager` 統一採用 test_server.py 版本（`saved` 初始為 `{}` 而非 `None`，兼容兩邊測試）。
+- `test_html_date_extraction.py`：`TestParseHttpDate` + `TestNormalizeToIso8601` 改用 `@pytest.mark.parametrize`
+- `test_runmanager_datamanager.py` / `test_dedup_key.py`：import 移至模組頂端
+- `test_rag_tools.py`：`_FakeRAGConfig` 從 15 → 2 欄位
 
-### 19-4. 合併 B：`test_rag_registry.py` + `test_rag_reuse.py` + `test_multi_site_tool.py` + `m0_rag_smoke.py` → `test_rag_tools.py`
+### 19-4. 結果
 
-四者都測試 RAG 子系統（registry 快取、builder 重建、retriever 工具、smoke 驗證），共用 mock 基礎設施（`_make_mock_registry`、`_make_fake_retrieval_results`）。
-
-| 來源 | 合併內容 |
-|------|---------|
-| `test_rag_registry.py` | `RAGRegistry`：cache hit / cache miss / LRU eviction / close / list_sites |
-| `test_rag_reuse.py` | `RAGBuilder._should_rebuild`：Milvus 路徑判斷 |
-| `test_multi_site_tool.py` | Retriever 工具：schema 驗證、tool 建立、retrieve 路由、格式化 |
-| `m0_rag_smoke.py` | Smoke 驗證：registry + tool 建立 → invoke → close（改用 mock registry） |
-
-衝突處理：`_make_mock_registry` 保留使用 `spec=RAGRegistry` 的版本（更嚴謹）。`_FakeRAGConfig` 從 15 個欄位精簡至 2 個（`vector_store_type`、`milvus_uri`），因 `_should_rebuild` 僅讀取這兩個欄位。
-
-### 19-5. 內部精簡
-
-| 檔案 | 精簡 |
-|------|------|
-| `test_runmanager_datamanager.py` | `import json` 從 test method 內部移至模組頂端 |
-| `test_rag_tools.py` | `_FakeRAGConfig` 精簡（15 → 2 欄位）；`_make_builder` 加 `# type: ignore[arg-type]` |
-| `test_html_date_extraction.py` | `TestParseHttpDate`（4 tests）+ `TestNormalizeToIso8601`（6 tests）改用 `@pytest.mark.parametrize` |
-| `test_dedup_key.py` | `from urllib.parse import urlparse` 從 `_make_crawler` 內部移至模組頂端 |
-
-### 19-6. 結果
-
-```
-src/test/dev/  (10 → 6 檔案，40% 減少)
-├── test_agent_server.py          ← 合併 A + 精簡
-├── test_rag_tools.py             ← 合併 B + 精簡
-├── test_dedup_key.py             ← 保留 + 精簡
-├── test_html_date_extraction.py  ← 保留 + 精簡
-├── test_runmanager_datamanager.py ← 保留 + 精簡
-└── test_multi_site.py            ← 保留（整合測試）
-
-scripts/  ← §21 整個刪除
-```
-
-| 項目 | 結果 |
-|------|------|
-| `pytest src/test/dev/` | **125 passed**, 0 failed |
-| Pylance 診斷（全部 dev 測試） | 0 errors |
+`pytest src/test/dev/`：**125 passed**, 0 failed。Pylance 0 errors。
 
 ---
 
 ## 20. Server 架構重構 — 統一入口與工具抽取（2026-08-28）
 
-> 目標：消除 server 啟動/測試的重工，建立單一統一入口 `workflow.run_server()`。
+> 消除 server 啟動/測試的重工，建立單一統一入口 `workflow.run_server()`。
 
 ### 20-1. 問題
 
-重構前 server 相關程式碼分散於三個檔案，呼叫鏈冗長：
-
-```
-server_up.py → spawn(cli.py server-cli) → app.run_server()
-m3_server_smoke.py → spawn(cli.py server-cli) → app.run_server()
-test_module.py → workflow.run_server() → spawn(cli.py server-cli) → app.run_server()
-cli.py server-cli → app.run_server()（一行轉發）
-```
-
-問題：
-- `cli.py ServerCLI` 分支僅一行轉發，是多餘的間接層
-- `server_up.py` 與 `cli.py server-cli` 功能完全重疊
-- `app.run_server` 與 `workflow.run_server` 命名衝突
-- subprocess command 路徑過長（3 層間接）
+呼叫鏈冗長（3 層間接）：`cli.py server-cli` 僅一行轉發、`server_up.py` 功能重疊、`app.run_server` 與 `workflow.run_server` 命名衝突。
 
 ### 20-2. 新架構
 
 ```
-cli.py server-cli → workflow.run_server(mode="block")
-                       └─→ spawn(app.start_uvicorn()) → app.start_uvicorn()
-
-test_module.py    → workflow.run_server(mode="validate")
-                       └─→ spawn(app.start_uvicorn()) → app.start_uvicorn()
-                           → validate SSE → shutdown
+cli.py server-cli → workflow.run_server(mode="block") → spawn(app.start_uvicorn())
+test_module.py    → workflow.run_server(mode="validate") → spawn → SSE 驗證 → shutdown
 ```
 
 ### 20-3. 新增 `src/utils/server_helper.py`
 
-從 `server_up.py` 和 `m3_server_smoke.py` 提取共用工具：
+從 `server_up.py` + `m3_server_smoke.py` 提取共用工具：
 
-| 函式 | 職責 | 來源 |
-|------|------|------|
-| `spawn_server()` | subprocess 啟動 `app.start_uvicorn()` | 兩者共有 |
-| `wait_ready()` | health polling (`/api/health`) | 兩者共有 |
-| `shutdown_server()` | SIGTERM → SIGKILL 優雅關閉 | 兩者共有 |
-| `parse_sse_events()` | SSE body → event dict 列表 | `m3_server_smoke.py` |
-| `stream_chat()` | POST `/api/chat` | `m3_server_smoke.py` |
-| `check_single_turn()` | SSE 協定驗證 | `m3_server_smoke.py` |
-| `latest_results_json()` | 最新 results.json 查找 | `m3_server_smoke.py` |
-| `check_persistence()` | 落盤驗證 | `m3_server_smoke.py` |
-
-**常數**：`HEALTH_TIMEOUT_SEC=600`、`DEFAULT_QUERY`、`DEFAULT_FOLLOW_UP`。
-
-**`spawn_server()` 設計**：
-- `output` 參數：`Literal["inherit", "devnull"] | Path`（三種模式）
-- `config_name` 以 `assert config_name.isidentifier()` 防禦注入
-- subprocess command 直接呼叫 `app.start_uvicorn()`（跳過 `cli.py server-cli`）
-- file handle 生命週期：`proc._output_fh` 附加，由 `shutdown_server()` 關閉
-
-### 20-4. `workflow.run_server()` 重構
-
-```python
-def run_server(
-    host, port, config_name,
-    mode: Literal["validate", "block"] = "validate",
-    *, output, allowed_origins, startup_timeout,
-    query, follow_up,
-) -> None:
-```
-
-| mode | 行為 |
+| 函式 | 職責 |
 |------|------|
-| `"validate"` | spawn → wait_ready → SSE 單輪/多輪 → 落盤 → shutdown |
-| `"block"` | spawn → wait_ready → `proc.wait()` → Ctrl+C → shutdown |
+| `spawn_server()` / `wait_ready()` / `shutdown_server()` | subprocess 生命週期 |
+| `parse_sse_events()` / `stream_chat()` / `check_single_turn()` | SSE 協定驗證 |
+| `latest_results_json()` / `check_persistence()` | 落盤驗證 |
 
-validate 核心邏輯抽取為 `_validate_server()` 私有函式。
+### 20-4. 呼叫端改動
 
-### 20-5. `app.run_server()` → `app.start_uvicorn()`
-
-解決 `app.run_server` 與 `workflow.run_server` 的命名衝突：
-
-```python
-# app.py — 純 factory + 啟動器
-def create_app()      → FastAPI app
-def start_uvicorn()   → setup_logging + create_app + uvicorn.run
-
-# workflow.py — 生命週期管理
-def run_server()      → spawn + wait + validate/block + shutdown
-```
-
-### 20-6. `cli.py` 改動
-
-- import 從 `from app.server.app import run_server` 改為 `from app.workflow.workflow import run_server`
-- ServerCLI 分支：`run_server(**vars(cli_arg.run), mode="block")`
-- 合併重複的 `from app.workflow.workflow import` 區塊
-
-### 20-7. `test_module.py` 改動
-
-```python
-# Before（~30 行）
-def test_server():
-    proc = spawn_server(...)
-    try:
-        elapsed = wait_ready(...)
-        events = stream_chat(...)
-        single = check_single_turn(events)
-        ...
-    finally:
-        shutdown_server(proc)
-
-# After（2 行）
-def test_server():
-    """驗證 server 啟動、health check、SSE 單輪/多輪、落盤。"""
-    run_server(host="127.0.0.1", port=SERVER_PORT, config_name="test")
-```
-
-### 20-8. 變更範圍
-
-| 檔案 | 操作 | 說明 |
-|------|------|------|
-| `src/utils/server_helper.py` | **新增** | 共用 server 工具（8 函式 + 4 常數） |
-| `src/app/workflow/workflow.py` | 修改 | `run_server()` 重構 + `_validate_server()` + `Literal` import |
-| `src/app/server/app.py` | 修改 | `run_server` → `start_uvicorn`（函式名 + docstring） |
-| `src/cli.py` | 修改 | import 改為 `workflow.run_server` + `mode="block"` + 合併 import |
-| `src/test/test_module.py` | 修改 | 新增 `test_server()`（2 行呼叫） |
-| `scripts/server_up.py` | **刪除** | 功能由 `cli.py server-cli` 取代 |
-| `scripts/m3_server_smoke.py` | **刪除** | 功能由 `workflow.run_server()` 取代 |
-
-### 20-9. 驗證
-
-| 項目 | 結果 |
+| 檔案 | 改動 |
 |------|------|
-| Pylance 診斷（4 個修改檔案） | 0 errors |
-| Ruff lint | 0 issues |
-| Import 解析 | ✅ |
-| server_up.py 已刪除 | ✅ |
+| `app.py` | `run_server` → `start_uvicorn`（解決命名衝突） |
+| `cli.py` | import 改為 `workflow.run_server`；`mode="block"` |
+| `test_module.py` | `test_server()` 從 ~30 行手動管理縮為 2 行 `run_server()` 呼叫 |
+| `scripts/server_up.py` | **刪除**（功能由 `cli.py server-cli` 取代） |
+| `scripts/m3_server_smoke.py` | **刪除**（功能由 `workflow.run_server()` 取代） |
+
+### 20-5. 驗證
+
+Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 
 ---
 
 ## 21. Scripts 資料夾刪除（2026-08-28）
 
-### 21-1. 動機
-
-`scripts/` 資料夾原存放三個腳本：
-
-| 檔案 | 狀態 |
-|------|------|
-| `server_up.py` | §20 已刪除（功能由 `cli.py server-cli` 取代） |
-| `m3_server_smoke.py` | §20 已刪除（功能由 `workflow.run_server()` 取代） |
-| `m4b_extension_test.py` | Playwright E2E 測試，尚在使用 |
-
-§20 重構後，`server_up.py` 和 `m3_server_smoke.py` 已無功能殘留。`m4b_extension_test.py` 為 Chrome Extension 的 E2E 測試，獨立於 server 架構。
-
-### 21-2. 改動
-
-| 操作 | 說明 |
-|------|------|
-| 刪除 `scripts/` 資料夾 | 整個目錄（含 `m4b_extension_test.py`） |
+`scripts/` 僅存 `server_up.py`（§20 刪）、`m3_server_smoke.py`（§20 刪）、`m4b_extension_test.py`。整併刪除。
 
 > ⚠️ `m4b_extension_test.py` 被一併刪除。如需恢復，可從 git 歷史還原。
 
-### 21-3. 測試檔案結構（改後）
+---
 
-```
-src/test/
-├── test_module.py        ← 端到端測試（5 tests：crawler、summarizer、rag、agent、server）
-├── test_main.py          ← 主流程測試
-└── dev/
-    ├── test_agent_server.py
-    ├── test_rag_tools.py
-    ├── test_dedup_key.py
-    ├── test_html_date_extraction.py
-    ├── test_runmanager_datamanager.py
-    └── test_multi_site.py
-```
+## 22. RunManager 重構 — Atomic 初始化與職責分離（2026-08-30）
+
+> Commit: `89f18bf` — `refactor: update workflow and run manager integration`
+
+### 22-1. 問題
+
+§3 的 RunManager 採用 step-by-step 初始化（`set_module_path` → `set_site_path` → `set_run_path`），存在時序耦合、呼叫端重複、職責過重（>400 行含 Markdown 儲存/結果查詢）等問題。
+
+### 22-2. RunManager 重構
+
+| 移除 | 新增 | 說明 |
+|------|------|------|
+| `set_module_path()` | `for_run(module, site_id, run_name)` | Atomic 3 層初始化：module → site → run |
+| `set_site_path()` | `for_run_no_site(module, run_name)` | Atomic 2 層初始化（Agent 使用） |
+| `set_run_path()` | — | — |
+| 5 個 `_set_*()` private 方法 | `init_module_run_paths()` 內直接設定屬性 | 消除冗餘間接層 |
+| 模組級 `os.makedirs(RUNS_FOLDER_PATH)` | — | 目錄僅在 classmethod 時建立 |
+| `_log_run_path_init/complete()` | `log_run_paths()` 內聯邏輯 | `RUN_PATH_COMPLETE` 改為局部變數 |
+| `latest_results_json_path` / `latest_run_path` | — | 結果查詢轉移至 `run_persistence.py` |
+
+### 22-3. 新增 `run_persistence.py`
+
+從 `RunManager` 提取 Markdown 持久化和結果查詢，改為模組級純函數：
+
+| 函數 | 原位置 | 說明 |
+|------|--------|------|
+| `save_results_as_md()` | `RunManager.save_results_as_md()` | 將爬取結果寫入 Markdown |
+| `save_query_results_as_md()` | `RunManager.save_query_results_as_md()` | 將 query 結果各寫為 Markdown |
+| `load_latest_results(base_folder, module_name)` | `RunManager.load_latest_results_from_json()` | 從 JSON 讀取最新模組結果 |
+| `load_latest_run_path(base_folder, module_name)` | `RunManager.load_latest_summarizer_run_path()` | 回傳最新模組 run path |
+| `_filter_run_folders(base_folder)` | `RunManager._filter_run_folders()` | 篩選符合 timestamp 格式的資料夾 |
+
+輔助函數 `_render_query_result_md()`、`_format_score()`、`_escape_md_cell()`、`_to_blockquote()` 一併遷移。
+
+### 22-4. workflow.py 重構
+
+- **移除 `_init_workflow()`**：各 `run_*()` 直接呼叫 `RunManager.for_run()`
+- **`run_*()` 回傳 RunManager**：`run_website_crawler()` / `run_webpage_image_summarizer()` 回傳 `tuple[dict | None, RunManager]`；`run_rag_build()` / `run_rag_query()` / `run_agent()` 回傳 `RunManager`
+- **Markdown 儲存**：改用 `save_results_as_md()` / `save_query_results_as_md()` 純函數
+- **結果查詢**：改用 `load_latest_results()` 純函數
+- **Agent 初始化**：`run_agent()` 移除自動建立 RunManager，改由 `create_rag_agent()` 內 `RunManager.for_run_no_site()` 建立
+
+### 22-5. 呼叫端重構
+
+| 檔案 | 改動 |
+|------|------|
+| `cli.py` | 移除全域 `RunManager()`，從各 `run_*()` 回傳取得；run config 儲存條件改為 `run_manager is not None` |
+| `main.py` | 各模組使用獨立 `run_manager`（`crawl_run_manager`、`summarizer_run_manager`、`rag_build_run_manager`） |
+| `exp.py` | 移除所有 `RunManager` 建立和 `set_module_path()` 呼叫 |
+| `agent.py` / `app.py` | `create_rag_agent()` 改用 `RunManager.for_run_no_site()` |
+| `workflow/__init__.py` | 新增 `run_persistence` 函數 export |
+
+### 22-6. 其他改動
+
+| 檔案 | 變更 |
+|------|------|
+| `rag_factory.py` | MilvusVectorStore 新增 gRPC keepalive（`grpc.keepalive_time_ms: 300_000`），避免 `ENHANCE_YOUR_CALM GOAWAY` |
+| `server_helper.py` | `wait_ready()` 回傳值改 `None`；`spawn_server()` 新增 `PYTHONPATH` 確保子進程 import 正常 |
+| `docs/work/todo.md` | 「拆分 run manager」標記完成 |
+
+### 22-7. 變更範圍
+
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `src/app/workflow/run_manager.py` | **重構** | 406 → ~170 行（-58%）；step-by-step → atomic classmethod |
+| `src/app/workflow/run_persistence.py` | **新增** | 235 行；Markdown 持久化 + 結果查詢純函數 |
+| `src/app/workflow/workflow.py` | 修改 | 移除 `_init_workflow()`；`run_*()` 回傳 RunManager + 使用 `run_persistence` |
+| `src/cli.py` | 修改 | 移除全域 RunManager；從 `run_*()` 回傳取得 |
+| `src/main.py` | 修改 | 各模組使用獨立 run_manager |
+| `src/exp.py` | 修改 | 移除所有 RunManager 建立 |
+| `src/app/agent/agent.py` / `app.py` | 修改 | 改用 `for_run_no_site()` |
+| `src/app/engines/rag/rag_factory.py` | 修改 | gRPC keepalive |
+| `src/utils/server_helper.py` | 修改 | `wait_ready()` + `PYTHONPATH` |
+| `src/test/` × 3 | 修改 | 改用 `for_run()` / `for_run_no_site()` + `run_persistence` |
+
+### 22-8. 驗證
+
+| 項目 | 結果 |
+|------|------|
+| Pylance 診斷（15 個修改檔案） | 0 errors |
+| Ruff lint | 0 issues |

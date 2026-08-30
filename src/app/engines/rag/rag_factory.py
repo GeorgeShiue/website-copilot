@@ -189,6 +189,12 @@ class VectorStoreBuilder:
             sparse_embedding_function=BGEM3SparseEmbeddingFunction(),
             hybrid_ranker=hybrid_ranker,
             hybrid_ranker_params=hybrid_ranker_params,
+            # Align client keepalive with MilvusLite server default (5 min) to
+            # prevent ENHANCE_YOUR_CALM GOAWAY from ping-strike.
+            grpc_options={
+                "grpc.keepalive_time_ms": 300_000,
+                "grpc.keepalive_permit_without_calls": False,
+            },
         )
         logger.debug(
             "Built MilvusVectorStore at %s (collection=%s, dim=%d)",

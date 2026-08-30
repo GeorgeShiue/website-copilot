@@ -9,8 +9,8 @@
 - [x] 刪除、合併現有測試
 - [x] 重構 server 引用架構
 - [x] 整併新增 server 測試
-- [ ] 拆分 run manager
-- [ ] 重構 agent chat 儲存架構
+- [x] 重構 run manager
+- [ ] 重構執行結果儲存架構
 - [ ] 更新完整流程測試
 
 ---

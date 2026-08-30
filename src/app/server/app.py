@@ -155,7 +155,11 @@ def create_app(
             # 與 workflow.run_agent 的呼叫模式對齊：明確指定 chats/ 落盤
             app.state.agent = create_rag_agent(
                 config=AgentConfig.from_toml(config_name),
-                run_manager=RunManager("agent", base_folder="chats"),
+                run_manager=RunManager.for_run_no_site(
+                    module="agent",
+                    run_name=config_name,
+                    base_folder="chats",
+                ),
             )
         else:
             app.state.agent = agent

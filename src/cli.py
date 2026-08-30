@@ -53,7 +53,6 @@ if __name__ == "__main__":
     import tyro
 
     from app.workflow.data_manager import DataManager
-    from app.workflow.run_manager import RunManager
     from app.workflow.workflow import (
         run_agent,
         run_rag_build,
@@ -68,8 +67,6 @@ if __name__ == "__main__":
     )
 
     setup_logging("debug")
-
-    run_manager = RunManager()
 
     cli_args_type = (
         WebsiteCrawlerCLI
@@ -94,42 +91,33 @@ if __name__ == "__main__":
     publish = run_kwargs.pop("publish", False) if run_kwargs else False
     data_manager = DataManager() if publish else None
 
+    run_manager = None
     if isinstance(cli_arg, WebsiteCrawlerCLI):
-        run_manager.set_module_path("website_crawler")
-        run_website_crawler(
-            run_manager,
+        _, run_manager = run_website_crawler(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
         )
     elif isinstance(cli_arg, WebpageImageSummarizerCLI):
-        run_manager.set_module_path("webpage_image_summarizer")
-        run_webpage_image_summarizer(
-            run_manager,
+        _, run_manager = run_webpage_image_summarizer(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
         )
     elif isinstance(cli_arg, RAGBuildCLI):
-        run_manager.set_module_path("rag_build")
-        run_rag_build(
-            run_manager,
+        run_manager = run_rag_build(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
         )
     elif isinstance(cli_arg, RAGQueryCLI):
-        run_manager.set_module_path("rag_query")
-        run_rag_query(
-            run_manager,
+        run_manager = run_rag_query(
             **run_kwargs,
             **module_config_overrides,
         )
     elif isinstance(cli_arg, AgentCLI):
-        # 聊天記錄與實驗分離：agent 使用獨立 RunManager（base_folder="chats"）
-        agent_run_manager = RunManager("agent", base_folder="chats")
-        run_agent(
-            agent_run_manager=agent_run_manager,
+        # run_agent 建立 agent_run_manager 並回傳
+        agent_run_manager = run_agent(
             **run_kwargs,
             **module_config_overrides,
         )
@@ -139,6 +127,6 @@ if __name__ == "__main__":
         # 常駐服務：不落盤 run config（無 run_manager），由 run_server blocking 執行
         run_server(**vars(cli_arg.run), mode="block")
 
-    if not isinstance(cli_arg, (AgentCLI, ServerCLI)):
+    if run_manager is not None and not isinstance(cli_arg, ServerCLI):
         save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)
         run_manager.log_run_paths("complete")

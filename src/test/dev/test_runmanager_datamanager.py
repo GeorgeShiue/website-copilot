@@ -9,6 +9,11 @@ import pytest
 
 from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
+from app.workflow.run_persistence import (
+    _filter_run_folders,
+    load_latest_results,
+    load_latest_run_path,
+)
 
 
 class TestRunManagerRefactor:
@@ -27,20 +32,13 @@ class TestRunManagerRefactor:
         shutil.rmtree(self.temp_dir)
 
     def test_filter_run_folders_with_base_folder(self):
-        """測試 _filter_run_folders 使用 self.base_folder 而非硬編碼常數。"""
+        """測試 filter_run_folders 使用 base_folder 而非硬編碼常數。"""
         # 在 runs/ 目錄建立測試資料夾
         test_folders = ["20260819_100000", "20260819_110000", "invalid_folder"]
         for folder in test_folders:
             os.makedirs(os.path.join(self.runs_dir, folder))
 
-        # 建立 RunManager 但不提供 module_name，避免自動建立 timestamp 資料夾
-        run_manager = RunManager(base_folder=self.runs_dir)
-        # 清除自動建立的 timestamp 資料夾以避免干擾
-        auto_created = os.path.join(self.runs_dir, run_manager.timestamp)
-        if os.path.exists(auto_created):
-            shutil.rmtree(auto_created)
-
-        run_folders = run_manager._filter_run_folders()
+        run_folders = _filter_run_folders(self.runs_dir)
 
         # 應該只回傳符合格式的資料夾
         assert len(run_folders) == 2
@@ -49,21 +47,15 @@ class TestRunManagerRefactor:
         assert "invalid_folder" not in run_folders
 
     def test_filter_run_folders_empty_raises(self):
-        """測試 _filter_run_folders 在空目錄時拋出 FileNotFoundError。"""
-        # 使用一個完全空的目錄（不含 RunManager 自動建立的 timestamp）
+        """測試 filter_run_folders 在空目錄時拋出 FileNotFoundError。"""
         empty_dir = os.path.join(self.temp_dir, "empty_runs")
         os.makedirs(empty_dir)
-        run_manager = RunManager(base_folder=empty_dir)
-        # 清除 RunManager 自動建立的 timestamp 資料夾
-        auto_created = os.path.join(empty_dir, run_manager.timestamp)
-        if os.path.exists(auto_created):
-            shutil.rmtree(auto_created)
 
         with pytest.raises(FileNotFoundError, match="No run folders found"):
-            run_manager._filter_run_folders()
+            _filter_run_folders(empty_dir)
 
-    def test_load_latest_results_from_json_with_base_folder(self):
-        """測試 load_latest_results_from_json 使用 self.base_folder。"""
+    def test_load_latest_results_with_base_folder(self):
+        """測試 load_latest_results 使用 base_folder。"""
         # 建立測試資料結構
         run_timestamp = "20260819_100000"
         run_dir = os.path.join(self.runs_dir, run_timestamp, "website_crawler")
@@ -76,13 +68,12 @@ class TestRunManagerRefactor:
         with open(results_json_path, "w") as f:
             json.dump(test_results, f)
 
-        run_manager = RunManager(base_folder=self.runs_dir)
-        loaded_results = run_manager.load_latest_results_from_json()
+        loaded_results = load_latest_results(self.runs_dir, "website_crawler")
 
         assert loaded_results == test_results
 
-    def test_load_latest_summarizer_run_path_with_base_folder(self):
-        """測試 load_latest_summarizer_run_path 使用 self.base_folder。"""
+    def test_load_latest_run_path_with_base_folder(self):
+        """測試 load_latest_run_path 使用 base_folder。"""
         # 建立測試資料結構
         run_timestamp = "20260819_100000"
         summarizer_dir = os.path.join(
@@ -90,32 +81,72 @@ class TestRunManagerRefactor:
         )
         os.makedirs(summarizer_dir)
 
-        run_manager = RunManager(base_folder=self.runs_dir)
-        latest_run_path = run_manager.load_latest_summarizer_run_path()
+        latest_run_path = load_latest_run_path(
+            self.runs_dir, "webpage_image_summarizer"
+        )
 
         expected_path = os.path.join(
             self.runs_dir, run_timestamp, "webpage_image_summarizer"
         )
         assert latest_run_path == expected_path
 
-    def test_set_site_path_creates_four_layer_structure(self):
-        """測試 set_site_path 建立四層路徑結構。"""
-        run_manager = RunManager(base_folder=self.runs_dir)
-        run_manager.set_module_path("website_crawler")
-        run_manager.set_site_path("nculab")
-        run_manager.set_run_path("default")
+    def test_for_run_creates_three_layer_structure(self):
+        """測試 for_run 建立 module → site → run 三層路徑結構。"""
+        run_manager = RunManager.for_run(
+            module="website_crawler",
+            site_id="nculab",
+            run_name="default",
+            base_folder=self.runs_dir,
+        )
 
         # 驗證路徑結構
         assert run_manager.site_id == "nculab"
         assert "nculab" in run_manager.site_path
         assert run_manager.site_path in run_manager.run_path
+        assert run_manager.module_name == "website_crawler"
+        assert run_manager.run_name == "default"
 
         # 驗證目錄已建立
         assert os.path.isdir(run_manager.site_path)
         assert os.path.isdir(run_manager.run_path)
+        assert os.path.isdir(run_manager.results_folder_path)
+
+    def test_for_run_no_site_creates_two_layer_structure(self):
+        """測試 for_run_no_site 建立 module → run 兩層路徑結構。"""
+        run_manager = RunManager.for_run_no_site(
+            module="agent",
+            run_name="test-chat",
+            base_folder=self.chats_dir,
+        )
+
+        # 驗證路徑結構
+        assert run_manager.module_name == "agent"
+        assert run_manager.run_name == "test-chat"
+        assert run_manager.site_id == ""
+        assert "agent" in run_manager.module_path
+        assert run_manager.module_path in run_manager.run_path
+
+        # 驗證目錄已建立
+        assert os.path.isdir(run_manager.run_path)
+        assert os.path.isdir(run_manager.results_folder_path)
+
+    def test_save_results_as_json(self):
+        """測試 save_results_as_json 將結果寫入 JSON 檔案。"""
+        run_manager = RunManager.for_run_no_site(
+            module="test_module",
+            run_name="test_run",
+            base_folder=self.runs_dir,
+        )
+        test_results = {"page1": {"url": "http://example.com"}}
+        run_manager.save_results_as_json(test_results)
+
+        assert os.path.isfile(run_manager.results_json_path)
+        with open(run_manager.results_json_path, "r") as f:
+            loaded = json.load(f)
+        assert loaded == test_results
 
     def test_agent_base_folder_discover(self):
-        """測試 Agent 場景（base_folder="chats"）的 _filter_run_folders 功能。"""
+        """測試 Agent 場景（base_folder="chats"）的 filter_run_folders 功能。"""
         # 建立 chats/ 目錄下的測試資料
         run_timestamp = "20260819_100000"
         agent_dir = os.path.join(self.chats_dir, run_timestamp, "agent")
@@ -128,9 +159,8 @@ class TestRunManagerRefactor:
         with open(results_json_path, "w") as f:
             json.dump(test_results, f)
 
-        run_manager = RunManager("agent", base_folder=self.chats_dir)
-        # 驗證 _filter_run_folders 能在 chats/ 目錄找到正確的 run 資料夾
-        run_folders = run_manager._filter_run_folders()
+        # 驗證 filter_run_folders 能在 chats/ 目錄找到正確的 run 資料夾
+        run_folders = _filter_run_folders(self.chats_dir)
         assert run_timestamp in run_folders
 
 

@@ -1,7 +1,6 @@
 import time
 
 from app.workflow.workflow import run_rag_query, run_webpage_image_summarizer
-from app.workflow.run_manager import RunManager
 from utils.log_helper import setup_logging
 
 setup_logging("debug")
@@ -16,11 +15,9 @@ def webpage_image_summarizer_model():
     #     "gemini-3-pro",
     # ]
     models = ["gemini-3.1-flash-lite", "gemini-3-flash"]  # temp
-    run_manager = RunManager()
 
     for model in models:
         run_webpage_image_summarizer(
-            run_manager=run_manager,
             config_name=model,
             run_name_use_config_name=True,
         )
@@ -29,18 +26,15 @@ def webpage_image_summarizer_model():
 def webpage_image_summarizer_prompt():
     # all_prompts = ["prompt-v1", "prompt-v2", "prompt-v3"]
     prompts = ["prompt-v3"]  # temp
-    run_manager = RunManager()
 
     for prompt in prompts:
         run_webpage_image_summarizer(
-            run_manager=run_manager,
             config_name=prompt,
             run_name_use_config_name=True,
         )
 
 
 def rag_dense_model():
-    run_manager = RunManager()
     queries = [
         "實驗室近三年發表過哪些論文？",
         "實驗室的成員有哪些人？",
@@ -54,12 +48,9 @@ def rag_dense_model():
         "gemini-3.1-pro",
     ]
 
-    for i in range(len(queries)):
-        run_manager.set_module_path(f"query_{i + 1}")
-        query = queries[i]
+    for query in queries:
         for model in models:
             run_rag_query(
-                run_manager=run_manager,
                 config_name=model,
                 run_name_use_config_name=True,
                 query_times=10,
@@ -68,8 +59,6 @@ def rag_dense_model():
 
 
 def rag_hybrid_ranker():
-    run_manager = RunManager()
-    run_manager.set_module_path("rag_hybrid_ranker")
     hybrid_rankers = [
         "milvus-weight",
         "milvus-RRF",
@@ -77,15 +66,11 @@ def rag_hybrid_ranker():
 
     for hybrid_ranker in hybrid_rankers:
         run_rag_query(
-            run_manager=run_manager,
             config_name=hybrid_ranker,
         )
 
 
 def rag_hybrid_ranker_weights():
-    run_manager = RunManager()
-    run_manager.set_module_path("rag_hybrid_ranker_weights")
-
     hybrid_ranker_weights = [
         "milvus-weight-1.0_0.3",
         "milvus-weight-1.0_0.5",
@@ -94,16 +79,12 @@ def rag_hybrid_ranker_weights():
 
     for hybrid_ranker_weight in hybrid_ranker_weights:
         run_rag_query(
-            run_manager=run_manager,
             config_name=hybrid_ranker_weight,
             run_name_use_config_name=True,
         )
 
 
 def rag_hybrid_top_k():
-    run_manager = RunManager()
-    run_manager.set_module_path("rag_hybrid_top_k")
-
     hybrid_top_k_configs = [
         "milvus-topk-10",
         "milvus-topk-20",
@@ -112,15 +93,12 @@ def rag_hybrid_top_k():
 
     for hybrid_top_k_config in hybrid_top_k_configs:
         run_rag_query(
-            run_manager=run_manager,
             config_name=hybrid_top_k_config,
             run_name_use_config_name=True,
         )
 
 
 def rag_hybrid_five_question():
-    run_manager = RunManager()
-    run_manager.set_module_path("rag_hybrid_five_question")
     queries = [
         "milvus-q1-members",
         "milvus-q2-activities",
@@ -131,14 +109,12 @@ def rag_hybrid_five_question():
 
     for query in queries:
         run_rag_query(
-            run_manager=run_manager,
             config_name=query,
             run_name_use_config_name=True,
         )
 
 
 def rag_dense_vs_hybrid():
-    run_manager = RunManager()
     query_modes = ["dense", "hybrid"]
     queries = [
         "實驗室的成員有哪些人？",
@@ -148,15 +124,12 @@ def rag_dense_vs_hybrid():
         "實驗室近三年發表過哪些論文？",
     ]
 
-    for i in range(len(queries)):
-        run_manager.set_module_path(f"query_{i + 1}")
-        query = queries[i]
+    for i, query in enumerate(queries):
         for query_mode in query_modes:
             # 每個 question+strategy 使用獨立 DB 路徑，避免 pymilvus ConnectionManager
             # 以 URI 為 key 快取連線導致下一輪 reconnect 到已關閉的舊 server
             unique_uri = f"data/rag/exps/milvus_{query_mode}_q{i + 1}.db"
             run_rag_query(
-                run_manager=run_manager,
                 config_name=query_mode,
                 run_name_use_config_name=True,
                 query=query,

@@ -18,7 +18,6 @@ from app.configs.workflow_config import (
     WebsiteCrawlerRunConfig,
 )
 from app.workflow.data_manager import DataManager
-from app.workflow.run_manager import RunManager
 from app.workflow.workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
@@ -85,36 +84,31 @@ def run_site_pipeline(
     print(f"  RAG config:     {rag_config}")
     print(f"{'=' * 60}\n")
 
-    run_manager = RunManager()
     data_manager = DataManager()
     all_missing: list[str] = []
 
     # ----- 1. 網站爬蟲 -----
-    run_manager.set_module_path("website_crawler")
     crawler_run_config = WebsiteCrawlerRunConfig(config_name=crawler_config)
-    crawl_results = run_website_crawler(
-        run_manager=run_manager,
+    crawl_results, crawl_run_manager = run_website_crawler(
         config_name=crawler_config,
         data_manager=data_manager,
     )
     if crawl_results is None:
         print(f"[FAIL] {site_label}: 爬蟲失敗，終止 pipeline")
         return False, all_missing
-    save_run_config_as_toml(crawler_run_config, run_manager.run_config_toml_path)
+    save_run_config_as_toml(crawler_run_config, crawl_run_manager.run_config_toml_path)
     data_manager.publish_run_metadata(
-        site_id=run_manager.site_id,
+        site_id=crawl_run_manager.site_id,
         category="webpages",
-        module_config_path=run_manager.module_config_toml_path,
-        run_config_path=run_manager.run_config_toml_path,
-        log_path=run_manager.log_path,
+        module_config_path=crawl_run_manager.module_config_toml_path,
+        run_config_path=crawl_run_manager.run_config_toml_path,
+        log_path=crawl_run_manager.log_path,
     )
     print(f"[OK]   {site_label}: 爬蟲完成，共 {len(crawl_results)} 頁")
 
     # ----- 2. 圖片摘要 -----
-    run_manager.set_module_path("webpage_image_summarizer")
     image_run_config = WebpageImageSummarizerRunConfig(config_name=image_config)
-    enhanced_results = run_webpage_image_summarizer(
-        run_manager=run_manager,
+    enhanced_results, image_run_manager = run_webpage_image_summarizer(
         config_name=image_config,
         crawl_results=crawl_results,
         data_manager=data_manager,
@@ -122,48 +116,45 @@ def run_site_pipeline(
     if enhanced_results is None:
         print(f"[FAIL] {site_label}: 圖片摘要失敗，終止 pipeline")
         return False, all_missing
-    save_run_config_as_toml(image_run_config, run_manager.run_config_toml_path)
+    save_run_config_as_toml(image_run_config, image_run_manager.run_config_toml_path)
     data_manager.publish_run_metadata(
-        site_id=run_manager.site_id,
+        site_id=image_run_manager.site_id,
         category="webpages",
-        module_config_path=run_manager.module_config_toml_path,
-        run_config_path=run_manager.run_config_toml_path,
-        log_path=run_manager.log_path,
+        module_config_path=image_run_manager.module_config_toml_path,
+        run_config_path=image_run_manager.run_config_toml_path,
+        log_path=image_run_manager.log_path,
     )
     print(f"[OK]   {site_label}: 圖片摘要完成")
 
     # ----- 3. RAG 建庫 -----
     # save_vector_store_to_runs=True：向量庫先建在 runs/ 再 publish 到 data/rag/，
     # 避免 config.milvus_uri 與 publish 目標路徑相同導致 self-copy 錯誤。
-    run_manager.set_module_path("rag_build")
     rag_run_config = RAGBuildRunConfig(
         config_name=rag_config,
         webpages_data_use_latest_results=True,
         save_vector_store_to_runs=True,
     )
-    run_rag_build(
-        run_manager=run_manager,
+    rag_run_manager = run_rag_build(
         config_name=rag_config,
         webpages_data_use_latest_results=True,
         save_vector_store_to_runs=True,
         data_manager=data_manager,
     )
-    save_run_config_as_toml(rag_run_config, run_manager.run_config_toml_path)
+    save_run_config_as_toml(rag_run_config, rag_run_manager.run_config_toml_path)
     data_manager.publish_run_metadata(
-        site_id=run_manager.site_id,
+        site_id=rag_run_manager.site_id,
         category="rag",
-        module_config_path=run_manager.module_config_toml_path,
-        run_config_path=run_manager.run_config_toml_path,
-        log_path=run_manager.log_path,
+        module_config_path=rag_run_manager.module_config_toml_path,
+        run_config_path=rag_run_manager.run_config_toml_path,
+        log_path=rag_run_manager.log_path,
     )
     print(f"[OK]   {site_label}: RAG 建庫完成")
 
     # ----- 4. 驗證 publish 結果 -----
     print(f"\n--- Verify published files for {site_label} ---")
+    site_id = crawl_run_manager.site_id
     for cat in ("webpages", "rag"):
-        missing = _check_published_files(
-            site_label, data_manager, run_manager.site_id, cat
-        )
+        missing = _check_published_files(site_label, data_manager, site_id, cat)
         all_missing.extend(f"{cat}/{m}" for m in missing)
 
     return True, all_missing
