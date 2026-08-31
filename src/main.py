@@ -1,63 +1,105 @@
+from dataclasses import dataclass
+
+from app.configs.workflow_config import (
+    RAGBuildRunConfig,
+    WebpageImageSummarizerRunConfig,
+    WebsiteCrawlerRunConfig,
+)
+from app.workflow.data_manager import DataManager
 from app.workflow.workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from app.workflow.workflow_config import (
-    RAGBuildRunConfig,
-    WebpageImageSummarizerRunConfig,
-    WebsiteCrawlerRunConfig,
-)
-from app.workflow.workflow_manager import RunManager
 from utils.config_helper import save_run_config_as_toml
 from utils.log_helper import setup_logging
 
-setup_logging("info")
+
+@dataclass
+class MainCLI:
+    """完整流水線：爬蟲 → 圖片摘要 → RAG 建庫，所有模組使用同一個 config_name。"""
+
+    config_name: str = "default"
 
 
-def main() -> None:
-    run_manager = RunManager()
+def main(cli: MainCLI | None = None) -> None:
+    if cli is None:
+        cli = MainCLI()
+
+    setup_logging("info")
+    data_manager = DataManager()
 
     # ----- Website Crawler -----
-    run_manager.set_module_path("website_crawler")
-    website_crawler_run_config = WebsiteCrawlerRunConfig()
-    crawl_results = run_website_crawler(
-        run_manager=run_manager, **vars(website_crawler_run_config)
+    website_crawler_run_config = WebsiteCrawlerRunConfig(
+        config_name=cli.config_name,
+    )
+    crawl_results, crawl_run_manager = run_website_crawler(
+        **vars(website_crawler_run_config),
+        data_manager=data_manager,
     )
     save_run_config_as_toml(
         website_crawler_run_config,
-        run_manager.run_config_toml_path,
+        crawl_run_manager.run_config_toml_path,
     )
-    run_manager.log_run_paths("complete")
+    data_manager.publish_run_metadata(
+        site_id=crawl_run_manager.site_id,
+        category="webpages",
+        module_config_path=crawl_run_manager.module_config_toml_path,
+        run_config_path=crawl_run_manager.run_config_toml_path,
+        log_path=crawl_run_manager.log_path,
+    )
+    crawl_run_manager.log_run_paths("complete")
     if crawl_results is None:
         return
 
     # ----- Webpage Image Summarizer -----
-    run_manager.set_module_path("webpage_image_summarizer")
-    webpage_image_summarizer_run_config = WebpageImageSummarizerRunConfig()
-    enhanced_results = run_webpage_image_summarizer(
-        run_manager=run_manager,
+    webpage_image_summarizer_run_config = WebpageImageSummarizerRunConfig(
+        config_name=cli.config_name,
+    )
+    enhanced_results, summarizer_run_manager = run_webpage_image_summarizer(
         **vars(webpage_image_summarizer_run_config),
         crawl_results=crawl_results,
+        data_manager=data_manager,
     )
     save_run_config_as_toml(
         webpage_image_summarizer_run_config,
-        run_manager.run_config_toml_path,
+        summarizer_run_manager.run_config_toml_path,
     )
-    run_manager.log_run_paths("complete")
+    data_manager.publish_run_metadata(
+        site_id=summarizer_run_manager.site_id,
+        category="webpages",
+        module_config_path=summarizer_run_manager.module_config_toml_path,
+        run_config_path=summarizer_run_manager.run_config_toml_path,
+        log_path=summarizer_run_manager.log_path,
+    )
+    summarizer_run_manager.log_run_paths("complete")
     if enhanced_results is None:
         return
 
     # ----- RAG Build -----
-    run_manager.set_module_path("rag_build")
-    rag_build_run_config = RAGBuildRunConfig(webpages_data_use_latest_results=True)
-    run_rag_build(run_manager=run_manager, **vars(rag_build_run_config))
+    rag_build_run_config = RAGBuildRunConfig(
+        config_name=cli.config_name,
+        webpages_data_use_latest_results=True,
+    )
+    rag_build_run_manager = run_rag_build(
+        **vars(rag_build_run_config),
+        data_manager=data_manager,
+    )
     save_run_config_as_toml(
         rag_build_run_config,
-        run_manager.run_config_toml_path,
+        rag_build_run_manager.run_config_toml_path,
     )
-    run_manager.log_run_paths("complete")
+    data_manager.publish_run_metadata(
+        site_id=rag_build_run_manager.site_id,
+        category="rag",
+        module_config_path=rag_build_run_manager.module_config_toml_path,
+        run_config_path=rag_build_run_manager.run_config_toml_path,
+        log_path=rag_build_run_manager.log_path,
+    )
+    rag_build_run_manager.log_run_paths("complete")
 
 
 if __name__ == "__main__":
-    main()
+    import tyro
+
+    main(tyro.cli(MainCLI))

@@ -6,7 +6,7 @@
 - GET /api/health：健康檢查
 - GET /：redirect 至 /static/demo.html（嵌入示範）
 - /static/：chat.html（iframe）、widget.js（script 嵌入）、demo.html
-- run_server()：uvicorn 啟動入口（供 cli.py serve 分派）
+- start_uvicorn()：uvicorn 啟動入口
 
 SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "token", "content": "..."}：逐 token 串流
@@ -44,7 +44,7 @@ from app.agent.agent import (
     thread_config,
 )
 from app.configs.agent_config import AgentConfig
-from app.workflow.workflow_manager import RunManager
+from app.workflow.run_manager import RunManager
 from utils.log_helper import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,36 @@ class ChatRequest(BaseModel):
 
     query: str
     thread_id: str | None = None
+    page_url: str | None = None
+
+
+DOMAIN_SITE_MAP: dict[str, str] = {
+    "nculab.csie.ncu.edu.tw": "nculab",
+    "csie.ncu.edu.tw": "ncucsie",
+}
+
+
+def resolve_site_id(page_url: str | None) -> str | None:
+    """從 hostname 解析 site_id。
+
+    支援精確匹配與子域名 suffix 匹配。
+    """
+    if not page_url:
+        return None
+    hostname = page_url.strip().lower()
+    if hostname in DOMAIN_SITE_MAP:
+        return DOMAIN_SITE_MAP[hostname]
+    for domain, site_id in DOMAIN_SITE_MAP.items():
+        if hostname.endswith("." + domain):
+            return site_id
+    return None
+
+
+def _enrich_query_with_site_context(query: str, site_id: str | None) -> str:
+    """將 site_id 前綴至 query，供 LLM 感知當前站點。"""
+    if not site_id:
+        return query
+    return f"[使用者瀏覽 {site_id} 網站] {query}"
 
 
 def _sse(data: dict[str, Any]) -> str:
@@ -66,6 +96,7 @@ async def _event_stream(
     agent: RAGAgent,
     query: str,
     thread_id: str,
+    site_id: str | None = None,
 ) -> AsyncIterator[str]:
     """SSE 事件流：逐 token 串流，最後送 done（含回答全文）。
 
@@ -73,15 +104,16 @@ async def _event_stream(
     sources 仍擷取並保留於落盤 result，但不回傳前端。
     """
     chunks: list[str] = []
+    enriched_query = _enrich_query_with_site_context(query, site_id)
     try:
         config = thread_config(thread_id)
-        async for text in astream_text(agent, query, config):
+        async for text in astream_text(agent, enriched_query, config):
             chunks.append(text)
             yield _sse({"type": "token", "content": text})
         state = agent.graph.get_state(config)
         messages = state.values.get("messages", []) if state.values else []
         sources = extract_sources_from_messages(messages)
-        # 落盤：每輪覆寫 results.json（最新一輪），並依 thread_id 分檔保留對話歷史
+        # 落盤：以 thread_id 分檔保留完整多輪對話歷史
         result = {
             "query": query,
             "response": "".join(chunks),
@@ -120,10 +152,14 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if agent is None:
-            # 與 workflow.run_agent 的呼叫模式對齊：明確指定 chats/ 落盤
+            # Server 使用 chats/ 作為聊天 session 的落盤位置（與 runs/ 實驗結果分開）
             app.state.agent = create_rag_agent(
                 config=AgentConfig.from_toml(config_name),
-                run_manager=RunManager("agent", base_folder="chats"),
+                run_manager=RunManager.for_run_no_site(
+                    module="agent",
+                    run_name=config_name,
+                    base_folder="chats",
+                ),
             )
         else:
             app.state.agent = agent
@@ -172,8 +208,9 @@ def create_app(
                 media_type="text/event-stream",
             )
         thread_id = req.thread_id or f"auto-{uuid.uuid4().hex[:8]}"
+        site_id = resolve_site_id(req.page_url)
         return StreamingResponse(
-            _event_stream(agent, req.query, thread_id),
+            _event_stream(agent, req.query, thread_id, site_id=site_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -181,13 +218,13 @@ def create_app(
     return app
 
 
-def run_server(
+def start_uvicorn(
     config_name: str = "default",
     host: str = "127.0.0.1",
     port: int = 8000,
     allowed_origins: list[str] | None = None,
 ) -> None:
-    """啟動聊天伺服器（cli.py serve 分派入口，blocking）。
+    """啟動 uvicorn 伺服器（blocking）。
 
     Args:
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。

@@ -1,0 +1,25 @@
+[init]
+site_id = "ncucsie"
+
+[nodes]
+chunk_size = 800
+chunk_overlap = 100
+paragraph_separator = "\n\n"
+
+[vector_store]
+vector_store_type = "milvus" # run name
+hybrid_ranker = "WeightedRanker"
+hybrid_ranker_params = { weights = [1.0, 0.5] }
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+query_mode = "hybrid"
+similarity_top_k = 10
+hybrid_top_k = 10
+
+[query_engine]
+query_llm_name = "gemini-3.1-flash-lite"
+evaluator_llm_name = "gpt-5.4"
+query = "介紹資工系課程"

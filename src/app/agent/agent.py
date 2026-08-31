@@ -11,6 +11,7 @@ M1 提供：
 資源生命週期：結束後由呼叫者呼叫 agent.close() 釋放 RAG 資源。
 """
 
+import json
 import logging
 import os
 import re
@@ -21,14 +22,18 @@ from typing import Any, AsyncIterator, Callable
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
+from langchain_core.tools import StructuredTool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import InMemorySaver
+from pydantic import BaseModel
 
 from app.configs.agent_config import AgentConfig
+from app.tools.rag_registry import RAGRegistry
 from app.tools.webpage_retriever import (
     create_webpage_retriever_tool,
 )
-from app.workflow.workflow_manager import RunManager
+from app.workflow.data_manager import DataManager
+from app.workflow.run_manager import RunManager
 from utils.config_helper import log_config, save_module_config_as_toml
 from utils.log_helper import log_run_time, log_session, save_logging_file
 
@@ -55,21 +60,24 @@ class RAGAgent:
 
     Attributes:
         graph: LangGraph CompiledStateGraph（create_agent 回傳）。
-        tool: 綁定的 retriever StructuredTool（含動態綁定的 .rag 資源）。
+        tools: 綁定的 StructuredTool 列表（含 discover + retriever）。
         run_manager: 本次執行的 RunManager（供落盤）。
         config: Agent 設定。
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
+        registry: 多站 RAG 實例管理器（M3）。
     """
 
     graph: Any
-    tool: Any
+    tools: list[StructuredTool]
     run_manager: RunManager
     config: AgentConfig
     checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
+    registry: RAGRegistry | None = None
 
     def close(self) -> None:
-        """釋放 RAG 資源（tool.rag.close()）。"""
-        getattr(self.tool, "rag").close()
+        """釋放 RAG 資源（registry.close()）。"""
+        if self.registry is not None:
+            self.registry.close()
 
 
 def create_agent_llm(llm_name: str) -> ChatGoogleGenerativeAI:
@@ -88,49 +96,75 @@ def create_agent_llm(llm_name: str) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(model=llm_name, api_key=api_key)
 
 
+class _DiscoveryInputSchema(BaseModel):
+    """list_knowledge_bases 工具的輸入 schema（無參數）。"""
+
+
+def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
+    """建立 list_knowledge_bases 工具。
+
+    掃描 data/webpages/ 回傳所有可用 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
+    """
+
+    def _list_sites() -> str:
+        sites = registry.list_sites()
+        if not sites:
+            return "目前沒有可用的知識庫。"
+        return "可用的知識庫：" + "、".join(sites)
+
+    return StructuredTool(
+        name="list_knowledge_bases",
+        description=(
+            "列出所有可用的知識庫站點。"
+            "在呼叫 webpage_retriever 前應先確認可用的 site_id。"
+        ),
+        args_schema=_DiscoveryInputSchema,
+        func=_list_sites,
+    )
+
+
 def create_rag_agent(
     config: AgentConfig | None = None,
     run_manager: RunManager | None = None,
 ) -> RAGAgent:
-    """建立綁定 webpage_retriever 工具的 LangGraph Agent。
+    """建立綁定多站 retriever 工具的 LangGraph Agent。
 
     建立流程：
     1. 初始化 RunManager（module="agent"）與落盤路徑
-    2. 以 RAG config（default）建立 retriever tool（RAG 資源，檢索參數由 RAG 層管理）
-    3. 以 AgentConfig.llm_name 建立 ChatModel
-    4. create_agent 組裝並包裝為 RAGAgent
+    2. 建立 RAGRegistry（多站 RAG 實例管理）
+    3. 建立 list_knowledge_bases + webpage_retriever 兩個工具
+    4. 以 AgentConfig.llm_name 建立 ChatModel
+    5. create_agent 組裝並包裝為 RAGAgent
 
     Args:
         config: Agent 設定（None 時使用預設）。
         run_manager: 可選的 RunManager（傳 None 時內部自動建立）。
 
     Returns:
-        RAGAgent：包裝 Agent、tool、run_manager 與 config。
+        RAGAgent：包裝 Agent、tools、run_manager、registry 與 config。
         結束後呼叫 agent.close() 釋放 RAG 資源。
     """
     if config is None:
-        # 與其他模組一致：預設由 configs/agent/default.toml 載入
-        config = AgentConfig.from_toml()
+        config = AgentConfig.from_toml("default")
 
     if run_manager is None:
-        # 聊天記錄與實驗分離：預設落盤至 chats/（RunManager base_folder 參數化）
-        run_manager = RunManager("agent", base_folder="chats")
-    run_manager.set_run_path(config.config_name)
-    run_manager.init_module_run_paths()
+        run_manager = RunManager.for_run_no_site(
+            module="agent",
+            run_name=config.config_name,
+            base_folder="runs",
+        )
     run_title = f"RAG Agent ({config.config_name})"
 
     with (
         save_logging_file(run_manager.log_path),
         log_run_time(run_title),
     ):
-        # ----- 建立 retriever tool（綁定 RAG 資源） -----
-        # run_name_use_config_name：讓 tool 的 run path 與 Agent 一致（runs/<ts>/agent/<config_name>/）
-        # similarity_top_k 等檢索參數沿用 RAG config 預設，Agent 不覆寫
-        tool = create_webpage_retriever_tool(
-            run_manager=run_manager,
-            config_name="default",
-            run_name_use_config_name=True,
-        )
+        # ----- 建立多站 RAG Registry -----
+        registry = RAGRegistry(DataManager())
+
+        # ----- 建立工具（discover + retriever） -----
+        discovery_tool = create_site_discovery_tool(registry)
+        retriever_tool = create_webpage_retriever_tool(registry)
 
         # ----- 輸出開始訊息 -----
         log_session(run_title, style="purple")
@@ -142,18 +176,19 @@ def create_rag_agent(
         llm = create_agent_llm(config.llm_name)
         logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
 
-        # InMemorySaver：多輪對話記憶（M2），以 thread_id 區分 session
         checkpointer = InMemorySaver()
         logger.info("Successfully built InMemorySaver for multi-turn conversation")
 
         graph = create_agent(
             llm,
-            [tool],
+            [discovery_tool, retriever_tool],
             system_prompt=config.system_prompt,
             checkpointer=checkpointer,
         )
         logger.info(
-            f"Successfully built Agent (llm={config.llm_name}, tools=[webpage_retriever]"
+            "Successfully built Agent (llm=%s, tools=[list_knowledge_bases, "
+            "webpage_retriever])",
+            config.llm_name,
         )
 
         # ----- 儲存設定 -----
@@ -166,10 +201,11 @@ def create_rag_agent(
 
     return RAGAgent(
         graph=graph,
-        tool=tool,
+        tools=[discovery_tool, retriever_tool],
         run_manager=run_manager,
         config=config,
         checkpointer=checkpointer,
+        registry=registry,
     )
 
 
@@ -301,6 +337,47 @@ async def astream_agent_result(
     }
 
 
+def _find_thread_history_path(
+    base_folder: str,
+    module_name: str,
+    history_filename: str,
+) -> str | None:
+    """跨 run 目錄搜尋 thread 歷史檔（結果為最新時間戳的那份）。
+
+    CLI 每次執行建立新的 timestamped run 目錄，但 thread 歷史需跨 run 累積。
+    從 base_folder 下所有 timestamped 子目錄搜尋符合的歷史檔，
+    回傳時間戳最新（lexicographically last）的那一個完整路徑；找不到回傳 None。
+
+    Args:
+        base_folder: runs/ 或 chats/ 根目錄。
+        module_name: 模組名稱（如 "agent"）。
+        history_filename: 要搜尋的檔名（如 "results_auto-87d6ce91.json"）。
+    """
+    if not os.path.isdir(base_folder):
+        return None
+
+    latest_path: str | None = None
+    for entry in sorted(os.listdir(base_folder), reverse=True):
+        entry_path = os.path.join(base_folder, entry)
+        if not os.path.isdir(entry_path):
+            continue
+        # timestamped folder: 20260830_172330 (15 chars, starts with 20)
+        if not (entry.startswith("20") and len(entry) == 15):
+            continue
+        module_path = os.path.join(entry_path, module_name)
+        if not os.path.isdir(module_path):
+            continue
+        # recursively search for the history file
+        for root, _dirs, files in os.walk(module_path):
+            if history_filename in files:
+                candidate = os.path.join(root, history_filename)
+                if latest_path is None or candidate > latest_path:
+                    latest_path = candidate
+        if latest_path is not None:
+            break  # already got the latest timestamp
+    return latest_path
+
+
 def save_conversation_results(
     agent: RAGAgent,
     results: list[dict[str, Any]],
@@ -311,11 +388,41 @@ def save_conversation_results(
     Args:
         agent: create_rag_agent() 回傳的 RAGAgent。
         results: ask_agent() 回傳的 dict 列表。
-        thread_id: 提供時另以 results_<thread_id>.json 分檔保留對話歷史
-            （results.json 仍維持最新一輪，向後相容）。
+        thread_id: session 識別（必填）；提供時以 results_<thread_id>.json 分檔
+            保留完整多輪對話歷史。None 時不落盤。
     """
+    if not thread_id:
+        return
+
     run_manager = agent.run_manager
     config = agent.config
+
+    # 讀取既有歷史（如有）
+    safe_id = thread_id.replace("/", "_")
+    history_filename = f"results_{safe_id}.json"
+    history_path = os.path.join(run_manager.run_path, history_filename)
+    existing_results: list[dict[str, Any]] = []
+
+    # 若當前 run 目錄無歷史檔，跨 run 目錄搜尋（CLI 多輪累積場景）
+    if not os.path.isfile(history_path):
+        found = _find_thread_history_path(
+            run_manager.base_folder,
+            run_manager.module_name,
+            history_filename,
+        )
+        if found:
+            history_path = found
+
+    if os.path.isfile(history_path):
+        try:
+            with open(history_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+                existing_results = existing.get("results", [])
+        except (json.JSONDecodeError, OSError):
+            existing_results = []
+
+    # 追加新輪
+    existing_results.extend(results)
 
     results_dict = {
         "config": {
@@ -324,13 +431,6 @@ def save_conversation_results(
             "llm_name": config.llm_name,
             "system_prompt": config.system_prompt,
         },
-        "results": results,
+        "results": existing_results,
     }
-    run_manager.save_results_as_json(results_dict)
-    if thread_id:
-        # 檔名安全化：thread_id 為 auto-{uuid}（無特殊字元），仍以防萬一置換
-        safe_id = thread_id.replace("/", "_")
-        run_manager.save_results_as_json(
-            results_dict,
-            file_path=os.path.join(run_manager.run_path, f"results_{safe_id}.json"),
-        )
+    run_manager.save_results_as_json(results_dict, file_path=history_path)

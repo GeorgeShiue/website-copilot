@@ -142,12 +142,12 @@ class MarkdownImageExtractor(BaseExtractor):
         return metadata_list
 
 
-# TODO: 支援更多擷取日期的方式
 class MarkdownDateExtractor(BaseExtractor):
     """從 node content 萃取日期資訊寫入 metadata (year/month/day)。
 
     必須放在 SentenceSplitter 之前，確保 child chunks 繼承日期 metadata。
-    支援四層遞減優先級：
+    支援五層遞減優先級：
+      0. HTML metadata published_date（從爬蟲階段擷取，ISO 8601）
       1. Section heading 年份 (### 2026)
       2. Post date 行 (Post date: Mon DD, YYYY)
       3. 列表結尾日期標記 (— Mon. DD, YYYY)
@@ -207,6 +207,17 @@ class MarkdownDateExtractor(BaseExtractor):
         return [self._extract_date(node) for node in nodes]
 
     def _extract_date(self, node: BaseNode) -> Dict[str, Any]:
+        # --- Strategy 0: HTML metadata published_date 優先 ---
+        published_date = node.metadata.get("published_date")
+        if published_date:
+            parts = published_date.split("-")
+            result: dict[str, int] = {"year": int(parts[0])}
+            if len(parts) >= 2:
+                result["month"] = int(parts[1])
+            if len(parts) >= 3:
+                result["day"] = int(parts[2])
+            return result
+
         content = node.get_content()
 
         # Strategy 1: Section heading 年份 (### 2026)
@@ -243,18 +254,10 @@ class MarkdownDateExtractor(BaseExtractor):
 
 
 def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
-    try:
-        page_title = source_node.node.metadata.get("page_title", "Unknown")
-    except Exception:
-        page_title = "Unknown"
-
+    metadata = getattr(source_node.node, "metadata", None) or {}
+    page_title = metadata.get("page_title", "Unknown")
     score = source_node.get_score()
-
-    try:
-        page_type = source_node.node.metadata.get("page_type", "Unknown")
-    except Exception:
-        page_type = "Unknown"
-
+    page_type = metadata.get("page_type", "Unknown")
     return page_title, score, page_type
 
 

@@ -1,14 +1,9 @@
 import logging
-import os
 from dataclasses import dataclass, field
-from typing import Any, Literal, Self
+from typing import Any, ClassVar, Literal
 
-from utils.config_helper import (
-    ConfigValidationError,
-    filter_commented_configs,
-    load_config_from_toml,
-    override_config,
-)
+from app.configs.base_config import BaseModuleConfig
+from utils.config_helper import ConfigValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +43,13 @@ DEFAULT_PROMPT = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-DEFAULT_CONFIG_FOLDER_PATH = "configs/webpage_image_summarizer"
+DEFAULT_INIT_CONFIG_FOLDER_PATH = "configs/webpage_image_summarizer"
 DEFAULT_CONFIG_NAME = "default"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"
 DEFAULT_LITELLM_CONFIG_SECTION = "litellm_kwargs"
 INIT_KEYS = {
+    "site_id",
     "download_timeout",
     "success_threshold",
     "max_retries",
@@ -82,10 +78,14 @@ VLM_MODEL_TO_API_KEY: dict[str, str] = {
 
 
 @dataclass
-class WebpageImageSummarizerConfig:
-    # ----- metadata (no default values)-----
-    config_name: str
+class WebpageImageSummarizerConfig(BaseModuleConfig):
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/webpage_image_summarizer"
+    sections_to_keys: ClassVar[dict[str, set[str]]] = {
+        section: keys.copy() for section, keys in SECTIONS_TO_KEYS.items()
+    }
+
     # ----- init config -----
+    site_id: str
     download_timeout: float = 10.0
     success_threshold: float = 0.8  # 圖片下載成功率低於此值則啟動重試機制
     max_retries: int = 6  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
@@ -97,12 +97,6 @@ class WebpageImageSummarizerConfig:
     image_source: Literal["images", "markdown"] = "markdown"
     vlm_max_workers: int = 10
     litellm_kwargs: dict[str, Any] = field(default_factory=dict)
-    # ----- metadata -----
-    sections_to_keys: dict[str, set[str]] = field(
-        default_factory=lambda: {
-            section: keys.copy() for section, keys in SECTIONS_TO_KEYS.items()
-        }
-    )
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
@@ -112,37 +106,20 @@ class WebpageImageSummarizerConfig:
         cls,
         config_name: str = DEFAULT_CONFIG_NAME,
         **overrides,
-    ) -> Self:
+    ):
         """從 TOML 設定檔建立 WebpageImageSummarizerConfig。"""
-        config_path = os.path.join(DEFAULT_CONFIG_FOLDER_PATH, f"{config_name}.toml")
-        config = load_config_from_toml(config_path, SECTIONS_TO_KEYS)
-        config = override_config(config, overrides, SECTIONS_TO_KEYS)
-        config["config_name"] = config_name
-        return cls(**config)
+        return super().from_toml(config_name, **overrides)
 
-    @property
-    def run_name(self) -> str:
-        """根據 config toml 中的註解生成 run name。"""
-        config_path = os.path.join(
-            DEFAULT_CONFIG_FOLDER_PATH, f"{self.config_name}.toml"
-        )
-        commented_configs = filter_commented_configs(config_path, "run name")
-
-        if not commented_configs:
-            return "default"
-
-        run_name = ""
-        for config in commented_configs:
-            value = getattr(self, config, None)
-            if value is not None:
-                run_name += f"{config}-{value}_"
-        run_name = run_name.rstrip("_").replace("/", "-")
-
-        return run_name
+    def _post_process_run_name(self, run_name: str) -> str:
+        return run_name.replace("/", "-")
 
 
 def _validate_config(config: dict[str, Any]) -> None:
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     download_timeout = config.get("download_timeout")
     success_threshold = config.get("success_threshold")
     max_retries = config.get("max_retries")

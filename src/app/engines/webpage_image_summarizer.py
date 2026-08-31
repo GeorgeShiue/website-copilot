@@ -7,11 +7,13 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 from rich.table import Table
+from rich.text import Text
 
 from app.configs.webpage_image_summarizer_config import (
     DEFAULT_PROMPT,
@@ -130,7 +132,7 @@ class WebpageImageSummarizer:
                 continue
 
             log_session(
-                f"Summarizing Images in [{page_title}]",
+                Text.assemble("Summarizing Images in [", page_title, "]"),
                 style="blue",
             )
             fit_markdown, image_urls = crawl_result_content
@@ -289,8 +291,8 @@ class WebpageImageSummarizer:
             with urlopen(req, timeout=download_timeout) as resp:
                 data = resp.read()
                 raw_content_type: str = resp.headers.get("Content-Type", "")
-        except Exception as e:
-            logger.warning("Image download failed (url=%s) : %s", url, e)
+        except (URLError, TimeoutError, OSError) as e:
+            logger.warning("Image download failed (url=%s): %s", url, e)
             return None, "failed"
 
         content_type: str = raw_content_type.split(";")[0].strip()
@@ -377,7 +379,9 @@ class WebpageImageSummarizer:
                     # )
                 except Exception as e:
                     logger.warning(
-                        "Image summarization task failed unexpectedly: %s", e
+                        "Image summarization task failed unexpectedly: %s",
+                        e,
+                        exc_info=True,
                     )
                 finally:
                     progress.update(task_id, advance=1)
@@ -435,7 +439,7 @@ class WebpageImageSummarizer:
                 **litellm_kwargs,
             )
         except Exception as e:
-            logger.warning("Image summarization failed: %s", e)
+            logger.warning("Image summarization failed: %s", e, exc_info=True)
             return image_caption, "failed", 0.0
 
         cost_usd = completion_cost(completion_response=response)

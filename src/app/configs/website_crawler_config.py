@@ -1,23 +1,18 @@
 import logging
-import os
-from dataclasses import dataclass, field
-from typing import Any, Pattern, Self
+from dataclasses import dataclass
+from typing import Any, ClassVar, Pattern
 
-from utils.config_helper import (
-    ConfigValidationError,
-    filter_commented_configs,
-    load_config_from_toml,
-    override_config,
-)
+from app.configs.base_config import BaseModuleConfig
+from utils.config_helper import ConfigValidationError
 
 logger = logging.getLogger(__name__)
 
 KEEP_TITLE_CONTENT_THRESHOLD = 0.45
 KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
-DEFAULT_CONFIG_FOLDER_PATH = "configs/website_crawler"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_CRAWL_CONFIG_SECTION = "crawl"
 INIT_KEYS = {
+    "site_id",
     "max_depth",
     "max_pages",
     "content_threshold",
@@ -29,6 +24,7 @@ CRAWL_KEYS = {
     "url_patterns",
     "allowed_domains",
     "exclude_words",
+    "path_prefix",
 }
 SECTIONS_TO_KEYS = {
     DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
@@ -37,11 +33,14 @@ SECTIONS_TO_KEYS = {
 
 
 @dataclass
-class WebsiteCrawlerConfig:
-    # ----- crawl config (no default values)-----
+class WebsiteCrawlerConfig(BaseModuleConfig):
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/website_crawler"
+    sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
+
+    # ----- init config -----
+    site_id: str
+    # ----- crawl config (no default values) -----
     url: str
-    # ----- metadata (no default values)-----
-    config_name: str
     # ----- init config -----
     max_depth: int | None = None
     max_pages: int | None = None
@@ -52,51 +51,18 @@ class WebsiteCrawlerConfig:
     url_patterns: str | Pattern | list[str | Pattern] | None = None
     allowed_domains: str | list[str] | None = None
     exclude_words: list[str] | None = None
-    # ----- metadata -----
-    sections_to_keys: dict[str, set[str]] = field(
-        default_factory=lambda: SECTIONS_TO_KEYS
-    )
-
-    @classmethod
-    def from_toml(
-        cls,
-        config_name: str,
-        **overrides,
-    ) -> Self:
-        """從 TOML 設定檔建立 WebsiteCrawlerConfig。"""
-        config_path = os.path.join(DEFAULT_CONFIG_FOLDER_PATH, f"{config_name}.toml")
-        config = load_config_from_toml(config_path, SECTIONS_TO_KEYS)
-        config = override_config(config, overrides, SECTIONS_TO_KEYS)
-        config["config_name"] = config_name
-        return cls(**config)
+    path_prefix: str | None = None
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
 
-    @property
-    def run_name(self) -> str:
-        """根據 config toml 中的註解生成 run name"""
-        config_path = os.path.join(
-            DEFAULT_CONFIG_FOLDER_PATH, f"{self.config_name}.toml"
-        )
-        commented_configs = filter_commented_configs(config_path, "run name")
-
-        if not commented_configs:
-            return "default"
-
-        run_name = ""
-        for config in commented_configs:
-            value = getattr(self, config, None)
-            if value is not None:
-                config_part = f"{config}-{value}"
-                run_name += config_part + "_"
-        run_name = run_name.rstrip("_")
-
-        return run_name
-
 
 def _validate_config(config: dict[str, Any]) -> None:
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     max_depth = config.get("max_depth")
     max_pages = config.get("max_pages")
     content_threshold = config.get("content_threshold")
@@ -171,3 +137,10 @@ def _validate_config(config: dict[str, Any]) -> None:
                 raise ConfigValidationError(
                     "exclude_words 列表中的每個元素必須是非空字串"
                 )
+
+    path_prefix = config.get("path_prefix")
+    if path_prefix is not None:
+        if not isinstance(path_prefix, str):
+            raise ConfigValidationError("path_prefix 必須是字串")
+        if not path_prefix.startswith("/"):
+            raise ConfigValidationError("path_prefix 必須以 / 開頭")

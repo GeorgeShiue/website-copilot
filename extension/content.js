@@ -20,6 +20,7 @@
   window.__wcMounted = true;
 
   const ENDPOINT = 'http://127.0.0.1:8000';
+  const currentHostname = window.location.hostname;
 
   function proxyStreamChat(payload) {
     // 回傳 Promise<{ ok, status, body: ReadableStream-like }>
@@ -57,7 +58,7 @@
         cancel() { port.disconnect(); },
       });
 
-      port.postMessage({ type: 'chat', query: payload.query, thread_id: payload.thread_id });
+      port.postMessage({ type: 'chat', query: payload.query, thread_id: payload.thread_id, page_url: currentHostname });
       resolve({ ok: true, status: 200, body: stream });
     });
   }

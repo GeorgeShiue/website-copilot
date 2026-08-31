@@ -1,5 +1,5 @@
 [init]
-webpages_data_folder_path = "data/webpages"
+site_id = "nculab"
 
 [nodes]
 chunk_size = 800
@@ -8,8 +8,6 @@ paragraph_separator = "\n\n"
 
 [vector_store]
 vector_store_type = "milvus" # run name
-milvus_uri = "data/rag/results/milvus.db"
-collection_name = "webpages"
 hybrid_ranker = "WeightedRanker"
 hybrid_ranker_params = { weights = [1.0, 0.5] }
 

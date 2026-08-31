@@ -1,0 +1,344 @@
+───────────────────────────────────────── Webpage Image Summarizer (nculab) ──────────────────────────────────────────
+─────────────────────────────────── WebpageImageSummarizer Config Loaded from toml ───────────────────────────────────
+               init
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config                ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ cache_download_images │ True   │
+│ cache_image_captions  │ True   │
+│ download_timeout      │ 10.0   │
+│ max_retries           │ 6      │
+│ site_id               │ nculab │
+│ success_threshold     │ 0.8    │
+└───────────────────────┴────────┘
+                                                      summarize
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                                                                            ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ image_source    │ markdown                                                                                         │
+│ model           │ gemini-3.1-flash-lite                                                                            │
+│ prompt          │ 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。\n\n【核心規則】\n1.            │
+│                 │ 先在內部過濾低資訊字與重複內容，再進行圖片摘要與 OCR；低資訊字不得出現在最終輸出。\n2.           │
+│                 │ 僅描述可見事實；禁止模板語、美術評論與推論。\n3. 優先保留實體名稱、完整 OCR                      │
+│                 │ 文字與頁面主題詞；實體僅收錄具獨立語義的名詞短語，且不得逐字重複 OCR。\n4.                       │
+│                 │ 圖片摘要以實體優先，依主體實體、位置關係、功能或上下文撰寫，不先寫修飾詞。\n5.                   │
+│                 │ 頁面關聯僅填可見且可驗證的頁面主題、所屬對象與檢索錨點，且至少包含 1                             │
+│                 │ 個可命名錨點（人名、組織名、專案名、產品名、活動名、頁面標題詞）；禁止使用代表、象徵、常作為、 … │
+│                 │ 圖片缺乏可識別身份資訊時，優先以頁面標題或鄰近文字中的專有名詞補足，不得憑空推論。\n7.           │
+│                 │ 圖片過度模糊、遮擋或僅有背景，或 OCR 無法辨識時，明確填寫無法辨識或無可辨識實體；局部不清楚以    │
+│                 │ [模糊]                                                                                           │
+│                 │ 標示。\n\n【輸出格式】\n**圖片摘要：**\n用一句話清晰描述圖片的實際內容、主要實體與結構。\n以實 … │
+│                 │ 實體: 列出最多 5 個名詞短語，專有名詞優先，以逗號分隔\n2. OCR文字:                               │
+│                 │ 逐字逐句完整抽取圖片上所有可見的文字內容，保留原始版面與順序。若無文字填寫無\n3. 主題標籤: 最多  │
+│                 │ 5                                                                                                │
+│                 │ 個與頁面主題直接相關的分類詞，只能使用專案名、功能名、領域名或明確主題詞，以逗號分隔\n\n**頁面 … │
+│                 │ 圖片摘要控制在 50 字內\n- 主要元素控制在 60 字內，不含 OCR文字\n- 頁面關聯控制在 40 字內\n-      │
+│                 │ 圖片摘要、主要元素與頁面關聯合計不超過 150 字，不含 OCR文字\n- OCR文字                           │
+│                 │ 應完整保留所有可見文字，不受字數限制\n-                                                          │
+│                 │ 多行文字按出現順序分行列出，並保留特殊符號、數字與日期等原始格式\n-                              │
+│                 │ 所有欄位均不使用括號，直接列出內容\n- 低資訊字只在內部過濾，不列入最終輸出\n                     │
+│ vlm_max_workers │ 20                                                                                               │
+└─────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────┘
+───────────────────────────────────────────────────── Run Paths ──────────────────────────────────────────────────────
+
+  Type                 Directory                                                                     Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base                 runs/20260826_004137                                                          created
+  Module               runs/20260826_004137/webpage_image_summarizer                                 created
+  Run                  runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   created
+  Results folder       runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   created
+  Results json         runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   wait for saving
+  Module config toml   runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   wait for saving
+  Run config toml      runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   wait for saving
+  Log file             runs/20260826_004137/webpage_image_summarizer/nculab/model-gemini-3.1-flas…   wait for saving
+
+──────────────────────────────────────────────── Image Summarization ─────────────────────────────────────────────────
+────────────────────────────────────────── Summarizing Images in [labintro] ──────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.194s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 1.940s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.003127 │
+│ success           │ 5         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────────── Summarizing Images in [advisor] ───────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.093s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 1.303s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000585 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────── Summarizing Images in [members_activities] ─────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 1.316s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 2.411s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.011057 │
+│ success           │ 16        │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────────── Summarizing Images in [members] ───────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 1.481s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 1.993s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.010566 │
+│ success           │ 17        │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────── Summarizing Images in [news_%E7%A0%94%E8%A8%8E%E6%9C%83] ──────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 0.398s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 3.467s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.004916 │
+│ success           │ 4         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────────────────────────── Summarizing Images in [news_page-3] ─────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.471s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 2.547s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001516 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────────────────────────── Summarizing Images in [news_研討會] ─────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.001s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000000 │
+│ success           │ 0         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 4         │
+└───────────────────┴───────────┘
+────────────────────────────────────────── Summarizing Images in [projects] ──────────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6/6 1.083s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6/6 2.763s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.003748 │
+│ success           │ 6         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────────────── Summarizing Images in [projects_eventgo] ──────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.402s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.184s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001008 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──── Summarizing Images in [projects_past-projects_ncufree-mobileadvertisingplatformbasedoncampuswirelessnetwork] ────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 0.227s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 2.291s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.002063 │
+│ success           │ 3         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+────────────────────────────── Summarizing Images in [projects_past-projects_wifipass] ───────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.241s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 2.452s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001571 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────── Summarizing Images in [projects_powerpoi] ──────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.143s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.637s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000858 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+─ Summarizing Images in [news_校內奬項_hezhangjiahuilaoshizhidaoxueshengyu103xueniandudiqijiedaxuebuzhuantizhizuoji… ─
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 0.253s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 2.128s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.004071 │
+│ success           │ 5         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────────────────────── Summarizing Images in [news_校外奬項_page-1] ────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.224s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.627s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000919 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────── Summarizing Images in [news_校外奬項_page] ─────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.176s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.015s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000842 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+──────────────────────────────────── Summarizing Images in [news_校外奬項_page-2] ────────────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.183s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.380s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000955 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───── Summarizing Images in [news_研討會_jiaoyubu4gxingdongkuanpinchuangxinyingyongfuwuyantaohuixiangguanzixun] ──────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.251s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.943s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001514 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+─ Summarizing Images in [news_校外奬項_賀邱威誠同學獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示 … ─
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 0.371s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 2.719s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.003425 │
+│ success           │ 4         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+─────────────── Summarizing Images in [news_校外奬項_賀-碩士在職專班學生廖勳-榮獲tanet-2021佳作論文奬] ───────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 0.293s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 3.212s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.001766 │
+│ success           │ 2         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────── Summarizing Images in [news_碩論口試_widmlabtutorial2016] ──────────────────────────────
+
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0.174s
+
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 2.535s
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric            ┃ Value     ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd          │ $0.000961 │
+│ success           │ 1         │
+│ download_failure  │ 0         │
+│ summarize_failure │ 0         │
+│ cache_reuse       │ 0         │
+└───────────────────┴───────────┘
+───────────────────────────────────────────── All Image Summarize Stats ──────────────────────────────────────────────
+┏━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric   ┃ Value     ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━┩
+│ cost_usd │ $0.055471 │
+│ success  │ 74        │
+│ failure  │ 0         │
+└──────────┴───────────┘
+INFO     Published enhanced markdown to data/webpages/nculab/results
+─────────────────────────────────────────── Image Summarization Completed ────────────────────────────────────────────
+INFO     Image Summarization Completed in 55.662 seconds

@@ -1,0 +1,32 @@
+[init]
+webpages_data_folder_path = "data/webpages/nculab"
+site_id = "nculab"
+
+[vector_store]
+vector_store_type = "milvus" # run name
+milvus_uri = "data/rag/nculab/milvus.db"
+hybrid_ranker = "WeightedRanker"
+qdrant_db_folder_path = "data/rag/nculab/qdrant_db"
+
+[vector_store.hybrid_ranker_params]
+weights = [1.0, 0.5]
+
+[nodes]
+chunk_overlap = 100
+chunk_size = 800
+paragraph_separator = "\n\n"
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+hybrid_top_k = 10
+alpha = 0.5
+query_mode = "hybrid"
+similarity_top_k = 10
+
+[query_engine]
+query = "實驗室的成員有哪些人？"
+query_llm_name = "gemini-3.1-flash-lite"
+cutoff = 0.0
+evaluator_llm_name = "gpt-5.4"

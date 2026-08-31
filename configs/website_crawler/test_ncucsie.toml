@@ -1,0 +1,53 @@
+[init]
+site_id = "ncucsie"
+max_depth = 2
+max_pages = 10           # run name
+content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD
+light_mode = true
+wait_for_images = true
+
+[crawl]
+url = "https://www.csie.ncu.edu.tw/"
+url_patterns = ["*csie.ncu.edu.tw*"]
+allowed_domains = ["www.csie.ncu.edu.tw"]
+path_prefix = "/"
+exclude_words = [
+    # 頁首 logo 圖片
+    "![資訊工程學系]",
+    # 焦點新聞區塊
+    "焦點新聞",
+    "[ 更多 ]",
+    # 重複新聞類別標籤
+    "得獎訊息",
+    "徵才訊息",
+    "招生快訊",
+    "演講公告",
+    "活動快訊",
+    "課程訊息",
+    "系辦公告",
+    # 頁面底部 sidebar 重複公告列表（每頁相同的 URL）
+    "csie.ncu.edu.tw/announcement/",
+    # 底部連結
+    "中央資工FB",
+    "資電院院刊",
+    "SNMG",
+    # 版權宣告與聯絡資訊
+    "Copyright ©",
+    "版權宣告",
+    "後台管理",
+    "聯絡我們",
+    "網站地圖",
+    "隱私權聲明",
+    "ncu4500@ncu.edu.tw",
+    "03-422-7151",
+    "03-422-2681",
+    "選擇語言",
+    "繁體中文",
+    "Englishen-us",
+    "×關閉",
+    # 分頁導覽
+    "前一頁",
+    "第一頁",
+    # 首頁 slide 圖片
+    "![slide_",
+]

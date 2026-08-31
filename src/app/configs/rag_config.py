@@ -1,26 +1,17 @@
 import logging
-import os
-from dataclasses import dataclass, field
-from typing import Any, Self
+from dataclasses import dataclass
+from typing import Any, ClassVar
 
+from app.configs.base_config import BaseModuleConfig
 from utils.config_helper import (
     ConfigValidationError,
     _normalize_toml_types,
-    filter_commented_configs,
-    load_config_from_toml,
-    override_config,
 )
 
 logger = logging.getLogger(__name__)
 
 
-WEBPAGES_DATA_FOLDER_PATH = "data/webpages"
-RAG_RESULTS_FOLDER_PATH = "data/rag/results"
-DEFAULT_VECTOR_STORE_TYPE = "qdrant"
-DEFAULT_COLLECTION_NAME = "webpages"
-DEFAULT_QDRANT_DB_FOLER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "qdrant_db")
-DEFAULT_MILVUS_DB_FOLDER_PATH = os.path.join(RAG_RESULTS_FOLDER_PATH, "milvus.db")
-DEFAULT_CONFIG_FOLDER_PATH = "configs/rag"
+DEFAULT_VECTOR_STORE_TYPE = "milvus"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
 DEFAULT_NODES_CONFIG_SECTION = "nodes"
@@ -28,12 +19,20 @@ DEFAULT_INDEX_CONFIG_SECTION = "index"
 DEFAULT_RETRIEVER_CONFIG_SECTION = "retriever"
 DEFAULT_QUERY_ENGINE_CONFIG_SECTION = "query_engine"
 
+
+def _default_webpages_path(site_id: str) -> str:
+    return f"data/webpages/{site_id}"
+
+
+def _default_milvus_uri(site_id: str) -> str:
+    return f"data/rag/{site_id}/milvus.db"
+
+
 INIT_KEYS = {
+    "site_id",
     "webpages_data_folder_path",
 }
 VECTOR_STORE_KEYS = {
-    "qdrant_db_folder_path",
-    "collection_name",
     "vector_store_type",
     "milvus_uri",
     "hybrid_ranker",
@@ -70,16 +69,16 @@ SECTIONS_TO_KEYS = {
 
 
 @dataclass
-class RAGConfig:
-    # ----- metadata (no default values)-----
-    config_name: str
+class RAGConfig(BaseModuleConfig):
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/rag"
+    sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
+
     # ----- init config -----
-    webpages_data_folder_path: str = WEBPAGES_DATA_FOLDER_PATH
+    site_id: str
+    webpages_data_folder_path: str | None = None
     # ----- vector store config -----
     vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
-    qdrant_db_folder_path: str = DEFAULT_QDRANT_DB_FOLER_PATH
-    milvus_uri: str = DEFAULT_MILVUS_DB_FOLDER_PATH
-    collection_name: str = DEFAULT_COLLECTION_NAME
+    milvus_uri: str | None = None
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None
     # ----- nodes config -----
@@ -98,52 +97,37 @@ class RAGConfig:
     evaluator_llm_name: str = "gpt-5.4"
     cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
-    # ----- metadata -----
-    sections_to_keys: dict[str, set[str]] = field(
-        default_factory=lambda: SECTIONS_TO_KEYS
-    )
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
+        # 未指定路徑時，由 site_id 動態產生預設路徑
+        if self.webpages_data_folder_path is None:
+            self.webpages_data_folder_path = _default_webpages_path(self.site_id)
+        if self.milvus_uri is None:
+            self.milvus_uri = _default_milvus_uri(self.site_id)
 
     @classmethod
     def from_toml(
         cls,
         config_name: str = "default",
         **overrides,
-    ) -> Self:
+    ):
         """從 TOML 設定檔建立 RAGConfig。"""
-        config_path = os.path.join(DEFAULT_CONFIG_FOLDER_PATH, f"{config_name}.toml")
-        config = load_config_from_toml(config_path, SECTIONS_TO_KEYS)
-        config = override_config(config, overrides, SECTIONS_TO_KEYS)
-        config["config_name"] = config_name
-        return cls(**config)
+        return super().from_toml(config_name, **overrides)
 
-    @property
-    def run_name(self) -> str:
-        """根據 config TOML 中的註解生成 run name。"""
-        config_path = os.path.join(
-            DEFAULT_CONFIG_FOLDER_PATH, f"{self.config_name}.toml"
-        )
-        commented_configs = filter_commented_configs(config_path, "run name")
-        if not commented_configs:
-            return "default"
-
-        run_name = ""
-        for config in commented_configs:
-            value = getattr(self, config, None)
-            if value is not None:
-                run_name += f"{config}-{value}_"
-        run_name = run_name.rstrip("_").replace("/", "-")
-
+    def _post_process_run_name(self, run_name: str) -> str:
+        run_name = run_name.replace("/", "-")
         if run_name.find("-gemini") > 1:
             run_name = run_name.replace("-gemini", "", 1)
-
         return run_name
 
 
 def _validate_config(config: dict[str, Any]) -> None:
     # ----- init config -----
+    site_id = config.get("site_id", "")
+    if not isinstance(site_id, str) or not site_id.strip():
+        raise ConfigValidationError("site_id 必須是非空字串")
+
     webpages_data_folder_path = config.get("webpages_data_folder_path")
 
     if webpages_data_folder_path is not None:
@@ -153,24 +137,10 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("webpages_data_folder_path 不可為空字串")
 
     # ----- vector store config -----
-    qdrant_db_folder_path = config.get("qdrant_db_folder_path")
-    collection_name = config.get("collection_name")
     vector_store_type = config.get("vector_store_type")
 
-    if vector_store_type is not None and vector_store_type not in ("qdrant", "milvus"):
-        raise ConfigValidationError("vector_store_type 必須是 'qdrant' 或 'milvus'")
-
-    if qdrant_db_folder_path is not None:
-        if not isinstance(qdrant_db_folder_path, str):
-            raise ConfigValidationError("qdrant_db_folder_path 必須是字串")
-        if not qdrant_db_folder_path.strip():
-            raise ConfigValidationError("qdrant_db_folder_path 不可為空字串")
-
-    if collection_name is not None:
-        if not isinstance(collection_name, str):
-            raise ConfigValidationError("collection_name 必須是字串")
-        if not collection_name.strip():
-            raise ConfigValidationError("collection_name 不可為空字串")
+    if vector_store_type is not None and vector_store_type != "milvus":
+        raise ConfigValidationError("vector_store_type 必須是 'milvus'")
 
     hybrid_ranker = config.get("hybrid_ranker")
 

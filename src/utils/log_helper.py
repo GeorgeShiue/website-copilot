@@ -238,9 +238,13 @@ def print_log(content: object) -> None:
     console.print(content)
 
 
-def log_session(title: str, style: str) -> None:
+def log_session(title: str | Text, style: str) -> None:
     """Log a visually distinct section header for a module session using Rich styling."""
-    print_log(Rule(f"[bold {style}]{title}[/bold {style}]", style=style))
+    if isinstance(title, Text):
+        title.stylize(f"bold {style}")
+        print_log(Rule(title, style=style))
+    else:
+        print_log(Rule(f"[bold {style}]{title}[/bold {style}]", style=style))
 
 
 def log_source_title(page_title, score, page_type):

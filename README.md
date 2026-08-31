@@ -10,7 +10,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 - 爬取網站並匯出已清理的 Markdown 頁面。
 - 摘要網頁圖片並將說明附加到 Markdown 輸出中。
-- 建立或載入本地向量索引（Qdrant / Milvus）以進行混合檢索，同步進行語意比對與關鍵字比對。
+- 建立或載入本地 Milvus 向量索引以進行混合檢索，同步進行語意比對與關鍵字比對。
 - 利用爬蟲階段注入的頁面類型標籤，在檢索前隔離跨類別雜訊。
 - 將檢索能力包裝為工具，供下游 Agent 動態呼叫與過濾。
 - 使用 Gemini / GPT 驅動的查詢引擎處理索引後內容，並自動評估回答品質。
@@ -34,7 +34,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 1. 爬取目標網站，從 URL 解析頁面類型，將結果儲存為 Markdown 和 JSON。
 2. 摘要爬取結果中的圖片，生成增強版 Markdown。
-3. 將處理後的 Markdown 載入向量索引（Qdrant BM25 或 Milvus BGE-M3），同時建立稠密向量與稀疏向量索引。
+3. 將處理後的 Markdown 載入 Milvus 向量索引（BGE-M3），同時建立稠密向量與稀疏向量索引。
 4. 將檢索能力包裝為工具，支援動態過濾條件供 Agent 呼叫。
 5. 執行查詢時以 Dense + Sparse 混合檢索，過濾指定頁面類型，由 LLM 生成有來源的回答。
 6. Agent 以 LangGraph 推理迴圈呼叫檢索工具，回答附引用來源；聊天伺服器以 SSE 串流傳給前端。
@@ -63,9 +63,11 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   ├── webpage_image_summarizer_config.py
 │   │   │   └── website_crawler_config.py
 │   │   ├── engines/             # 核心引擎層（舊 modules/ 改名）
-│   │   │   ├── rag.py
-│   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   │   ├── rag_eval_prompts.py
+│   │   │   ├── rag/
+│   │   │   │   ├── __init__.py  # 匯出 RAG / RAGBuilder / prompts
+│   │   │   │   ├── rag.py
+│   │   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
+│   │   │   │   └── rag_eval_prompts.py
 │   │   │   ├── webpage_image_summarizer.py
 │   │   │   └── website_crawler.py
 │   │   ├── server/
@@ -87,7 +89,9 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── test_server.py       # Server SSE / CORS / static 測試
 │   └── utils/
 │       ├── config_helper.py
+│       ├── html_date_extractor.py   # HTML 日期擷取（純函數）
 │       ├── log_helper.py
+│       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
 │       └── rag_helper.py
 ├── extension/                   # Chrome Extension（M4b）
 │   ├── manifest.json            # MV3：content_scripts + background
@@ -171,7 +175,7 @@ playwright install
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
+| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
 | `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`app/agent/agent.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
 | `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
 | `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
