@@ -714,7 +714,7 @@ Mem0 的 MCP Server 版本，可以作為 MCP Server 運行，任何 MCP Client 
 ┌─────────────────────────────────────────────────┐
 │                  FastAPI Server                   │
 │  ┌─────────────────────────────────────────────┐ │
-│  │              RAGAgent                        │ │
+│  │              Agent                        │ │
 │  │  ┌──────────────────────────────────────┐   │ │
 │  │  │ SqliteSaver                          │   │ │
 │  │  │ conversations.db (短期 + 持久化)      │   │ │
@@ -738,7 +738,7 @@ Mem0 的 MCP Server 版本，可以作為 MCP Server 運行，任何 MCP Client 
 from langmem import create_manage_memory_tool, create_search_memory_tool
 from langgraph.store.memory import InMemoryStore
 
-def create_rag_agent(config=None, run_manager=None):
+def create_agent(config=None, run_manager=None):
     # ... 現有邏輯 ...
 
     # 新增記憶工具
@@ -760,7 +760,7 @@ def create_rag_agent(config=None, run_manager=None):
         store=store,
     )
 
-    return RAGAgent(graph=graph, tool=tool, ..., store=store)
+    return Agent(graph=graph, tool=tool, ..., store=store)
 ```
 
 ### 進階方案（Background + Profile）

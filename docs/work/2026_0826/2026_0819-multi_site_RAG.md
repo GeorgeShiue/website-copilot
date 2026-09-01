@@ -115,7 +115,7 @@ data/
 | 3-3 | **Tool 改用 Registry** | `webpage_retriever.py` | `create_webpage_retriever_tool` 改為接收 `RAGRegistry`；`_retrieve` 內部以 `registry.get(site_id)` 路由至對應 RAG |
 | 3-4 | **站點發現工具** | `agent.py` | 新增 `create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具，掃描 `data/rag/` 回傳可用 site_id |
 | 3-5 | **System prompt 更新** | `agent_config.py` / TOML | 更新為多站路由版本，指引 LLM 先用 `list_knowledge_bases` 確認站點再呼叫 `webpage_retriever` |
-| 3-6 | **Agent 整合** | `agent.py` | `create_rag_agent` 建立 Registry + 兩個工具；`RAGAgent` 新增 `registry` 欄位，`close()` 改用 `registry.close()` |
+| 3-6 | **Agent 整合** | `agent.py` | `create_agent` 建立 Registry + 兩個工具；`Agent` 新增 `registry` 欄位，`close()` 改用 `registry.close()` |
 
 > 具體的 RAGRegistry 設計、Tool 簽名變更、Agent 整合流程，請參閱 [2026_0826-multi_site_RAG_tool.md](2026_0826-multi_site_RAG_tool.md)。
 
@@ -135,7 +135,7 @@ data/
 | 4-2 | **Background 轉發 page_url** | `extension/background.js` | `background.js` 將 `page_url` 透傳至 Server `/api/chat` endpoint |
 | 4-3 | **後端 domain → site_id 映射** | `src/app/server/app.py` | `ChatRequest` 新增 `page_url` 欄位；`DOMAIN_SITE_MAP` dict + `resolve_site_id()` 函數，支援精確匹配與子域名 suffix 匹配 |
 | 4-4 | **query 前綴 site 語境** | `src/app/server/app.py` | `_enrich_query_with_site_context()` 將 site_id 前綴至 user query（如 `[使用者瀏覽 nculab 網站] 實驗室成員`），讓 LLM 從 message 內容感知當前站點 |
-| 4-5 | **Agent 整合** | `src/app/agent/agent.py` | M3 的 `RAGAgent` + `RAGRegistry` 與 M4 的 `site_id` 前綴機制串接，`_event_stream` 接收 `site_id` 參數 |
+| 4-5 | **Agent 整合** | `src/app/agent/agent.py` | M3 的 `Agent` + `RAGRegistry` 與 M4 的 `site_id` 前綴機制串接，`_event_stream` 接收 `site_id` 參數 |
 | 4-6 | **端到端測試** | Chrome + Server + Agent | Chrome 開啟 nculab 頁面 → Extension 自動偵測 → Server 映射 → Agent 路由 → 正確檢索；切換至 csie 頁面 → 自動切換 |
 
 ### 全域資料流

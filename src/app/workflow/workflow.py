@@ -8,7 +8,7 @@ from typing import Literal
 from app.agent.agent import (
     ask_agent,
     astream_agent_result,
-    create_rag_agent,
+    create_agent,
     save_conversation_results,
 )
 from app.configs.agent_config import AgentConfig
@@ -457,7 +457,7 @@ def run_agent(
 ) -> RunManager:
     """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
 
-    流程：create_rag_agent 建立 agent → 問答（stream 決定串流/非串流）
+    流程：create_agent 建立 agent → 問答（stream 決定串流/非串流）
     → 顯示回答與來源 → 落盤 runs/ → 釋放 RAG 資源（agent.close()）。
 
     Args:
@@ -470,7 +470,7 @@ def run_agent(
     """
     agent_config = AgentConfig.from_toml(config_name, **config_overrides)
 
-    agent = create_rag_agent(
+    agent = create_agent(
         config=agent_config,
         run_manager=agent_run_manager,
     )

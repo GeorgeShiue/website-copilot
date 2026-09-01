@@ -221,7 +221,7 @@ uv run python src/main.py --config-name ncucsie  # ✅ 3 modules, 2.49s RAG
 
 ### 10-3. Agent 整合
 
-`create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具（需空 `args_schema`）。`create_rag_agent()` 建立 Registry + 兩個工具；`RAGAgent` 新增 `registry` 欄位，`close()` 委派 `registry.close()`。
+`create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具（需空 `args_schema`）。`create_agent()` 建立 Registry + 兩個工具；`Agent` 新增 `registry` 欄位，`close()` 委派 `registry.close()`。
 
 ### 10-4. System Prompt
 
@@ -644,7 +644,7 @@ Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 - **`run_*()` 回傳 RunManager**：`run_website_crawler()` / `run_webpage_image_summarizer()` 回傳 `tuple[dict | None, RunManager]`；`run_rag_build()` / `run_rag_query()` / `run_agent()` 回傳 `RunManager`
 - **Markdown 儲存**：改用 `save_results_as_md()` / `save_query_results_as_md()` 純函數
 - **結果查詢**：改用 `load_latest_results()` 純函數
-- **Agent 初始化**：`run_agent()` 移除自動建立 RunManager，改由 `create_rag_agent()` 內 `RunManager.for_run_no_site()` 建立
+- **Agent 初始化**：`run_agent()` 移除自動建立 RunManager，改由 `create_agent()` 內 `RunManager.for_run_no_site()` 建立
 
 ### 22-5. 呼叫端重構
 
@@ -653,7 +653,7 @@ Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 | `cli.py` | 移除全域 `RunManager()`，從各 `run_*()` 回傳取得；run config 儲存條件改為 `run_manager is not None` |
 | `main.py` | 各模組使用獨立 `run_manager`（`crawl_run_manager`、`summarizer_run_manager`、`rag_build_run_manager`） |
 | `exp.py` | 移除所有 `RunManager` 建立和 `set_module_path()` 呼叫 |
-| `agent.py` / `app.py` | `create_rag_agent()` 改用 `RunManager.for_run_no_site()` |
+| `agent.py` / `app.py` | `create_agent()` 改用 `RunManager.for_run_no_site()` |
 | `workflow/__init__.py` | 新增 `run_persistence` 函數 export |
 
 ### 22-6. 其他改動

@@ -15,7 +15,7 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 
 from app.agent.agent import (
-    RAGAgent,
+    Agent,
     _message_content_to_text,
     extract_sources_from_messages,
     save_conversation_results,
@@ -112,7 +112,7 @@ class _FailingGraph(_FakeGraph):
 
 
 class _FakeAgent:
-    """替身 RAGAgent（僅需 graph / close / run_manager / config）。"""
+    """替身 Agent（僅需 graph / close / run_manager / config）。"""
 
     def __init__(
         self,
@@ -129,7 +129,7 @@ class _FakeAgent:
 
 def _make_client(agent: _FakeAgent) -> TestClient:
     """建立注入替身 agent 的 TestClient（with 觸發 lifespan）。"""
-    app = create_app(agent=cast(RAGAgent, agent))
+    app = create_app(agent=cast(Agent, agent))
     return TestClient(app)
 
 
@@ -367,7 +367,7 @@ def test_cors_preflight():
 
 def _make_client_with_origins(agent: _FakeAgent, origins: list[str]) -> TestClient:
     """建立指定 CORS 來源的 TestClient。"""
-    app = create_app(agent=cast(RAGAgent, agent), allowed_origins=origins)
+    app = create_app(agent=cast(Agent, agent), allowed_origins=origins)
     return TestClient(app)
 
 

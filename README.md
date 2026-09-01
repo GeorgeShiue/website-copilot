@@ -56,7 +56,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
 │   ├── app/
 │   │   ├── agent/
-│   │   │   └── agent.py         # LangGraph Agent（RAGAgent / create_rag_agent / astream_text）
+│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / astream_text）
 │   │   ├── configs/
 │   │   │   ├── agent_config.py
 │   │   │   ├── rag_config.py

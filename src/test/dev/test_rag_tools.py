@@ -4,7 +4,7 @@
 - RAGRegistry：cache hit / cache miss / LRU eviction / close / list_sites
 - RAGBuilder._should_rebuild：Milvus 路徑判斷
 - Retriever 工具：schema 驗證、tool 建立、retrieve 路由、格式化
-- create_site_discovery_tool / RAGAgent dataclass
+- create_site_discovery_tool / Agent dataclass
 - Smoke 驗證：registry + tool 建立 → invoke → close 流程
 
 所有 RAG / Milvus 實例以 mock 替代，不觸發真實資源。

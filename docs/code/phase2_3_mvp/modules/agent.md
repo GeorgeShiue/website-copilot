@@ -8,10 +8,10 @@
 - **多輪對話記憶** — `InMemorySaver` + `thread_id`，相同 session 記得上下文（M2）
 - **SSE 串流** — `astream_text` 共用核心，CLI 與 server 皆可逐 token 輸出
 - **對話落盤** — `chats/<ts>/agent/<config>/`，每輪覆寫 `results.json` + 依 thread_id 分檔
-- **資源生命週期** — `RAGAgent.close()` 釋放 RAG 資源；server 於 lifespan 建一次、關閉釋放
+- **資源生命週期** — `Agent.close()` 釋放 RAG 資源；server 於 lifespan 建一次、關閉釋放
 
 - **模組實作**
-	- `src/app/agent/agent.py`（**Agent 層核心**：`RAGAgent` wrapper、`create_rag_agent`、`ask_agent`、`astream_text` / `astream_agent_result`、`thread_config`、`extract_sources_from_messages`、`save_conversation_results`）
+	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask_agent`、`astream_text` / `astream_agent_result`、`thread_config`、`extract_sources_from_messages`、`save_conversation_results`）
 	- `src/app/configs/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
 	- `src/app/workflow/workflow.py`（`run_agent`：CLI 的 agent-cli 分支執行邏輯）
 
@@ -28,7 +28,7 @@
 
 ### 資料結構與核心函式
 
-- **`RAGAgent`**（dataclass）— 包裝 LangGraph `CompiledStateGraph` 與綁定資源：
+- **`Agent`**（dataclass）— 包裝 LangGraph `CompiledStateGraph` 與綁定資源：
   - `graph`：create_agent 回傳的編譯圖
   - `tool`：綁定的 retriever `StructuredTool`（含動態綁定的 `.rag` 資源）
   - `run_manager`：本次執行的 RunManager（供落盤 `chats/`）
@@ -39,11 +39,11 @@
   - `thread_id=None` 時自動產生 `auto-{uuid}`（每次獨立，等同單輪）
   - 相同 `thread_id` 保留對話記憶（M2 多輪）
 
-- **`create_rag_agent(config, run_manager)`** — 建立流程：
+- **`create_agent(config, run_manager)`** — 建立流程：
   1. 初始化 RunManager（`module="agent"`、`base_folder="chats"`）與落盤路徑
   2. `create_webpage_retriever_tool(config_name="default")` 建立 retriever tool（檢索參數由 RAG 層管理，Agent 不覆寫；vector store 隔離至 `chats/<ts>/agent/<config>/results/`）
   3. `create_agent_llm(config.llm_name)` 建立 Gemini ChatModel（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）
-  4. `create_agent(llm, [tool], system_prompt, checkpointer)` 組裝並包裝為 `RAGAgent`
+  4. `create_agent(llm, [tool], system_prompt, checkpointer)` 組裝並包裝為 `Agent`
 
 - **`ask_agent(agent, query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 
@@ -59,7 +59,7 @@
 
 ```
 使用者問題 + thread_id
-  → create_rag_agent（一次）→ graph.invoke / graph.astream（每輪）
+  → create_agent（一次）→ graph.invoke / graph.astream（每輪）
   → LLM 決定呼叫 webpage_retriever → 檢索結果作為上下文
   → 回答（含引用 URL）→ 落盤 chats/（results.json + 分檔）
 相同 thread_id → InMemorySaver 保留歷史 → 續接多輪

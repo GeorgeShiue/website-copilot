@@ -1,8 +1,8 @@
 """Agent 層：以 LangGraph create_agent 包裝 webpage retriever 工具。
 
 M1 提供：
-- RAGAgent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
-- create_rag_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
+- Agent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
+- create_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
 - ask_agent()：單輪/多輪問答（thread_id 區分 session），回傳回答與來源 URL
 - astream_text()：串流 model 節點文字 token 的公開核心（CLI 與 M3 server 共用）
 - astream_agent_result()：串流問答並收集完整結果（含來源 URL；CLI 與 M3 server 共用）
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 
 from dotenv import load_dotenv
-from langchain.agents import create_agent
+from langchain.agents import create_agent as langchain_create_agent
 from langchain_core.tools import StructuredTool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import InMemorySaver
@@ -55,7 +55,7 @@ def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
 
 
 @dataclass
-class RAGAgent:
+class Agent:
     """包裝 LangGraph Agent 與其綁定資源。
 
     Attributes:
@@ -123,10 +123,10 @@ def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
     )
 
 
-def create_rag_agent(
+def create_agent(
     config: AgentConfig | None = None,
     run_manager: RunManager | None = None,
-) -> RAGAgent:
+) -> Agent:
     """建立綁定多站 retriever 工具的 LangGraph Agent。
 
     建立流程：
@@ -134,14 +134,14 @@ def create_rag_agent(
     2. 建立 RAGRegistry（多站 RAG 實例管理）
     3. 建立 list_knowledge_bases + webpage_retriever 兩個工具
     4. 以 AgentConfig.llm_name 建立 ChatModel
-    5. create_agent 組裝並包裝為 RAGAgent
+    5. create_agent 組裝並包裝為 Agent
 
     Args:
         config: Agent 設定（None 時使用預設）。
         run_manager: 可選的 RunManager（傳 None 時內部自動建立）。
 
     Returns:
-        RAGAgent：包裝 Agent、tools、run_manager、registry 與 config。
+        Agent：包裝 Agent、tools、run_manager、registry 與 config。
         結束後呼叫 agent.close() 釋放 RAG 資源。
     """
     if config is None:
@@ -153,7 +153,7 @@ def create_rag_agent(
             run_name=config.config_name,
             base_folder="runs",
         )
-    run_title = f"RAG Agent ({config.config_name})"
+    run_title = f"Agent ({config.config_name})"
 
     with (
         save_logging_file(run_manager.log_path),
@@ -179,7 +179,7 @@ def create_rag_agent(
         checkpointer = InMemorySaver()
         logger.info("Successfully built InMemorySaver for multi-turn conversation")
 
-        graph = create_agent(
+        graph = langchain_create_agent(
             llm,
             [discovery_tool, retriever_tool],
             system_prompt=config.system_prompt,
@@ -199,7 +199,7 @@ def create_rag_agent(
         # ----- 輸出完成訊息 -----
         log_session("Agent Ready", style="green")
 
-    return RAGAgent(
+    return Agent(
         graph=graph,
         tools=[discovery_tool, retriever_tool],
         run_manager=run_manager,
@@ -249,14 +249,14 @@ def _message_content_to_text(content: Any) -> str:
 
 
 def ask_agent(
-    agent: RAGAgent,
+    agent: Agent,
     query: str,
     thread_id: str | None = None,
 ) -> dict[str, Any]:
     """單輪/多輪問答：呼叫 Agent 並回傳回答與來源。
 
     Args:
-        agent: create_rag_agent() 回傳的 RAGAgent。
+        agent: create_agent() 回傳的 Agent。
         query: 使用者問題。
         thread_id: session 識別（None 時每次獨立；相同 thread_id 保留對話記憶，M2）。
 
@@ -279,7 +279,7 @@ def ask_agent(
 
 
 async def astream_text(
-    agent: RAGAgent,
+    agent: Agent,
     query: str,
     config: dict[str, dict[str, str]],
 ) -> AsyncIterator[str]:
@@ -300,7 +300,7 @@ async def astream_text(
 
 
 async def astream_agent_result(
-    agent: RAGAgent,
+    agent: Agent,
     query: str,
     thread_id: str | None = None,
     on_token: Callable[[str], None] | None = None,
@@ -312,7 +312,7 @@ async def astream_agent_result(
     「串流模式 sources 為空」。
 
     Args:
-        agent: create_rag_agent() 回傳的 RAGAgent。
+        agent: create_agent() 回傳的 Agent。
         query: 使用者問題。
         thread_id: session 識別（None 時每次獨立；相同 thread_id 保留對話記憶）。
         on_token: 可選的逐 token 回呼（如 CLI 即時列印）。
@@ -379,14 +379,14 @@ def _find_thread_history_path(
 
 
 def save_conversation_results(
-    agent: RAGAgent,
+    agent: Agent,
     results: list[dict[str, Any]],
     thread_id: str | None = None,
 ) -> None:
     """將對話結果落盤（含設定摘要）。
 
     Args:
-        agent: create_rag_agent() 回傳的 RAGAgent。
+        agent: create_agent() 回傳的 Agent。
         results: ask_agent() 回傳的 dict 列表。
         thread_id: session 識別（必填）；提供時以 results_<thread_id>.json 分檔
             保留完整多輪對話歷史。None 時不落盤。

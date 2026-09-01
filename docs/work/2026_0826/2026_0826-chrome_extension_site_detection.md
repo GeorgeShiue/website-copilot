@@ -177,7 +177,7 @@ def _enrich_query_with_site_context(query: str, site_id: str | None) -> str:
 @app.post("/api/chat")
 async def chat(
     req: ChatRequest,
-    agent: RAGAgent = Depends(get_agent),
+    agent: Agent = Depends(get_agent),
 ) -> StreamingResponse:
     if not req.query.strip():
         return StreamingResponse(...)
@@ -190,7 +190,7 @@ async def chat(
 
 
 async def _event_stream(
-    agent: RAGAgent,
+    agent: Agent,
     query: str,
     thread_id: str,
     site_id: str | None = None,    # 新增
@@ -238,7 +238,7 @@ RAGRegistry.get("nculab") → 正確檢索 nculab 知識庫
 | `RAGRegistry` | `registry.get(site_id)` 由 M3 建立，M4 透過 query 前綴觸發 |
 | `webpage_retriever(site_id=...)` | M4 的 query 前綴讓 LLM 自動填入 site_id |
 | `list_knowledge_bases` | 當 `resolve_site_id` 回傳 None 時，LLM 可用此工具確認站點 |
-| `RAGAgent` | M4 不改動 RAGAgent，僅在 Server 層 `_event_stream` 加入 site_id 參數 |
+| `Agent` | M4 不改動 Agent，僅在 Server 層 `_event_stream` 加入 site_id 參數 |
 
 **M3 + M4 串接流程：**
 

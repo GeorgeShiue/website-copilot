@@ -7,7 +7,7 @@
 
 - **SSE 事件協定** — `token`（逐字）/ `done`（response + thread_id）/ `error`（message）
 - **多輪 session** — thread_id 由 server 產生（`auto-{uuid}`）並於 done 回傳，前端帶回續接
-- **資源生命週期** — agent 於 lifespan 啟動建一次、關閉釋放（`create_rag_agent` 每次重建向量庫隔離副本，不可 per-request）
+- **資源生命週期** — agent 於 lifespan 啟動建一次、關閉釋放（`create_agent` 每次重建向量庫隔離副本，不可 per-request）
 - **CORS 限縮** — 預設全開放；`allowed_origins` 可限定自有網站來源（M5-3）
 - **嵌入表面 static** — `chat.html`（iframe）/ `widget.js`（script widget）/ `demo.html`（示範頁）
 
@@ -44,7 +44,7 @@ data: {"type": "error", "message": "..."}       ← 失敗
 ### 核心函式
 
 - **`create_app(config_name, agent, allowed_origins)`** — 建立 FastAPI app：
-  - **lifespan**：`agent=None` 時以 `create_rag_agent(config=AgentConfig.from_toml(config_name), run_manager=RunManager("agent", base_folder="chats"))` 建立，關閉時 `agent.close()`
+  - **lifespan**：`agent=None` 時以 `create_agent(config=AgentConfig.from_toml(config_name), run_manager=RunManager("agent", base_folder="chats"))` 建立，關閉時 `agent.close()`
   - **CORS middleware**：`allow_origins=allowed_origins or ["*"]`
   - **static mount**：`/static` → `src/app/server/static/`（M4a）
   - `GET /` → redirect `/static/demo.html`（嵌入示範入口）

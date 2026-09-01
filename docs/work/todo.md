@@ -11,6 +11,7 @@
 - [x] 整併新增 server 測試
 - [x] 重構 run manager
 - [x] 重構執行結果儲存架構
+- [ ] 重構 Agent Class
 - [ ] 更新完整流程測試
 
 ---
