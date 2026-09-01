@@ -44,7 +44,7 @@ data: {"type": "error", "message": "..."}       ← 失敗
 ### 核心函式
 
 - **`create_app(config_name, agent, allowed_origins)`** — 建立 FastAPI app：
-  - **lifespan**：`agent=None` 時以 `create_agent(config=AgentConfig.from_toml(config_name), run_manager=RunManager("agent", base_folder="chats"))` 建立，關閉時 `agent.close()`
+  - **lifespan**：`agent=None` 時以 `create_agent(config=AgentConfig.from_toml(config_name), run_manager=RunManager.for_run_no_site(module="agent", run_name=config_name, base_folder="chats"))` 建立，關閉時 `agent.close()`
   - **CORS middleware**：`allow_origins=allowed_origins or ["*"]`
   - **static mount**：`/static` → `src/app/server/static/`（M4a）
   - `GET /` → redirect `/static/demo.html`（嵌入示範入口）
@@ -52,10 +52,10 @@ data: {"type": "error", "message": "..."}       ← 失敗
   - `POST /api/chat` → `StreamingResponse(_event_stream(...))`（SSE；空白 query 直接回 error 事件）
 
 - **`_event_stream(agent, query, thread_id)`** — SSE 事件流核心：
-  1. `thread_config(thread_id)` 建立執行設定
+  1. `thread_config(thread_id)`（utils.langchain_helper）建立執行設定
   2. `astream_text` 逐 token → `yield _sse({"type": "token", "content": text})`
-  3. 完成後 `graph.get_state()` 讀回 messages → `extract_sources_from_messages` 抽來源
-  4. 組 `result` → `save_conversation_results(agent, [result], thread_id=thread_id)` 落盤（含分檔）
+  3. 完成後 `graph.get_state()` 讀回 messages → `extract_sources_from_messages`（utils.langchain_helper）抽來源
+  4. 組 `result` → `agent.save_results([result], thread_id=thread_id)` 落盤（含分檔）
   5. `yield _sse({"type": "done", ...})`；任何例外 → `yield _sse({"type": "error", ...})`
 
 - **`_sse(data)`** — 序列化為 SSE 格式（`data: {json}\n\n`，`ensure_ascii=False` 保留中文）

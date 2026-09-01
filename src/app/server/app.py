@@ -35,16 +35,10 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.agent.agent import (
-    Agent,
-    astream_text,
-    create_agent,
-    extract_sources_from_messages,
-    save_conversation_results,
-    thread_config,
-)
+from app.agent.agent import Agent, create_agent
 from app.configs.agent_config import AgentConfig
 from app.workflow.run_manager import RunManager
+from utils.langchain_helper import extract_sources_from_messages, thread_config
 from utils.log_helper import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -107,7 +101,7 @@ async def _event_stream(
     enriched_query = _enrich_query_with_site_context(query, site_id)
     try:
         config = thread_config(thread_id)
-        async for text in astream_text(agent, enriched_query, config):
+        async for text in agent.astream_text(enriched_query, config):
             chunks.append(text)
             yield _sse({"type": "token", "content": text})
         state = agent.graph.get_state(config)
@@ -120,7 +114,7 @@ async def _event_stream(
             "sources": sources,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
-        save_conversation_results(agent, [result], thread_id=thread_id)
+        agent.save_results([result], thread_id=thread_id)
         yield _sse(
             {
                 "type": "done",

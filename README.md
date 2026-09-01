@@ -20,7 +20,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 - 以 LangGraph `create_agent` 包裝 `webpage_retriever` 工具，自動檢索後回答（回答內含引用來源 URL）。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
-- SSE 逐 token 串流（CLI 與 server 共用 `astream_text` 核心）。
+- SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
 - 對話落盤 `chats/<ts>/agent/<config>/`（每輪覆寫 `results.json` + 依 thread_id 分檔）。
 
 ### Phase 3：嵌入式互動介面
@@ -56,7 +56,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
 │   ├── app/
 │   │   ├── agent/
-│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / astream_text）
+│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / save_results）
 │   │   ├── configs/
 │   │   │   ├── agent_config.py
 │   │   │   ├── rag_config.py
@@ -176,7 +176,7 @@ playwright install
 | Variable | Used by | Purpose |
 | --- | --- | --- |
 | `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`app/agent/agent.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
+| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`utils/langchain_helper.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
 | `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
 | `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
 | `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |

@@ -11,7 +11,9 @@
 - **資源生命週期** — `Agent.close()` 釋放 RAG 資源；server 於 lifespan 建一次、關閉釋放
 
 - **模組實作**
-	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask_agent`、`astream_text` / `astream_agent_result`、`thread_config`、`extract_sources_from_messages`、`save_conversation_results`）
+	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask` / `astream_text` / `astream_result` / `save_results`）
+	- `src/app/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`）
+	- `src/utils/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
 	- `src/app/configs/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
 	- `src/app/workflow/workflow.py`（`run_agent`：CLI 的 agent-cli 分支執行邏輯）
 
@@ -30,30 +32,38 @@
 
 - **`Agent`**（dataclass）— 包裝 LangGraph `CompiledStateGraph` 與綁定資源：
   - `graph`：create_agent 回傳的編譯圖
-  - `tool`：綁定的 retriever `StructuredTool`（含動態綁定的 `.rag` 資源）
+  - `tools`：綁定的 `StructuredTool` 列表（`list_knowledge_bases` + `webpage_retriever`）
   - `run_manager`：本次執行的 RunManager（供落盤 `chats/`）
   - `checkpointer`：`InMemorySaver` 實例（多輪記憶，thread_id 區分 session）
-  - `close()`：釋放 RAG 資源（`tool.rag.close()`）
+  - `registry`：多站 RAG 實例管理器（M3）
+  - `close()`：釋放 RAG 資源（`registry.close()`）
+
+- **`create_agent(config, run_manager)`** — 建立流程：
+  1. 初始化 RunManager（`module="agent"`、`base_folder="chats"`）與落盤路徑
+  2. 建立 RAGRegistry（多站 RAG 實例管理）
+  3. `create_site_discovery_tool(registry)` + `create_webpage_retriever_tool(registry)` 建立兩個工具
+  4. `create_llm(config.llm_name)`（utils.langchain_helper）建立 Gemini ChatModel（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）
+  5. `create_agent(llm, [discovery_tool, retriever_tool], system_prompt, checkpointer)` 組裝並包裝為 `Agent`
+
+- **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
+
+- **`Agent.astream_text(query, config)`** — 串流核心：以 `graph.astream(stream_mode="messages")` 逐 token 輸出，只取 `langgraph_node == "model"` 節點，Gemini 的 `list[dict]` content 統一轉純文字
+
+- **`Agent.astream_result(query, thread_id, on_token)`** — 串流問答並收集完整結果（CLI 與 M3 server 共用）；完成後從 `graph.get_state()` 讀回 messages 擷取來源 URL
+
+- **`Agent.save_results(results, thread_id)`** — 落盤 `results.json`（含 config 摘要）；提供 `thread_id` 時另寫 `results_<thread_id>.json` 分檔（跨 run 搜尋歷史檔由 `RunManager.find_thread_history_path()` 負責）。**注意**：CLI 模式的 `run_agent()` 不傳 `thread_id`，因此分檔僅在 server 模式（`_event_stream`）下生效。
+
+### utils/langchain_helper.py（LangChain 輔助函式）
 
 - **`thread_config(thread_id)`** — 建立 LangGraph 執行設定：
   - `thread_id=None` 時自動產生 `auto-{uuid}`（每次獨立，等同單輪）
   - 相同 `thread_id` 保留對話記憶（M2 多輪）
 
-- **`create_agent(config, run_manager)`** — 建立流程：
-  1. 初始化 RunManager（`module="agent"`、`base_folder="chats"`）與落盤路徑
-  2. `create_webpage_retriever_tool(config_name="default")` 建立 retriever tool（檢索參數由 RAG 層管理，Agent 不覆寫；vector store 隔離至 `chats/<ts>/agent/<config>/results/`）
-  3. `create_agent_llm(config.llm_name)` 建立 Gemini ChatModel（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）
-  4. `create_agent(llm, [tool], system_prompt, checkpointer)` 組裝並包裝為 `Agent`
-
-- **`ask_agent(agent, query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
-
-- **`astream_text(agent, query, config)`** — 串流核心：以 `graph.astream(stream_mode="messages")` 逐 token 輸出，只取 `langgraph_node == "model"` 節點，Gemini 的 `list[dict]` content 統一轉純文字
-
-- **`astream_agent_result(agent, query, thread_id, on_token)`** — 串流問答並收集完整結果（CLI 與 M3 server 共用）；完成後從 `graph.get_state()` 讀回 messages 擷取來源 URL
-
 - **`extract_sources_from_messages(messages)`** — 以正則 `URL: (\S+)` 從 ToolMessage 解析來源 URL（依序去重）
 
-- **`save_conversation_results(agent, results, thread_id)`** — 落盤 `results.json`（含 config 摘要）；提供 `thread_id` 時另寫 `results_<thread_id>.json` 分檔。**注意**：CLI 模式的 `run_agent()` 不傳 `thread_id`，因此分檔僅在 server 模式（`_event_stream`）下生效。
+- **`create_llm(llm_name)`** — 建立 LangChain ChatModel（Gemini，`GEMINI_RAG_QUERY_ENGINE_API_KEY`）；與 `utils.rag_helper.create_llm`（LlamaIndex 版）對稱
+
+- **`_message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
 
 ### 多輪記憶流程
 
