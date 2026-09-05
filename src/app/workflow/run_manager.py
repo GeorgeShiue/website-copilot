@@ -172,3 +172,44 @@ class RunManager:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
+
+    @staticmethod
+    def find_thread_history_path(
+        base_folder: str,
+        module_name: str,
+        history_filename: str,
+    ) -> str | None:
+        """跨 run 目錄搜尋 thread 歷史檔（結果為最新時間戳的那份）。
+
+        CLI 每次執行建立新的 timestamped run 目錄，但 thread 歷史需跨 run 累積。
+        從 base_folder 下所有 timestamped 子目錄搜尋符合的歷史檔，
+        回傳時間戳最新（lexicographically last）的那一個完整路徑；找不到回傳 None。
+
+        Args:
+            base_folder: runs/ 或 chats/ 根目錄。
+            module_name: 模組名稱（如 "agent"）。
+            history_filename: 要搜尋的檔名（如 "results_auto-87d6ce91.json"）。
+        """
+        if not os.path.isdir(base_folder):
+            return None
+
+        latest_path: str | None = None
+        for entry in sorted(os.listdir(base_folder), reverse=True):
+            entry_path = os.path.join(base_folder, entry)
+            if not os.path.isdir(entry_path):
+                continue
+            # timestamped folder: 20260830_172330 (15 chars, starts with 20)
+            if not (entry.startswith("20") and len(entry) == 15):
+                continue
+            module_path = os.path.join(entry_path, module_name)
+            if not os.path.isdir(module_path):
+                continue
+            # recursively search for the history file
+            for root, _dirs, files in os.walk(module_path):
+                if history_filename in files:
+                    candidate = os.path.join(root, history_filename)
+                    if latest_path is None or candidate > latest_path:
+                        latest_path = candidate
+            if latest_path is not None:
+                break  # already got the latest timestamp
+        return latest_path

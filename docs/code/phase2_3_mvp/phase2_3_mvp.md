@@ -12,7 +12,7 @@
 - [x] **多輪對話記憶**（`InMemorySaver` + `thread_id`）
 - [x] **SSE 串流**（`astream_text` 共用核心，CLI 與 server 皆可用）
 - [x] **對話落盤**（`chats/<ts>/agent/<config>/`，每輪覆寫 `results.json`；server 模式依 thread_id 分檔 `results_<thread_id>.json`）
-- [x] **資源生命週期**（`RAGAgent.close()` 釋放；server lifespan 建一次、關閉釋放）
+- [x] **資源生命週期**（`Agent.close()` 釋放；server lifespan 建一次、關閉釋放）
 
 ## 已知問題
 - [ ] 多輪對話的 `results.json` 為每輪覆寫（歷史另存 `results_<thread_id>.json`，僅 server 模式生效；CLI 模式不建立分檔）

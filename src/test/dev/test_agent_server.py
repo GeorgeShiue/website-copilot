@@ -1,10 +1,11 @@
 """Agent + Server 層測試（合併 test_agent.py + test_server.py）。
 
 涵蓋：
-- Agent 純函式：thread_config / extract_sources_from_messages / _message_content_to_text / save_conversation_results
+- utils.langchain_helper 純函式：thread_config / extract_sources_from_messages / _message_content_to_text
+- Agent member function：save_results（透過 _FakeAgent 替身驗證）
 - Server 層：SSE 事件流 / error 事件 / health / CORS / static files / resolve_site_id / _enrich_query
 
-替身 FakeAgent 只實作 graph.astream / graph.get_state / close，
+替身 FakeAgent 只實作 graph.astream / graph.get_state / close / astream_text / save_results，
 避免測試觸發真實 LLM / RAG 資源與 LLM 呼叫。
 """
 
@@ -14,17 +15,16 @@ from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
-from app.agent.agent import (
-    RAGAgent,
-    _message_content_to_text,
-    extract_sources_from_messages,
-    save_conversation_results,
-    thread_config,
-)
+from app.agent.agent import Agent
 from app.server.app import (
     _enrich_query_with_site_context,
     create_app,
     resolve_site_id,
+)
+from utils.langchain_helper import (
+    _message_content_to_text,
+    extract_sources_from_messages,
+    thread_config,
 )
 
 # ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ class _FailingGraph(_FakeGraph):
 
 
 class _FakeAgent:
-    """替身 RAGAgent（僅需 graph / close / run_manager / config）。"""
+    """替身 Agent（僅需 graph / close / run_manager / config / astream_text / save_results）。"""
 
     def __init__(
         self,
@@ -126,10 +126,44 @@ class _FakeAgent:
     def close(self) -> None:
         pass
 
+    async def astream_text(self, query: str, config: dict[str, Any]) -> Any:
+        """替身串流：delegate 至 _FakeGraph.astream。"""
+        async for chunk, metadata in self.graph.astream(
+            {"messages": [("human", query)]},
+            config=config,
+            stream_mode="messages",
+        ):
+            if metadata.get("langgraph_node") == "model":
+                text = _message_content_to_text(chunk.content)
+                if text:
+                    yield text
+
+    def save_results(
+        self,
+        results: list[dict[str, Any]],
+        thread_id: str | None = None,
+    ) -> None:
+        """替身落盤：直接呼叫 run_manager.save_results_as_json。"""
+        if not thread_id:
+            return
+        safe_id = thread_id.replace("/", "_")
+        self.run_manager.save_results_as_json(
+            {
+                "config": {
+                    "config_name": self.config.config_name,
+                    "run_name": self.run_manager.run_name,
+                    "llm_name": self.config.llm_name,
+                    "system_prompt": self.config.system_prompt,
+                },
+                "results": results,
+            },
+            file_path=f"results_{safe_id}.json",
+        )
+
 
 def _make_client(agent: _FakeAgent) -> TestClient:
     """建立注入替身 agent 的 TestClient（with 觸發 lifespan）。"""
-    app = create_app(agent=cast(RAGAgent, agent))
+    app = create_app(agent=cast(Agent, agent))
     return TestClient(app)
 
 
@@ -231,7 +265,7 @@ def test_save_conversation_results_builds_dict():
     """落盤 dict 含 config 摘要與 results 列表。"""
     agent = _FakeAgent()
     results = [{"query": "Q", "response": "A", "sources": ["u1"], "timestamp": "t"}]
-    save_conversation_results(agent, results, thread_id="test-thread")  # type: ignore[arg-type]
+    agent.save_results(results, thread_id="test-thread")
 
     saved = agent.run_manager.saved
     assert saved["config"]["config_name"] == "test"
@@ -245,7 +279,7 @@ def test_save_conversation_results_with_thread_id_splits_file():
     """提供 thread_id 時寫入 results_<thread_id>.json 累積多輪歷史。"""
     agent = _FakeAgent()
     results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
-    save_conversation_results(agent, results, thread_id="demo-1")  # type: ignore[arg-type]
+    agent.save_results(results, thread_id="demo-1")
 
     assert len(agent.run_manager.saved_to) == 1
     file_path = agent.run_manager.saved_to[0][1]
@@ -257,7 +291,7 @@ def test_save_conversation_results_sanitizes_thread_id():
     """thread_id 含 / 時置換為 _（檔名安全）。"""
     agent = _FakeAgent()
     results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
-    save_conversation_results(agent, results, thread_id="a/b")  # type: ignore[arg-type]
+    agent.save_results(results, thread_id="a/b")
 
     file_path = agent.run_manager.saved_to[0][1]
     assert file_path.endswith("results_a_b.json")
@@ -367,7 +401,7 @@ def test_cors_preflight():
 
 def _make_client_with_origins(agent: _FakeAgent, origins: list[str]) -> TestClient:
     """建立指定 CORS 來源的 TestClient。"""
-    app = create_app(agent=cast(RAGAgent, agent), allowed_origins=origins)
+    app = create_app(agent=cast(Agent, agent), allowed_origins=origins)
     return TestClient(app)
 
 

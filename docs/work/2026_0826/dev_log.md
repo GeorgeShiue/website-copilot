@@ -221,7 +221,7 @@ uv run python src/main.py --config-name ncucsie  # ✅ 3 modules, 2.49s RAG
 
 ### 10-3. Agent 整合
 
-`create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具（需空 `args_schema`）。`create_rag_agent()` 建立 Registry + 兩個工具；`RAGAgent` 新增 `registry` 欄位，`close()` 委派 `registry.close()`。
+`create_site_discovery_tool(registry)` → `list_knowledge_bases` 工具（需空 `args_schema`）。`create_agent()` 建立 Registry + 兩個工具；`Agent` 新增 `registry` 欄位，`close()` 委派 `registry.close()`。
 
 ### 10-4. System Prompt
 
@@ -644,7 +644,7 @@ Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 - **`run_*()` 回傳 RunManager**：`run_website_crawler()` / `run_webpage_image_summarizer()` 回傳 `tuple[dict | None, RunManager]`；`run_rag_build()` / `run_rag_query()` / `run_agent()` 回傳 `RunManager`
 - **Markdown 儲存**：改用 `save_results_as_md()` / `save_query_results_as_md()` 純函數
 - **結果查詢**：改用 `load_latest_results()` 純函數
-- **Agent 初始化**：`run_agent()` 移除自動建立 RunManager，改由 `create_rag_agent()` 內 `RunManager.for_run_no_site()` 建立
+- **Agent 初始化**：`run_agent()` 移除自動建立 RunManager，改由 `create_agent()` 內 `RunManager.for_run_no_site()` 建立
 
 ### 22-5. 呼叫端重構
 
@@ -653,7 +653,7 @@ Pylance 0 errors（4 個修改檔案）；Ruff 0 issues。
 | `cli.py` | 移除全域 `RunManager()`，從各 `run_*()` 回傳取得；run config 儲存條件改為 `run_manager is not None` |
 | `main.py` | 各模組使用獨立 `run_manager`（`crawl_run_manager`、`summarizer_run_manager`、`rag_build_run_manager`） |
 | `exp.py` | 移除所有 `RunManager` 建立和 `set_module_path()` 呼叫 |
-| `agent.py` / `app.py` | `create_rag_agent()` 改用 `RunManager.for_run_no_site()` |
+| `agent.py` / `app.py` | `create_agent()` 改用 `RunManager.for_run_no_site()` |
 | `workflow/__init__.py` | 新增 `run_persistence` 函數 export |
 
 ### 22-6. 其他改動
@@ -802,3 +802,99 @@ Code Review（Round 1, 2026-08-30 01:00）結果：**pass**，無 CRITICAL 或 M
 - [x] `run_rag_build()` 呼叫 `save_results_as_json(results_dict)`，結構為 `{config, summary, vector_store}`（L296–317）
 - [x] `cli.py` `RAGQueryCLI` 的 `publish_run_metadata()` 置於共用區塊之後，guards 為 `isinstance(cli_arg, RAGQueryCLI) and data_manager is not None and run_manager is not None`（L143–151）
 - [x] `cli.py` `AgentCLI` 的 `publish_run_metadata()` 置於 `save_run_config_as_toml` + `log_run_paths` 之後，以 `cli_arg.run.config_name` 作為 `site_id`（L113–128）
+
+---
+
+## 24. Agent 函數搬移重構（2026-09-01）
+
+`src/app/agent/agent.py` 原先同時包含 Agent 核心（`Agent` dataclass + `create_agent()` 工廠）與多個非 Agent 核心的純函數／工具建立函數，職責混雜。本次重構將這些函數搬移到正確的模組層：
+
+- 跨層 LangChain 輔助函數 → `src/utils/langchain_helper.py`（新檔）
+- Site Discovery 工具 → `src/app/tools/site_discovery.py`（新檔）
+- Thread History 搜尋 → `RunManager.find_thread_history_path()`（staticmethod）
+
+重構後 `agent.py` 僅保留 `Agent` dataclass + `create_agent()` 工廠，職責單一。
+
+### 24-1. 搬移總覽
+
+| 目的地模組 | 搬移 Symbol | 原位置（agent.py） |
+|---|---|---|
+| `src/utils/langchain_helper.py`（新檔） | `SOURCE_URL_PATTERN` | L44 |
+| | `thread_config()` | L46–54 |
+| | `create_llm()`（原 `create_agent_llm` rename） | L182–195 |
+| | `extract_sources_from_messages()` | L311–326 |
+| | `_message_content_to_text()` | L329–347 |
+| `src/app/tools/site_discovery.py`（新檔） | `_DiscoveryInputSchema` | L198–199 |
+| | `create_site_discovery_tool()` | L202–222 |
+| `src/app/workflow/run_manager.py` | `RunManager.find_thread_history_path()`（原 `_find_thread_history_path`，改 staticmethod） | L351–389 |
+
+### 24-2. 新模組結構
+
+#### `src/utils/langchain_helper.py`（LangChain 輔助函式）
+
+```python
+SOURCE_URL_PATTERN = re.compile(r"URL: (\S+)")          # L22
+def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]  # L25
+def create_llm(llm_name: str) -> ChatGoogleGenerativeAI  # L36
+def extract_sources_from_messages(messages: list[Any]) -> list[str]   # L52
+def _message_content_to_text(content: Any) -> str        # L70
+```
+
+- `create_llm` 為 **LangChain ChatModel 版**（回傳 `ChatGoogleGenerativeAI`），與 `utils.rag_helper.create_llm`（LlamaIndex 版，回傳 `GoogleGenAI | OpenAI`）同名但不同模組；docstring 已明確標註對稱性避免混淆。
+- 依賴：`os` / `re` / `uuid` / `dotenv` / `langchain_google_genai`。
+
+#### `src/app/tools/site_discovery.py`（Site Discovery 工具）
+
+```python
+class _DiscoveryInputSchema(BaseModel): ...              # L12
+def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool  # L16
+```
+
+- 僅 import `RAGRegistry`（單向依賴，無循環 import 風險）。
+
+#### `src/app/workflow/run_manager.py`（追加 staticmethod）
+
+```python
+@staticmethod
+def find_thread_history_path(
+    base_folder: str,
+    module_name: str,
+    history_filename: str,
+) -> str | None:                                          # L177
+```
+
+- 邏輯保留完整：timestamped folder 過濾（15 chars、`startswith("20")`）、lexicographically last、找到即 break。
+
+### 24-3. 檔案變更清單
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/utils/langchain_helper.py` | **Add** | 5 個 symbol：`SOURCE_URL_PATTERN`、`thread_config`、`extract_sources_from_messages`、`_message_content_to_text`、`create_llm` |
+| `src/app/tools/site_discovery.py` | **Add** | `_DiscoveryInputSchema`、`create_site_discovery_tool` |
+| `src/app/workflow/run_manager.py` | **Modify** | 追加 `@staticmethod find_thread_history_path()`（`save_results_as_json` 之後） |
+| `src/app/agent/agent.py` | **Modify** | 刪 5 個 import、加 2 個 import；移除 8 個搬移 symbol；`create_agent_llm` → `create_llm`；`_find_thread_history_path` → `RunManager.find_thread_history_path`；docstring 更新 |
+| `src/app/server/app.py` | **Modify** | `extract_sources_from_messages` / `thread_config` 改從 `utils.langchain_helper` import |
+| `src/test/dev/test_agent_server.py` | **Modify** | 3 個函數改從 `utils.langchain_helper` import；docstring 更新 |
+| `docs/code/phase2_3_mvp/modules/agent.md` | **Modify** | 模組清單新增 `site_discovery.py` / `langchain_helper.py`；函數描述同步 |
+| `docs/code/phase2_3_mvp/modules/server.md` | **Modify** | `thread_config` / `extract_sources_from_messages` 來源標註為 `utils.langchain_helper` |
+| `README.md` | **Modify** | 環境變數表 `GEMINI_RAG_QUERY_ENGINE_API_KEY` 使用位置改為 `utils/rag_helper.py`、`utils/langchain_helper.py`（CR 建議修正） |
+
+### 24-4. 決策記錄
+
+| 決策 | 理由 |
+|---|---|
+| `create_agent_llm` rename 為 `create_llm` | 與 `rag_helper.create_llm` 命名對稱；docstring 標註「LangChain ChatModel 版」避免混淆 |
+| `StructuredTool` 保留於 agent.py | `Agent.tools` 欄位型別仍需要 |
+| `test_rag_tools.py` 無需變更 | 該檔未實際 import `create_site_discovery_tool`（僅 docstring 提及） |
+| `docs/work/` 歷史記錄不修改 | 歷史工作記錄保持原樣 |
+| `_message_content_to_text` 由 agent.py re-import | 仍被 `Agent.ask` / `astream_text` 使用 |
+
+### 24-5. 驗證結果
+
+| 驗證項目 | 結果 |
+|---|---|
+| `uv run ruff check src/` | ✅ All checks passed! |
+| `uv run pyright src/` | ✅ 2 errors 均為 pre-existing（`rag_factory.py:297` milvus_uri 型別、`test_agent_server.py:131` CoroutineType），與本次重構無關 |
+| `uv run pytest`（src/test/dev/ 全部 5 檔） | ✅ 127/127 passed |
+| 搬移完整性（grep） | ✅ `create_agent_llm` / `_find_thread_history_path` 全倉無殘留 |
+| Edge cases 行為 | ✅ `thread_config(None)` 產生 `auto-{uuid}`；`create_llm` 缺 env 拋 ValueError；`extract_sources_from_messages` 依序去重；`find_thread_history_path` 最新 timestamp / 非 timestamped 過濾 / 不存在回傳 None / 巢狀遞迴搜尋 |

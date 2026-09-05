@@ -115,7 +115,7 @@ MCP 架構
 
 | 角色 | 說明 | 你的專案對應 |
 |---|---|---|
-| **MCP Host** | AI 應用程式，協調管理多個 Client | `agent.py` 中的 `RAGAgent` |
+| **MCP Host** | AI 應用程式，協調管理多個 Client | `agent.py` 中的 `Agent` |
 | **MCP Client** | 與特定 Server 維持連接的元件 | `MultiServerMCPClient` |
 | **MCP Server** | 提供工具/資源/提示的程式 | 你的 `webpage_retriever` 可包成 Server |
 

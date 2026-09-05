@@ -73,7 +73,7 @@
 - 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` 工具，執行 Agent 問答（CLI 的 `agent-cli` 分支）。
 - 流程：
   1. 以 `AgentConfig.from_toml(config_name, **config_overrides)` 載入設定（`configs/agent/{name}.toml`，預設 `default`）。
-  2. `create_rag_agent()` 建立 agent（retriever tool + Gemini LLM + `InMemorySaver` checkpointer）。
+  2. `create_agent()` 建立 agent（retriever tool + Gemini LLM + `InMemorySaver` checkpointer）。
   3. 依 `stream` 選擇串流（`astream_agent_result` 逐 token）或非串流（`ask_agent`）問答；`thread_id` 相同保留多輪記憶。
   4. 顯示回答與來源 URL，並以 `save_conversation_results` 落盤 `chats/<ts>/agent/<config>/`（聊天記錄與實驗 `runs/` 分離，`RunManager(base_folder="chats")`）。
   5. 結束後 `agent.close()` 釋放 RAG 資源（try/finally 保證）。

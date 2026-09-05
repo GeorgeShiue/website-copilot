@@ -5,12 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
-from app.agent.agent import (
-    ask_agent,
-    astream_agent_result,
-    create_rag_agent,
-    save_conversation_results,
-)
+from app.agent.agent import create_agent
 from app.configs.agent_config import AgentConfig
 from app.configs.rag_config import (
     RAGConfig,
@@ -457,7 +452,7 @@ def run_agent(
 ) -> RunManager:
     """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
 
-    流程：create_rag_agent 建立 agent → 問答（stream 決定串流/非串流）
+    流程：create_agent 建立 agent → 問答（stream 決定串流/非串流）
     → 顯示回答與來源 → 落盤 runs/ → 釋放 RAG 資源（agent.close()）。
 
     Args:
@@ -470,7 +465,7 @@ def run_agent(
     """
     agent_config = AgentConfig.from_toml(config_name, **config_overrides)
 
-    agent = create_rag_agent(
+    agent = create_agent(
         config=agent_config,
         run_manager=agent_run_manager,
     )
@@ -479,8 +474,7 @@ def run_agent(
         with save_logging_file(agent.run_manager.log_path):
             if stream:
                 result = asyncio.run(
-                    astream_agent_result(
-                        agent,
+                    agent.astream_result(
                         query,
                         thread_id,
                         on_token=lambda token: print(token, end="", flush=True),
@@ -488,7 +482,7 @@ def run_agent(
                 )
                 print()  # 串流 token 結束後換行
             else:
-                result = ask_agent(agent, query, thread_id)
+                result = agent.ask(query, thread_id)
             log_session("Agent Response", style="green")
             print_log(result["response"])
             log_session("Sources", style="cyan")
@@ -497,7 +491,7 @@ def run_agent(
             # 無 thread_id 時自動產生（確保每次執行都有結果檔）
             if thread_id is None:
                 thread_id = f"auto-{uuid.uuid4().hex[:8]}"
-            save_conversation_results(agent, [result], thread_id=thread_id)
+            agent.save_results([result], thread_id=thread_id)
             log_session("Conversation Saved", style="green")
             print(f"Results json: {agent.run_manager.results_json_path}")
     finally:

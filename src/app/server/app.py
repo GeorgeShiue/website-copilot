@@ -15,7 +15,7 @@ SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "error", "message": "..."}：失敗
 
 資源生命週期：agent 於 lifespan 啟動時建立一次、關閉時釋放。
-create_rag_agent 每次會重建 vector store 隔離副本（M2.5），
+create_agent 每次會重建 vector store 隔離副本（M2.5），
 不可 per-request 建立；對話隔離靠 thread_id（InMemorySaver 以 thread_id 為 session key）。
 """
 
@@ -35,16 +35,10 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.agent.agent import (
-    RAGAgent,
-    astream_text,
-    create_rag_agent,
-    extract_sources_from_messages,
-    save_conversation_results,
-    thread_config,
-)
+from app.agent.agent import Agent, create_agent
 from app.configs.agent_config import AgentConfig
 from app.workflow.run_manager import RunManager
+from utils.langchain_helper import extract_sources_from_messages, thread_config
 from utils.log_helper import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -93,7 +87,7 @@ def _sse(data: dict[str, Any]) -> str:
 
 
 async def _event_stream(
-    agent: RAGAgent,
+    agent: Agent,
     query: str,
     thread_id: str,
     site_id: str | None = None,
@@ -107,7 +101,7 @@ async def _event_stream(
     enriched_query = _enrich_query_with_site_context(query, site_id)
     try:
         config = thread_config(thread_id)
-        async for text in astream_text(agent, enriched_query, config):
+        async for text in agent.astream_text(enriched_query, config):
             chunks.append(text)
             yield _sse({"type": "token", "content": text})
         state = agent.graph.get_state(config)
@@ -120,7 +114,7 @@ async def _event_stream(
             "sources": sources,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
-        save_conversation_results(agent, [result], thread_id=thread_id)
+        agent.save_results([result], thread_id=thread_id)
         yield _sse(
             {
                 "type": "done",
@@ -135,14 +129,14 @@ async def _event_stream(
 
 def create_app(
     config_name: str = "default",
-    agent: RAGAgent | None = None,
+    agent: Agent | None = None,
     allowed_origins: list[str] | None = None,
 ) -> FastAPI:
     """建立 FastAPI app。
 
     Args:
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        agent: 可注入的 RAGAgent（測試替身）；None 時由 lifespan 建立。
+        agent: 可注入的 Agent（測試替身）；None 時由 lifespan 建立。
         allowed_origins: CORS 允許的來源列表；None 時預設 ["*"]（demo 全開放）。
 
     Returns:
@@ -153,7 +147,7 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if agent is None:
             # Server 使用 chats/ 作為聊天 session 的落盤位置（與 runs/ 實驗結果分開）
-            app.state.agent = create_rag_agent(
+            app.state.agent = create_agent(
                 config=AgentConfig.from_toml(config_name),
                 run_manager=RunManager.for_run_no_site(
                     module="agent",
@@ -179,7 +173,7 @@ def create_app(
     static_dir = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    def get_agent(request: Request) -> RAGAgent:
+    def get_agent(request: Request) -> Agent:
         return request.app.state.agent
 
     @app.get("/")
@@ -195,7 +189,7 @@ def create_app(
     @app.post("/api/chat")
     async def chat(
         req: ChatRequest,
-        agent: RAGAgent = Depends(get_agent),
+        agent: Agent = Depends(get_agent),
     ) -> StreamingResponse:
         """SSE 串流問答。
 

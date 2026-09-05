@@ -10,7 +10,7 @@
 ```
 src/app/tools/rag_registry.py       ← 新增：RAGRegistry（多站 RAG 實例管理）
 src/app/tools/webpage_retriever.py  ← 修改：RetrieverInputSchema + tool 改用 registry
-src/app/agent/agent.py              ← 修改：create_site_discovery_tool + create_rag_agent + RAGAgent
+src/app/agent/agent.py              ← 修改：create_site_discovery_tool + create_agent + Agent
 src/app/configs/agent_config.py     ← 修改：DEFAULT_SYSTEM_PROMPT（多站路由版）
 configs/agent/default.toml          ← 修改：system_prompt
 configs/agent/test.toml             ← 修改：system_prompt
@@ -171,14 +171,14 @@ def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
     )
 ```
 
-### 4-2. `create_rag_agent` 流程變更
+### 4-2. `create_agent` 流程變更
 
 ```python
 # BEFORE
 tool = create_webpage_retriever_tool(
     run_manager=run_manager, config_name="default", ...)
 graph = create_agent(llm, [tool], system_prompt=config.system_prompt, ...)
-return RAGAgent(graph=graph, tool=tool, ...)
+return Agent(graph=graph, tool=tool, ...)
 
 # AFTER
 from app.tools.rag_registry import RAGRegistry
@@ -189,16 +189,16 @@ retriever_tool = create_webpage_retriever_tool(registry)
 graph = create_agent(
     llm, [discovery_tool, retriever_tool],
     system_prompt=config.system_prompt, ...)
-return RAGAgent(
+return Agent(
     graph=graph, tools=[discovery_tool, retriever_tool],
     registry=registry, ...)
 ```
 
-### 4-3. RAGAgent dataclass 擴充
+### 4-3. Agent dataclass 擴充
 
 ```python
 @dataclass
-class RAGAgent:
+class Agent:
     graph: Any
     tools: list[StructuredTool]             # 改為 list（原 tool: Any）
     run_manager: RunManager
@@ -255,7 +255,7 @@ Agent query → webpage_retriever(site_id="nculab", query="...")
 
 | 呼叫點 | 影響 |
 |--------|------|
-| `create_rag_agent()` | **改動**：建立 Registry + 兩個工具 |
+| `create_agent()` | **改動**：建立 Registry + 兩個工具 |
 | `run_agent()` (workflow.py) | **不受影響**：`agent.close()` 呼叫不變，內部改為 `registry.close()` |
 | `app.py` (Server) | **Phase 4 改動**：此階段不受影響 |
 | `run_rag_query()` (workflow.py) | **不受影響**：使用 `build_reusable()` 開獨立 RAG |
@@ -283,8 +283,8 @@ Step 2: 修改 webpage_retriever.py
 
 Step 3: 修改 agent.py
         → create_site_discovery_tool()
-        → create_rag_agent 建立 Registry + 兩個工具
-        → RAGAgent 加 registry 欄位
+        → create_agent 建立 Registry + 兩個工具
+        → Agent 加 registry 欄位
 
 Step 4: 更新 system prompt
         → agent_config.py DEFAULT_SYSTEM_PROMPT
