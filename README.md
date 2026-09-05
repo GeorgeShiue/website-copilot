@@ -18,7 +18,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ### Phase 2：AI Agent
 
-- 以 LangGraph `create_agent` 包裝 `webpage_retriever` 工具，自動檢索後回答（回答內含引用來源 URL）。
+- 以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，自動檢索後回答（回答內含引用來源 URL）。
+- 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
 - SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
 - 對話落盤 `chats/<ts>/agent/<config>/`（每輪覆寫 `results.json` + 依 thread_id 分檔）。
@@ -27,18 +28,19 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 - FastAPI + SSE 聊天 API（`POST /api/chat`，事件協定 token / done / error）。
 - iframe 嵌入（`/static/chat.html`）、script widget（`/static/widget.js`，shadow DOM 隔離樣式）。
-- Chrome Extension（`extension/`，background 代理繞過 CSP/CORS）。
+- Chrome Extension（`extension/`，background 代理繞過 CSP/CORS；`content.js` 偵測 `hostname` 自動帶入 `page_url`）。
 - 前端 markdown 渲染（粗體 / 列表 / 連結 / 程式碼，先 escape 防 XSS）。
+- Service Worker Keepalive（`chrome.alarms`）、Typing Indicator、跨頁面 session 共享（`chrome.storage.session`）。
 
 ## 專案流程
 
 1. 爬取目標網站，從 URL 解析頁面類型，將結果儲存為 Markdown 和 JSON。
 2. 摘要爬取結果中的圖片，生成增強版 Markdown。
 3. 將處理後的 Markdown 載入 Milvus 向量索引（BGE-M3），同時建立稠密向量與稀疏向量索引。
-4. 將檢索能力包裝為工具，支援動態過濾條件供 Agent 呼叫。
+4. 將檢索能力包裝為工具，支援動態過濾條件供 Agent 呼叫；多站知識庫由 `RAGRegistry` 統一管理。
 5. 執行查詢時以 Dense + Sparse 混合檢索，過濾指定頁面類型，由 LLM 生成有來源的回答。
-6. Agent 以 LangGraph 推理迴圈呼叫檢索工具，回答附引用來源；聊天伺服器以 SSE 串流傳給前端。
-7. 前端以 iframe / widget / Extension 三種表面嵌入網站，支援多輪對話與 markdown 渲染。
+6. Agent 以 LangGraph 推理迴圈呼叫檢索工具（支援 `site_id` 路由），回答附引用來源；聊天伺服器以 SSE 串流傳給前端。
+7. 前端以 iframe / widget / Extension 三種表面嵌入網站，支援多輪對話與 markdown 渲染；Extension 自動偵測來源站點。
 
 ## 檔案結構
 
@@ -51,18 +53,19 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── README.md
 ├── uv.lock
 ├── src/
-│   ├── cli.py                   # CLI 入口（含 agent-cli / server-cli）
-│   ├── exp.py                   # 實驗或快速測試入口
-│   ├── main.py                  # 協調爬蟲與圖片摘要的主流程
+│   ├── cli.py                   # CLI 入口（tyro 整合）
+│   ├── main.py                  # 協調爬蟲與圖片摘要的主流程（tyro MainCLI）
 │   ├── app/
 │   │   ├── agent/
-│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / save_results）
+│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / save_results / close）
 │   │   ├── configs/
-│   │   │   ├── agent_config.py
-│   │   │   ├── rag_config.py
+│   │   │   ├── agent_config.py          # AgentConfig（無 site_id，多站由 RAGRegistry 管理）
+│   │   │   ├── base_config.py           # BaseModuleConfig（無 site_id，子類自行宣告）
+│   │   │   ├── rag_config.py            # RAGConfig（有 site_id）
 │   │   │   ├── webpage_image_summarizer_config.py
-│   │   │   └── website_crawler_config.py
-│   │   ├── engines/             # 核心引擎層（舊 modules/ 改名）
+│   │   │   ├── website_crawler_config.py
+│   │   │   └── workflow_config.py       # RunConfig / ModuleConfig dataclasses
+│   │   ├── engines/
 │   │   │   ├── rag/
 │   │   │   │   ├── __init__.py  # 匯出 RAG / RAGBuilder / prompts
 │   │   │   │   ├── rag.py
@@ -71,17 +74,20 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   ├── webpage_image_summarizer.py
 │   │   │   └── website_crawler.py
 │   │   ├── server/
-│   │   │   ├── app.py           # FastAPI：/api/chat（SSE）、/api/health、static mount
+│   │   │   ├── app.py           # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
 │   │   │   └── static/
 │   │   │       ├── chat.html    # iframe 版聊天頁
-│   │   │       ├── widget.js    # 浮動 widget（mount factory，網頁/Extension 共用）
+│   │   │       ├── widget.js    # 浮動 widget（mount factory + typing indicator）
 │   │   │       └── demo.html    # 嵌入示範
 │   │   ├── tools/
-│   │   │   └── webpage_retriever.py  # RAG retriever → LangChain StructuredTool
+│   │   │   ├── rag_registry.py      # RAGRegistry（多站 RAG 實例管理）
+│   │   │   ├── site_discovery.py    # list_knowledge_bases 工具
+│   │   │   └── webpage_retriever.py # 多站路由 retriever → LangChain StructuredTool
 │   │   └── workflow/
-│   │       ├── workflow.py
-│   │       ├── workflow_config.py
-│   │       └── workflow_manager.py
+│   │       ├── data_manager.py      # DataManager（publish_* 方法）
+│   │       ├── run_manager.py       # RunManager（四層路徑）
+│   │       ├── run_persistence.py   # 結果持久化
+│   │       └── workflow.py          # 五個 run_* 入口
 │   ├── test/
 │   │   ├── test_main.py         # 主流程端到端
 │   │   ├── test_module.py       # 模組端到端（slow 標記）
@@ -89,15 +95,17 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── test_server.py       # Server SSE / CORS / static 測試
 │   └── utils/
 │       ├── config_helper.py
-│       ├── html_date_extractor.py   # HTML 日期擷取（純函數）
+│       ├── html_date_extractor.py   # HTML 日期擷取（JSON-LD → OG → <time> → Generic → Dublin Core → HTTP Last-Modified）
+│       ├── langchain_helper.py      # LangChain 輔助（create_llm / thread_config / extract_sources）
 │       ├── log_helper.py
 │       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
-│       └── rag_helper.py
-├── extension/                   # Chrome Extension（M4b）
-│   ├── manifest.json            # MV3：content_scripts + background
-│   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）
-│   ├── content.js               # 注入 widget（streamChat 代理）
-│   └── widget.js                # 複本（與 static/widget.js 同步）
+│       ├── rag_helper.py
+│       └── server_helper.py         # Server 輔助函式
+├── extension/                   # Chrome Extension（M4）
+│   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
+│   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）+ keepalive + thread_id 共享
+│   ├── content.js               # 注入 widget + 偵測 hostname 帶入 page_url
+│   └── widget.js                # 複本（含 typing indicator，與 static/widget.js 同步）
 ├── scripts/
 │   ├── server_up.py             # 一條指令啟動 server（rich/tyro）
 │   ├── m3_server_smoke.py       # Server 端到端 smoke
@@ -107,13 +115,12 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── rag/
 │   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
 │   │   ├── milvus.toml          # Milvus + WeightedRanker
-│   │   ├── qdrant.toml          # Qdrant BM25 Hybrid
 │   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
 │   ├── webpage_image_summarizer/
 │   └── website_crawler/
 ├── data/
 │   ├── rag/
-│   │   └── results/             # 向量資料庫（qdrant_db/ 或 milvus.db）
+│   │   └── results/             # 向量資料庫（milvus.db）
 │   └── webpages/
 │       ├── results/             # 爬蟲與摘要結果
 │       ├── results.json         # 結果索引
@@ -199,9 +206,6 @@ uv run python src/main.py
 # 使用 Milvus + WeightedRanker 執行混合檢索
 uv run python src/cli.py rag-query-cli --run.config-name milvus
 
-# 使用 Qdrant BM25 混合檢索
-uv run python src/cli.py rag-query-cli --run.config-name qdrant
-
 # 自訂 top-k 與過濾條件（透過 CLI 覆寫）
 uv run python src/cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 10 --module.hybrid_top_k 20
 ```
@@ -278,8 +282,7 @@ uv run python scripts/m4b_extension_test.py
 - `run_config.toml` — run-level 參數（`cli.py` 與 `main.py` 入口會寫出）
 - `terminal.log` — 執行日誌
 
-向量資料庫預設持久化於 `data/rag/results/`：
-- `qdrant_db/` — Qdrant 向量儲存
+向量資料庫預設持久化於 `data/rag/<site_id>/`：
 - `milvus.db` — Milvus Lite 向量儲存
 
 `run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
@@ -308,6 +311,10 @@ Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
 - `docs/code/phase1/modules/data_collect.md` — 爬蟲模組說明
 - `docs/code/phase1/modules/data_preprocess.md` — 圖片摘要模組說明
 - `docs/code/phase1/modules/data_retrieve.md` — RAG 檢索模組說明
+- `docs/code/phase2_3_mvp/phase2_3_mvp.md` — Phase 2/3 實作概覽
+- `docs/code/phase2_3_mvp/modules/agent.md` — Agent 模組說明
+- `docs/code/phase2_3_mvp/modules/server.md` — 聊天伺服器說明
+- `docs/code/phase2_3_mvp/modules/interface.md` — 嵌入表面說明
 - `docs/code/runs/cli.md` — CLI 使用方式
 - `docs/code/runs/config.md` — 設定機制說明
 - `docs/code/runs/workflow.md` — Workflow 流程說明
@@ -318,13 +325,17 @@ Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
 目前實作涵蓋：
 
 - 網站爬取、Markdown 清理與頁面類型分類
+- HTML 日期擷取（JSON-LD → OG → `<time>` → Generic meta → Dublin Core → HTTP Last-Modified）
 - 圖片摘要與快取/重試邏輯
-- 本地向量檢索（Qdrant BM25 / Milvus BGE-M3）
+- 本地向量檢索（Milvus BGE-M3）
 - 稠密 + 稀疏混合檢索（WeightedRanker / RRFRanker）
 - Metadata 頁面類型過濾
+- 多站 RAG（`RAGRegistry` + `list_knowledge_bases` + `webpage_retriever` site_id 路由）
 - RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
 - Query 結果落盤（`results.json` + `results/query_{index}.md`）與向量庫可存至 run 內（`save_vector_store_to_runs`）
+- Chrome Extension 站點偵測（`hostname` → `page_url` → `resolve_site_id`）
+- Service Worker Keepalive + Typing Indicator + 跨頁面 session 共享
 
 後續規劃請參閱 `docs/project.md`。

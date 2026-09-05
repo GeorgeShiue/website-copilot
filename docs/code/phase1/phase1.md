@@ -9,6 +9,7 @@
     - [x] **網頁轉Markdown**
     - [x] **篩選網域**、**雜訊**
     - [x] **平行處理**
+- [x] **HTML 日期擷取**（`utils/html_date_extractor.py`：JSON-LD → OG → `<time>` → Generic meta → Dublin Core → HTTP Last-Modified）
 
 ## 已知問題
 - [ ] **HTML** 可包含更多**結構化資訊**
@@ -48,10 +49,10 @@
 - [x] **RAG 檢索-長文本資料**
     - [x] **載入資料**（SimpleDirectoryReader + results.json）
     - [x] **轉換資料**（MarkdownNodeParser / SentenceSplitter / MarkdownHeadingMergeParser / MarkdownImageExtractor）
-    - [x] **向量索引**（OpenAI **text-embedding-3-small** + **Qdrant** / **Milvus** 本地持久化）
+    - [x] **向量索引**（OpenAI **text-embedding-3-small** + **Milvus** 本地持久化）
     - [x] **Metadata Filter**（爬蟲 URL 解析 `page_type`；`MarkdownDateExtractor` 自內容萃取 `year`/`month`/`day`，注入節點 metadata 供檢索前過濾）
     - [x] **Metadata 時間範圍過濾**（以 `filter_dict={"year": (2024, ">=")}` 等條件進行時間區間過濾）
-    - [x] **Hybrid Search**（**Milvus BGE-M3** 或 **Qdrant BM25** 稠密稀疏雙軌檢索，WeightedRanker / RRFRanker 融合）
+    - [x] **Hybrid Search**（**Milvus BGE-M3** 稠密+稀疏雙軌檢索，WeightedRanker / RRFRanker 融合）
     - [x] **查詢引擎**（RetrieverQueryEngine + **Gemini** / **GPT** 回答生成）
     - [x] **RAG Retriever Tool**（LangChain `StructuredTool` 封裝，供 Agent 動態呼叫）
     - [x] **成效評估**（FaithfulnessEvaluator + RelevancyEvaluator）

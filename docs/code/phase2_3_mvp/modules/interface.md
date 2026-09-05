@@ -1,4 +1,4 @@
-# 嵌入表面（iframe / widget / Extension）
+# 嵌入介面（iframe / widget / Extension）
 
 ## 模組總覽
 此模組提供**三種嵌入方式**，共用同一後端（`server.md` 的 `/api/chat` SSE）與同一 widget 核心。iframe 與 script widget 由網站管理員在 HTML 注入；Chrome Extension 由造訪者端注入（任何網站自動浮出）。
@@ -20,12 +20,12 @@
 
 - **模組實作**
 	- `src/app/server/static/chat.html`（**iframe 版聊天頁**：同 origin 呼叫 `/api/chat`，多輪自動帶 thread_id）
-	- `src/app/server/static/widget.js`（**浮動 widget 核心**：shadow DOM、mount factory、SSE 解析、markdown 渲染）
+	- `src/app/server/static/widget.js`（**浮動 widget 核心**：shadow DOM、mount factory、SSE 解析、markdown 渲染、typing indicator）
 	- `src/app/server/static/demo.html`（**嵌入示範頁**：`GET /` redirect 至此，展示 iframe + script 兩種方式）
-	- `extension/manifest.json`（**MV3**：content_scripts + background + host_permissions）
-	- `extension/background.js`（**代理串流**：`chrome.runtime.onConnect` → fetch SSE → 逐塊 postMessage）
-	- `extension/content.js`（**注入掛載**：proxyStreamChat 建立 port + ReadableStream 轉接）
-	- `extension/widget.js`（**複本**：與 `static/widget.js` 同步，⚠️ Chrome 不載入 symlink 的 content script）
+	- `extension/manifest.json`（**MV3**：content_scripts + background + `alarms` / `storage` 權限）
+	- `extension/background.js`（**代理串流**：`chrome.runtime.onConnect` → fetch SSE → 逐塊 postMessage；keepalive via `chrome.alarms`；`chrome.storage.session` 保存 thread_id）
+	- `extension/content.js`（**注入掛載 + 站點偵測**：`window.location.hostname` 偵測 + `page_url` 帶入 + proxyStreamChat 建立 port + ReadableStream 轉接）
+	- `extension/widget.js`（**複本**：與 `static/widget.js` 同步，含 typing indicator；⚠️ Chrome 不載入 symlink 的 content script）
 	- `scripts/m4b_extension_test.py`（**自動化驗證**：xvfb + Playwright 端到端）
 
 ## widget.js
@@ -50,6 +50,7 @@ WebsiteCopilotWidget.mount({
 - **`streamChat(payload)`** — transport 抽象介面：傳入 `{query, thread_id}`，回傳 `{ok, status, body: {getReader()}}`
 - **`parseSseEvents(chunk)`** — 以空行分隔解析 `data:` JSON 事件
 - **`renderMarkdown(text)`** — 輕量 markdown 渲染（escape → 段落/列表/標題/引用/粗體/斜體/連結/inline code）；`token` 期間維持純文字累加，`done` 才一次渲染
+- **Typing Indicator** — 等待後端回應時在回覆區顯示三個跳動圓點（CSS animation），收到第一個 token 徎淡出移除
 
 ## extension/
 
@@ -57,16 +58,20 @@ WebsiteCopilotWidget.mount({
 
 ```
 content.js（頁面 isolated world）
+  → 偵測 window.location.hostname → currentHostname
   → WebsiteCopilotWidget.mount({streamChat: proxyStreamChat})
   → proxyStreamChat：chrome.runtime.connect({name: 'wc-chat'}) + ReadableStream
   → background.js（service worker）
-  → fetch('http://127.0.0.1:8000/api/chat')（不受頁面 CSP/CORS 限制）
+  → fetch('http://127.0.0.1:8000/api/chat', {page_url: hostname})（不受頁面 CSP/CORS 限制）
   → 逐塊 port.postMessage({type: 'chunk'}) → content.js 依 \n\n 切 SSE 區塊 → widget 解析
+
+chrome.storage.session 共享 thread_id → 換頁面保留對話記憶
+chrome.alarms 定期喚醒 SW → 避免 Chrome ~30s 終止 Service Worker
 ```
 
-- **`background.js`** — `chrome.runtime.onConnect` 監聽 `wc-chat` port；`AbortController` 於 content 斷線時中止 fetch（fetch 進行中 SW 不休眠，chunk 兼 keepalive）
-- **`content.js`** — `proxyStreamChat(payload)`：建立 port + `ReadableStream`，依 `\n\n` 切出「含結尾」的 SSE 區塊（⚠️ 若不含結尾，widget 端 parse 後 slice 會吃字元致串流中斷）；`__wcMounted` 防重複掛載
-- **`manifest.json`** — MV3：`content_scripts: ["widget.js", "content.js"]`（`<all_urls>`、`document_idle`）+ `background.service_worker` + `host_permissions`（localhost:8000）
+- **`background.js`** — `chrome.runtime.onConnect` 監聽 `wc-chat` port；`AbortController` 於 content 斷線時中止 fetch（fetch 進行中 SW 不休眠，chunk 兼 keepalive）；`chrome.alarms` 以 25 秒週期保持 SW 活躍；`chrome.storage.session` 保存/讀取 `thread_id` 實現跨頁面 session 共享
+- **`content.js`** — `proxyStreamChat(payload)`：建立 port + `ReadableStream`，依 `\n\n` 切出「含結尾」的 SSE 區塊（⚠️ 若不含結尾，widget 端 parse 後 slice 會吃字元致串流中斷）；`window.location.hostname` 偵測 → `page_url` 帶入 fetch body；`__wcMounted` 防重複掛載
+- **`manifest.json`** — MV3：`content_scripts: ["widget.js", "content.js"]`（`<all_urls>`、`document_idle`）+ `background.service_worker` + `host_permissions`（localhost:8000）+ `permissions: ["alarms", "storage"]`
 
 ### 同步規則
 

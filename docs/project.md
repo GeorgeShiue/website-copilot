@@ -8,19 +8,47 @@
 - 提供嵌入式互動介面，支援前端與後端 API 串接。
 - 優先測試學校入口網站，逐步擴展至企業與政府機關。
 
-# Survey
+# 進度報告
 
-* 競品分析
-  > [docs/survey/competitors.md](survey/competitors.md)
-  >
-* 痛點分析
-  > [docs/survey/pain_point.md](survey/pain_point.md)
-  >
-* 技術分析
-  > [docs/survey/technology.md](survey/technology.md)
+## Phase 2/3 MVP
+
+* 0826
+
+  > [docs/progress_report/2026_0826/2026_0826_discussion.md](progress_report/2026_0826/2026_0826_discussion.md)
   >
 
-# 功能開發
+  > [docs/progress_report/2026_0826/2026_0826_marp.md](progress_report/2026_0826/2026_0826_marp.md)
+
+* 0812
+
+  > [docs/progress_report/2026_0812/2026_0812_discussion.md](progress_report/2026_0812/2026_0812_discussion.md)
+  >
+
+  > [docs/progress_report/2026_0812/2026_0812_marp.md](progress_report/2026_0812/2026_0812_marp.md)
+  >
+
+## Phase 1：資訊檢索
+
+* 0722
+
+  > [docs/progress_report/2026_0722/2026_0722_discussion.md](progress_report/2026_0722/2026_0722_discussion.md)
+  >
+
+  > [docs/progress_report/2026_0722/2026_0722_marp.md](progress_report/2026_0722/2026_0722_marp.md)
+  >
+* 0629
+
+  > [docs/progress_report/2026_0629/2026_0629_discussion.md](progress_report/2026_0629/2026_0629_discussion.md)
+  >
+
+  > [docs/progress_report/2026_0629/2026_0629_marp.md](progress_report/2026_0629/2026_0629_marp.md)
+  >
+* 0518
+
+  > [docs/progress_report/2026_0518.md](progress_report/2026_0518.md)
+  >
+
+## 功能開發
 
 ## Phase 1：資訊檢索 (階段性完成)
 
@@ -45,8 +73,9 @@
 
 - 簡介
   - **AI Agent** — 以 LangGraph `create_agent` 包裝 RAG 檢索工具，由 LLM 推理迴圈自行決定呼叫，回答附引用來源 URL；支援多輪記憶（`InMemorySaver` + `thread_id`）與 SSE 逐 token 串流。
-  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 於 lifespan 建一次、關閉釋放；CORS 可限縮（`allowed_origins`）。
-  - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS。
+  - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
+  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 於 lifespan 建一次、關閉釋放；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
+  - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS，支援站點偵測（`hostname` → `page_url`）、Service Worker Keepalive（`chrome.alarms`）、跨頁面 session 共享（`chrome.storage.session`）、Typing Indicator。
   - **對話落盤** — `chats/<ts>/agent/<config>/`，每輪覆寫 `results.json` + 依 thread_id 分檔（`results_<thread_id>.json`）。
 
 ## Phase 2：AI Agent
@@ -65,33 +94,17 @@
 - 前端狀態與後端 API 串接。
 - Markdown 與來源渲染。
 
-# 進度報告
+# Survey
 
-## Phase 1：資訊檢索
-
-* 0722
-
-  > [docs/progress_report/2026_0722/2026_0722_discussion.md](progress_report/2026_0722/2026_0722_discussion.md)
-
-  > [docs/progress_report/2026_0722/2026_0722_marp.md](progress_report/2026_0722/2026_0722_marp.md)
-
-* 0629
-
-  > [docs/progress_report/2026_0629/2026_0629_discussion.md](progress_report/2026_0629/2026_0629_discussion.md)
-
-  > [docs/progress_report/2026_0629/2026_0629_marp.md](progress_report/2026_0629/2026_0629_marp.md)
-
-* 0518
-
-  > [docs/progress_report/2026_0518.md](progress_report/2026_0518.md)
-
-## Phase 2/3 MVP
-* 0812
-
-  > [docs/progress_report/2026_0812/2026_0812_discussion.md](progress_report/2026_0812/2026_0812_discussion.md)
-
-  > [docs/progress_report/2026_0812/2026_0812_marp.md](progress_report/2026_0812/2026_0812_marp.md)
-
+* 競品分析
+  > [docs/survey/competitors.md](survey/competitors.md)
+  >
+* 痛點分析
+  > [docs/survey/pain_point.md](survey/pain_point.md)
+  >
+* 技術分析
+  > [docs/survey/technology.md](survey/technology.md)
+  >
 
 # 未來規劃
 

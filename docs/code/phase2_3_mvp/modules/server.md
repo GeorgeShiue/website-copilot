@@ -9,6 +9,7 @@
 - **多輪 session** — thread_id 由 server 產生（`auto-{uuid}`）並於 done 回傳，前端帶回續接
 - **資源生命週期** — agent 於 lifespan 啟動建一次、關閉釋放（`create_agent` 每次重建向量庫隔離副本，不可 per-request）
 - **CORS 限縮** — 預設全開放；`allowed_origins` 可限定自有網站來源（M5-3）
+- **站點偵測**（M4）— `DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`；`ChatRequest` 支援 `page_url` 欄位
 - **嵌入表面 static** — `chat.html`（iframe）/ `widget.js`（script widget）/ `demo.html`（示範頁）
 
 - **模組實作**
@@ -59,7 +60,11 @@ data: {"type": "error", "message": "..."}       ← 失敗
   5. `yield _sse({"type": "done", ...})`；任何例外 → `yield _sse({"type": "error", ...})`
 
 - **`_sse(data)`** — 序列化為 SSE 格式（`data: {json}\n\n`，`ensure_ascii=False` 保留中文）
+- **`resolve_site_id(page_url)`** — 從 `page_url` 解析 hostname，查 `DOMAIN_SITE_MAP` 得到 `site_id`；支援子網域匹配
 
+- **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
+
+- **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
 - **`run_server(config_name, host, port, allowed_origins)`** — 啟動入口（`cli.py server-cli` 分派）：
   - `setup_logging` → `create_app` → `uvicorn.run(app, ...)`
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError

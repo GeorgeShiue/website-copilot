@@ -1,23 +1,25 @@
 # RAG 檢索-長文本資料
 
 ## 模組總覽
-此模組實作**多策略知識庫中的 RAG 路徑**。針對長文本類型的網頁內容（文章、公告、部落格），將爬蟲產生的 Markdown 經過**解析**、**切塊**與**嵌入**後存入 **Qdrant** 或 **Milvus** 向量資料庫，再以**語意檢索**（Dense）與**關鍵字檢索**（Sparse/Hybrid）找出最相關段落，由 **LLM** 生成回答。
+此模組實作**多策略知識庫中的 RAG 路徑**。針對長文本類型的網頁內容（文章、公告、部落格），將爬蟲產生的 Markdown 經過**解析**、**切塊**與**嵌入**後存入 **Milvus** 向量資料庫，再以**語意檢索**（Dense）與**關鍵字檢索**（Sparse/Hybrid）找出最相關段落，由 **LLM** 生成回答。
 
 流程包含**索引建構**、**查詢引擎設定**與**成效評估**，形成完整的 RAG 管線。進階功能包含：
 
 - **Metadata Filter** — 從爬蟲 URL 解析出 `page_type`（paper / announcement / personnel），注入節點 metadata 以供檢索前過濾
-- **Hybrid Search** — 透過 Milvus BGE-M3 或 Qdrant BM25 進行稠密+稀疏雙軌檢索，以 WeightedRanker 或 RRFRanker 融合分數
-- **RAG Retriever Tool** — 將檢索能力包裝為 LangChain `StructuredTool`，供下游 Agent 動態呼叫
+- **Hybrid Search** — 透過 Milvus BGE-M3 進行稠密+稀疏雙軌檢索，以 WeightedRanker 或 RRFRanker 融合分數
+- **RAG Retriever Tool** — 將檢索能力包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫
 
 與此並行的尚有**知識圖譜檢索（網站結構）**、**資料庫檢索（多欄位資料）** 兩條策略路徑，依資料類型分流選用。
 
 - **模組實作**
 	- `src/app/engines/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
-	- `src/app/engines/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
-	- `src/app/engines/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
+	- `src/app/engines/rag/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
+	- `src/app/engines/rag/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
 	- `src/app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
 	- `src/utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
-	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`）
+	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由）
+	- `src/app/tools/rag_registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy + LRU 快取）
+	- `src/app/tools/site_discovery.py`（**Site Discovery** — `list_knowledge_bases` 工具，回傳可用站點列表）
 
 - **模組設定**
 	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `src/app/configs/rag_config.py` 載入）
@@ -27,7 +29,7 @@
 - **模組環境**
 	- `Python >= 3.13`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
 	- **標準函式庫**：`json`、`os`、`shutil`、`logging`
-	- **第三方套件**：`llama-index`（**核心檢索框架**）、`qdrant-client` / `pymilvus`（**向量資料庫**）、`llama-index-vector-stores-milvus`（**Milvus 整合**）、`llama-index-embeddings-openai`（**OpenAI Embedding**）、`llama-index-llms-google-genai` / `llama-index-llms-openai`（**查詢與評估 LLM**）、`langchain-core`（**StructuredTool**）
+	- **第三方套件**：`llama-index`（**核心檢索框架**）、`pymilvus`（**向量資料庫**）、`llama-index-vector-stores-milvus`（**Milvus 整合**）、`llama-index-embeddings-openai`（**OpenAI Embedding**）、`llama-index-llms-google-genai` / `llama-index-llms-openai`（**查詢與評估 LLM**）、`langchain-core`（**StructuredTool**）
 
 ## rag.py
 
@@ -38,7 +40,7 @@
 ```
 RAGBuilder(config)
 ├── build_nodes()            # (1) 讀取 Markdown → Pipeline 產出節點
-├── build_vector_store()     # (2) 建立向量儲存（Qdrant / Milvus，支援 Hybrid）
+├── build_vector_store()     # (2) 建立向量儲存（Milvus，支援 Hybrid）
 │   └── load_index()         # (3a) 既有向量庫直接載入（跳過 build_nodes/build_index）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
 ├── build_retriever()        # (4) 建立檢索器（支援 filter_dict 動態過濾）
@@ -92,12 +94,7 @@ RAG（runtime）
 ### 3. 建立索引
 
 #### 3a. 建立向量儲存（必要前驟）
-`RAGBuilder.build_vector_store()` 支援兩種向量儲存後端，透過 `vector_store_type` 切換：
-
-**Qdrant（純 BM25 Hybrid）**
-- 以 `QdrantClient(path=qdrant_db_folder_path)` 初始化，`QdrantVectorStore(collection_name, client, index_doc_id=False, enable_hybrid=True, fastembed_sparse_model="Qdrant/bm25")`。
-- 集合名稱預設 `webpages`，持久化路徑預設 `data/rag/results/qdrant_db`。
-- Dense + Sparse 融合使用加權公式：`score = alpha × dense + (1-alpha) × sparse`。
+`RAGBuilder.build_vector_store()` 以 Milvus 為向量儲存後端：
 
 **Milvus（BGE-M3 Hybrid）**
 - 以 `MilvusVectorStore(milvus_uri, collection_name, enable_sparse=True, sparse_embedding_function=BGEM3SparseEmbeddingFunction())` 初始化。
@@ -124,7 +121,7 @@ RAG（runtime）
 - `query_mode`：`"default"`（純 Dense）或 `"hybrid"`（Dense + Sparse 混合）。Hybrid 模式會設定 `vector_store_query_mode=VectorStoreQueryMode.HYBRID`。
 - `similarity_top_k`：回傳的前 k 筆結果（預設 `10`）。
 - `hybrid_top_k`：Hybrid 模式下各通道（dense/sparse）各自取前 k 筆再融合（預設 `10`）。
-- `alpha`：Qdrant Hybrid 模式下 dense 與 sparse 的加權係數（預設 `0.5`）。
+- `alpha`：Dense 與 sparse 的加權係數（預設 `0.5`，WeightedRanker 模式下使用）。
 - `filter_dict`：**可選的 metadata 過濾條件**，支援動態傳入。例如：
   - `{"page_type": "paper"}` — 只回傳論文頁面
   - `{"page_type": (["paper", "announcement"], "in")}` — 論文或公告
@@ -188,12 +185,9 @@ Metadata filter 允許在檢索前預先隔離跨類別雜訊，避免語義重�
 
 Hybrid Search 同時以 Dense Vector 與 Sparse Vector 檢索，再將兩者分數融合排序，補回低語義相似度但高關鍵字匹配的節點。
 
-#### Vector Store 對照
+#### Vector Store
 
-| Vector Store | Sparse Model | 中文支援 | 融合演算法 |
-|---|---|---|---|
-| **Qdrant** | `Qdrant/bm25`（純 BM25） | ❌ 不支援 | Weighted: `alpha × dense + (1-alpha) × sparse` |
-| **Milvus** | `BAAI/bge-m3`（神經稀疏編碼） | ✅ 原生支援 | RRF → WeightedRanker（`w_d × dense + w_s × sparse`） |
+- **Milvus（BGE-M3 Hybrid）** — Sparse 使用 `BAAI/bge-m3` 神經稀疏編碼，原生支援中文；融合演算法可選 WeightedRanker 或 RRFRanker。
 
 #### 使用時機
 - Dense Search 設定的 `cutoff` 排除所有低分節點（如 paper 節點分數 0.37–0.38）時，Hybrid Search 可透過關鍵字匹配補回。
