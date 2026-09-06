@@ -922,8 +922,8 @@ Phase D 驗證:
 |---|---|
 | `src/app/agent/agent.py` | Agent 層（InMemorySaver 使用處） |
 | `src/app/configs/agent_config.py` | Agent 設定 |
-| `docs/code/phase2_3_mvp/survey/mcp_server_survey.md` | MCP Server survey（姊妹文件） |
-| `docs/survey/knowledge.md` | 專案知識學習導引 |
+| `docs/survey/phase2_3_mvp/mcp_server_survey.md` | MCP Server survey（姊妹文件） |
+| `docs/survey/project/knowledge.md` | 專案知識學習導引 |
 
 ---
 

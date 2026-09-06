@@ -598,7 +598,7 @@ Phase D 驗證:
 | `src/app/agent/agent.py` | Agent 層（create_agent 整合） |
 | `src/app/tools/webpage_retriever.py` | 現有工具實作 |
 | `src/app/server/app.py` | SSE 伺服器（M3） |
-| `docs/code/phase2_3_mvp/survey/memory_management_survey.md` | 記憶管理 survey（姊妹文件） |
+| `docs/survey/phase2_3_mvp/memory_management_survey.md` | 記憶管理 survey（姊妹文件） |
 
 ---
 

@@ -1,5 +1,5 @@
 # Survey
-> [docs/code/phase1/survey/data_process_method.md](survey/data_process_method.md)
+> [docs/survey/phase1/data_process_method.md](../survey/phase1/data_process_method.md)
 
 # 1. 資料獲取
 > [docs/code/phase1/modules/data_collect.md](modules/data_collect.md)

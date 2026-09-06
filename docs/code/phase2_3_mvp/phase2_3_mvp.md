@@ -1,5 +1,5 @@
 # Survey
-> [docs/code/phase2_3_mvp/survey/sse_vs_websocket.md](survey/sse_vs_websocket.md)
+> [docs/survey/phase2_3_mvp/sse_vs_websocket.md](../survey/phase2_3_mvp/sse_vs_websocket.md)
 
 # 1. AI Agent（LangGraph）
 > [docs/code/phase2_3_mvp/modules/agent.md](modules/agent.md)

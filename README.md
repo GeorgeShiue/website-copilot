@@ -318,7 +318,7 @@ Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
 - `docs/code/runs/cli.md` — CLI 使用方式
 - `docs/code/runs/config.md` — 設定機制說明
 - `docs/code/runs/workflow.md` — Workflow 流程說明
-- `docs/code/phase1/survey/data_process_method.md` — 資料處理方法 survey
+- `docs/survey/phase1/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態
 

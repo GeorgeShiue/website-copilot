@@ -18,7 +18,7 @@
   >
 
   > [docs/progress_report/2026_0826/2026_0826_marp.md](progress_report/2026_0826/2026_0826_marp.md)
-
+  >
 * 0812
 
   > [docs/progress_report/2026_0812/2026_0812_discussion.md](progress_report/2026_0812/2026_0812_discussion.md)
@@ -48,7 +48,7 @@
   > [docs/progress_report/2026_0518.md](progress_report/2026_0518.md)
   >
 
-## 功能開發
+# 功能開發
 
 ## Phase 1：資訊檢索 (階段性完成)
 
@@ -96,15 +96,57 @@
 
 # Survey
 
+## 專案
+
 * 競品分析
-  > [docs/survey/competitors.md](survey/competitors.md)
+  > [docs/survey/project/competitors.md](survey/project/competitors.md)
   >
 * 痛點分析
-  > [docs/survey/pain_point.md](survey/pain_point.md)
+  > [docs/survey/project/pain_point.md](survey/project/pain_point.md)
   >
 * 技術分析
-  > [docs/survey/technology.md](survey/technology.md)
+  > [docs/survey/project/technology.md](survey/project/technology.md)
   >
+* 知識學習導引
+  > [docs/survey/project/knowledge.md](survey/project/knowledge.md)
+  >
+
+## Phase 1：資訊檢索
+
+* 資料處理方法
+  > [docs/survey/phase1/data_process_method.md](survey/phase1/data_process_method.md)
+  >
+* 基礎 RAG 改進
+  > [docs/survey/phase1/basic_RAG_improvement.md](survey/phase1/basic_RAG_improvement.md)
+  >
+* Graph RAG
+  > [docs/survey/phase1/graph_RAG.md](survey/phase1/graph_RAG.md)
+  >
+
+## Phase 2/3 MVP
+
+* SSE vs WebSocket
+  > [docs/survey/phase2_3_mvp/sse_vs_websocket.md](survey/phase2_3_mvp/sse_vs_websocket.md)
+  >
+
+## Phase 2： AI Agent
+
+* MCP Server
+  > [docs/survey/phase2/mcp_server_survey.md](survey/phase2/mcp_server_survey.md)
+  >
+* Memory Management
+  > [docs/survey/phase2/memory_management_survey.md](survey/phase2/memory_management_survey.md)
+  >
+
+## Phase 3：嵌入式互動介面
+
+* SSE 協定
+  > [docs/survey/phase3/sse.md](survey/phase3/sse.md)
+  >
+* SSE 前端實作
+  > [docs/survey/phase3/sse_frontend.md](survey/phase3/sse_frontend.md)
+  >
+
 
 # 未來規劃
 
