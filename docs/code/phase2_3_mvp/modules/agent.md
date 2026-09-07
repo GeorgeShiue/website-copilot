@@ -1,4 +1,4 @@
-# AI Agent（LangGraph 包裝）
+# AI Agent（LangGraph）
 
 ## 模組總覽
 此模組以 **LangGraph `create_agent`** 將 RAG 檢索包裝為可對話的 **AI Agent**。Agent 的 LLM 推理迴圈自行決定是否呼叫 `webpage_retriever` 工具，並將檢索結果回答給使用者，回答內直接包含引用來源 URL（由 system prompt 要求）。
@@ -12,7 +12,9 @@
 
 - **模組實作**
 	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask` / `astream_text` / `astream_result` / `save_results`）
-	- `src/app/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`）
+	- `src/app/tools/rag_registry.py`（**RAGRegistry**：多站 RAG 實例管理，lazy + LRU 快取）
+	- `src/app/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`，回傳可用站點列表）
+	- `src/app/tools/webpage_retriever.py`（**多站 Retriever Tool**：接受 `site_id` 參數路由至對應知識庫）
 	- `src/utils/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
 	- `src/app/configs/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
 	- `src/app/workflow/workflow.py`（`run_agent`：CLI 的 agent-cli 分支執行邏輯）
@@ -35,12 +37,12 @@
   - `tools`：綁定的 `StructuredTool` 列表（`list_knowledge_bases` + `webpage_retriever`）
   - `run_manager`：本次執行的 RunManager（供落盤 `chats/`）
   - `checkpointer`：`InMemorySaver` 實例（多輪記憶，thread_id 區分 session）
-  - `registry`：多站 RAG 實例管理器（M3）
-  - `close()`：釋放 RAG 資源（`registry.close()`）
+  - `registry`：`RAGRegistry` 實例（多站 RAG 管理，lazy + LRU 快取）
+  - `close()`：釋放 RAG 資源（`registry.close()`，try/finally 保證）
 
 - **`create_agent(config, run_manager)`** — 建立流程：
   1. 初始化 RunManager（`module="agent"`、`base_folder="chats"`）與落盤路徑
-  2. 建立 RAGRegistry（多站 RAG 實例管理）
+  2. 建立 `RAGRegistry`（多站 RAG 實例管理，lazy + LRU 快取，`max_cached` 限制同時載入數量）
   3. `create_site_discovery_tool(registry)` + `create_webpage_retriever_tool(registry)` 建立兩個工具
   4. `create_llm(config.llm_name)`（utils.langchain_helper）建立 Gemini ChatModel（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）
   5. `create_agent(llm, [discovery_tool, retriever_tool], system_prompt, checkpointer)` 組裝並包裝為 `Agent`

@@ -12,7 +12,7 @@
 
 ## 一、config 架構
 
-[src/app/workflow/workflow.py](src/app/workflow/workflow.py)、[src/cli.py](src/cli.py) 與 [src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py) 共同負責執行路徑與檔案留存。
+[src/app/workflow/workflow.py](src/app/workflow/workflow.py)、[src/cli.py](src/cli.py) 與 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py) 共同負責執行路徑與檔案留存。
 
 專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 dataclass 在 `src/app/configs/` 中載入與驗證。根據目前程式碼庫，四個主要 config 類分別位於：
 
@@ -66,17 +66,18 @@
 - 載入流程：
   1. `RAGConfig.from_toml(config_name, **overrides)` 會載入 `configs/rag/{config_name}.toml`。
   2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 處理合併與覆寫。
-  3. 建構 `RAGConfig` 後執行 `_validate_config()`（驗證 `qdrant_db_folder_path`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
+  3. 建構 `RAGConfig` 後執行 `_validate_config()`（驗證 `site_id`、`milvus_uri`、`vector_store_type`、`chunk_size`、`similarity_top_k`、`cutoff`、`hybrid_ranker`、`hybrid_ranker_params` 等）。
 
 欄位摘要：
 
-- `vector_store`：`vector_store_type`（`"qdrant"` 或 `"milvus"`）、`qdrant_db_folder_path`、`milvus_uri`、`collection_name`（預設 `webpages`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`，預設 `"WeightedRanker"`）、`hybrid_ranker_params`（dict，例如 `{"weights": [1.0, 0.5]}`）。
+- `init`：`site_id`（必須為非空字串）、`webpages_data_folder_path`（預設 `data/webpages/{site_id}`）。
+- `vector_store`：`vector_store_type`（預設 `"milvus"`）、`milvus_uri`（預設 `data/rag/{site_id}/milvus.db`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`，預設 `"WeightedRanker"`）、`hybrid_ranker_params`（dict，例如 `{"weights": [1.0, 0.5]}`）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
 - `retriever`：`similarity_top_k`（預設 `10`）、`query_mode`（`"default"` 或 `"hybrid"`）、`hybrid_top_k`（預設 `10`）、`alpha`（預設 `0.5`）。
 - `query_engine`：`query_llm_name`（預設 `gemini-3.1-flash-lite`）、`evaluator_llm_name`（預設 `gpt-5.4`）、`cutoff`（預設 `0.0`；hybrid 模式跳過 cutoff）、`query`。
 - `query_engine.query` 讓不同實驗可以直接在 config TOML 中切換查詢問題，並由 workflow 讀取後執行。
 
-目前 `configs/rag/default.toml` 與 `configs/rag/test.toml` 皆設定為 **Milvus hybrid search**（`vector_store_type="milvus"`、`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）；`milvus.toml` 保留相同設定的對照檔，`qdrant.toml` 則為 Qdrant 後端（`alpha=0.5` 線性融合）的對照。Dense 模式的 `cutoff`（如 `0.4`）在 hybrid 模式下不啟用，由融合分數自然排序。
+目前 `configs/rag/default.toml` 與 `configs/rag/test.toml` 皆設定為 **Milvus hybrid search**（`vector_store_type="milvus"`、`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）；`milvus.toml` 保留相同設定的對照檔。Dense 模式的 `cutoff`（如 `0.4`）在 hybrid 模式下不啟用，由融合分數自然排序。
 
 ### Agent
 
@@ -132,9 +133,9 @@
 
 ## 四、留檔機制
 
-目前的 RunManager 實作位於 `src/app/workflow/workflow_manager.py`（類別 `RunManager`），其行為如下：
+目前的 RunManager 實作位於 `src/app/workflow/run_manager.py`（類別 `RunManager`），其行為如下：
 
-- 建立 `runs/<timestamp>/<module>/<run>/` 目錄結構
+- 建立 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層目錄結構
 - 會產生並管理以下檔案路徑：
   - `results.json`（爬取結果，或 `run_rag_query` 的 query 三層結構）
   - `results/`（Markdown 檔案；`rag_query` 另含每次 query 一份的 `query_{index}.md`，`rag_build` 旗標開啟時含 `vector_store/`）
@@ -154,7 +155,7 @@ module_config 與 run_config 的寫入機制：
 - 目前五個主要 workflow 的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.toml`；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
+  - `run_rag_build()`：寫 `module_config.toml`；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/milvus.db`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
   - `run_agent()`：寫 `results.json`（每輪覆寫）+ `results_<thread_id>.json`（依 thread_id 分檔）與 `module_config.toml`；vector store 隔離於 `chats/<ts>/agent/<config>/results/`（`RunManager(base_folder="chats")`）。
 - module_config.toml
@@ -195,7 +196,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.toml；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/{qdrant_db | milvus.db}`，否則寫入 config 預設位置（`data/rag/results/`）
+- run_rag_build()：寫 module_config.toml；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/milvus.db`，否則寫入 config 預設位置（`data/rag/results/`）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
 - run_agent()：寫 results.json（每輪覆寫）+ `results_<thread_id>.json`（依 thread_id 分檔）與 module_config.toml；vector store 隔離於 `chats/<ts>/agent/<config>/results/`
 
@@ -215,17 +216,21 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 簡短結論：
 
-`configs/`（TOML）→ `utils/config_helper` 載入與過濾 → `src/app/configs/*.py` 建構 dataclass 並驗證 → `src/app/workflow/workflow_manager.py`（RunManager）負責寫出 module/run artifacts。
+`configs/`（TOML）→ `utils/config_helper` 載入與過濾 → `src/app/configs/*.py` 建構 dataclass 並驗證 → `src/app/workflow/run_manager.py`（RunManager）負責寫出 module/run artifacts；`src/app/workflow/data_manager.py`（DataManager）負責發布到 `data/` 持久化路徑。
 
 重點：
 
 - 四個主要模組（crawler、webpage_image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
+- `BaseModuleConfig`（`src/app/configs/base_config.py`）為共用基底，不綁定 `site_id`；需要 `site_id` 的子類（如 `RAGConfig`、`WebsiteCrawlerConfig`）自行宣告欄位。
+- `workflow_config.py`（`src/app/configs/workflow_config.py`）定義 RunConfig 與 ModuleConfig dataclass，供 CLI（tyro）與程式端共用。
 - 驗證邏輯被放在各 config 類的 `_validate_config()` 中，以在建構時即捕捉錯誤。
 - `save_module_config_as_toml()` 的 residual section 機制允許像 `litellm_kwargs` 之類的彈性欄位被保留並寫入 module_config.toml。
 
 ## Evidence
 
 - [src/utils/config_helper.py](src/utils/config_helper.py)
+- [src/app/configs/base_config.py](src/app/configs/base_config.py)
+- [src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)
 - [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)
 - [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)
 - [src/app/configs/rag_config.py](src/app/configs/rag_config.py)

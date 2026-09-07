@@ -6,7 +6,7 @@
 - `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`：實作主要 pipeline（`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_rag_query`），負責載入 module config、執行流程、寫入 `module_config.toml` 與結果。
 - `[src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)`：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。
   - `RAGBuildRunConfig` 含 `save_vector_store_to_runs`（預設 `False`，CLI 旗標 `--run.save-vector-store-to-runs`）：開啟時向量庫寫入本次 run 的 `results/vector_store/`。
-- `[src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)`：管理 `runs/<timestamp>/<module>/<run>/` 路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
+- `[src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)`：管理 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
 - `src/utils/config_helper.py`：共用設定工具，提供載入、覆寫、與寫出 TOML 的 helper 函式。
 
 ## 二、CLI 解析與 dispatch 流程
@@ -91,6 +91,7 @@ python src/cli.py rag-build-cli --run.config-name default --run.save-vector-stor
 
 - `src/cli.py`
 - `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`
-- `[src/app/workflow/workflow_config.py](src/app/workflow/workflow_config.py)`
-- `[src/app/workflow/workflow_manager.py](src/app/workflow/workflow_manager.py)`
+- `[src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)`
+- `[src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)`
+- `[src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)`
 - `src/utils/config_helper.py`
