@@ -2,8 +2,8 @@ import pytest
 
 from app.workflow.workflow import (
     run_agent,
+    run_app,
     run_rag_build,
-    run_server,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
@@ -34,4 +34,4 @@ def test_agent():
 
 
 def test_server():
-    run_server(host="127.0.0.1", port=SERVER_PORT, config_name="test")
+    run_app(config_name="test", host="0.0.0.0", port=SERVER_PORT)

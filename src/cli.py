@@ -55,9 +55,9 @@ if __name__ == "__main__":
     from app.workflow.data_manager import DataManager
     from app.workflow.workflow import (
         run_agent,
+        run_app,
         run_rag_build,
         run_rag_query,
-        run_server,
         run_webpage_image_summarizer,
         run_website_crawler,
     )
@@ -116,24 +116,22 @@ if __name__ == "__main__":
             **module_config_overrides,
         )
     elif isinstance(cli_arg, AgentCLI):
-        # run_agent 建立 agent_run_manager 並回傳
-        agent_run_manager = run_agent(
-            **run_kwargs,
+        run_agent(
+            query=cli_arg.run.query,
+            config_name=cli_arg.run.config_name,
+            thread_id=cli_arg.run.thread_id,
+            stream=cli_arg.run.stream,
+            data_manager=data_manager,
+            run_config=cli_arg.run,
             **module_config_overrides,
         )
-        save_run_config_as_toml(cli_arg.run, agent_run_manager.run_config_toml_path)
-        agent_run_manager.log_run_paths("complete")
-        if data_manager is not None:
-            data_manager.publish_run_metadata(
-                site_id=cli_arg.run.config_name,
-                category="agent",
-                module_config_path=agent_run_manager.module_config_toml_path,
-                run_config_path=agent_run_manager.run_config_toml_path,
-                log_path=agent_run_manager.log_path,
-            )
     elif isinstance(cli_arg, ServerCLI):
-        # 常駐服務：不落盤 run config（無 run_manager），由 run_server blocking 執行
-        run_server(**vars(cli_arg.run), mode="block")
+        run_app(
+            config_name=cli_arg.run.config_name,
+            allowed_origins=cli_arg.run.allowed_origins,
+            host=cli_arg.run.host,
+            port=cli_arg.run.port,
+        )
 
     if run_manager is not None and not isinstance(cli_arg, ServerCLI):
         save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)

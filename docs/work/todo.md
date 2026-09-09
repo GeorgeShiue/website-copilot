@@ -11,11 +11,13 @@
 - [x] 整併新增 server 測試
 - [x] 重構 run manager
 - [x] 重構執行結果儲存架構
+- [x] 重構 Agent Class
 
 ---
 
-- [x] 重構 Agent Class
 - [ ] 更新資源生命週期
+- [ ] 更新 模組 API
+- [ ] 更新 API key 和模型
 - [ ] 更新完整流程測試
 
 ---

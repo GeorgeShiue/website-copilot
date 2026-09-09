@@ -204,6 +204,7 @@ class VectorStoreBuilder:
         )
         return vector_store
 
+    # TODO: 合併 build_milvus 與 build()
     @staticmethod
     def build(
         collection_name: str,
@@ -241,6 +242,7 @@ class RAGBuilder:
         self.build_retriever(rag)
         return rag
 
+    # TODO: build_reusable 取代 build
     def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> None:
         """建到 query engine 層級，視情況重建或載入既有 index。
 

@@ -1,12 +1,11 @@
 """聊天服務層：FastAPI + SSE 串流 endpoint（M3）+ 嵌入表面（M4a）。
 
 提供：
-- create_app()：建立 FastAPI app（lifespan 建/關 agent、CORS、路由、static mount）
+- create_app()：建立 FastAPI app（lifespan 綁定 agent、CORS、路由、static mount）
 - POST /api/chat：SSE 串流問答（事件協定：token / done / error）
 - GET /api/health：健康檢查
 - GET /：redirect 至 /static/demo.html（嵌入示範）
 - /static/：chat.html（iframe）、widget.js（script 嵌入）、demo.html
-- start_uvicorn()：uvicorn 啟動入口
 
 SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "token", "content": "..."}：逐 token 串流
@@ -14,9 +13,8 @@ SSE 事件協定（M3 定案，M4a 前端依此實作）：
   （引用內容已由 agent 寫入 response 內；sources 僅保留於落盤 result）
 - {"type": "error", "message": "..."}：失敗
 
-資源生命週期：agent 於 lifespan 啟動時建立一次、關閉時釋放。
-create_agent 每次會重建 vector store 隔離副本（M2.5），
-不可 per-request 建立；對話隔離靠 thread_id（InMemorySaver 以 thread_id 為 session key）。
+資源生命週期：由呼叫端（run_app）建立 agent 與 registry 後注入 create_app，
+lifespan 啟動時綁定至 app.state。registry 生命週期由呼叫端的 with block 管理。
 """
 
 import json
@@ -28,18 +26,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.agent.agent import Agent, create_agent
-from app.configs.agent_config import AgentConfig
-from app.workflow.run_manager import RunManager
+from app.agent.agent import Agent
 from utils.langchain_helper import extract_sources_from_messages, thread_config
-from utils.log_helper import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -128,15 +122,13 @@ async def _event_stream(
 
 
 def create_app(
-    config_name: str = "default",
-    agent: Agent | None = None,
+    agent: Agent,
     allowed_origins: list[str] | None = None,
 ) -> FastAPI:
-    """建立 FastAPI app。
+    """建立 FastAPI 應用程式，注入 Agent 到 lifespan。
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        agent: 可注入的 Agent（測試替身）；None 時由 lifespan 建立。
+        agent: Agent 實例（必填）。
         allowed_origins: CORS 允許的來源列表；None 時預設 ["*"]（demo 全開放）。
 
     Returns:
@@ -145,20 +137,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        if agent is None:
-            # Server 使用 chats/ 作為聊天 session 的落盤位置（與 runs/ 實驗結果分開）
-            app.state.agent = create_agent(
-                config=AgentConfig.from_toml(config_name),
-                run_manager=RunManager.for_run_no_site(
-                    module="agent",
-                    run_name=config_name,
-                    base_folder="chats",
-                ),
-            )
-        else:
-            app.state.agent = agent
+        app.state.agent = agent
         yield
-        app.state.agent.close()
 
     app = FastAPI(title="Website Copilot Chat", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
@@ -210,24 +190,3 @@ def create_app(
         )
 
     return app
-
-
-def start_uvicorn(
-    config_name: str = "default",
-    host: str = "127.0.0.1",
-    port: int = 8000,
-    allowed_origins: list[str] | None = None,
-) -> None:
-    """啟動 uvicorn 伺服器（blocking）。
-
-    Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        host / port: 監聽位址。
-        allowed_origins: CORS 允許來源（None 時全開放）。
-
-    傳 app 物件給 uvicorn（而非 import string）：避免 reloader 子程序
-    的 sys.path 不含 src/ 導致 ModuleNotFoundError。
-    """
-    setup_logging("debug")
-    app = create_app(config_name=config_name, allowed_origins=allowed_origins)
-    uvicorn.run(app, host=host, port=port)

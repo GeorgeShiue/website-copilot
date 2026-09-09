@@ -5,14 +5,13 @@
 - Agent member function：save_results（透過 _FakeAgent 替身驗證）
 - Server 層：SSE 事件流 / error 事件 / health / CORS / static files / resolve_site_id / _enrich_query
 
-替身 FakeAgent 只實作 graph.astream / graph.get_state / close / astream_text / save_results，
+替身 FakeAgent 只實作 graph.astream / graph.get_state / astream_text / save_results，
 避免測試觸發真實 LLM / RAG 資源與 LLM 呼叫。
 """
 
 import json
 from dataclasses import dataclass, field
 from typing import Any, cast
-
 from fastapi.testclient import TestClient
 
 from app.agent.agent import Agent
@@ -112,7 +111,7 @@ class _FailingGraph(_FakeGraph):
 
 
 class _FakeAgent:
-    """替身 Agent（僅需 graph / close / run_manager / config / astream_text / save_results）。"""
+    """替身 Agent（僅需 graph / run_manager / config / astream_text / save_results）。"""
 
     def __init__(
         self,
@@ -122,9 +121,6 @@ class _FakeAgent:
         self.graph = graph if graph is not None else _FakeGraph()
         self.run_manager = run_manager if run_manager is not None else _FakeRunManager()
         self.config = _FakeConfig()
-
-    def close(self) -> None:
-        pass
 
     async def astream_text(self, query: str, config: dict[str, Any]) -> Any:
         """替身串流：delegate 至 _FakeGraph.astream。"""

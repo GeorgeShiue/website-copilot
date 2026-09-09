@@ -2,8 +2,8 @@ import asyncio
 import os
 import time
 import uuid
-from pathlib import Path
-from typing import Literal
+
+import uvicorn
 
 from app.agent.agent import create_agent
 from app.configs.agent_config import AgentConfig
@@ -15,6 +15,9 @@ from app.configs.website_crawler_config import WebsiteCrawlerConfig
 from app.engines.rag import RAG, RAGBuilder
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.website_crawler import WebsiteCrawler
+from app.server.app import create_app
+from app.tools.rag_registry import RAGRegistry
+from app.tools.tool import create_tool
 from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
 from app.workflow.run_persistence import (
@@ -22,7 +25,11 @@ from app.workflow.run_persistence import (
     save_query_results_as_md,
     save_results_as_md,
 )
-from utils.config_helper import log_config, save_module_config_as_toml
+from utils.config_helper import (
+    log_config,
+    save_module_config_as_toml,
+    save_run_config_as_toml,
+)
 from utils.log_helper import (
     log_run_time,
     log_session,
@@ -30,14 +37,6 @@ from utils.log_helper import (
     save_logging_file,
 )
 from utils.rag_helper import response_to_dict
-from utils.server_helper import (
-    DEFAULT_FOLLOW_UP,
-    DEFAULT_QUERY,
-    shutdown_server,
-    spawn_server,
-    validate_server,
-    wait_ready,
-)
 
 
 def run_website_crawler(
@@ -212,6 +211,7 @@ def run_webpage_image_summarizer(
     return enhanced_results, run_manager
 
 
+# TODO: 改為 create_rag()，並移除 query 環節
 def run_rag_build(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
@@ -317,6 +317,7 @@ def run_rag_build(
     return run_manager
 
 
+# TODO: 移除創建 RAG 的環節，改為由 create_rag() 提供
 def run_rag_query(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
@@ -447,113 +448,115 @@ def run_agent(
     config_name: str = "default",
     thread_id: str | None = None,
     stream: bool = False,
-    agent_run_manager: RunManager | None = None,
+    data_manager: DataManager | None = None,
+    run_config=None,
     **config_overrides,
-) -> RunManager:
-    """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
+) -> None:
+    """執行 Agent 問答（CLI 的 agent-cli 分支）。
 
-    流程：create_agent 建立 agent → 問答（stream 決定串流/非串流）
-    → 顯示回答與來源 → 落盤 runs/ → 釋放 RAG 資源（agent.close()）。
+    流程：建立 RunManager → 建立 registry 與 tools → create_agent 建立 agent
+    → 問答（stream 決定串流/非串流）→ 顯示回答與來源 → 落盤 runs/
+    → 釋放 RAG 資源（registry.close()）。
 
     Args:
         query: 使用者問題。
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
         thread_id: 多輪記憶 session 識別（None 時每次獨立）。
         stream: True 時逐 token 串流顯示回答。
+        data_manager: DataManager 實例（可選，用於發布結果到 data/）。
+        run_config: AgentRunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
-        agent_run_manager: 聊天專用 RunManager（base_folder="runs"，None 時自動建立）。
     """
-    agent_config = AgentConfig.from_toml(config_name, **config_overrides)
-
-    agent = create_agent(
-        config=agent_config,
-        run_manager=agent_run_manager,
+    run_manager = RunManager.for_run_no_site(
+        module="agent",
+        run_name=config_name,
+        base_folder="runs",
     )
-    try:
-        # 問答過程也寫入 log 檔（append 至 agent 建立時開啟的同一個 terminal.log）
-        with save_logging_file(agent.run_manager.log_path):
-            if stream:
-                result = asyncio.run(
-                    agent.astream_result(
-                        query,
-                        thread_id,
-                        on_token=lambda token: print(token, end="", flush=True),
-                    )
+    registry = RAGRegistry(config_name=config_name)
+
+    with (
+        registry,
+        save_logging_file(run_manager.log_path),
+    ):
+        tools = create_tool(registry)
+        agent = create_agent(
+            config=AgentConfig.from_toml(config_name, **config_overrides),
+            tools=tools,
+            run_manager=run_manager,
+        )
+
+        if stream:
+            result = asyncio.run(
+                agent.astream_result(
+                    query,
+                    thread_id,
+                    on_token=lambda token: print(token, end="", flush=True),
                 )
-                print()  # 串流 token 結束後換行
-            else:
-                result = agent.ask(query, thread_id)
-            log_session("Agent Response", style="green")
-            print_log(result["response"])
-            log_session("Sources", style="cyan")
-            for i, url in enumerate(result["sources"], 1):
-                print(f"{i}. {url}")
-            # 無 thread_id 時自動產生（確保每次執行都有結果檔）
-            if thread_id is None:
-                thread_id = f"auto-{uuid.uuid4().hex[:8]}"
-            agent.save_results([result], thread_id=thread_id)
-            log_session("Conversation Saved", style="green")
-            print(f"Results json: {agent.run_manager.results_json_path}")
-    finally:
-        agent.close()
+            )
+            print()  # 串流 token 結束後換行
+        else:
+            result = agent.ask(query, thread_id)
 
-    return agent.run_manager
+        log_session("Agent Response", style="green")
+        print_log(result["response"])
+        log_session("Sources", style="cyan")
+        for i, url in enumerate(result["sources"], 1):
+            print(f"{i}. {url}")
+
+        # 無 thread_id 時自動產生（確保每次執行都有結果檔）
+        if thread_id is None:
+            thread_id = f"auto-{uuid.uuid4().hex[:8]}"
+        agent.save_results([result], thread_id=thread_id)
+        log_session("Conversation Saved", style="green")
+        print(f"Results json: {run_manager.results_json_path}")
+
+        # 落盤 run config
+        if run_config is not None:
+            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+        run_manager.log_run_paths("complete")
+
+        if data_manager is not None:
+            data_manager.publish_run_metadata(
+                site_id=config_name,
+                category="agent",
+                module_config_path=run_manager.module_config_toml_path,
+                run_config_path=run_manager.run_config_toml_path,
+                log_path=run_manager.log_path,
+            )
 
 
-def run_server(
-    host: str = "127.0.0.1",
-    port: int = 8001,
+def run_app(
     config_name: str = "default",
-    mode: Literal["validate", "block"] = "validate",
-    *,
-    output: Literal["inherit", "devnull"] | Path = "devnull",
     allowed_origins: list[str] | None = None,
-    startup_timeout: int = 600,
-    query: str = DEFAULT_QUERY,
-    follow_up: str = DEFAULT_FOLLOW_UP,
+    host: str = "127.0.0.1",
+    port: int = 8000,
 ) -> None:
-    """Server 生命週期統一入口。
+    """建立並啟動 Server 模式的 FastAPI app。
 
-    mode="validate" → 啟動 → health check → SSE 驗證 → 落盤 → 關閉
-    mode="block"    → 啟動 → health check → 等待 Ctrl+C → 關閉
+    流程：create_tool → RunManager(base_folder="chats")
+    → create_agent → create_app(agent) → uvicorn.run()
 
     Args:
-        host: server 監聽位址。
-        port: server 監聽 port。
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        mode: "validate"（測試）或 "block"（互動/正式）。
-        output: subprocess stdout/stderr 去向。
-        allowed_origins: CORS 允許來源。
-        startup_timeout: 等待 server 就緒的最長秒數。
-        query: validate 模式單輪測試問題。
-        follow_up: validate 模式多輪測試問題。
+        config_name: config 名稱（共用，分別從 configs/rag/ 和 configs/agent/ 載入）。
+        allowed_origins: CORS 允許來源（None 時全開放）。
+        host: 監聽位址，預設 "127.0.0.1"。
+        port: 監聽連接埠，預設 8000。
+
+    Returns:
+        None。此函式會阻塞直到伺服器停止。
     """
-    base_url = f"http://{host}:{port}"
-
-    # allowed_origins: subprocess calls app.run_server() without this param;
-    # it defaults to ["*"] (full CORS). Override via app-level config if needed.
-    log_session(f"Starting Server ({mode})", style="purple")
-    proc = spawn_server(
-        host,
-        port,
-        config_name,
-        output=output,
+    run_manager = RunManager.for_run_no_site(
+        module="agent",
+        run_name=config_name,
+        base_folder="chats",
     )
-    try:
-        wait_ready(base_url, timeout=startup_timeout)
-        if mode == "validate":
-            validate_server(base_url, query, follow_up)
-        else:  # block
-            log_session("Server Ready", style="green")
-            print_log(f"Server ready at {base_url} , use Ctrl+C to stop.")
-            proc.wait()
 
-    except TimeoutError as exc:
-        print_log(f"[bold red]FAIL: {exc}[/bold red]")
-        raise
-    except KeyboardInterrupt:
-        log_session("Server Shutting Down", style="yellow")
-        print_log("收到終止訊號，關閉 server...")
-    finally:
-        shutdown_server(proc)
-        log_session("Server Stopped", style="red")
+    with RAGRegistry(config_name=config_name) as registry:
+        tools = create_tool(registry)
+        agent = create_agent(
+            config=AgentConfig.from_toml(config_name),
+            tools=tools,
+            run_manager=run_manager,
+        )
+        app = create_app(agent=agent, allowed_origins=allowed_origins)
+        uvicorn.run(app, host=host, port=port)

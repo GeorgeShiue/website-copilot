@@ -8,7 +8,7 @@ M1 提供：
   - agent.save_results()：將對話結果落盤（含設定摘要）
 - create_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
 
-資源生命週期：結束後由呼叫者呼叫 agent.close() 釋放 RAG 資源。
+資源生命週期：結束後由呼叫者呼叫 registry.close() 釋放 RAG 資源。
 """
 
 import json
@@ -23,25 +23,18 @@ from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.configs.agent_config import AgentConfig
-from app.tools.rag_registry import RAGRegistry
-from app.tools.site_discovery import create_site_discovery_tool
-from app.tools.webpage_retriever import (
-    create_webpage_retriever_tool,
-)
-from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
-from utils.config_helper import log_config, save_module_config_as_toml
 from utils.langchain_helper import (
     _message_content_to_text,
     create_llm,
     extract_sources_from_messages,
     thread_config,
 )
-from utils.log_helper import log_run_time, log_session, save_logging_file
 
 logger = logging.getLogger(__name__)
 
 
+# TODO: 移除 dataclass，改用普通 class
 @dataclass
 class Agent:
     """包裝 LangGraph Agent 與其綁定資源。
@@ -52,7 +45,6 @@ class Agent:
         run_manager: 本次執行的 RunManager（供落盤）。
         config: Agent 設定。
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
-        registry: 多站 RAG 實例管理器（M3）。
     """
 
     graph: Any
@@ -60,12 +52,6 @@ class Agent:
     run_manager: RunManager
     config: AgentConfig
     checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
-    registry: RAGRegistry | None = None
-
-    def close(self) -> None:
-        """釋放 RAG 資源（registry.close()）。"""
-        if self.registry is not None:
-            self.registry.close()
 
     def ask(self, query: str, thread_id: str | None = None) -> dict[str, Any]:
         """單輪/多輪問答：回傳回答與來源。
@@ -168,86 +154,51 @@ class Agent:
 
 
 def create_agent(
-    config: AgentConfig | None = None,
-    run_manager: RunManager | None = None,
+    config: AgentConfig,
+    tools: list[StructuredTool],
+    run_manager: RunManager,
 ) -> Agent:
-    """建立綁定多站 retriever 工具的 LangGraph Agent。
+    """組裝 Agent（資源由呼叫端提供）。
 
-    建立流程：
-    1. 初始化 RunManager（module="agent"）與落盤路徑
-    2. 建立 RAGRegistry（多站 RAG 實例管理）
-    3. 建立 list_knowledge_bases + webpage_retriever 兩個工具
-    4. 以 AgentConfig.llm_name 建立 ChatModel
-    5. create_agent 組裝並包裝為 Agent
+    流程：
+    1. 以 AgentConfig.llm_name 建立 ChatModel
+    2. 組裝 Agent（LangGraph CompiledStateGraph）
 
     Args:
-        config: Agent 設定（None 時使用預設）。
-        run_manager: 可選的 RunManager（傳 None 時內部自動建立）。
+        config: Agent 設定。
+        tools: 工具列表（至少一個）。
+        run_manager: RunManager 實例。
 
     Returns:
-        Agent：包裝 Agent、tools、run_manager、registry 與 config。
-        結束後呼叫 agent.close() 釋放 RAG 資源。
+        Agent：包裝 Agent、tools、run_manager 與 config。
     """
-    if config is None:
-        config = AgentConfig.from_toml("default")
+    if not tools:
+        raise ValueError("create_agent requires at least one tool")
 
-    if run_manager is None:
-        run_manager = RunManager.for_run_no_site(
-            module="agent",
-            run_name=config.config_name,
-            base_folder="runs",
-        )
-    run_title = f"Agent ({config.config_name})"
+    llm = create_llm(config.llm_name)
+    logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
 
-    with (
-        save_logging_file(run_manager.log_path),
-        log_run_time(run_title),
-    ):
-        # ----- 建立多站 RAG Registry -----
-        registry = RAGRegistry(DataManager())
+    checkpointer = InMemorySaver()
+    logger.info("Successfully built InMemorySaver for multi-turn conversation")
 
-        # ----- 建立工具（discover + retriever） -----
-        discovery_tool = create_site_discovery_tool(registry)
-        retriever_tool = create_webpage_retriever_tool(registry)
+    graph = langchain_create_agent(
+        llm,
+        tools,
+        system_prompt=config.system_prompt,
+        checkpointer=checkpointer,
+    )
+    logger.info(
+        "Successfully built Agent (llm=%s, tools=%s)",
+        config.llm_name,
+        [t.name for t in tools],
+    )
 
-        # ----- 輸出開始訊息 -----
-        log_session(run_title, style="purple")
-        log_config("Agent Config Loaded from toml", config)
-
-        # ----- 建立 LLM 與 Agent -----
-        log_session("Building Agent", style="cyan")
-
-        llm = create_llm(config.llm_name)
-        logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
-
-        checkpointer = InMemorySaver()
-        logger.info("Successfully built InMemorySaver for multi-turn conversation")
-
-        graph = langchain_create_agent(
-            llm,
-            [discovery_tool, retriever_tool],
-            system_prompt=config.system_prompt,
-            checkpointer=checkpointer,
-        )
-        logger.info(
-            "Successfully built Agent (llm=%s, tools=[list_knowledge_bases, "
-            "webpage_retriever])",
-            config.llm_name,
-        )
-
-        # ----- 儲存設定 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        log_session("Run Paths", style="cyan")
-        run_manager.log_run_paths("init")
-
-        # ----- 輸出完成訊息 -----
-        log_session("Agent Ready", style="green")
-
-    return Agent(
+    agent = Agent(
         graph=graph,
-        tools=[discovery_tool, retriever_tool],
+        tools=tools,
         run_manager=run_manager,
         config=config,
         checkpointer=checkpointer,
-        registry=registry,
     )
+
+    return agent
