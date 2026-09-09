@@ -322,3 +322,144 @@ run_agent / run_app
 | CLI 正確傳入 run_config | ✅ |
 | 所有 save_run_config_as_toml 均有 None guard | ✅ |
 | 所有 dev tests 通過 | ✅ |
+
+---
+
+## 四：LLM 統一切換為 OpenAI (9/9)
+
+> 本段記錄將程式碼庫中所有 LLM 使用從混合 Gemini + OpenAI 統一切換為 OpenAI 模型的完整實作過程。
+
+### 1. 目標
+
+| 目標 | 說明 |
+|------|------|
+| **統一 LLM 為 OpenAI** | 所有主要 LLM 呼叫改用 OpenAI 模型，預設模型為 `gpt-5.6-luna` |
+| **保留 Gemini 介面** | `langchain_helper.py` 和 `rag_helper.py` 的 Gemini 分支保留作為可選項，但預設與設定檔均指向 OpenAI |
+| **API Key 統一** | 主要流程使用 `OPENAI_API_KEY`；Gemini 仍沿用 `GEMINI_*` 環境變數（向後相容） |
+
+### 2. 模型對應
+
+| 用途 | 原模型 | 新模型 | 備註 |
+|------|--------|--------|------|
+| RAG 查詢 (`query_llm_name`) | `gemini-3.1-flash-lite` | `gpt-5.6-luna` | 所有 RAG TOML 設定檔已更新 |
+| Agent 對話 (`llm_name`) | `gemini-3.1-flash-lite` | `gpt-5.6-luna` | 所有 Agent TOML 設定檔已更新 |
+| VLM 圖片摘要 (`model`) | `gemini-3-flash-preview` | `gpt-5.6-luna` | 所有 webpage_image_summarizer TOML 已更新 |
+| RAG 評估器 (`evaluator_llm_name`) | `gpt-5.4` | `gpt-5.6-terra` | 升級至 terra 版本以提升評估品質 |
+
+### 3. 修改檔案清單
+
+#### 核心程式碼
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `src/utils/langchain_helper.py` | 修改 | `ChatOpenAI` 加入 `SecretStr` 包裝 `api_key`；新增 `use_responses_api=True` 解決 reasoning_effort + function tools 不相容問題；保留 Gemini 分支作為可選項 |
+| `src/app/engines/webpage_image_summarizer.py` | 修改 | VLM 模型預設參數更新；`litellm` 調用支援 OpenAI 模型路由 |
+| `src/app/engines/rag/rag_factory.py` | 修改 | 移除 `build_milvus` 死碼（先前 Phase 1 已完成）；確保 OpenAI 模型正確傳遞 |
+| `src/utils/rag_helper.py` | 修改 | LLM API key 環境變數對應表更新，`gpt` provider 使用 `OPENAI_API_KEY` |
+
+#### Python Config
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `src/app/configs/agent_config.py` | 修改 | `DEFAULT_LLM_NAME` 預設值改為 `"gpt-5.6-luna"` |
+| `src/app/configs/rag_config.py` | 修改 | `query_llm_name` 和 `evaluator_llm_name` 預設值改為 OpenAI 模型 |
+| `src/app/configs/webpage_image_summarizer_config.py` | 修改 | `model` 預設值改為 `"gpt-5.6-luna"`；Gemini API key 環境變數保留 |
+
+#### TOML 設定檔（共 15 個）
+
+| 目錄 | 檔案 | 更新內容 |
+|------|------|----------|
+| `configs/agent/` | `default.toml`, `test.toml` | `llm_name = "gpt-5.6-luna"` |
+| `configs/rag/` | `default.toml`, `milvus.toml`, `nculab.toml`, `ncucsie.toml`, `test.toml`, `test_nculab.toml`, `test_ncucsie.toml` | `query_llm_name = "gpt-5.6-luna"`, `evaluator_llm_name = "gpt-5.6-terra"` |
+| `configs/webpage_image_summarizer/` | `default.toml`, `nculab.toml`, `ncucsie.toml`, `test.toml`, `test_nculab.toml`, `test_ncucsie.toml` | `model = "gpt-5.6-luna"` |
+
+#### 環境變數 / CI
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `.env` | 檢查 | `OPENAI_API_KEY` 已存在；Gemini 環境變數保留供可選使用 |
+| `.github/workflows/ci.yml` | 檢查 | 同時寫入 `OPENAI_API_KEY` 與 `GEMINI_*` 環境變數（向後相容） |
+| `.github/workflows/ci-test.yml` | 檢查 | 同 ci.yml |
+
+#### 依賴
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `pyproject.toml` | 修改 | 升級 `langchain` >= 1.4.0、`llama-index` >= 0.14.24、`llama-index-llms-openai` >= 0.7.9；新增 `langchain-openai` >= 0.3.0 為明確依賴 |
+| `uv.lock` | 重新產生 | 反映新依賴版本 |
+
+### 4. 遇到的問題與解決方案
+
+#### 問題 1：llama-index 不識別 `gpt-5.6-luna`
+
+| 項目 | 內容 |
+|------|------|
+| **症狀** | `llama-index-llms-openai` 0.7.7 回傳 `Unsupported model` 錯誤 |
+| **根因** | 舊版 `llama-index-llms-openai` 的模型白名單未包含 `gpt-5.6-luna` |
+| **解決** | 升級 `llama-index-llms-openai` 至 0.7.9+（lockfile 解析為 0.7.10） |
+| **驗證** | RAG 查詢與 Agent 對話正常執行 |
+
+#### 問題 2：`reasoning_effort` + function tools 不相容
+
+| 項目 | 內容 |
+|------|------|
+| **症狀** | `gpt-5.6-luna` 在使用 function calling（Agent tools）時觸發 `reasoning_effort` 參數衝突 |
+| **根因** | OpenAI Responses API 與 Chat Completions API 的 tool calling 行為差異 |
+| **解決** | 在 `langchain_helper.py` 的 `ChatOpenAI` 呼叫中設定 `use_responses_api=True`，強制使用 Responses API |
+| **驗證** | Agent 工具呼叫（`webpage_retriever`、`list_knowledge_bases`）正常執行 |
+
+#### 問題 3：langchain 1.4.0 breaking change — `api_key` 型別要求
+
+| 項目 | 內容 |
+|------|------|
+| **症狀** | `langchain` 升級至 1.4.0 後，`ChatOpenAI(api_key=str)` 產生型別錯誤 |
+| **根因** | `langchain` 1.4.0 要求 `api_key` 為 `SecretStr` 型別（安全考量） |
+| **解決** | `langchain_helper.py` 中改用 `from pydantic import SecretStr` 包裝：`api_key=SecretStr(api_key)` |
+| **驗證** | 型別檢查通過，ChatOpenAI 建立正常 |
+
+#### 問題 4：`pyproject.toml` 未宣告 `langchain-openai` 為明確依賴
+
+| 項目 | 內容 |
+|------|------|
+| **症狀** | `uv sync` 後 `langchain-openai` 可能因依賴鏈消失而缺失 |
+| **根因** | `langchain-openai` 原本僅透過 `langchain` 間接依賴，未在 `pyproject.toml` 中明確宣告 |
+| **解決** | 在 `pyproject.toml` 的 `dependencies` 中新增 `"langchain-openai>=0.3.0"` |
+| **驗證** | `uv sync` 後 `langchain-openai` 穩定安裝（lockfile 版本 1.6.1） |
+
+### 5. 測試結果
+
+| 測試 | 狀態 | 備註 |
+|------|------|------|
+| `test_website_crawler` | ✅ 通過 | |
+| `test_webpage_image_summarizer` | ✅ 通過 | |
+| `test_rag` | ✅ 通過 | |
+| `test_agent` | ✅ 通過 | |
+| `test_server` | ⏭️ 略過 | 需要完整伺服器環境，CI 外略過 |
+
+**總計：4/4 通過**（略過 test_server）
+
+### 6. 套件版本變更
+
+| 套件 | 原版本 | 新版本 | 備註 |
+|------|--------|--------|------|
+| `llama-index` | 0.14.21 → 0.14.16 (pyproject) | 0.14.24 (pyproject) / 0.14.24 (lock) | 含 `llama-index-llms-openai` 依賴 |
+| `llama-index-llms-openai` | 0.7.7 (lock) | 0.7.9 (pyproject min) → 0.7.10 (lock) | 關鍵：新增 `gpt-5.6-luna` 支援 |
+| `langchain` | 1.3.14 (pyproject) | 1.4.0 (pyproject) / 1.4.0 (lock) | `api_key` SecretStr 要求 |
+| `langchain-openai` | （間接依賴） | 0.3.0 (pyproject min) / 1.6.1 (lock) | 新增為明確依賴 |
+
+### 7. 設計決策
+
+| 決策 | 理由 |
+|------|------|
+| 保留 Gemini 分支在 `langchain_helper.py` 和 `rag_helper.py` | 向後相容；若需切回 Gemini，僅需修改 TOML 設定檔中的 model name |
+| 使用 `use_responses_api=True` 而非禁用 function tools | Responses API 是 OpenAI 推薦的新介面，功能更完整；禁用 tools 會喪失 Agent 能力 |
+| TOML 設定檔為主要切換點 | 改 model name 即可切換 LLM provider，無需改程式碼 |
+| `SecretStr` 包裝 `api_key` | 符合 langchain 1.4.0 安全規範，避免 log 洩漏 API key |
+
+### 8. 已知限制
+
+| 類別 | 說明 |
+|------|------|
+| **`webpage_image_summarizer.py` 預設參數** | 函式簽名的預設值仍為 `gemini-3-flash-preview`（第 67 行），實際執行由 TOML config 覆蓋為 `gpt-5.6-luna`。預設參數為歷史殘留，建議後續同步更新 |
+| **Gemini 環境變數保留** | `.env` 和 CI workflow 中仍寫入 `GEMINI_*` 變數。若未來完全移除 Gemini 支援，可清理 |
+| **端到端未驗證** | 測試均為 mock-based / config-based；未在含真實 Milvus + 完整資料的環境中執行完整管線驗證 |

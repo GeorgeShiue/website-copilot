@@ -412,6 +412,8 @@ class WebpageImageSummarizer:
             "gemini" in self.model.lower()
         ):  # lite llm 使用 gemini 模型要加上 "gemini/" 前綴
             model = f"gemini/{model}"
+        elif "gpt" in self.model.lower():  # lite llm 使用 gpt 模型要加上 "openai/" 前綴
+            model = f"openai/{model}"
 
         messages = [
             {

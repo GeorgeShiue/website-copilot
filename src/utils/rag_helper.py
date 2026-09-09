@@ -22,8 +22,8 @@ LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
         "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
     },
     "gpt": {
-        "query_engine": "OPENAI_RAG_QUERY_ENGINE_API_KEY",
-        "evaluator": "OPENAI_RAG_EVALUATOR_API_KEY",
+        "query_engine": "OPENAI_API_KEY",
+        "evaluator": "OPENAI_API_KEY",
     },
 }
 

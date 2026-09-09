@@ -510,12 +510,12 @@ def run_rag_query(
     rag.close()
 
 
+# TODO: 拆分為 run_agent_build 和 run_agent_query
 def run_agent(
     query: str,
     config_name: str = "default",
     thread_id: str | None = None,
     stream: bool = False,
-    data_manager: DataManager | None = None,
     run_config: AgentRunConfig | None = None,
     **config_overrides,
 ) -> None:
@@ -586,6 +586,7 @@ def run_agent(
     tool.close()
 
 
+# TODO: 移除 agent 和 tool 創建相關程式碼
 def run_app(
     config_name: str = "default",
     run_config: ServerRunConfig | None = None,

@@ -369,7 +369,7 @@ class RAGBuilder:
 
     @staticmethod
     def _set_embed_model(embedding_name: str) -> OpenAIEmbedding:
-        api_key = os.getenv("OPENAI_RAG_EMBEDDING_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         return OpenAIEmbedding(
             model=embedding_name, embed_batch_size=256, api_key=api_key
         )
