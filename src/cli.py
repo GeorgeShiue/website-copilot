@@ -61,7 +61,6 @@ if __name__ == "__main__":
         run_webpage_image_summarizer,
         run_website_crawler,
     )
-    from utils.config_helper import save_run_config_as_toml
     from utils.log_helper import (
         setup_logging,
     )
@@ -91,29 +90,32 @@ if __name__ == "__main__":
     publish = run_kwargs.pop("publish", False) if run_kwargs else False
     data_manager = DataManager() if publish else None
 
-    run_manager = None
     if isinstance(cli_arg, WebsiteCrawlerCLI):
-        _, run_manager = run_website_crawler(
+        run_website_crawler(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
+            run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, WebpageImageSummarizerCLI):
-        _, run_manager = run_webpage_image_summarizer(
+        run_webpage_image_summarizer(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
+            run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGBuildCLI):
-        run_manager = run_rag_build(
+        run_rag_build(
             **run_kwargs,
             **module_config_overrides,
             data_manager=data_manager,
+            run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGQueryCLI):
-        run_manager = run_rag_query(
+        run_rag_query(
             **run_kwargs,
             **module_config_overrides,
+            run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, AgentCLI):
         run_agent(
@@ -128,24 +130,8 @@ if __name__ == "__main__":
     elif isinstance(cli_arg, ServerCLI):
         run_app(
             config_name=cli_arg.run.config_name,
+            run_config=cli_arg.run,
             allowed_origins=cli_arg.run.allowed_origins,
             host=cli_arg.run.host,
             port=cli_arg.run.port,
-        )
-
-    if run_manager is not None and not isinstance(cli_arg, ServerCLI):
-        save_run_config_as_toml(cli_arg.run, run_manager.run_config_toml_path)
-        run_manager.log_run_paths("complete")
-
-    if (
-        isinstance(cli_arg, RAGQueryCLI)
-        and data_manager is not None
-        and run_manager is not None
-    ):
-        data_manager.publish_run_metadata(
-            site_id=run_manager.site_id,
-            category="rag",
-            module_config_path=run_manager.module_config_toml_path,
-            run_config_path=run_manager.run_config_toml_path,
-            log_path=run_manager.log_path,
         )

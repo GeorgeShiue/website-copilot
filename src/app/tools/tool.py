@@ -5,21 +5,30 @@ from app.tools.site_discovery import create_site_discovery_tool
 from app.tools.webpage_retriever import create_webpage_retriever_tool
 
 
-# TODO: 將此 method 和 RAGRegistry 整合成一個 Tool class
-def create_tool(
-    registry: RAGRegistry,
-) -> list[StructuredTool]:
-    """建立 Agent 所需的工具層。
+class Tool:
+    """Agent 工具層：自行建立並管理 RAGRegistry。"""
 
-    流程：接收外部 registry → 建立 discovery_tool + retriever_tool → 回傳 tools
+    def __init__(self, config_name: str = "default") -> None:
+        self._registry = RAGRegistry(config_name=config_name)
+        site_discovery_tool = create_site_discovery_tool(self._registry)
+        webpage_retriever_tool = create_webpage_retriever_tool(self._registry)
+        self._tools: list[StructuredTool] = [
+            site_discovery_tool,
+            webpage_retriever_tool,
+        ]
 
-    Args:
-        registry: RAGRegistry 實例（由呼叫方建立並管理生命週期）。
+    @property
+    def tools(self) -> list[StructuredTool]:
+        return self._tools
 
-    Returns:
-        工具列表。
-    """
-    discovery_tool = create_site_discovery_tool(registry)
-    retriever_tool = create_webpage_retriever_tool(registry)
+    def close(self) -> None:
+        """釋放內部 RAGRegistry 資源。"""
+        self._registry.close()
 
-    return [discovery_tool, retriever_tool]
+    def __enter__(self):
+        """進入 context manager，回傳 self。"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """離開 context manager，釋放資源。"""
+        self.close()

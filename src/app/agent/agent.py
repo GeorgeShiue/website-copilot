@@ -8,14 +8,13 @@ M1 提供：
   - agent.save_results()：將對話結果落盤（含設定摘要）
 - create_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
 
-資源生命週期：結束後由呼叫者呼叫 registry.close() 釋放 RAG 資源。
+資源生命週期：由 Tool context manager 統一管理（Tool.__exit__ → RAGRegistry.close()）。
 """
 
 import json
 import logging
 import os
 import time
-from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 
 from langchain.agents import create_agent as langchain_create_agent
@@ -34,8 +33,6 @@ from utils.langchain_helper import (
 logger = logging.getLogger(__name__)
 
 
-# TODO: 移除 dataclass，改用普通 class
-@dataclass
 class Agent:
     """包裝 LangGraph Agent 與其綁定資源。
 
@@ -47,11 +44,19 @@ class Agent:
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
     """
 
-    graph: Any
-    tools: list[StructuredTool]
-    run_manager: RunManager
-    config: AgentConfig
-    checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
+    def __init__(
+        self,
+        graph: Any,
+        tools: list[StructuredTool],
+        run_manager: RunManager,
+        config: AgentConfig,
+        checkpointer: InMemorySaver | None = None,
+    ) -> None:
+        self.graph = graph
+        self.tools = tools
+        self.run_manager = run_manager
+        self.config = config
+        self.checkpointer = checkpointer or InMemorySaver()
 
     def ask(self, query: str, thread_id: str | None = None) -> dict[str, Any]:
         """單輪/多輪問答：回傳回答與來源。

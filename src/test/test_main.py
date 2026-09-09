@@ -9,13 +9,13 @@ setup_logging("debug")
 
 
 def test_main():
-    crawl_results, _ = run_website_crawler(
+    crawl_results = run_website_crawler(
         config_name="test",
     )
     if crawl_results is None:
         return
 
-    enhanced_crawl_results, _ = run_webpage_image_summarizer(
+    enhanced_crawl_results = run_webpage_image_summarizer(
         config_name="test",
         crawl_results=crawl_results,
     )
@@ -23,6 +23,5 @@ def test_main():
         return
 
     run_rag_build(
-        config_name="test",
-        save_vector_store_to_runs=True,
+        config_name="test", force_rebuild=True, save_vector_store_to_runs=True
     )

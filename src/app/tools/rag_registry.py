@@ -1,12 +1,6 @@
-"""RAGRegistry：多站 RAG 實例管理（lazy + LRU 快取）。
+"""RAGRegistry：多站 RAG 實例管理器（lazy + LRU 快取）。
 
-M3 多站 RAG 檢索的核心模組。管理多個 site_id 對應的 RAG 實例，
-支援延遲建立（首次查詢時 build）與 LRU 快取淘汰（max_cached 限制同時載入數量）。
-
-設計原則：
-- Registry 不建立 RunManager（Agent 問答指向正式 data/，非 runs/ 中間層）
-- 使用 RAGConfig.from_toml("default", site_id=site_id) 動態產生路徑
-- 利用 Milvus 重用機制（build_reusable + load_collection）加速載入
+此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
 """
 
 import logging

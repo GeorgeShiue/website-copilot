@@ -6,7 +6,6 @@ from utils.log_helper import setup_logging
 setup_logging("debug")
 
 
-# TODO: 支援使用 CLI 控制實驗
 def webpage_image_summarizer_model():
     # gemini_flash_lite_models = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
     # gemini_3_all_tier_models = [

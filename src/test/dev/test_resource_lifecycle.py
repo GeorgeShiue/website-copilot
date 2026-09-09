@@ -1,4 +1,4 @@
-"""Resource lifecycle 整合測試：create_tool → create_agent → run_agent 管線。
+"""Resource lifecycle 整合測試：Tool → create_agent → run_agent 管線。
 
 涵蓋：
 - 資源在管線中正確流動
@@ -18,6 +18,17 @@ from unittest.mock import MagicMock, patch
 from test.dev._helpers import (
     mock_exit_delegates_to_real as _mock_exit_delegates_to_real,
 )
+
+
+def _setup_mock_tool_cls(mock_tool_cls, tools=None):
+    """設定 mock Tool 類別，使其 .tools 屬性回傳工具列表。"""
+    mock_tool_instance = MagicMock()
+    mock_tool_instance.tools = tools or [
+        MagicMock(name="tool1"),
+        MagicMock(name="tool2"),
+    ]
+    mock_tool_cls.return_value = mock_tool_instance
+    return mock_tool_instance
 
 
 @dataclass
@@ -51,12 +62,12 @@ class _FailingAgentStub(_FakeAgentStub):
 
 
 # ===========================================================================
-# Integration: create_tool → create_agent → run_agent
+# Integration: Tool → create_agent → run_agent
 # ===========================================================================
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -68,10 +79,10 @@ def test_lifecycle_resources_flow_correctly(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
-    """tools 從 create_tool 流入 create_agent，registry 由 run_agent 管理。"""
+    """tools 從 Tool 流入 create_agent，registry 由 run_agent 管理。"""
     from app.workflow.workflow import run_agent
 
     fake_agent = _FakeAgentStub()
@@ -85,9 +96,9 @@ def test_lifecycle_resources_flow_correctly(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    # Simulate tools from create_tool
+    # Simulate tools from Tool class
     mock_tools = [MagicMock(name="tool1"), MagicMock(name="tool2")]
-    mock_create_tool.return_value = mock_tools
+    _setup_mock_tool_cls(mock_tool_cls, tools=mock_tools)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value
@@ -108,7 +119,7 @@ def test_lifecycle_resources_flow_correctly(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -120,7 +131,7 @@ def test_lifecycle_close_on_success(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """成功路徑：registry.close() 被呼叫。"""
@@ -137,7 +148,7 @@ def test_lifecycle_close_on_success(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock()]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value
@@ -151,7 +162,7 @@ def test_lifecycle_close_on_success(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -163,7 +174,7 @@ def test_lifecycle_close_on_error(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """錯誤路徑：agent.ask() 拋出例外時 registry.close() 仍被呼叫。"""
@@ -177,7 +188,7 @@ def test_lifecycle_close_on_error(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock()]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value

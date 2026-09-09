@@ -28,6 +28,13 @@ from test.dev._helpers import (
 )
 
 
+def _setup_mock_tool_cls(mock_tool_cls):
+    """設定 mock Tool 類別，使其 .tools 屬性回傳工具列表。"""
+    mock_tool_instance = MagicMock()
+    mock_tool_instance.tools = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    mock_tool_cls.return_value = mock_tool_instance
+
+
 @dataclass
 class _FakeAgentStub:
     """最小化 Agent 替身：記錄呼叫以便斷言。"""
@@ -92,7 +99,7 @@ class _FailingStreamAgentStub(_FakeAgentStub):
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -104,7 +111,7 @@ def test_run_agent_creates_run_manager_with_runs(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """RunManager 以 base_folder="runs" 建立。"""
@@ -122,7 +129,7 @@ def test_run_agent_creates_run_manager_with_runs(
 
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(query="hello", config_name="test")
 
@@ -134,7 +141,7 @@ def test_run_agent_creates_run_manager_with_runs(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -146,7 +153,7 @@ def test_run_agent_calls_agent_ask(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """agent.ask() 以正確 query 和 thread_id 呼叫。"""
@@ -163,7 +170,7 @@ def test_run_agent_calls_agent_ask(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(
         query="你好",
@@ -177,7 +184,7 @@ def test_run_agent_calls_agent_ask(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -189,7 +196,7 @@ def test_run_agent_calls_save_results(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """agent.save_results() 被呼叫。"""
@@ -206,7 +213,7 @@ def test_run_agent_calls_save_results(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(
         query="hello",
@@ -220,7 +227,7 @@ def test_run_agent_calls_save_results(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -232,7 +239,7 @@ def test_run_agent_close_called_on_success(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """registry.close() 在成功時被呼叫（context manager __exit__）。"""
@@ -249,7 +256,7 @@ def test_run_agent_close_called_on_success(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value
@@ -260,7 +267,7 @@ def test_run_agent_close_called_on_success(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -272,7 +279,7 @@ def test_run_agent_close_called_on_error(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """registry.close() 在 ask() 拋出例外時仍被呼叫（context manager __exit__）。"""
@@ -286,7 +293,7 @@ def test_run_agent_close_called_on_error(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value
@@ -300,7 +307,7 @@ def test_run_agent_close_called_on_error(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -312,7 +319,7 @@ def test_run_agent_returns_none(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """run_agent 回傳 None。"""
@@ -329,7 +336,7 @@ def test_run_agent_returns_none(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     result = run_agent(query="hello", config_name="test")
 
@@ -337,7 +344,7 @@ def test_run_agent_returns_none(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -349,7 +356,7 @@ def test_run_agent_publishes_metadata_when_data_manager_provided(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """data_manager 提供時 publish_run_metadata 被呼叫。"""
@@ -367,7 +374,7 @@ def test_run_agent_publishes_metadata_when_data_manager_provided(
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
     mock_dm = MagicMock()
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(
         query="hello",
@@ -385,7 +392,7 @@ def test_run_agent_publishes_metadata_when_data_manager_provided(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -397,7 +404,7 @@ def test_run_agent_skips_publish_when_no_data_manager(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """data_manager=None 時 publish_run_metadata 不被呼叫。"""
@@ -414,7 +421,7 @@ def test_run_agent_skips_publish_when_no_data_manager(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(
         query="hello",
@@ -429,7 +436,7 @@ def test_run_agent_skips_publish_when_no_data_manager(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -441,7 +448,7 @@ def test_run_agent_close_called_on_stream_error(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """stream 模式下 astream_result() 拋出例外時 registry.close() 仍被呼叫。"""
@@ -455,7 +462,7 @@ def test_run_agent_close_called_on_stream_error(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     _mock_exit_delegates_to_real(
         mock_registry_cls.return_value.__exit__, mock_registry_cls.return_value
@@ -473,7 +480,7 @@ def test_run_agent_close_called_on_stream_error(
 
 
 @patch("app.workflow.workflow.RAGRegistry")
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow.RunManager")
@@ -485,7 +492,7 @@ def test_run_agent_auto_generates_thread_id(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
-    mock_create_tool,
+    mock_tool_cls,
     mock_registry_cls,
 ):
     """thread_id 為 None 時自動產生 auto-{uuid} 並傳入 save_results。"""
@@ -502,7 +509,7 @@ def test_run_agent_auto_generates_thread_id(
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    mock_create_tool.return_value = [MagicMock(name="tool1"), MagicMock(name="tool2")]
+    _setup_mock_tool_cls(mock_tool_cls)
 
     run_agent(query="hello", config_name="test")
 
@@ -512,13 +519,13 @@ def test_run_agent_auto_generates_thread_id(
     assert thread_id.startswith("auto-")
 
 
-@patch("app.workflow.workflow.create_tool")
+@patch("app.workflow.workflow.Tool")
 @patch("app.workflow.workflow.RAGRegistry")
-def test_run_agent_skips_close_when_registry_creation_fails(mock_cls, mock_create_tool):
+def test_run_agent_skips_close_when_registry_creation_fails(mock_cls, mock_tool_cls):
     """registry 建立失敗時不呼叫 close()。"""
     from app.workflow.workflow import run_agent
 
     mock_cls.side_effect = RuntimeError("init failed")
     with pytest.raises(RuntimeError):
         run_agent(query="hello", config_name="test")
-    mock_create_tool.assert_not_called()
+    mock_tool_cls.assert_not_called()

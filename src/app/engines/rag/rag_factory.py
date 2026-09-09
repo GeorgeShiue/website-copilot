@@ -161,7 +161,7 @@ class VectorStoreBuilder:
             logger.info("Cleaned Milvus vector store: %s", milvus_uri)
 
     @staticmethod
-    def build_milvus(
+    def build(
         collection_name: str,
         milvus_uri: str,
         embedding_name: str,
@@ -204,45 +204,11 @@ class VectorStoreBuilder:
         )
         return vector_store
 
-    # TODO: 合併 build_milvus 與 build()
-    @staticmethod
-    def build(
-        collection_name: str,
-        embedding_name: str,
-        milvus_uri: str,
-        overwrite: bool = True,
-        hybrid_ranker: str = "WeightedRanker",
-        hybrid_ranker_params: dict | None = None,
-    ) -> MilvusVectorStore:
-        return VectorStoreBuilder.build_milvus(
-            collection_name=collection_name,
-            milvus_uri=milvus_uri,
-            embedding_name=embedding_name,
-            overwrite=overwrite,
-            hybrid_ranker=hybrid_ranker,
-            hybrid_ranker_params=hybrid_ranker_params,
-        )
-
 
 class RAGBuilder:
     def __init__(self, config: RAGConfig) -> None:
         self.config = config
 
-    def build(self, rag: RAG | None = None) -> RAG:
-        rag = rag or self._create_rag()
-        self.build_to_retriever(rag)
-        self.build_query_engine(rag)
-        return rag
-
-    def build_to_retriever(self, rag: RAG | None = None) -> RAG:
-        rag = rag or self._create_rag()
-        self.build_nodes(rag)
-        self.build_vector_store(rag)
-        self.build_index(rag)
-        self.build_retriever(rag)
-        return rag
-
-    # TODO: build_reusable 取代 build
     def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> None:
         """建到 query engine 層級，視情況重建或載入既有 index。
 
@@ -293,19 +259,14 @@ class RAGBuilder:
         )
 
     def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
-        vector_store = VectorStoreBuilder.build(
+        assert self.config.milvus_uri is not None
+        rag.vector_store = VectorStoreBuilder.build(
             collection_name=self.config.site_id,
             embedding_name=self.config.embedding_name,
             milvus_uri=self.config.milvus_uri,
             overwrite=overwrite,
             hybrid_ranker=self.config.hybrid_ranker,
             hybrid_ranker_params=self.config.hybrid_ranker_params,
-        )
-        rag.vector_store = vector_store
-        logger.info(
-            "Successfully built vector store (type=%s, hybrid_ranker=%s)",
-            self.config.vector_store_type,
-            self.config.hybrid_ranker,
         )
 
     def clean_vector_store(self, rag: RAG) -> None:
@@ -412,7 +373,3 @@ class RAGBuilder:
         return OpenAIEmbedding(
             model=embedding_name, embed_batch_size=256, api_key=api_key
         )
-
-    def _create_rag(self) -> RAG:
-        assert self.config.webpages_data_folder_path is not None
-        return RAG(webpages_data_folder_path=self.config.webpages_data_folder_path)
