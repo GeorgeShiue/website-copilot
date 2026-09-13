@@ -12,14 +12,10 @@ class Tool:
         self._registry = RAGRegistry(config_name=config_name)
         site_discovery_tool = create_site_discovery_tool(self._registry)
         webpage_retriever_tool = create_webpage_retriever_tool(self._registry)
-        self._tools: list[StructuredTool] = [
+        self.tools: list[StructuredTool] = [
             site_discovery_tool,
             webpage_retriever_tool,
         ]
-
-    @property
-    def tools(self) -> list[StructuredTool]:
-        return self._tools
 
     def close(self) -> None:
         """釋放內部 RAGRegistry 資源。"""

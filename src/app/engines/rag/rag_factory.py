@@ -28,13 +28,16 @@ from llama_index.vector_stores.milvus.utils import (
 )
 
 from app.configs.rag_config import RAGConfig
-from app.engines.rag.rag import RAG
+from app.engines.rag import RAG
 from app.engines.rag.rag_eval_prompts import (
     FAITHFULNESS_EVAL_TEMPLATE,
     FAITHFULNESS_REFINE_TEMPLATE,
     RELEVANCY_EVAL_TEMPLATE,
     RELEVANCY_REFINE_TEMPLATE,
 )
+from app.workflow.data_manager import DataManager
+from app.workflow.run_manager import RunManager
+from utils.log_helper import log_session
 from utils.rag_helper import (
     MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
@@ -373,3 +376,53 @@ class RAGBuilder:
         return OpenAIEmbedding(
             model=embedding_name, embed_batch_size=256, api_key=api_key
         )
+
+
+def create_rag(
+    config_name: str = "default",
+    force_rebuild: bool = False,
+    webpages_data_use_latest_results: bool = False,
+    save_vector_store_to_runs: bool = False,
+    data_manager: DataManager | None = None,
+    **config_overrides,
+) -> RAG:
+    """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟。
+
+    Args:
+        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
+        force_rebuild: 是否強制重建向量庫。
+        webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
+        save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
+        data_manager: DataManager 實例（可選，用於解決 webpages 資料路徑）。
+        **config_overrides: RAGConfig 覆寫值（含 site_id）。
+
+    Returns:
+        已建構的 RAG 實例（呼叫端負責 close）。
+    """
+    config = RAGConfig.from_toml(config_name, **config_overrides)
+
+    # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
+    if webpages_data_use_latest_results:
+        if data_manager is None:
+            raise ValueError(
+                "data_manager is required when webpages_data_use_latest_results=True"
+            )
+        log_session("Finding Latest Webpages Data", style="cyan")
+        webpages_data_folder_path = data_manager.get_webpages_path(config.site_id)
+        config.webpages_data_folder_path = webpages_data_folder_path
+
+    # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
+    if save_vector_store_to_runs:
+        run_manager = RunManager.for_run(
+            module="rag_build",
+            site_id=config.site_id,
+            run_name=config.config_name,
+        )
+        config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
+
+    log_session("Building RAG", style="cyan")
+    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
+    builder = RAGBuilder(config)
+    builder.build_reusable(rag, force_rebuild=force_rebuild)
+
+    return rag

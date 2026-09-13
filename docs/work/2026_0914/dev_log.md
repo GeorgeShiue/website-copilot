@@ -463,3 +463,348 @@ run_agent / run_app
 | **`webpage_image_summarizer.py` 預設參數** | 函式簽名的預設值仍為 `gemini-3-flash-preview`（第 67 行），實際執行由 TOML config 覆蓋為 `gpt-5.6-luna`。預設參數為歷史殘留，建議後續同步更新 |
 | **Gemini 環境變數保留** | `.env` 和 CI workflow 中仍寫入 `GEMINI_*` 變數。若未來完全移除 Gemini 支援，可清理 |
 | **端到端未驗證** | 測試均為 mock-based / config-based；未在含真實 Milvus + 完整資料的環境中執行完整管線驗證 |
+
+---
+
+## 五：Agent 拆分 + run_app 重構 (9/9)
+
+### 1. 概述
+
+將 `run_agent()` 拆分為 `run_agent_build()`（建立 Tool + Agent，return 實例）與 `run_agent_query()`（接受外部 agent 執行問答 + 落盤）；`run_app()` 改為接受外部 `agent` 參數並返回 `uvicorn.Server`（非阻塞），移除內部 Tool/agent 建立邏輯。`run_agent()` 保留為 deprecated wrapper。同步更新 `cli.py` 的 AgentCLI / ServerCLI 分支。
+
+### 2. 關鍵設計決策
+
+| 決策 | 理由 |
+|------|------|
+| `run_agent_build()` return `(Agent, Tool)` tuple | 類似 `create_rag()` 模式，呼叫端負責 tool.close() |
+| `run_agent_query()` 移除 `tool` 參數 | 函式內部不使用 tool，僅用 agent 執行問答 |
+| `run_app()` return `uvicorn.Server` | 非阻塞，呼叫端可透過 `server.should_exit=True` 優雅關閉 |
+| `run_agent()` 保留為 deprecated wrapper | 向下相容 CLI 及其他呼叫端，避免 breaking change |
+| Agent 模組不加入 `data_manager` | 落盤機制尚未統合，後續再處理 |
+| deprecated wrapper 使用 `tool = None` guard | 防止 `run_agent_build` 失敗時 `finally` 中 `NameError` |
+
+### 3. 最終 API 簽名
+
+| 函式 | 簽名 | 備註 |
+|------|------|------|
+| `run_agent_build` | `(config_name, run_config, **overrides) -> tuple[Agent, Tool]` | 類似 create_rag，建立並 return |
+| `run_agent_query` | `(agent: Agent, query, thread_id, stream, run_config) -> None` | 接受外部 agent，執行問答 + 落盤 |
+| `run_agent` | 同原簽名 | DEPRECATED wrapper，內部委派 build + query |
+| `run_app` | `(agent: Agent, run_config, allowed_origins, host, port) -> uvicorn.Server` | 返回 server handle，非阻塞 |
+
+### 4. 變更檔案
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `src/app/workflow/workflow.py` | 修改 | 拆分 run_agent → run_agent_build + run_agent_query；重構 run_app；保留 deprecated wrapper；新增 Agent import |
+| `src/cli.py` | 修改 | AgentCLI / ServerCLI 分支改用新 API + try/finally 資源管理 |
+| `src/test/test_module.py` | 修改 | 更新 imports；test_agent / test_server 使用新 API；test_server 改用 asyncio 非阻塞模式 |
+| `src/test/test_main.py` | 修改 | 新增 imports + pytestmark；新增 run_agent_build + run_agent_query 調用 |
+
+### 5. CR 修正紀錄
+
+| ID | 嚴重度 | 問題 | 修正 |
+|----|--------|------|------|
+| C1 | CRITICAL | deprecated `run_agent` 中 `tool.close()` 在 `run_agent_build` 失敗時 NameError | 初始化 `tool = None` + `if tool is not None` guard |
+| C2 | MAJOR | `run_agent_query` 接受未使用的 `tool` 參數 | 移除 tool 參數，更新所有 call site |
+| C3 | MAJOR | `run_agent_build` / `run_agent_query` / `run_app` 缺少型別標註 | 補齊 Agent/Tool 型別標註 |
+| C4 | CRITICAL | 測試檔案 `finally` blocks 中同様的 NameError 風險 | 三處統一加上 `tool = None` + guard pattern |
+
+### 6. QA 驗證結果
+
+| 指標 | 結果 |
+|------|------|
+| 測試總數 | 146 collected |
+| 通過 | 128 ✅ |
+| 失敗 | 18 ❌ (pre-existing，來自 commit `18a0bc2` 未更新 test_run_agent / test_resource_lifecycle / test_create_tool) |
+| Import 驗證 | ✅ 全部 workflow imports 正常解析 |
+
+### 7. 已知限制
+
+| 類別 | 說明 |
+|------|------|
+| **test_run_agent.py 11 tests fail** | 舊 mock patch `RAGRegistry` 已不存在，需獨立更新 |
+| **test_resource_lifecycle.py 3 tests fail** | 同上，mock 目標過時 |
+| **test_create_tool.py 4 tests fail** | `Tool` 不再接受 `registry` 參數，需改為 `Tool(config_name=...)` |
+| **test_server sleep(2) 脆弱** | 非阻塞啟動使用固定 2 秒等待，CI 負載高時可能不穩定 |
+
+---
+
+## 六：Agent 擁有 Tool 生命週期 (9/10)
+
+### 1. 概述
+
+將 `Agent` 類別從接受 `tools: list[StructuredTool]` 改為接受 `tool: Tool` 實例，由 Agent 統一管理 Tool 生命週期。新增 `Agent.close()` 與 context manager 支援（`__enter__` / `__exit__`）。`run_agent_build()` 改為 return `Agent`（非 tuple），所有呼叫端統一使用 `agent.close()` 釋放資源。
+
+### 2. 關鍵設計決策
+
+| 決策 | 理由 |
+|------|------|
+| `Agent` 持有 `Tool` 實例（非 StructuredTool 列表） | 統一資源管理，消除呼叫端需手動 `tool.close()` 的負擔 |
+| `agent.tools` 保留為 `@property` | 向後相容：LangGraph 等外部系統仍需存取 `list[StructuredTool]` |
+| `run_agent_build()` return `Agent`（非 tuple） | Agent 已持有 Tool，不需要分開回傳 |
+| `run_agent_build` 中 `create_agent()` 失敗時 close tool | 防止 Tool/RAGRegistry 資源洩漏 |
+| `Agent` 支援 context manager | 與 `Tool` 和 `RAGRegistry` 模式一致 |
+
+### 3. 最終 API 簽名
+
+| 函式/類別 | 簽名 | 備註 |
+|-----------|------|------|
+| `Agent.__init__` | `(graph, tool: Tool, run_manager, config, checkpointer)` | `tool` 為 Tool 實例 |
+| `Agent.tools` | `@property → list[StructuredTool]` | 向後相容， delegating `self.tool.tools` |
+| `Agent.close()` | `() → None` | 釋放 Tool 管理的資源 |
+| `Agent.__enter__` / `__exit__` | context manager | 支援 `with agent:` 語法 |
+| `create_agent` | `(config, tool: Tool, run_manager) → Agent` | 改收 Tool 實例 |
+| `run_agent_build` | `(config_name, run_config, **overrides) → Agent` | return 單一 Agent |
+
+### 4. 變更檔案
+
+| 檔案 | 變更 | 說明 |
+|------|------|------|
+| `src/app/agent/agent.py` | 修改 | `tools` → `tool: Tool`；新增 `close()` / `__enter__` / `__exit__`；`tools` 保留為 property |
+| `src/app/workflow/workflow.py` | 修改 | `run_agent_build` return `Agent`；error path 加 tool close guard；`run_agent` wrapper 改用 `agent.close()` |
+| `src/cli.py` | 修改 | AgentCLI / ServerCLI 改用 `agent.close()` |
+| `src/test/test_module.py` | 修改 | `tool.close()` → `agent.close()` |
+| `src/test/test_main.py` | 修改 | 同上 |
+
+### 5. CR 修正紀錄
+
+| ID | 嚴重度 | 問題 | 修正 |
+|----|--------|------|------|
+| C1 | MAJOR | `run_agent_build` 中 `create_agent()` 失敗時 Tool 資源洩漏 | try/except guard：失敗時 `tool.close()` + re-raise |
+
+### 6. 已知限制
+
+| 類別 | 說明 |
+|------|------|
+| **18 dev tests 仍 fail** | 舊 test 檔 mock patch 過時（RAGRegistry / Tool(registry=) API 已變更），需獨立更新 |
+
+---
+
+## 七：Agent 不再持有 RunManager（落盤責任上移至呼叫端）(9/10)
+
+### 1. 概述
+
+`Agent`（`src/app/agent/agent.py`）原先是**唯一**持有 `RunManager` 的類別，且直接 `from app.workflow.run_manager import RunManager`，造成 **agent 層 → workflow 層的反向依賴**（`agent.py` 亦留有原始動機註解 `# ? 能否移除 run_manager 參數，所有落盤機制都改為不由 Agent 負責`）。
+
+本輪**斬斷 agent 層對 workflow 層的依賴**，讓落盤（`RunManager`）與資源生命週期的責任完全落在上層呼叫端。重構後的三條呼叫路徑：
+
+| 路徑 | run context / RunManager 建立者 | Agent 關閉歸屬 | 落盤 |
+|---|---|---|---|
+| CLI 查詢（`agent-cli`） | `run_agent_query` | `run_agent_query` 的 `finally` | `run_manager.save_agent_results_as_json(...)` |
+| Server（`server-cli`） | `run_app` | `ChatApp.close()` | `_event_stream` → `run_manager.save_agent_results_as_json(...)` |
+| 完整啟動（`src/main.py`） | `run_app` | `ChatApp.close()` | 同上 |
+
+**範圍外（明確不做）**：新增 serving 期 log 落 `terminal.log` 的能力、`site_id` 落盤擴充、既有 `for_run*` / `save_results_as_json` / `find_thread_history_path` 等 RunManager API 的移除或改名。
+
+### 2. 關鍵設計決策（D1–D7）
+
+| 編號 | 決策項 | 定案 |
+|---|---|---|
+| D1 | run context 形狀 | **X2**：`run_agent_query` / `run_app` 各自在內部建立 run context，並在其中建立 Agent（與既有 `run_rag_query` → `create_rag` 模式一致） |
+| D2 | `main.py` 的 `UnboundLocalError` bug | **結構性消解**：`run_app(...)` 呼叫置於 `try` 之前，不需 `agent = None` 哨兵 |
+| D3 | `config_summary` 組裝位置 | **方案 C**：收進 `RunManager.save_agent_results_as_json`，改收 `AgentConfig` |
+| D4 | `main.py` 的 Agent 步驟 | 改為呼叫 `run_app` |
+| D5 | server 路徑 agent 關閉歸屬 | `run_app` 回傳 `(uvicorn.Server, ChatApp)`；關閉由 `ChatApp.close()` 觸發 |
+| D6 | `main.py` 定位 | 完整啟動工作流程；server 設為阻塞（`server.run()`） |
+| D7 | `MainCLI` | **完整移除**（含 `tyro`、`dataclass` 匯入）；**不保留參數** → `def main() -> None`，寫死 `DEFAULT_CONFIG_NAME = "default"` |
+
+### 3. 最終 API 簽名
+
+```python
+# src/app/agent/agent.py
+def create_agent(config: AgentConfig, tool: Tool) -> Agent   # 收斂為 2 參數；無 run_manager
+class Agent:                                                 # 僅持有 graph / tool / config / checkpointer
+
+# src/app/workflow/workflow.py
+def run_agent_build(config_name: str = "default", **config_overrides) -> Agent
+    # 純建構：不建 run context、不包 logging context、不寫 run_config.toml
+    # 保留「create_agent 失敗 → tool.close(); raise」
+
+def run_agent_query(config_name: str = "default", query: str | None = None,
+                    thread_id: str | None = None, stream: bool = False,
+                    run_config: AgentRunConfig | None = None,
+                    **config_overrides) -> None
+
+def run_app(config_name: str = "default", run_config: ServerRunConfig | None = None,
+            allowed_origins: list[str] | None = None, host: str = "127.0.0.1",
+            port: int = 8000, **config_overrides) -> tuple[uvicorn.Server, ChatApp]
+
+# src/app/workflow/run_manager.py
+def save_agent_results_as_json(self, thread_id: str, results: list[dict[str, Any]],
+                               agent_config: AgentConfig) -> str
+    # config_summary 由本方法內部組裝，四鍵順序凍結：
+    # config_name → run_name(self.run_name) → llm_name → system_prompt
+
+# src/app/server/app.py
+ChatApp.create(agent, run_manager, allowed_origins=None) -> ChatApp
+ChatApp.close() -> None            # 僅呼叫 self.agent.close()；run_manager 無需釋放
+_build_fastapi_app(agent, run_manager, allowed_origins=None) -> FastAPI
+def get_run_manager(request: Request) -> RunManager   # FastAPI dependency
+
+# src/main.py
+DEFAULT_CONFIG_NAME = "default"
+def main() -> None
+```
+
+**關鍵結構要求**：`run_agent_query` / `run_app` **內部呼叫 `run_agent_build`**，不得各自重寫建構流程。理由：(a) 建構邏輯單一來源；(b) `run_agent_build` 降級為程式化 API 而非 dead code；(c) 既有測試的 patch 目標 `app.workflow.workflow.create_agent` 仍有效 → 測試改動量最小。
+
+### 4. 責任歸屬對照
+
+| 責任 | 重構前 | 重構後 |
+|---|---|---|
+| 建立 Agent | `cli.py` / `main.py` | `run_agent_query` / `run_app` 內部（經 `run_agent_build`） |
+| 建立 RunManager | `run_agent_build` 內 | `run_agent_query` / `run_app` 內（`create_run_no_site_context(module="agent", base_folder="runs")`） |
+| `save_logging_file` 範圍 | 只在 build 內（僅建構期） | **build + query 全程**（建構期 log 仍進 `terminal.log`） |
+| 落盤 | `Agent.save_results()` | `RunManager.save_agent_results_as_json()`，由呼叫端直接呼叫 |
+| 關閉 Agent | `cli.py` / `main.py` 的 `finally` | query：`run_agent_query` 的 `finally`；server：`ChatApp.close()` |
+| 呼叫端持有什麼 | `Agent` | query：無；server：`ChatApp` |
+
+### 5. 變更檔案
+
+| 檔案 | 變更 |
+|---|---|
+| `src/app/workflow/run_manager.py` | `save_agent_results_as_json` 改收 `agent_config: AgentConfig` 並於方法內組 `config_summary`；新增 `from app.configs.agent_config import AgentConfig`（無循環依賴）；回傳型別由 `str \| None` 收斂為 `-> str`（S1）。其餘 API 保留 |
+| `src/app/agent/agent.py` | 刪 `RunManager` import／`run_manager` 參數與屬性／`Agent.save_results()`／`# ?` 待辦註解；`create_agent(config, tool)`；docstring 更新；`close()` / `__enter__` / `__exit__` 不動 |
+| `src/app/workflow/workflow.py` | `run_agent_build` 純建構化；`run_agent_query` X2 化（run context + `save_logging_file` + 內部 build + 落盤 + `finally` close）；`run_app` X2 化 + 回傳 tuple + 失敗守衛 |
+| `src/app/server/app.py` | `ChatApp.__init__` / `create` / `_build_fastapi_app` 收 `run_manager`；lifespan 綁 `app.state.run_manager`；新增 `get_run_manager` dependency；`_event_stream` 落盤改走 `run_manager.save_agent_results_as_json` |
+| `src/cli.py` | Agent 分支 → `run_agent_query(**module_config_overrides)`；Server 分支 → `run_app(...)` + `try: server.run() finally: chat_app.close()`；移除 `run_agent_build` import 與 build/close 樣板 |
+| `src/main.py` | 移除 `MainCLI` / `tyro` / `dataclass`；新增 `DEFAULT_CONFIG_NAME`；`def main() -> None`；Agent 步驟 → `run_app` + 阻塞 + `chat_app.close()`；`__main__` → `main()` |
+| `src/test/dev/test_run_agent.py` | 全檔重寫：stub 去 `run_manager`／`save_results`（保留 `config`）；build 的 RunManager 斷言移轉至 query；新增 `stream=True` happy path、`run_config` / log 生命週期、`run_app` tuple / 失敗守衛測試 |
+| `src/test/dev/test_agent_server.py` | `_FakeRunManager` 實作 `save_agent_results_as_json`；`_FakeAgent` 去 `run_manager`／`save_results`；`_make_client*` 注入 `run_manager`；`_FakeGraph.astream` 補 `AsyncIterator` 標註（S5） |
+| `src/test/dev/test_runmanager_agent_results.py` | 呼叫點改傳 `agent_config=`；新增 `_FakeAgentConfig` / `EXPECTED_CONFIG` |
+| `src/test/dev/test_create_tool.py` | incidental：移除未使用的 `RAGRegistry` import（來自前一輪 session 的遺留，使 `ruff check` 無法全綠） |
+| `configs/agent/test.toml` | 移除 `llm_name` 行末已失效的 `# run name` 註解（S7，單行修正） |
+| `src/test/test_main.py`、`src/test/test_module.py` | Phase 9（**未執行**）：X2 形狀 `run_agent_query(config_name="test", query=...)`；移除 `run_agent_build` import；`test_server` → `run_app(...)` + `finally: chat_app.close()` |
+| `docs/code/phase2_3_mvp/{modules/agent.md,modules/server.md,phase2_3_mvp.md}`、`docs/code/runs/{cli,config,workflow}.md`、`README.md` | 文件同步（Phase 8）：移除 `Agent.run_manager` / `Agent.save_results()` / `create_agent(config, tool, run_manager)` 等過時敘述，改為新責任歸屬；`README.md` 移除 `(tyro MainCLI)` 註記 |
+
+> 註：本輪 session 的工作樹為 `MM`（staged + unstaged），同時含**前幾輪 session** 的變更（例如 `src/app/workflow/workflow_helper.py` 新增、`src/test/dev/test_resource_lifecycle.py` 刪除）。上表僅列出**本次重構**造成的變更。
+
+### 6. 實作階段摘要（Phases 0–9）
+
+環境：Python 3.13.12、`uv`（所有指令為 `uv run …`）、pytest 9.0.3、ruff、pyright（`typeCheckingMode = "basic"`）。
+**執行邊界**：僅 `**/test/dev/**` 可自主執行；`src/test/test_main.py` / `test_module.py` **禁止執行**；Phase 0 的 live agent query 因會呼叫付費 LLM API 而**略過**。
+
+| Phase | 目標 | 主要產出 | 驗證 |
+|---|---|---|---|
+| 0 | 落盤契約基準（R3） | 無檔案變更；以**靜態等價**凍結契約：`{"config": {…}, "results": [...]}`、`json.dump(..., ensure_ascii=False, indent=4)`、`config` 四鍵順序、`results` 每筆 `{query, response, sources, timestamp}`、路徑 `runs/<ts>/agent/<config>/results_{thread_id}.json`（`/` → `_`） | 未實跑（付費 API）；改以結構 + 鍵序 + 測試斷言等效保證 |
+| 1 | D3-C：config 摘要收進 RunManager | `run_manager.py` + `test_runmanager_agent_results.py` | 該測試檔 → 7 passed |
+| 2 | `agent.py` 依賴歸零 | 刪 import／參數／`save_results()`；`create_agent(config, tool)` | 反向 grep 為空；pyright 0 error |
+| 3 | `workflow.py` X2 + D5 | build 純建構化；query / app 自建 run context 並內部呼叫 build；`run_app` 回傳 tuple + 失敗守衛 | pyright 0 error；close 路徑由 Phase 7 測試鎖定 |
+| 4 | `server/app.py` 注入 run_manager | 落盤改走 RunManager；`get_run_manager` dependency；lifespan 綁 `app.state.run_manager` | 循環依賴靜態檢視無；import 煙霧測試通過 |
+| 5 | `cli.py` 兩分支改直接呼叫 | Agent → `run_agent_query`；Server → `run_app` + `try/finally` | 反向 grep 為空 |
+| 6 | `main.py` D7 完整啟動流程 | 移除 `MainCLI`/`tyro`/`dataclass`；`DEFAULT_CONFIG_NAME`；`def main() -> None` | 反向 grep 為空；`import main` 煙霧測試 OK |
+| 7 | dev 測試同步 + **整合綠燈檢查點** | 3 檔對齊新 API；`_FakeAgentStub` 保留 `config`、新增失敗 stub | `pytest src/test/dev/` → **151 passed**（當時）；`ruff check` 全綠 |
+| 8 | 文件同步 | 4 份計畫指定文件 + 3 份計畫外但同樣過時的現行文件（`runs/workflow.md`、`runs/config.md`、`README.md`） | grep 驗證僅剩 `docs/work/**` 歷史紀錄 |
+| 9 | production tests（X2 對齊；**只寫不跑**） | `test_main.py` / `test_module.py` 改為 X2 形狀 | lint / format / pyright / AST / 簽章比對全數靜態通過 |
+
+**Phase 1–6 為單一耦合切換鏈**（簽章互相引用），中途整包 pytest 預期紅燈；**整合綠燈檢查點 = Phase 7**。各 Phase 的驗證以「靜態檢查 + 該 Phase 目標測試」為門檻。
+
+**Phase 9 交付狀態**：`written-but-unexecuted` —— 撰寫在授權範圍內、執行不在。此為刻意狀態，非缺漏；不得以「未執行」為由推論失敗或通過。
+
+### 7. 驗收條件達成狀態（Goals 1–10）
+
+| Goal | 內容 | 判定 | 證據 |
+|---|---|---|---|
+| 1 | 依賴歸零 | **PASS** | 反向 grep `RunManager\|run_manager` in `src/app/agent/` → 零命中；`agent.py` 無 `app.workflow.run_manager` import |
+| 2 | Signature 收斂 | **PASS** | `create_agent(config, tool)`；`Agent.__init__` 僅 `graph / tool / config / checkpointer`；`save_results` 已不存在；`close` / `__enter__` / `__exit__` 相對基準 0 變更 |
+| 3 | build 純建構 | **PASS** | 簽名 `-> Agent`；移除 `run_config` / `create_run_no_site_context` / `save_logging_file` / `log_run_paths` / `save_run_config_as_toml`；保留 `except: tool.close(); raise` |
+| 4 | query X2 | **PASS** | body 順序：`create_run_no_site_context` → `with save_logging_file` → `log_run_paths("init")` → `run_agent_build` → `ask`/`astream_result` → `save_agent_results_as_json(..., agent_config=agent.config)` → `save_run_config_as_toml` → `log_run_paths("complete")` → `finally: agent.close()`；以測試鎖定精確順序與三條 close 路徑 |
+| 5 | app X2 | **PASS** | `-> tuple[uvicorn.Server, ChatApp]`；內部 `run_agent_build`；`ChatApp.create(agent, run_manager, allowed_origins)`；`log_run_paths("init")` + `("complete")`（**無 `"ready"`**）；`except Exception: agent.close(); raise` |
+| 6 | D3-C | **PASS** | `save_agent_results_as_json(thread_id, results, agent_config) -> str`；`config_summary` 四鍵**順序**與基準逐欄位等價；JSON 外層結構與 dump 參數未變 |
+| 7 | server 注入 | **PASS** | `_build_fastapi_app(agent, run_manager, allowed_origins)` + `app.state.run_manager` + `get_run_manager` Depends；`_event_stream` 落盤改走 RunManager；`site_id` 行為等價 |
+| 8 | cli | **PASS** | Agent 分支 `run_agent_query(...)`；Server 分支 `server, chat_app = run_app(...)` + `try: server.run() finally: chat_app.close()`；兩分支已無 build/close 樣板 |
+| 9 | D7 | **PASS（靜態）** | 反向 grep `MainCLI\|tyro\|dataclass` in `main.py` → 空；`DEFAULT_CONFIG_NAME`；`def main() -> None`；`run_app` 置於 `try` 之外（D2 結構修正） |
+| 10 | 測試／文件同步 | **PARTIAL** | 7 份文件已同步；`test/dev` 全綠；`test_main.py` / `test_module.py` 已改為 X2 形狀但**未執行**（待授權）→ 分數僅反映此點，非缺陷 |
+
+### 8. 風險與處置（R1–R9）
+
+| # | 風險 | 等級 | 對策 | 結果 |
+|---|---|---|---|---|
+| R1 | `thread_id` 自動產生邏輯搬移時漏搬 → 「跑完但無檔案」靜默失敗 | 高 | 三處 `auto-{uuid4().hex[:8]}` 全數保留：`workflow.py`（CLI query）、`app.py`（server）、`langchain_helper.py`（`thread_config`）；以測試鎖定 | **PASS** |
+| R2 | `**overrides` 傳遞對象由 build 改為 query/app 後靜默失效（`from_toml` 對未知 key 只 warning） | 高 | 逐一比對 `cli.py` 兩分支（`AgentModuleConfig` 僅含合法 key）；以 warning 為驗證訊號 + 探針實測 | **PASS**（無自動回歸鎖，見 §10） |
+| R3 | 落盤 JSON 欄位漂移 | 中 | Phase 0 靜態凍結契約 + Phase 7 逐欄位等價比對（含路徑等價 `runs/<ts>/agent/<cfg>/`） | **PASS**（鍵序未直接鎖，見 §10） |
+| R4 | `run_app` 內 agent 建好後 `ChatApp.create` / `uvicorn.Config` 失敗 → agent 洩漏 | 高 | `try: … except Exception: agent.close(); raise` 內部守衛 + 測試覆蓋 | **PASS**（成功路徑殘餘，見 §10） |
+| R5 | serving 期 log 不進 `terminal.log` | 低 | **現況即如此，非退化**：`run_app` 於 `with save_logging_file` 內完成建構期 log，`server.run()` 在 with 之外 | **PASS** |
+| R6 | D3-C 破壞既有 run_manager 測試 | 中 | 預期內，Phase 1 同步更新 | **PASS（已平息）** |
+| R7 | `main.py` 失去 `--config-name` flag | 低 | 使用者已知悉並接受（D7）；語意等價於原 `MainCLI.config_name="default"` | **PASS（降級為已知限制）** |
+| R8 | 原擬在 `run_app` 傳 `log_run_paths("ready")`（該函式僅認 `init`/`complete`，未定義分支 → 空表格） | 低 | **PM 裁決：不使用 `"ready"`、不新增 `"ready"` 分支**；`run_app` 只做與現行 `run_agent_build` 等價的 `init` + `complete` | **已解除** |
+| R9 | Phase 1–6 為耦合切換鏈，中途整包測試紅燈 | 中 | 明確標示「整合綠燈檢查點 = Phase 7」；Phase 級改用靜態檢查 + 目標測試 | **PASS** |
+
+### 9. CR 與 QA 紀錄
+
+> **紀錄缺口（誠實標註）**：共享狀態中**沒有 Round 1 的審查紀錄**（最早的 CR 條目為 18:02 的 Review Round 2）。若 Round 1 曾以口頭／其他管道進行，其結論未落入共享狀態。
+
+**CR Round 2 — 2026-09-10 18:02（Status: pass；0 CRITICAL）**
+
+- **M1（MAJOR）**：`src/test/dev/test_run_agent.py` 的 `_FakeAgentStub.astream_result` 為**同步**函式，而 production `Agent.astream_result` 是 coroutine（`run_agent_query` 以 `asyncio.run` 包裝）→ `stream=True` happy path 未被測，且替身無法模擬真實的 awaited 契約。
+- **M2（MAJOR）**：`run_agent_query` 的 Goal 4（寫 `run_config.toml` 與 `log_run_paths("init")→("complete")` 序列）未被測試鎖定（`run_app` 有、query 沒有）。
+
+| ID | SUGGESTION | PM 裁決 | 結果 |
+|---|---|---|---|
+| S1 | `save_agent_results_as_json` 標註 `-> str \| None` 但實際總回傳路徑 | Implement | ✅ 收斂為 `-> str` |
+| S2 | thread-history read-modify-write 非原子（既有並行風險） | **Do NOT** → tech-debt | 記錄（§10） |
+| S3 | `_event_stream` 將 `str(exc)` 直接回傳 client（既有資訊揭露） | **Do NOT** → tech-debt | 記錄（§10） |
+| S4 | `docs/code/runs/workflow.md` 對 `main.py` 的描述漂移（仍寫「四階段，結尾 Agent 建置」） | Implement | ✅ 改為三階段 + `run_app()` 阻塞 |
+| S5 | `test_agent_server.py` 既有 pyright async-iter 問題 | Implement（讓 pyright 歸零） | ✅ 補 `AsyncIterator` 標註 |
+| S6 | `main.py` 未知 argv 被靜默忽略 | **Do NOT**（使用者已核准）→ 已知限制 | 記錄（§10） |
+| S7 | `configs/agent/test.toml` 的 `# run name` 註解已失效 | 若為單行註解修正則實作 | ✅ 單行移除 |
+
+**SE 修正紀錄 — 18:06**：M1 將 `_FakeAgentStub.astream_result`（與 `_FailingStreamAgentStub.astream_result`）改為 `async def`、回傳前呼叫 `on_token`，並新增 `test_run_agent_query_stream_persists_streamed_result`（斷言落盤一次、`thread_id`／`agent_config` 正確、`results[0]["response"] == "streamed answer"`、`agent.close()` 被呼叫）；M2 新增 `test_run_agent_query_writes_run_config_and_log_lifecycle`（`save_run_config_as_toml` 恰好一次；`log_run_paths` 序列精確為 `["init", "complete"]`）；S1 / S4 / S5 / S7 依裁決實作。修正後閘門：`pyright src/` → **0 errors**；`ruff check src/` → All checks passed；`ruff format --check src/` → 48 files already formatted；`pytest src/test/dev/ -q` → **153 passed**（151 + 新增 2）。
+
+**CR Round 3 — 18:10（Status: pass；0 CRITICAL、0 MAJOR）**：逐項複驗三重點全數 PASS —— (a) 替身已與 production coroutine 同構（kind / 參數順序 / 回傳型別），改回同步會使新測試失敗（具回歸防護）；(b) `log_run_paths` 恰呼叫兩次且順序為 `init` → `complete`（`create_run_no_site_context` 不呼叫它，故列表長度恰為 2，`assert_called_once_with` 成立）；(c) `-> str` 收斂安全（唯一出口 `return history_path`；呼叫端 `run_agent_query`、`_event_stream`、測試皆不分支 `None`）。Round-3 SUGGESTIONS（R3-S1 / R3-S2 / R3-S3）PM 裁決全部 **Do NOT implement**，記錄為 tech-debt。**Review Loop 退出**：0 CRITICAL、0 MAJOR，其餘為非阻斷性的風格／tech-debt。
+
+**QA Test Run 1 — 18:40（Status: pass，自主範圍內）**
+
+| 項目 | 結果 |
+|---|---|
+| `uv run pytest src/test/dev/ -q` | **153 passed, 1 warning**（唯一 warning 為第三方 `fastapi/testclient.py` 的 `StarletteDeprecationWarning`，與本次重構無關） |
+| `uv run ruff check` | All checks passed（exit 0） |
+| `uv run ruff format --check` | 49 files already formatted（exit 0） |
+| `uv run pyright src/` | 0 errors, 0 warnings, 0 informations（exit 0） |
+
+**基準說明（影響判定正確性）**：重構前基準取 **staged index**（`git show :<path>`），**非 `HEAD`**（`HEAD` 為更舊 commit，其 `Agent` 連 `close/__enter__/__exit__` 都沒有）。QA 曾以 `HEAD` 誤判 server 落盤路徑為 `chats/app`，經 staged 基準修正為 `runs/agent`（R3 路徑等價）。
+
+**逐 Goal 判定**：Goal 1–9 全數 **PASS**；Goal 10 為 **PARTIAL**（僅因 2 個 production 測試檔與端到端流程受付費 API／授權限制未實跑）。
+**確認缺陷**：**無 Critical / High / Medium 功能缺陷**；重構在自主範圍內行為與 staged 基準等價或更佳。
+**觀察與改進（非缺陷）**：`run_agent_query` 新增 `finally: agent.close()`（基準版本無 try/finally，錯誤路徑會洩漏 `Tool`）；`main.py` 以「`run_app` 置於 try 之外」結構性消除基準版 `finally` 內可能未綁定 `agent` 的 `NameError`；舊 `cli.py` 曾把 `data_manager` 灌入 `**config_overrides` 造成每次執行出現 `Unknown keys found: ['data_manager']` warning，現行 `module_config_overrides` 僅含合法鍵（相對更舊 `HEAD` 的改進）。
+
+### 10. Tech-Debt 與已接受的已知限制
+
+| ID | 類別 | 說明 | 建議處置 |
+|---|---|---|---|
+| S2 | Tech-debt（並行，既有） | `run_manager.py` 的 thread-history 讀取─修改─寫回非原子；同一 `thread_id` 的並行請求可能遺失更新（現位於 per-request 路徑） | file lock 或 atomic write（temp file + `os.replace`） |
+| S3 | Tech-debt（資訊揭露，既有） | `server/app.py` 的 `_event_stream` 於 error 事件將 `str(exc)` 直接回傳 client | 對 client 回傳通用訊息，細節僅寫 server log |
+| S6 | **已接受之已知限制**（使用者核准） | `main.py` 的 `def main() -> None` 無 argv guard；未知 argv（如 `--config-name test`）被 Python 靜默忽略，程式以 `"default"` 執行 | 無（決策已定）；如需硬性擋錯需另行決定 |
+| R3-S1 | Tech-debt（測試替身） | `_FakeRunManager.save_agent_results_as_json` 標註仍為 `-> str \| None` | 對齊為 `-> str` |
+| R3-S2 | Tech-debt（測試風格） | `test_runmanager_agent_results.py` 六處 `assert written is not None` 在 `-> str` 後已成冗餘 | 移除 |
+| R3-S3 | Tech-debt（註解，S7 範圍外） | `configs/rag/test.toml`、`configs/website_crawler/test.toml` 仍有失效的 `# run name` 註解 | 單行移除 |
+| QA-2 | Tech-debt（測試覆蓋，Medium） | R2：`run_agent_query` 對 `**config_overrides` 的轉發無自動回歸鎖 | 新增斷言 `run_agent_build` / `AgentConfig.from_toml` 收到 override |
+| QA-3 | Tech-debt（測試覆蓋，Low） | R3：落盤 `config` 鍵序未被測試直接鎖定（dict 等值不計序） | 補 `list(payload["config"].keys()) == [...]` |
+| QA-1 | Tech-debt（低機率洩漏，Low） | R4：`run_app` 成功路徑若 `save_logging_file.__exit__` 拋例外，`chat_app` 已建但 agent 不會被關閉 | 將 `return` 移出 `with`，或於外層補 `except: agent.close(); raise` |
+
+### 11. 待使用者授權事項與後續建議
+
+以下項目因**付費 LLM / 端到端 / 網路 I/O** 或 **production test 政策**而未執行：
+
+1. `uv run pytest src/test/test_main.py`（X2 形狀已靜態確認：AST 可解析、簽名一致、無 `run_agent_build` import）
+2. `uv run pytest src/test/test_module.py`（同上；含 `run_agent_query` / `run_app` 呼叫與 `SERVER_PORT`）
+3. `uv run python src/main.py`（完整啟動：爬蟲 → 圖像摘要 → RAG 建庫 → 阻塞 server）
+4. `uv run python src/main.py --config-name test`（R7 已知限制的行為確認；**注意 plan 的「應報錯」期望已作廢**，預期為靜默以 `"default"` 執行）
+5. 任何真實 agent / RAG query / smoke（付費 LLM API），含 `run_agent_query` / `run_app` 實跑與 Phase 0 金標準 `results_*.json` 逐欄位比對（R3 的真實驗證）
+
+煙霧測試建議指令（需授權）：
+
+```bash
+uv run python src/cli.py agent-cli --run.query "…"        # 應產生 runs/<ts>/agent/<cfg>/results_*.json
+uv run python src/cli.py server-cli --run.port 8123       # /api/chat 一輪 → 中斷 → terminal.log 應含 init / complete
+uv run python src/main.py                                 # 完整流程後長駐服務，CTRL+C 可正常結束
+```
+
+後續建議：
+
+1. 補上上述授權實跑，取得 Phase 9 與端到端流程的執行期證據。
+2. 建立 R2 / R3 的自動回歸鎖（Medium），是目前最值得投入的測試強化。
+3. 併入下一輪排程處理 S2（原子寫入）、S3（錯誤訊息最小化）兩項既有 tech-debt。
+
+相關現行文件：[modules/agent.md](../../code/phase2_3_mvp/modules/agent.md) · [modules/server.md](../../code/phase2_3_mvp/modules/server.md) · [phase2_3_mvp.md](../../code/phase2_3_mvp/phase2_3_mvp.md) · [runs/workflow.md](../../code/runs/workflow.md) · [runs/cli.md](../../code/runs/cli.md) · [runs/config.md](../../code/runs/config.md)

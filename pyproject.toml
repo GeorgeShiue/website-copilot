@@ -8,6 +8,7 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     "crawl4ai>=0.9.2",
     "fastapi>=0.141.1",
+    "flagembedding>=1.4.2",
     "langchain>=1.4.0",
     "langchain-google-genai>=4.3.2",
     "langchain-openai>=0.3.0",

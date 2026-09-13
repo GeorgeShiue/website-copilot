@@ -74,9 +74,9 @@
 - 簡介
   - **AI Agent** — 以 LangGraph `create_agent` 包裝 RAG 檢索工具，由 LLM 推理迴圈自行決定呼叫，回答附引用來源 URL；支援多輪記憶（`InMemorySaver` + `thread_id`）與 SSE 逐 token 串流。
   - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
-  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 於 lifespan 建一次、關閉釋放；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
+  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 由呼叫端（`run_app()`）建立後注入 `ChatApp`，lifespan 僅綁定至 `app.state`、關閉由 `ChatApp.close()` 負責；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
   - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS，支援站點偵測（`hostname` → `page_url`）、Service Worker Keepalive（`chrome.alarms`）、跨頁面 session 共享（`chrome.storage.session`）、Typing Indicator。
-  - **對話落盤** — `chats/<ts>/agent/<config>/`，每輪覆寫 `results.json` + 依 thread_id 分檔（`results_<thread_id>.json`）。
+  - **對話落盤** — `runs/<ts>/agent/<config>/results_<thread_id>.json`（依 thread_id 分檔，讀取既有分檔 → 合併本輪 → 覆寫）。
 
 ## Phase 2：AI Agent
 

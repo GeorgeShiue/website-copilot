@@ -456,28 +456,6 @@ class TestShouldRebuildMilvus:
             assert builder._should_rebuild(force_rebuild=True) is True
 
 
-class TestShouldRebuildUnified:
-    """_should_rebuild 邏輯的一致性驗證。"""
-
-    def test_force_rebuild_always_true(self) -> None:
-        """force_rebuild=True 時回傳 True。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=True) is True
-
-    def test_existing_db_returns_false(self) -> None:
-        """store 路徑已存在 + force_rebuild=False → 回傳 False。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=False) is False
-
-    def test_missing_db_returns_true(self) -> None:
-        """store 路徑不存在 → 回傳 True。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=False):
-            assert builder._should_rebuild(force_rebuild=False) is True
-
-
 # ===========================================================================
 # Retriever 工具測試
 # ===========================================================================

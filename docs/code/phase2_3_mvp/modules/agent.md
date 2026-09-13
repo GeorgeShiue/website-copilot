@@ -7,45 +7,46 @@
 
 - **多輪對話記憶** — `InMemorySaver` + `thread_id`，相同 session 記得上下文（M2）
 - **SSE 串流** — `astream_text` 共用核心，CLI 與 server 皆可逐 token 輸出
-- **對話落盤** — `chats/<ts>/agent/<config>/`，每輪覆寫 `results.json` + 依 thread_id 分檔
-- **資源生命週期** — `Agent.close()` 釋放 RAG 資源；server 於 lifespan 建一次、關閉釋放
+- **對話落盤** — `runs/<ts>/agent/<config>/results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
+- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 由 `run_agent_query()` / `run_app()` 在各自的 run context 內以 `create_agent()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatApp.close()` 關閉
+- **落盤責任在呼叫端** — `Agent` 不再持有 `RunManager`（agent 層不依賴 workflow 層）；落盤由 `run_agent_query()` 與 `_event_stream()` 呼叫 `RunManager.save_agent_results_as_json()`
 
 - **模組實作**
-	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask` / `astream_text` / `astream_result` / `save_results`）
+	- `src/app/agent/agent.py`（**Agent 層核心**：`Agent` wrapper、`create_agent`、`ask` / `astream_text` / `astream_result`）
 	- `src/app/tools/rag_registry.py`（**RAGRegistry**：多站 RAG 實例管理，lazy + LRU 快取）
 	- `src/app/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`，回傳可用站點列表）
 	- `src/app/tools/webpage_retriever.py`（**多站 Retriever Tool**：接受 `site_id` 參數路由至對應知識庫）
 	- `src/utils/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
 	- `src/app/configs/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
-	- `src/app/workflow/workflow.py`（`run_agent`：CLI 的 agent-cli 分支執行邏輯）
+	- `src/app/workflow/workflow.py`（`run_agent_query`：CLI agent-cli 分支執行邏輯；`run_app`：server 分支；`run_agent_build`：agent 建構 + 落盤的程式化 API）
 
 - **模組設定**
 	- `./configs/agent/{name}.toml`（**Agent 設定檔**：`llm_name` / `system_prompt`，預設 `default`）
 	- `llm_name` 與 RAG 檢索 LLM（`RAGConfig.query_llm_name`）**解耦**，可獨立更換不影響檢索
-	- API key 沿用 RAG query LLM 的環境變數：`GEMINI_RAG_QUERY_ENGINE_API_KEY`
+	- API key 依 model name 自動路由：含 `gemini` → `GEMINI_RAG_QUERY_ENGINE_API_KEY`；其他（`gpt*` 等，預設）→ `OPENAI_API_KEY`
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用現代型別語法）
-	- **第三方套件**：`langgraph`（**Agent 框架**，`create_agent`）、`langchain-google-genai`（**Gemini ChatModel**）、`langgraph-checkpoint`（**InMemorySaver**）、`langchain-core`（**StructuredTool**）、`python-dotenv`（**環境變數載入**）
+	- **第三方套件**：`langgraph`（**Agent 框架**，`create_agent`）、`langchain-google-genai`（**Gemini ChatModel**）、`langchain-openai`（**OpenAI ChatModel**）、`langgraph-checkpoint`（**InMemorySaver**）、`langchain-core`（**StructuredTool**）、`python-dotenv`（**環境變數載入**）
 
 ## agent.py
 
 ### 資料結構與核心函式
 
-- **`Agent`**（dataclass）— 包裝 LangGraph `CompiledStateGraph` 與綁定資源：
+- **`Agent`**（一般 class）— 包裝 LangGraph `CompiledStateGraph` 與綁定資源：
   - `graph`：create_agent 回傳的編譯圖
-  - `tools`：綁定的 `StructuredTool` 列表（`list_knowledge_bases` + `webpage_retriever`）
-  - `run_manager`：本次執行的 RunManager（供落盤 `chats/`）
+  - `tool`：綁定的 `Tool` 實例；`tools` property 回傳 `tool.tools`（`list_knowledge_bases` + `webpage_retriever`）
+  - `config`：本次使用的 `AgentConfig`（供呼叫端落盤時組 config 摘要）
   - `checkpointer`：`InMemorySaver` 實例（多輪記憶，thread_id 區分 session）
-  - `registry`：`RAGRegistry` 實例（多站 RAG 管理，lazy + LRU 快取）
-  - `close()`：釋放 RAG 資源（`registry.close()`，try/finally 保證）
+  - `close()`：委派 `Tool.close()` 釋放資源（try/finally 保證）
+  - **不持有 `RunManager`**：agent 層與 workflow 層無依賴（落盤責任已上移至呼叫端）
 
-- **`create_agent(config, run_manager)`** — 建立流程：
-  1. 初始化 RunManager（`module="agent"`、`base_folder="chats"`）與落盤路徑
-  2. 建立 `RAGRegistry`（多站 RAG 實例管理，lazy + LRU 快取，`max_cached` 限制同時載入數量）
-  3. `create_site_discovery_tool(registry)` + `create_webpage_retriever_tool(registry)` 建立兩個工具
-  4. `create_llm(config.llm_name)`（utils.langchain_helper）建立 Gemini ChatModel（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）
-  5. `create_agent(llm, [discovery_tool, retriever_tool], system_prompt, checkpointer)` 組裝並包裝為 `Agent`
+- **`create_agent(config_name="default", **config_overrides)`** — 內部自行建立 `AgentConfig.from_toml(config_name, **config_overrides)` 與 `Tool(config_name)`，再組裝 LLM + 編譯圖並包裝為 `Agent`：
+  1. `AgentConfig.from_toml()` 建立設定、`Tool(config_name)` 建立工具（含 `RAGRegistry` 工具）；無工具時拋 `ValueError`
+  2. `create_llm(config.llm_name)`（utils.langchain_helper）建立 ChatModel（依 model name 自動路由 Gemini / OpenAI）
+  3. 建立 `InMemorySaver` checkpointer
+  4. 以 LangGraph `create_agent` 組裝 `tool.tools`、`system_prompt` 與 checkpointer，並包裝為 `Agent`；任一步驟失敗時 `tool.close()` 後 re-raise
+- **`run_agent_build(config_name="default", run_config=None, **config_overrides) -> None`（workflow.py）** — agent 建構 + 落盤的程式化 API：建立 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期，內部呼叫 `create_agent(config_name, **config_overrides)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，最後 `agent.close()`。**`run_agent_query()` / `run_app()` 不經此函式**，而是在各自的 run context 內直接呼叫 `create_agent()`
 
 - **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 
@@ -53,7 +54,7 @@
 
 - **`Agent.astream_result(query, thread_id, on_token)`** — 串流問答並收集完整結果（CLI 與 M3 server 共用）；完成後從 `graph.get_state()` 讀回 messages 擷取來源 URL
 
-- **`Agent.save_results(results, thread_id)`** — 落盤 `results.json`（含 config 摘要）；提供 `thread_id` 時另寫 `results_<thread_id>.json` 分檔（跨 run 搜尋歷史檔由 `RunManager.find_thread_history_path()` 負責）。**注意**：CLI 模式的 `run_agent()` 不傳 `thread_id`，因此分檔僅在 server 模式（`_event_stream`）下生效。
+- **`RunManager.save_agent_results_as_json(thread_id, results, agent_config)`**（run_manager.py）— 落盤對話結果（含 config 摘要）：以 `agent_config` 組出 `{config_name, run_name, llm_name, system_prompt}` 摘要，寫入 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫）。摘要組裝由 RunManager 負責（`agent_config` 由呼叫端傳入），因此 `Agent` 不需持有 `RunManager`；`run_agent_query()` 與 server 的 `_event_stream()` 皆以此落盤。
 
 ### utils/langchain_helper.py（LangChain 輔助函式）
 
@@ -63,7 +64,7 @@
 
 - **`extract_sources_from_messages(messages)`** — 以正則 `URL: (\S+)` 從 ToolMessage 解析來源 URL（依序去重）
 
-- **`create_llm(llm_name)`** — 建立 LangChain ChatModel（Gemini，`GEMINI_RAG_QUERY_ENGINE_API_KEY`）；與 `utils.rag_helper.create_llm`（LlamaIndex 版）對稱
+- **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）；其他（`gpt*` 等）→ `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `utils.rag_helper.create_llm`（LlamaIndex 版）對稱
 
 - **`_message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
 
@@ -71,14 +72,14 @@
 
 ```
 使用者問題 + thread_id
-  → create_agent（一次）→ graph.invoke / graph.astream（每輪）
+  → run_agent_query / run_app 建立 run context 與 create_agent（一次）→ graph.invoke / graph.astream（每輪）
   → LLM 決定呼叫 webpage_retriever → 檢索結果作為上下文
-  → 回答（含引用 URL）→ 落盤 chats/（results.json + 分檔）
+  → 回答（含引用 URL）→ 落盤 runs/（results_{thread_id}.json 讀取 → 合併 → 覆寫）
 相同 thread_id → InMemorySaver 保留歷史 → 續接多輪
 ```
 
 ## 已知問題
-- [ ] 多輪對話的 `results.json` 為每輪覆寫（歷史另存 `results_<thread_id>.json`，僅 server 模式生效；CLI 模式不建立分檔）
+- [ ] 對話記憶依賴 `InMemorySaver`，不持久化（重啟即失；歷史對話仍留存於 `runs/` 的 `results_{thread_id}.json`）
 - [ ] Agent LLM 與 RAG 檢索 LLM 各自獨立設定，更換時需留意相容性
 
 ## 未來規劃

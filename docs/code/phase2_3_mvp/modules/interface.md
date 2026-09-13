@@ -26,7 +26,6 @@
 	- `extension/background.js`（**代理串流**：`chrome.runtime.onConnect` → fetch SSE → 逐塊 postMessage；keepalive via `chrome.alarms`；`chrome.storage.session` 保存 thread_id）
 	- `extension/content.js`（**注入掛載 + 站點偵測**：`window.location.hostname` 偵測 + `page_url` 帶入 + proxyStreamChat 建立 port + ReadableStream 轉接）
 	- `extension/widget.js`（**複本**：與 `static/widget.js` 同步，含 typing indicator；⚠️ Chrome 不載入 symlink 的 content script）
-	- `scripts/m4b_extension_test.py`（**自動化驗證**：xvfb + Playwright 端到端）
 
 ## widget.js
 

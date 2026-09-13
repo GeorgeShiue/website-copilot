@@ -1,7 +1,8 @@
 """聊天服務層：FastAPI + SSE 串流 endpoint（M3）+ 嵌入表面（M4a）。
 
 提供：
-- create_app()：建立 FastAPI app（lifespan 綁定 agent、CORS、路由、static mount）
+- ChatApp：聊天服務應用（create() 工廠方法、close() 資源釋放、context manager）
+- _build_fastapi_app()：建立 FastAPI app（lifespan 綁定 agent / run_manager、CORS、路由、static mount）
 - POST /api/chat：SSE 串流問答（事件協定：token / done / error）
 - GET /api/health：健康檢查
 - GET /：redirect 至 /static/demo.html（嵌入示範）
@@ -13,8 +14,8 @@ SSE 事件協定（M3 定案，M4a 前端依此實作）：
   （引用內容已由 agent 寫入 response 內；sources 僅保留於落盤 result）
 - {"type": "error", "message": "..."}：失敗
 
-資源生命週期：由呼叫端（run_app）建立 agent 與 registry 後注入 create_app，
-lifespan 啟動時綁定至 app.state。registry 生命週期由呼叫端的 with block 管理。
+資源生命週期：agent 與 run_manager 皆由呼叫端建立後透過 ChatApp.create() 注入，
+lifespan 啟動時綁定至 app.state；ChatApp.close() 僅釋放 agent（run_manager 無需釋放資源）。
 """
 
 import json
@@ -33,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.agent.agent import Agent
+from app.workflow.run_manager import RunManager
 from utils.langchain_helper import extract_sources_from_messages, thread_config
 
 logger = logging.getLogger(__name__)
@@ -82,6 +84,7 @@ def _sse(data: dict[str, Any]) -> str:
 
 async def _event_stream(
     agent: Agent,
+    run_manager: RunManager,
     query: str,
     thread_id: str,
     site_id: str | None = None,
@@ -108,7 +111,11 @@ async def _event_stream(
             "sources": sources,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
-        agent.save_results([result], thread_id=thread_id)
+        run_manager.save_agent_results_as_json(
+            thread_id=thread_id,
+            results=[result],
+            agent_config=agent.config,
+        )
         yield _sse(
             {
                 "type": "done",
@@ -121,14 +128,54 @@ async def _event_stream(
         yield _sse({"type": "error", "message": str(exc)})
 
 
-def create_app(
+class ChatApp:
+    """統一管理 Agent + FastAPI 的生命週期。
+
+    Attributes:
+        agent: 注入的 Agent 實例。
+        run_manager: 注入的 RunManager 實例（落盤由本物件負責，無需釋放）。
+        app: FastAPI 應用程式（/api/chat、/api/health、CORS、static mount）。
+    """
+
+    def __init__(self, agent: Agent, run_manager: RunManager, app: FastAPI) -> None:
+        self.agent = agent
+        self.run_manager = run_manager
+        self.app = app
+
+    @classmethod
+    def create(
+        cls,
+        agent: Agent,
+        run_manager: RunManager,
+        allowed_origins: list[str] | None = None,
+    ) -> "ChatApp":
+        """工廠方法：建立 FastAPI app 並綁定 agent 與 run_manager。"""
+        fastapi_app = _build_fastapi_app(agent, run_manager, allowed_origins)
+        return cls(agent=agent, run_manager=run_manager, app=fastapi_app)
+
+    def close(self) -> None:
+        """釋放 Agent 資源（run_manager 無需釋放）。"""
+        self.agent.close()
+
+    def __enter__(self) -> "ChatApp":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
+def _build_fastapi_app(
     agent: Agent,
+    run_manager: RunManager,
     allowed_origins: list[str] | None = None,
 ) -> FastAPI:
-    """建立 FastAPI 應用程式，注入 Agent 到 lifespan。
+    """建立 FastAPI 應用程式，注入 Agent 與 RunManager 到 lifespan（內部函式）。
+
+    一般由 ChatApp.create() 呼叫；直接使用時呼叫端需自行管理資源生命週期。
 
     Args:
         agent: Agent 實例（必填）。
+        run_manager: RunManager 實例（必填，供 /api/chat 落盤）。
         allowed_origins: CORS 允許的來源列表；None 時預設 ["*"]（demo 全開放）。
 
     Returns:
@@ -138,6 +185,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.agent = agent
+        app.state.run_manager = run_manager
         yield
 
     app = FastAPI(title="Website Copilot Chat", version="0.1.0", lifespan=lifespan)
@@ -156,6 +204,9 @@ def create_app(
     def get_agent(request: Request) -> Agent:
         return request.app.state.agent
 
+    def get_run_manager(request: Request) -> RunManager:
+        return request.app.state.run_manager
+
     @app.get("/")
     async def index() -> RedirectResponse:
         """入口：redirect 至嵌入示範頁。"""
@@ -170,6 +221,7 @@ def create_app(
     async def chat(
         req: ChatRequest,
         agent: Agent = Depends(get_agent),
+        run_manager: RunManager = Depends(get_run_manager),
     ) -> StreamingResponse:
         """SSE 串流問答。
 
@@ -184,7 +236,7 @@ def create_app(
         thread_id = req.thread_id or f"auto-{uuid.uuid4().hex[:8]}"
         site_id = resolve_site_id(req.page_url)
         return StreamingResponse(
-            _event_stream(agent, req.query, thread_id, site_id=site_id),
+            _event_stream(agent, run_manager, req.query, thread_id, site_id=site_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

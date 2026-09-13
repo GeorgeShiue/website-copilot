@@ -11,16 +11,16 @@
     - [x] **引用來源**（回答內含檢索來源 URL，由 system prompt 要求）
 - [x] **多輪對話記憶**（`InMemorySaver` + `thread_id`）
 - [x] **SSE 串流**（`astream_text` 共用核心，CLI 與 server 皆可用）
-- [x] **對話落盤**（`chats/<ts>/agent/<config>/`，每輪覆寫 `results.json`；server 模式依 thread_id 分檔 `results_<thread_id>.json`）
-- [x] **資源生命週期**（`Agent.close()` 釋放；server lifespan 建一次、關閉釋放）
+- [x] **對話落盤**（`runs/<ts>/agent/<config>/results_{thread_id}.json`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）
+- [x] **資源生命週期**（`Agent.close()` 釋放；agent 由 `run_agent_query()` / `run_app()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatApp.close()` 關閉）
 - [x] **多站 RAG 路由**（M3：`RAGRegistry` + `webpage_retriever(site_id)` + `list_knowledge_bases`）
     - [x] `RAGRegistry` — lazy + LRU 快取管理多站 RAG 實例
     - [x] `webpage_retriever` — 接受 `site_id` 參數路由至對應知識庫
     - [x] `list_knowledge_bases` — 供 LLM 確認可用站點列表
-    - [x] `Agent.close()` — 透過 `registry.close()` 釋放所有 RAG 資源
+    - [x] `Agent.close()` — 委派 `Tool.close()` 釋放所有 RAG 資源
 
 ## 已知問題
-- [ ] 多輪對話的 `results.json` 為每輪覆寫（歷史另存 `results_<thread_id>.json`，僅 server 模式生效；CLI 模式不建立分檔）
+- [ ] 對話記憶依賴 `InMemorySaver`，不持久化（重啟即失；歷史對話留存於 `runs/` 的 `results_{thread_id}.json`）
 - [ ] Agent LLM 與 RAG 檢索 LLM 各自獨立設定（`AgentConfig.llm_name` / `RAGConfig.query_llm_name`），需留意更換時的相容性
 
 ## 未來規劃
@@ -38,7 +38,7 @@
     - [x] **錯誤處理**（error 事件；空白 query 拒絕）
 - [x] **健康檢查**（`GET /api/health`）
 - [x] **CORS**（預設全開放；`allowed_origins` 可限縮）
-- [x] **啟動腳本**（`scripts/server_up.py`：一條指令啟動 + 等待就緒 + 保持運行；rich 輸出 / tyro 參數）
+- [x] **啟動方式**（`uv run python src/cli.py server-cli --run.port 8000`；`run_app()` 回傳非阻塞 `uvicorn.Server` + `ChatApp`，由呼叫端控制生命週期）
 - [x] **站點偵測**（M4：`DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`）
     - [x] `ChatRequest` 新增 `page_url` 欄位
     - [x] 從 `page_url` 解析 hostname → 查 `DOMAIN_SITE_MAP` → 得到 `site_id`
@@ -46,7 +46,7 @@
 
 ## 已知問題
 - [ ] SSE 併發（本機多人同時使用）— demo 階段可接受，正式版再上 Redis/queue
-- [ ] `results.json` 多輪覆寫（歷史依 thread_id 分檔）
+- [x] ~~`results.json` 多輪覆寫~~（已解決：agent 改為只寫 `results_<thread_id>.json`，不再覆寫 `results.json`）
 
 ## 未來規劃
 - [ ] 正式部署（uvicorn workers / proxy 設定）
@@ -69,7 +69,6 @@
     - [x] **站點偵測**（`content.js` 偵測 `window.location.hostname`，自動帶入 `page_url`）
     - [x] **Service Worker Keepalive**（`chrome.alarms` 定期喚醒，避免 Chrome ~30s 終止 SW）
     - [x] **跨頁面 session 共享**（`chrome.storage.session` 保存 `thread_id`，換頁面保留對話記憶）
-    - [x] **自動化測試**（`scripts/m4b_extension_test.py`，xvfb + Playwright）
 
 ## 已知問題
 - [ ] `extension/widget.js` 為 `static/widget.js` 的複本（Chrome 不載入 symlink），需手動同步
@@ -79,3 +78,7 @@
 - [ ] **Extension 上架**（目前僅本機開發模式 load unpacked）
 - [ ] **網站導航**（AI 直接控制網站介面跳轉、篩選）
 - [ ] **專責代理**（多 Agent 分工）
+
+# 重構紀錄
+
+> Agent 不再持有 `RunManager`（落盤責任上移至呼叫端）— 見 [2026_0914/dev_log.md §七](../../work/2026_0914/dev_log.md)

@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     from app.workflow.data_manager import DataManager
     from app.workflow.workflow import (
-        run_agent,
+        run_agent_query,
         run_app,
         run_rag_build,
         run_rag_query,
@@ -118,20 +118,23 @@ if __name__ == "__main__":
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, AgentCLI):
-        run_agent(
-            query=cli_arg.run.query,
+        run_agent_query(
             config_name=cli_arg.run.config_name,
+            query=cli_arg.run.query,
             thread_id=cli_arg.run.thread_id,
             stream=cli_arg.run.stream,
-            data_manager=data_manager,
             run_config=cli_arg.run,
             **module_config_overrides,
         )
     elif isinstance(cli_arg, ServerCLI):
-        run_app(
+        server, chat_app = run_app(
             config_name=cli_arg.run.config_name,
             run_config=cli_arg.run,
             allowed_origins=cli_arg.run.allowed_origins,
             host=cli_arg.run.host,
             port=cli_arg.run.port,
         )
+        try:
+            server.run()
+        finally:
+            chat_app.close()

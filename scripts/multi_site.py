@@ -3,14 +3,14 @@
 對 nculab 與 ncucsie 兩個網站各爬取 10 頁，執行圖片摘要與 RAG 建庫，
 驗證 DataManager 多 site 隔離機制及 publish_run_metadata 是否正常運作。
 
-執行：uv run python src/test/dev/test_multi_site.py
+執行：uv run python scripts/multi_site.py
 """
 
 import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.workflow.data_manager import DataManager
 from app.workflow.workflow import (
