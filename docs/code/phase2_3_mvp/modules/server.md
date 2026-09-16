@@ -7,16 +7,15 @@
 
 - **SSE 事件協定** — `token`（逐字）/ `done`（response + thread_id）/ `error`（message）
 - **多輪 session** — thread_id 由 server 產生（`auto-{uuid}`）並於 done 回傳，前端帶回續接
-- **資源生命週期** — agent 於 lifespan 啟動建一次、關閉釋放（`create_agent` 每次重建向量庫隔離副本，不可 per-request）
+- **資源生命週期** — agent 與 run_manager 由呼叫端建立後注入 `ChatApp`（lifespan 僅綁定至 `app.state`，不重建）；`ChatApp.close()` 釋放 agent（run_manager 無需釋放），並由呼叫端負責呼叫（CLI 於 `finally` 執行）
 - **CORS 限縮** — 預設全開放；`allowed_origins` 可限定自有網站來源（M5-3）
 - **站點偵測**（M4）— `DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`；`ChatRequest` 支援 `page_url` 欄位
 - **嵌入表面 static** — `chat.html`（iframe）/ `widget.js`（script widget）/ `demo.html`（示範頁）
 
 - **模組實作**
-	- `src/app/server/app.py`（**FastAPI app**：`create_app`、`run_server`、`ChatRequest`、`_event_stream`、`_sse`）
-	- `src/app/server/__init__.py`（匯出 `create_app` / `run_server` / `ChatRequest`）
+	- `src/app/server/app.py`（**FastAPI app**：`ChatApp`、`_build_fastapi_app`、`ChatRequest`、`_event_stream`、`_sse`）
+	- `src/app/server/__init__.py`（匯出 `ChatApp` / `ChatRequest`）
 	- `src/app/server/static/`（**嵌入表面前端檔**：chat.html / widget.js / demo.html，詳見 [interface.md](interface.md)）
-	- `scripts/server_up.py`（**啟動腳本**：一條指令啟動 + 等待就緒 + 保持運行；rich 輸出 / tyro 參數 / SIGTERM 乾淨關閉）
 
 - **模組設定**
 	- `config_name`：AgentConfig 名稱（對應 `configs/agent/{name}.toml`，預設 `default`）
@@ -44,19 +43,19 @@ data: {"type": "error", "message": "..."}       ← 失敗
 
 ### 核心函式
 
-- **`create_app(config_name, agent, allowed_origins)`** — 建立 FastAPI app：
-  - **lifespan**：`agent=None` 時以 `create_agent(config=AgentConfig.from_toml(config_name), run_manager=RunManager.for_run_no_site(module="agent", run_name=config_name, base_folder="chats"))` 建立，關閉時 `agent.close()`
-  - **CORS middleware**：`allow_origins=allowed_origins or ["*"]`
+- **`ChatApp.create(agent, run_manager, allowed_origins=None)`** — 工廠方法：`_build_fastapi_app()` 建立 FastAPI app 並綁定 agent 與 run_manager：
+  - **lifespan**：啟動時將注入的 `agent` 與 `run_manager` 綁定至 `app.state`（不在 lifespan 建立/關閉資源；資源由呼叫端透過 `ChatApp.close()` 或 context manager 管理）
+  - **CORS middleware**：`allow_origins=allowed_origins`（None → `["*"]` 全開放）
   - **static mount**：`/static` → `src/app/server/static/`（M4a）
   - `GET /` → redirect `/static/demo.html`（嵌入示範入口）
-  - `GET /api/health` → `{"status": "ok"}`（供 `server_up.py` / smoke 腳本輪詢）
-  - `POST /api/chat` → `StreamingResponse(_event_stream(...))`（SSE；空白 query 直接回 error 事件）
+  - `GET /api/health` → `{"status": "ok"}`（供健康檢查／就緒輪詢）
+  - `POST /api/chat` → `StreamingResponse(_event_stream(...))`（SSE；空白 query 直接回 error 事件；`thread_id` 未提供時自動 `auto-{uuid}`）；`agent` 與 `run_manager` 由 `Depends(get_agent)` / `Depends(get_run_manager)` 自 `app.state` 取得
 
-- **`_event_stream(agent, query, thread_id)`** — SSE 事件流核心：
+- **`_event_stream(agent, run_manager, query, thread_id, site_id=None)`** — SSE 事件流核心：
   1. `thread_config(thread_id)`（utils.langchain_helper）建立執行設定
   2. `astream_text` 逐 token → `yield _sse({"type": "token", "content": text})`
   3. 完成後 `graph.get_state()` 讀回 messages → `extract_sources_from_messages`（utils.langchain_helper）抽來源
-  4. 組 `result` → `agent.save_results([result], thread_id=thread_id)` 落盤（含分檔）
+  4. 組 `result` → `run_manager.save_agent_results_as_json(thread_id=..., results=[result], agent_config=agent.config)` 落盤 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；檔名安全由 RunManager 負責，server 原樣傳遞 `thread_id`）
   5. `yield _sse({"type": "done", ...})`；任何例外 → `yield _sse({"type": "error", ...})`
 
 - **`_sse(data)`** — 序列化為 SSE 格式（`data: {json}\n\n`，`ensure_ascii=False` 保留中文）
@@ -65,16 +64,14 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
-- **`run_server(config_name, host, port, allowed_origins)`** — 啟動入口（`cli.py server-cli` 分派）：
-  - `setup_logging` → `create_app` → `uvicorn.run(app, ...)`
+- **`run_app(...)`（workflow.py）** — 啟動入口（`src/cli.py server-cli` / `src/main.py` 皆使用）：
+  - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）→ `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `uvicorn.Server`，回傳 `(server, chat_app)` **tuple（非阻塞）**；由呼叫端執行 `server.run()` 並以 `try/finally` 呼叫 `chat_app.close()`
+  - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出（**不寫 `module_config.toml`**）；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
 
 ### 啟動方式
 
 ```bash
-# 一條指令（scripts/server_up.py：rich 輸出、tyro 參數、Ctrl+C 乾淨關閉）
-uv run python scripts/server_up.py --port 8000
-
 # 直接 CLI（背景執行）
 uv run python src/cli.py server-cli --run.port 8000
 
@@ -84,7 +81,7 @@ uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.ed
 
 ## 已知問題
 - [ ] SSE 併發（本機多人同時使用）— demo 階段可接受，正式版再上 Redis/queue
-- [ ] `results.json` 多輪覆寫（server 模式依 thread_id 分檔 `results_<thread_id>.json` 保留歷史）
+- [ ] 對話記憶依賴 `InMemorySaver`，不持久化（重啟即失；歷史對話留存於 `runs/` 的 `results_{thread_id}.json`）
 
 ## 未來規劃
 - [ ] 正式部署（uvicorn workers / proxy 設定）

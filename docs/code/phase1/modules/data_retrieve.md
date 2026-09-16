@@ -24,7 +24,7 @@
 - **模組設定**
 	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `src/app/configs/rag_config.py` 載入）
 	- 可在 `RagConfig` 或執行參數中覆寫 **embedding**、**vector store 類型**、**hybrid ranker**、**chunk 參數**、**檢索設定**與 **LLM 模型**
-	- API key 依用途分為三組獨立環境變數：`OPENAI_RAG_EMBEDDING_API_KEY`（Embedding）、`GEMINI_RAG_QUERY_ENGINE_API_KEY` / `OPENAI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`GEMINI_RAG_EVALUATOR_API_KEY` / `OPENAI_RAG_EVALUATOR_API_KEY`（評估）
+	- API key 依用途分為三組獨立環境變數：`OPENAI_RAG_EMBEDDING_API_KEY`（Embedding）、`OPENAI_API_KEY` / `GEMINI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`OPENAI_API_KEY` / `GEMINI_RAG_EVALUATOR_API_KEY`（評估）
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
@@ -134,7 +134,7 @@ RAG（runtime）
 
 - **Hybrid 模式**：跳過 `SimilarityPostprocessor`，因為 hybrid 分數已由 ranker 融合，不再適用 similarity cutoff。
 - **Dense 模式**：加入 `SimilarityPostprocessor(similarity_cutoff=cutoff)`（預設 `cutoff=0.0`，通常設定 `0.4`）。
-- 查詢 LLM 使用 `GoogleGenAI(model="gemini-3.1-flash-lite")`，API key 來自 `GEMINI_RAG_QUERY_ENGINE_API_KEY`（若使用 GPT 系列則來自 `OPENAI_RAG_QUERY_ENGINE_API_KEY`）。
+- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_RAG_QUERY_ENGINE_API_KEY`（對應表見 `utils/rag_helper.LLM_API_KEY_ENV_VARS`）。
 - 回答生成器使用 `get_response_synthesizer(llm=llm)`。
 
 #### 執行查詢
@@ -161,8 +161,8 @@ RAG（runtime）
 - 判斷查詢與回應是否與 context 一致，輸出 YES/NO 加上繁體中文原因。
 
 #### Evaluator LLM
-- 預設使用 `gpt-5.4`（因 `gemini-3.1-pro-preview` 每日限額太低）。
-- API key 來自 `GEMINI_RAG_EVALUATOR_API_KEY`（Gemini）或 `OPENAI_RAG_EVALUATOR_API_KEY`（GPT）。
+- 預設使用 `gpt-5.6-terra`（`OpenAI`）；`RAGConfig.evaluator_llm_name` 可覆寫。
+- API key 一律來自 `OPENAI_API_KEY`；若切回 Gemini model，則改用 `GEMINI_RAG_EVALUATOR_API_KEY`。
 
 ---
 
@@ -200,25 +200,26 @@ Hybrid Search 同時以 Dense Vector 與 Sparse Vector 檢索，再將兩者分�
 將 RAG retriever 包裝為 LangChain `StructuredTool`，使下游 Agent 可直接呼叫檢索。
 
 ### RetrieverInputSchema
-Pydantic v2 schema，定義三個參數供 LLM 填寫：
+Pydantic v2 schema，定義四個參數供 LLM 填寫：
+- `site_id`：目標知識庫站點（必填，多站路由；可先呼叫 `list_knowledge_bases` 取得列表）
 - `query`：搜尋查詢字串
 - `filter_dict`：可選的 metadata 過濾條件（範例：`{"page_type": "paper"}`）
-- `similarity_top_k`：回傳數量上限
+- `similarity_top_k`：回傳數量上限（預設 10）
 
 ### create_webpage_retriever_tool()
-高層工廠函數，接受 `run_manager`（可選）、`config_name`、`run_name_use_config_name` 與 `**config_overrides`，流程：
-1. 載入 TOML 設定 → 建立 `RunManager` 並初始化 run 路徑
-2. 呼叫 `RAGBuilder(config).build_to_retriever()`（建立 Nodes → Vector Store → Index → Retriever，**不建 Query Engine**）
-3. 包裝為 `StructuredTool(name="webpage_retriever")`
-4. 將 RAG 實例綁定為 `tool.rag` 屬性（結束後呼叫 `tool.rag.close()` 釋放資源）
-5. 在 run 路徑寫出 `module_config.toml`（與其他 workflow 一致的留檔行為）
+工具工廠，接受 `registry: RAGRegistry`，流程：
+1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 建構 + LRU 快取；內部以 `RAGBuilder(config).build_reusable(rag)` 建立 Nodes → Vector Store → Index → Retriever）
+2. 包裝為 `StructuredTool(name="webpage_retriever")`，執行期以 `rag.retrieve(...)` 檢索
+3. 回傳格式化後的檢索結果（含 `URL:` 行，供 `extract_sources_from_messages()` 解析來源）
+4. RAG 資源生命週期由 `RAGRegistry` 管理（`registry.close()` 統一釋放），工具本身不負責關閉
 
 ### 使用方式
 ```python
-tool = create_webpage_retriever_tool()  # config_name 預設 "default"（Milvus hybrid）
-agent = create_agent(model, [tool])
-# Agent 執行期間自主呼叫 tool(retriever_input)
-tool.rag.close()  # 釋放向量儲存資源
+with RAGRegistry(config_name="default") as registry:
+    tool = create_webpage_retriever_tool(registry)
+    agent = create_agent(llm, [discovery_tool, tool], system_prompt=...)
+    # Agent 執行期間自主呼叫 tool(site_id=..., query=...)
+# registry 離開 with 區塊時自動 close 所有快取的 RAG
 ```
 
 ---

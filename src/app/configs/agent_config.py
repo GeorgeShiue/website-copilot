@@ -1,8 +1,8 @@
 """Agent 層的設定資料結構。
 
 AgentConfig 定義 Agent 的 LLM 與提示詞設定。
-llm_name 預設與 RAG config 的 query_llm_name 相同（gemini-3.1-flash-lite），
-但兩者解耦：Agent 可獨立換 model（如 gemini-3-flash）而不影響 RAG。
+llm_name 預設與 RAG config 的 query_llm_name 相同（gpt-5.6-luna），
+但兩者解耦：Agent 可獨立換 model（如 gpt-5.6-luna）而不影響 RAG。
 retriever 的 top-k 等檢索參數由 RAG config 管理，Agent 不覆寫。
 
 Agent 不綁定特定 site_id：多站管理由 RAGRegistry 在工具層級處理。
@@ -22,7 +22,7 @@ from utils.config_helper import ConfigValidationError
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LLM_NAME = "gemini-3.1-flash-lite"
+DEFAULT_LLM_NAME = "gpt-5.6-luna"
 DEFAULT_SYSTEM_PROMPT = (
     "你是多站網站助理，可從多個學校網站知識庫中檢索資訊。\n\n"
     "## 使用工具的流程\n"

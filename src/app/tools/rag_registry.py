@@ -1,20 +1,14 @@
-"""RAGRegistry：多站 RAG 實例管理（lazy + LRU 快取）。
+"""RAGRegistry：多站 RAG 實例管理器（lazy + LRU 快取）。
 
-M3 多站 RAG 檢索的核心模組。管理多個 site_id 對應的 RAG 實例，
-支援延遲建立（首次查詢時 build）與 LRU 快取淘汰（max_cached 限制同時載入數量）。
-
-設計原則：
-- Registry 不建立 RunManager（Agent 問答指向正式 data/，非 runs/ 中間層）
-- 使用 RAGConfig.from_toml("default", site_id=site_id) 動態產生路徑
-- 利用 Milvus 重用機制（build_reusable + load_collection）加速載入
+此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
 """
 
 import logging
+import os
 from collections import OrderedDict
 
 from app.configs.rag_config import RAGConfig
 from app.engines.rag import RAG, RAGBuilder
-from app.workflow.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
 
@@ -24,25 +18,40 @@ class RAGRegistry:
 
     Attributes:
         _cache: site_id → RAG 的 LRU 快取（OrderedDict）。
-        _data_manager: DataManager 實例，用於 site 存在性驗證。
-        _default_config_name: RAG config 名稱（預設 "default"）。
+        base_folder: 資料根目錄（預設 "data"）。
+        config_name: RAG config 名稱（預設 "default"）。
         _max_cached: 快取上限，超出時淘汰最久未使用項。
     """
 
     def __init__(
         self,
-        data_manager: DataManager | None = None,
-        default_config_name: str = "default",
+        config_name: str = "default",
+        base_folder: str = "data",
         max_cached: int = 5,
     ) -> None:
         self._cache: OrderedDict[str, RAG] = OrderedDict()
-        self._data_manager = data_manager or DataManager()
-        self._default_config_name = default_config_name
+        self.base_folder = base_folder
+        self.config_name = config_name
         self._max_cached = max_cached
+
+    def _list_sites(self) -> list[str]:
+        """掃描 base_folder/webpages/，回傳所有 site_id（排序後）。"""
+        webpages_path = os.path.join(self.base_folder, "webpages")
+        if not os.path.isdir(webpages_path):
+            return []
+        return sorted(
+            item
+            for item in os.listdir(webpages_path)
+            if os.path.isdir(os.path.join(webpages_path, item))
+        )
+
+    def _site_exists(self, site_id: str) -> bool:
+        """檢查指定 site_id 對應的目錄是否存在。"""
+        return os.path.isdir(os.path.join(self.base_folder, "webpages", site_id))
 
     def list_sites(self) -> list[str]:
         """回傳所有可用的 site_id 列表（掃描 data/webpages/）。"""
-        return self._data_manager.list_sites()
+        return self._list_sites()
 
     def get(self, site_id: str) -> RAG:
         """取得指定 site_id 的 RAG 實例（cache hit 直接回傳，miss 則 lazy build）。
@@ -61,7 +70,7 @@ class RAGRegistry:
             logger.info("RAG cache hit: site_id=%s", site_id)
             return self._cache[site_id]
 
-        if not self._data_manager.site_exists(site_id):
+        if not self._site_exists(site_id):
             raise ValueError(
                 f"site_id '{site_id}' 不存在。"
                 f"可用的站點：{', '.join(self.list_sites()) or '（無）'}"
@@ -69,7 +78,7 @@ class RAGRegistry:
 
         logger.info("RAG cache miss, building: site_id=%s", site_id)
 
-        config = RAGConfig.from_toml(self._default_config_name, site_id=site_id)
+        config = RAGConfig.from_toml(self.config_name, site_id=site_id)
         assert config.webpages_data_folder_path is not None
         rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
         RAGBuilder(config).build_reusable(rag, force_rebuild=False)
@@ -78,6 +87,20 @@ class RAGRegistry:
         self._evict_if_needed()
 
         return rag
+
+    def __enter__(self) -> "RAGRegistry":
+        """進入 context manager，回傳 self。"""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> bool:
+        """離開 context manager，釋放資源並傳播例外。"""
+        self.close()
+        return False
 
     def close(self) -> None:
         """釋放所有快取中的 RAG 實例資源。"""

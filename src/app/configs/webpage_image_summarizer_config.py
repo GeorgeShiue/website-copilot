@@ -72,7 +72,7 @@ SECTIONS_TO_KEYS = {
     DEFAULT_LITELLM_CONFIG_SECTION: LITELLM_KWARGS_KEYS,
 }
 VLM_MODEL_TO_API_KEY: dict[str, str] = {
-    "gpt": "OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY",
+    "gpt": "OPENAI_API_KEY",
     "gemini": "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY",
 }
 
@@ -92,7 +92,7 @@ class WebpageImageSummarizerConfig(BaseModuleConfig):
     cache_download_images: bool = False
     cache_image_captions: bool = False
     # ----- summarize config -----
-    model: str = "gemini-3-flash-preview"
+    model: str = "gpt-5.6-luna"
     prompt: str = DEFAULT_PROMPT
     image_source: Literal["images", "markdown"] = "markdown"
     vlm_max_workers: int = 10

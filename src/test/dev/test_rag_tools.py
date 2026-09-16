@@ -12,6 +12,9 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
@@ -68,21 +71,28 @@ def _make_mock_rag(site_id: str = "test") -> MagicMock:
 def _make_registry(
     existing_sites: list[str] | None = None,
     max_cached: int = 5,
-) -> tuple[RAGRegistry, MagicMock]:
-    """建立帶有 mock DataManager 的 RAGRegistry。
+) -> RAGRegistry:
+    """建立使用臨時目錄的 RAGRegistry。
+
+    在臨時資料夾中建立 data/webpages/<site_id> 目錄結構，
+    讓 _list_sites() 與 _site_exists() 能正確運作。
 
     Returns:
-        (registry, mock_data_manager)
+        registry: 已就緒的 RAGRegistry 實例。
     """
-    dm = MagicMock()
-    dm.list_sites.return_value = existing_sites or []
-    dm.site_exists = MagicMock(side_effect=lambda sid: sid in (existing_sites or []))
+    tmp_dir = tempfile.mkdtemp()
+    webpages_dir = os.path.join(tmp_dir, "data", "webpages")
+    os.makedirs(webpages_dir, exist_ok=True)
+    for site_id in existing_sites or []:
+        os.makedirs(os.path.join(webpages_dir, site_id))
     registry = RAGRegistry(
-        data_manager=dm,
-        default_config_name="default",
+        base_folder=os.path.join(tmp_dir, "data"),
+        config_name="default",
         max_cached=max_cached,
     )
-    return registry, dm
+    # Attach tmp_dir for potential cleanup (not strictly needed for tests)
+    registry._test_tmp_dir = tmp_dir  # type: ignore[attr-defined]
+    return registry
 
 
 # ===========================================================================
@@ -93,17 +103,30 @@ def _make_registry(
 
 
 class TestListSites:
-    """RAGRegistry.list_sites() 委派 DataManager。"""
+    """RAGRegistry.list_sites() 掃描目錄。"""
 
-    def test_delegates_to_data_manager(self) -> None:
-        registry, dm = _make_registry(existing_sites=["nculab", "ncucsie"])
+    def test_list_sites_scans_webpages_directory(self) -> None:
+        registry = _make_registry(existing_sites=["nculab", "ncucsie"])
         result = registry.list_sites()
-        assert result == ["nculab", "ncucsie"]
-        dm.list_sites.assert_called_once()
+        assert result == ["ncucsie", "nculab"]
 
     def test_empty_when_no_sites(self) -> None:
-        registry, _ = _make_registry(existing_sites=[])
+        registry = _make_registry(existing_sites=[])
         assert registry.list_sites() == []
+
+    def test_list_sites_returns_empty_when_webpages_dir_missing(self) -> None:
+        """webpages/ 子目錄不存在時 list_sites() 回傳 []。"""
+        import tempfile
+
+        tmp_dir = tempfile.mkdtemp()
+        # Create data/ but NOT data/webpages/
+        os.makedirs(os.path.join(tmp_dir, "data"), exist_ok=True)
+        registry = RAGRegistry(
+            base_folder=os.path.join(tmp_dir, "data"),
+            config_name="default",
+        )
+        assert registry.list_sites() == []
+        shutil.rmtree(tmp_dir)
 
 
 # ---------- get: site not found ----------
@@ -113,12 +136,12 @@ class TestGetSiteNotFound:
     """RAGRegistry.get() 在 site 不存在時拋出 ValueError。"""
 
     def test_raises_value_error(self) -> None:
-        registry, _ = _make_registry(existing_sites=["nculab"])
+        registry = _make_registry(existing_sites=["nculab"])
         with pytest.raises(ValueError, match="ncucsie.*不存在"):
             registry.get("ncucsie")
 
     def test_error_message_lists_available_sites(self) -> None:
-        registry, _ = _make_registry(existing_sites=["alpha", "beta"])
+        registry = _make_registry(existing_sites=["alpha", "beta"])
         with pytest.raises(ValueError) as exc_info:
             registry.get("gamma")
         msg = str(exc_info.value)
@@ -126,7 +149,7 @@ class TestGetSiteNotFound:
         assert "beta" in msg
 
     def test_error_message_when_no_sites_available(self) -> None:
-        registry, _ = _make_registry(existing_sites=[])
+        registry = _make_registry(existing_sites=[])
         with pytest.raises(ValueError, match="（無）"):
             registry.get("any_site")
 
@@ -146,7 +169,7 @@ class TestGetCacheMiss:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["nculab"])
+        registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
         fake_config.webpages_data_folder_path = "data/webpages/nculab"
@@ -175,7 +198,7 @@ class TestGetCacheMiss:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["nculab"])
+        registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
         fake_config.webpages_data_folder_path = "data/webpages/nculab"
@@ -203,7 +226,7 @@ class TestGetCacheHit:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["nculab"])
+        registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
         fake_config.webpages_data_folder_path = "data/webpages/nculab"
@@ -228,7 +251,7 @@ class TestGetCacheHit:
         mock_builder_cls: MagicMock,
     ) -> None:
         """cache hit 時 move_to_end 更新 LRU 順序。"""
-        registry, _ = _make_registry(existing_sites=["a", "b", "c"], max_cached=3)
+        registry = _make_registry(existing_sites=["a", "b", "c"], max_cached=3)
         fake_config = MagicMock()
         fake_config.webpages_data_folder_path = "data/webpages/x"
         mock_config_cls.from_toml.return_value = fake_config
@@ -269,7 +292,7 @@ class TestLRUEviction:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["a", "b", "c"], max_cached=2)
+        registry = _make_registry(existing_sites=["a", "b", "c"], max_cached=2)
 
         def config_side_effect(config_name: str, **overrides: Any) -> MagicMock:
             site = overrides.get("site_id", "x")
@@ -307,7 +330,7 @@ class TestLRUEviction:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["a", "b"], max_cached=5)
+        registry = _make_registry(existing_sites=["a", "b"], max_cached=5)
         fake_config = MagicMock()
         fake_config.webpages_data_folder_path = "data/webpages/x"
         mock_config_cls.from_toml.return_value = fake_config
@@ -346,7 +369,7 @@ class TestClose:
         mock_rag_cls: MagicMock,
         mock_builder_cls: MagicMock,
     ) -> None:
-        registry, _ = _make_registry(existing_sites=["a", "b"])
+        registry = _make_registry(existing_sites=["a", "b"])
 
         def config_side_effect(config_name: str, **overrides: Any) -> MagicMock:
             site = overrides.get("site_id", "x")
@@ -377,7 +400,7 @@ class TestClose:
 
     def test_close_on_empty_cache(self) -> None:
         """空快取呼叫 close 不報錯。"""
-        registry, _ = _make_registry()
+        registry = _make_registry()
         registry.close()
         assert len(registry._cache) == 0
 
@@ -431,28 +454,6 @@ class TestShouldRebuildMilvus:
         builder = _make_builder("milvus")
         with patch("os.path.exists", return_value=False):
             assert builder._should_rebuild(force_rebuild=True) is True
-
-
-class TestShouldRebuildUnified:
-    """_should_rebuild 邏輯的一致性驗證。"""
-
-    def test_force_rebuild_always_true(self) -> None:
-        """force_rebuild=True 時回傳 True。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=True) is True
-
-    def test_existing_db_returns_false(self) -> None:
-        """store 路徑已存在 + force_rebuild=False → 回傳 False。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=False) is False
-
-    def test_missing_db_returns_true(self) -> None:
-        """store 路徑不存在 → 回傳 True。"""
-        builder = _make_builder("milvus")
-        with patch("os.path.exists", return_value=False):
-            assert builder._should_rebuild(force_rebuild=False) is True
 
 
 # ===========================================================================

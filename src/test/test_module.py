@@ -1,9 +1,11 @@
+import asyncio
+
 import pytest
 
 from app.workflow.workflow import (
-    run_agent,
+    run_agent_query,
+    run_app,
     run_rag_build,
-    run_server,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
@@ -26,12 +28,26 @@ def test_webpage_image_summarizer():
 
 
 def test_rag():
-    run_rag_build(config_name="test", save_vector_store_to_runs=True)
+    run_rag_build(
+        config_name="test", force_rebuild=True, save_vector_store_to_runs=True
+    )
 
 
 def test_agent():
-    run_agent(query="實驗室的成員有哪些人？", config_name="test")
+    run_agent_query(config_name="test", query="實驗室的成員有哪些人？")
 
 
 def test_server():
-    run_server(host="127.0.0.1", port=SERVER_PORT, config_name="test")
+    """config_name='test' 時，啟動後自動關閉。"""
+    server, chat_app = run_app(config_name="test", host="0.0.0.0", port=SERVER_PORT)
+
+    async def _run_and_stop():
+        serve_task = asyncio.create_task(server.serve())
+        await asyncio.sleep(2)  # 給伺服器啟動時間
+        server.should_exit = True  # 觸發優雅關閉
+        await serve_task
+
+    try:
+        asyncio.run(_run_and_stop())
+    finally:
+        chat_app.close()

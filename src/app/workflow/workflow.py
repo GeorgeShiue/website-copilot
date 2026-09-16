@@ -1,9 +1,8 @@
 import asyncio
-import os
 import time
 import uuid
-from pathlib import Path
-from typing import Literal
+
+import uvicorn
 
 from app.agent.agent import create_agent
 from app.configs.agent_config import AgentConfig
@@ -12,74 +11,75 @@ from app.configs.rag_config import (
 )
 from app.configs.webpage_image_summarizer_config import WebpageImageSummarizerConfig
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
-from app.engines.rag import RAG, RAGBuilder
+from app.configs.workflow_config import (
+    AgentRunConfig,
+    RAGBuildRunConfig,
+    RAGQueryRunConfig,
+    ServerRunConfig,
+    WebpageImageSummarizerRunConfig,
+    WebsiteCrawlerRunConfig,
+)
+from app.engines.rag import RAGBuilder
+from app.engines.rag.rag_factory import create_rag
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.website_crawler import WebsiteCrawler
+from app.server.app import ChatApp
 from app.workflow.data_manager import DataManager
-from app.workflow.run_manager import RunManager
 from app.workflow.run_persistence import (
     load_latest_results,
     save_query_results_as_md,
     save_results_as_md,
 )
-from utils.config_helper import log_config, save_module_config_as_toml
+from app.workflow.workflow_helper import (
+    create_run_context,
+    create_run_no_site_context,
+    run_workflow_context,
+)
+from utils.config_helper import (
+    log_config,
+    save_module_config_as_toml,
+    save_run_config_as_toml,
+)
 from utils.log_helper import (
-    log_run_time,
     log_session,
     print_log,
-    save_logging_file,
 )
 from utils.rag_helper import response_to_dict
-from utils.server_helper import (
-    DEFAULT_FOLLOW_UP,
-    DEFAULT_QUERY,
-    shutdown_server,
-    spawn_server,
-    validate_server,
-    wait_ready,
-)
 
 
 def run_website_crawler(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     data_manager: DataManager | None = None,
+    run_config: WebsiteCrawlerRunConfig | None = None,
     **config_overrides,
-) -> tuple[dict[str, dict] | None, RunManager]:
+) -> dict[str, dict] | None:
     """執行網站爬蟲工作流程。
 
     Args:
         config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
+        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
 
     Returns:
-        (爬取結果 dict | None, RunManager)。
+        爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    website_crawler = WebsiteCrawler()
     config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
-    run_name = config.config_name if run_name_use_config_name else config.run_name
-    run_manager = RunManager.for_run(
+    run_manager, run_title = create_run_context(
         module="website_crawler",
-        site_id=config.site_id,
-        run_name=run_name,
+        config_name=config_name,
+        config=config,
+        run_name_use_config_name=run_name_use_config_name,
     )
 
     crawl_results = None
-    with (
-        save_logging_file(run_manager.log_path),
-        log_run_time("Website Crawling"),
-    ):
-        # ----- 輸出開始訊息 -----
-        log_session(f"Website Crawler ({config_name})", style="purple")
-        log_config("WebsiteCrawler Config Loaded from toml", config)
-        log_session("Run Paths", style="cyan")
-        run_manager.log_run_paths("init")
-
+    with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
-        website_crawler.override_init_config(
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        website_crawler = WebsiteCrawler(
             max_depth=config.max_depth,
             max_pages=config.max_pages,
             content_threshold=config.content_threshold,
@@ -99,27 +99,38 @@ def run_website_crawler(
 
         if crawl_results is None:
             log_session("Website Crawling Failed", style="red")
-            return None, run_manager
+            return None
 
-        # ----- 儲存設定和結果 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        # ---- 儲存結果 -----
         run_manager.save_results_as_json(crawl_results)
         save_results_as_md(
             crawl_results, run_manager.results_folder_path, "fit_markdown"
         )
 
-        if data_manager:
+        if data_manager is not None:
             data_manager.publish_crawl_results(
                 site_id=config.site_id,
                 results=crawl_results,
                 results_json_path=run_manager.results_json_path,
                 results_folder_path=run_manager.results_folder_path,
             )
+            data_manager.publish_run_metadata(
+                site_id=run_manager.site_id,
+                category="webpages",
+                module_config_path=run_manager.module_config_toml_path,
+                run_config_path=run_manager.run_config_toml_path,
+                log_path=run_manager.log_path,
+            )
+
+        # ----- 儲存設定 -----
+        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        if run_config is not None:
+            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
         # ----- 輸出完成訊息 -----
         log_session("Website Crawling Completed", style="cyan")
 
-    return crawl_results, run_manager
+    return crawl_results
 
 
 def run_webpage_image_summarizer(
@@ -127,8 +138,9 @@ def run_webpage_image_summarizer(
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
     data_manager: DataManager | None = None,
+    run_config: WebpageImageSummarizerRunConfig | None = None,
     **config_overrides,
-) -> tuple[dict[str, dict] | None, RunManager]:
+) -> dict[str, dict] | None:
     """執行網頁圖片摘要工作流程。
 
     Args:
@@ -136,33 +148,25 @@ def run_webpage_image_summarizer(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
         data_manager: DataManager 實例（可選，用於發布結果到 data/）。
+        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: WebpageImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
-        (增強後的爬取結果 dict | None, RunManager)。
+        增強後的爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    webpage_image_summarizer = WebpageImageSummarizer()
     config = WebpageImageSummarizerConfig.from_toml(config_name, **config_overrides)
-    run_name = config.config_name if run_name_use_config_name else config.run_name
-    run_manager = RunManager.for_run(
+    run_manager, run_title = create_run_context(
         module="webpage_image_summarizer",
-        site_id=config.site_id,
-        run_name=run_name,
+        config_name=config_name,
+        config=config,
+        run_name_use_config_name=run_name_use_config_name,
     )
 
-    with (
-        save_logging_file(run_manager.log_path),
-        log_run_time("Image Summarization"),
-    ):
-        # ----- 輸出開始訊息 -----
-        log_session(f"Webpage Image Summarizer ({config_name})", style="purple")
-        log_config("WebpageImageSummarizer Config Loaded from toml", config)
-        log_session("Run Paths", style="cyan")
-        run_manager.log_run_paths("init")
-
+    with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
-        webpage_image_summarizer.override_init_config(
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        webpage_image_summarizer = WebpageImageSummarizer(
             download_timeout=config.download_timeout,
             success_threshold=config.success_threshold,
             max_retries=config.max_retries,
@@ -190,131 +194,78 @@ def run_webpage_image_summarizer(
 
         if enhanced_results is None:
             log_session("Image Summarization Failed", style="red")
-            return None, run_manager
+            return None
 
-        # ----- 儲存設定和結果 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        # ---- 儲存結果 -----
         run_manager.save_results_as_json(enhanced_results)
         save_results_as_md(
             enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
         )
-
-        if data_manager:
+        if data_manager is not None:
             data_manager.publish_markdown(
                 site_id=config.site_id,
                 enhanced_results=enhanced_results,
                 results_folder_path=run_manager.results_folder_path,
             )
+            data_manager.publish_run_metadata(
+                site_id=run_manager.site_id,
+                category="webpages",
+                module_config_path=run_manager.module_config_toml_path,
+                run_config_path=run_manager.run_config_toml_path,
+                log_path=run_manager.log_path,
+            )
+
+        # ----- 儲存設定 -----
+        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        if run_config is not None:
+            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
         # ----- 輸出完成訊息 -----
         log_session("Image Summarization Completed", style="cyan")
 
-    return enhanced_results, run_manager
+    return enhanced_results
 
 
 def run_rag_build(
     config_name: str = "default",
-    run_name_use_config_name: bool = False,
+    force_rebuild: bool = False,
     webpages_data_use_latest_results: bool = False,
     save_vector_store_to_runs: bool = False,
+    run_name_use_config_name: bool = False,
     data_manager: DataManager | None = None,
+    run_config: RAGBuildRunConfig | None = None,
     **config_overrides,
-) -> RunManager:
-    """執行 RAG 建構工作流程。
-
-    Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
-        run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
-        save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
-        data_manager: DataManager 實例（可選，用於發布結果到 data/）。
-        **config_overrides: RAGConfig 覆寫值（含 site_id）。
-
-    Returns:
-        RunManager。
-    """
-    # ----- 初始化設定和路徑 -----
+) -> None:
+    """建構 RAG 並落盤結果。完整包含建立 rag 流程。"""
     config = RAGConfig.from_toml(config_name, **config_overrides)
-    run_name = config.config_name if run_name_use_config_name else config.run_name
-    run_manager = RunManager.for_run(
+    run_manager, run_title = create_run_context(
         module="rag_build",
-        site_id=config.site_id,
-        run_name=run_name,
+        config_name=config_name,
+        config=config,
+        run_name_use_config_name=run_name_use_config_name,
     )
-    run_title = f"RAG Build ({config_name})"
 
-    # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
-    if webpages_data_use_latest_results:
-        if data_manager is None:
-            raise ValueError(
-                "data_manager is required when webpages_data_use_latest_results=True"
-            )
-        log_session("Finding Latest Webpages Data", style="cyan")
-        webpages_data_folder_path = data_manager.get_webpages_path(config.site_id)
-        config.webpages_data_folder_path = webpages_data_folder_path
+    with run_workflow_context(run_title, run_manager=run_manager):
+        # ---- 初始化 RAG -----
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        rag = create_rag(
+            config_name=config_name,
+            force_rebuild=force_rebuild,
+            webpages_data_use_latest_results=webpages_data_use_latest_results,
+            save_vector_store_to_runs=save_vector_store_to_runs,
+            data_manager=data_manager,
+            **config_overrides,
+        )
 
-    # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
-    if save_vector_store_to_runs:
-        log_session("Saving Vector Store to Run Results", style="cyan")
-        config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
-
-    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
-
-    with (
-        rag,
-        save_logging_file(run_manager.log_path),
-        log_run_time(run_title),
-    ):
-        # ----- 輸出開始訊息 -----
-        log_session(run_title, style="purple")
-        log_config("RAG Config Loaded from toml", config)
-
-        # ----- 建立 RAG -----
-        log_session("Building RAG", style="cyan")
-        builder = RAGBuilder(config)
-        builder.build(rag)
-
-        # ----- Query & Response -----
-        log_session("Query & Response", style="cyan")
-        rag.query(config.query, log_sources=True)
-
-        # ----- 儲存設定和結果 -----
+        # ---- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
-
-        results_dict = {
-            "config": {
-                "config_name": config.config_name,
-                "run_name": run_manager.run_name,
-                "site_id": config.site_id,
-                "query": config.query,
-                "embedding_name": config.embedding_name,
-                "vector_store_type": config.vector_store_type,
-                "collection_name": config.site_id,
-                "chunk_size": config.chunk_size,
-                "chunk_overlap": config.chunk_overlap,
-            },
-            "summary": {
-                "total_nodes": len(rag.nodes) if rag.nodes else 0,
-                "total_pages": len(rag.results_json) if rag.results_json else 0,
-            },
-            "vector_store": {
-                "uri": config.milvus_uri,
-                "saved_to_runs": save_vector_store_to_runs,
-            },
-        }
-        run_manager.save_results_as_json(results_dict)
-
-        if data_manager:
-            if config.milvus_uri and os.path.exists(config.milvus_uri):
-                data_manager.publish_vector_store(
-                    site_id=config.site_id,
-                    source_path=config.milvus_uri,
-                )
+        if run_config is not None:
+            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Build Completed", style="cyan")
 
-    return run_manager
+    rag.close()
 
 
 def run_rag_query(
@@ -322,8 +273,9 @@ def run_rag_query(
     run_name_use_config_name: bool = False,
     force_rebuild: bool = False,
     query_times: int = 1,
+    run_config: RAGQueryRunConfig | None = None,
     **config_overrides,
-) -> RunManager:
+) -> None:
     """執行 RAG 查詢工作流程。
 
     Args:
@@ -331,147 +283,190 @@ def run_rag_query(
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         force_rebuild: 是否強制重建向量庫。
         query_times: 查詢次數。
+        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: RAGConfig 覆寫值（含 site_id）。
-
-    Returns:
-        RunManager。
     """
     # ----- 初始化設定和路徑 -----
     config = RAGConfig.from_toml(config_name, **config_overrides)
-    run_name = config.config_name if run_name_use_config_name else config.run_name
-    run_manager = RunManager.for_run(
+    run_manager, run_title = create_run_context(
         module="rag_query",
-        site_id=config.site_id,
-        run_name=run_name,
+        config_name=config_name,
+        config=config,
+        run_name_use_config_name=run_name_use_config_name,
     )
-    run_title = f"RAG Query ({config_name})"
 
-    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
-
-    with (
-        rag,
-        save_logging_file(run_manager.log_path),
-        log_run_time(run_title),
-    ):
-        # ----- 輸出開始訊息 -----
-        log_session(run_title, style="purple")
-        log_config("RAG Config Loaded from toml", config)
-
-        # ----- 建立所有資源 -----
-        log_session("Building All Resources", style="cyan")
-        builder = RAGBuilder(config)
-        builder.build_reusable(rag, force_rebuild=force_rebuild)
-        builder.build_evaluators(rag)
-
-        # ----- Query -----
-        query_results: list[dict] = []
-        faithfulness_pass = 0
-        relevancy_pass = 0
-        for i in range(query_times):
-            # ----- 查詢與回應 -----
-            log_session(f"Query & Response {i + 1}", style="cyan")
-            response = rag.query(config.query, log_sources=True)
-
-            # ----- 回應評估 -----
-            # * 可改用 regas 或 deepeval 評估
-            log_session("Evaluation", style="cyan")
-            faithfulness_result, relevancy_result = rag.evaluate(
-                query=config.query, response=response
-            )
-            if faithfulness_result.passing:
-                faithfulness_pass += 1
-            if relevancy_result.passing:
-                relevancy_pass += 1
-
-            query_results.append(
-                response_to_dict(
-                    query=config.query,
-                    response=response,
-                    faithfulness_result=faithfulness_result,
-                    relevancy_result=relevancy_result,
-                    index=i + 1,
-                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
-                )
-            )
-
-        faithfulness_pass_rate = faithfulness_pass / query_times * 100
-        relevancy_pass_rate = relevancy_pass / query_times * 100
-
-        # ----- 輸出評估結果 -----
-        log_session("Evaluation Summary", style="green")
-        print(f"Query times: {query_times}")
-        print(
-            f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_times})"
+    with run_workflow_context(run_title, run_manager=run_manager):
+        # ----- 初始化 RAG 和 評估器 -----
+        log_session("Building RAG and Evaluators", style="cyan")
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        rag = create_rag(
+            config_name=config_name,
+            force_rebuild=force_rebuild,
+            **config_overrides,
         )
-        print(f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})")
 
-        # ----- 儲存設定和結果 -----
-        query_results_dict = {
-            "config": {
-                "config_name": config.config_name,
-                "run_name": run_manager.run_name,
-                "query": config.query,
-                "query_llm_name": config.query_llm_name,
-                "evaluator_llm_name": config.evaluator_llm_name,
-                "vector_store_type": config.vector_store_type,
-                "collection_name": config.site_id,
-                "query_mode": config.query_mode,
-                "similarity_top_k": config.similarity_top_k,
-                "hybrid_top_k": config.hybrid_top_k,
-                "alpha": config.alpha,
-                "cutoff": config.cutoff,
-                "query_times": query_times,
-            },
-            "summary": {
-                "query_times": query_times,
-                "faithfulness_pass_count": faithfulness_pass,
-                "faithfulness_pass_rate": faithfulness_pass_rate,
-                "relevancy_pass_count": relevancy_pass,
-                "relevancy_pass_rate": relevancy_pass_rate,
-            },
-            "results": query_results,
-        }
-        run_manager.save_results_as_json(query_results_dict)
-        save_query_results_as_md(query_results_dict, run_manager.results_folder_path)
+        try:
+            builder = RAGBuilder(config)
+            builder.build_evaluators(rag)
 
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            # ----- Query -----
+            query_results: list[dict] = []
+            faithfulness_pass = 0
+            relevancy_pass = 0
+            for i in range(query_times):
+                # ----- 查詢與回應 -----
+                log_session(f"Query & Response {i + 1}", style="cyan")
+                response = rag.query(config.query, log_sources=True)
+
+                # ----- 回應評估 -----
+                # * 可改用 regas 或 deepeval 評估
+                log_session("Evaluation", style="cyan")
+                faithfulness_result, relevancy_result = rag.evaluate(
+                    query=config.query, response=response
+                )
+                if faithfulness_result.passing:
+                    faithfulness_pass += 1
+                if relevancy_result.passing:
+                    relevancy_pass += 1
+
+                query_results.append(
+                    response_to_dict(
+                        query=config.query,
+                        response=response,
+                        faithfulness_result=faithfulness_result,
+                        relevancy_result=relevancy_result,
+                        index=i + 1,
+                        timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+                    )
+                )
+
+            faithfulness_pass_rate = faithfulness_pass / query_times * 100
+            relevancy_pass_rate = relevancy_pass / query_times * 100
+
+            # ----- 輸出評估結果 -----
+            log_session("Evaluation Summary", style="green")
+            print(f"Query times: {query_times}")
+            print(
+                f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_times})"
+            )
+            print(
+                f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})"
+            )
+
+            # ----- 儲存結果 -----
+            query_results_dict = {
+                "config": {
+                    "config_name": config.config_name,
+                    "run_name": run_manager.run_name,
+                    "query": config.query,
+                    "query_llm_name": config.query_llm_name,
+                    "evaluator_llm_name": config.evaluator_llm_name,
+                    "vector_store_type": config.vector_store_type,
+                    "collection_name": config.site_id,
+                    "query_mode": config.query_mode,
+                    "similarity_top_k": config.similarity_top_k,
+                    "hybrid_top_k": config.hybrid_top_k,
+                    "alpha": config.alpha,
+                    "cutoff": config.cutoff,
+                    "query_times": query_times,
+                },
+                "summary": {
+                    "query_times": query_times,
+                    "faithfulness_pass_count": faithfulness_pass,
+                    "faithfulness_pass_rate": faithfulness_pass_rate,
+                    "relevancy_pass_count": relevancy_pass,
+                    "relevancy_pass_rate": relevancy_pass_rate,
+                },
+                "results": query_results,
+            }
+            run_manager.save_results_as_json(query_results_dict)
+            save_query_results_as_md(
+                query_results_dict, run_manager.results_folder_path
+            )
+
+            # ---- 儲存設定 -----
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+        except Exception as e:
+            log_session("RAG Query Failed", style="red")
+            print_log(f"Error: {e}")
+            rag.close()
+            raise
+        finally:
+            rag.close()
 
         # ----- 輸出完成訊息 -----
         log_session("RAG Query Completed", style="cyan")
 
-    return run_manager
+
+def run_agent_build(
+    config_name: str = "default",
+    run_config: AgentRunConfig | None = None,
+    **config_overrides,
+) -> None:
+    """建構 Agent 並落盤結果。完整包含建立 agent 流程。"""
+    config = AgentConfig.from_toml(config_name, **config_overrides)
+    run_manager, run_title = create_run_no_site_context(
+        module="agent_build",
+        config_name=config_name,
+    )
+
+    with run_workflow_context(run_title, run_manager=run_manager):
+        # ---- 初始化 Agent -----
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        agent = create_agent(config_name, **config_overrides)
+
+        # ---- 儲存設定 -----
+        save_module_config_as_toml(config, run_manager.module_config_toml_path)
+        if run_config is not None:
+            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+
+        # ----- 輸出完成訊息 -----
+        log_session("Agent Build Completed", style="cyan")
+
+    agent.close()
 
 
-def run_agent(
+def run_agent_query(
     query: str,
     config_name: str = "default",
     thread_id: str | None = None,
     stream: bool = False,
-    agent_run_manager: RunManager | None = None,
+    run_config: AgentRunConfig | None = None,
     **config_overrides,
-) -> RunManager:
-    """執行 Agent 問答（CLI 的 agent-cli 分支，亦可被 server 重用）。
+) -> None:
+    """執行 Agent 問答工作流程（建立 run context → 建構 agent → 問答 → 落盤 → 關閉）。
 
-    流程：create_agent 建立 agent → 問答（stream 決定串流/非串流）
-    → 顯示回答與來源 → 落盤 runs/ → 釋放 RAG 資源（agent.close()）。
+    流程：問答 → 顯示回答與來源 → 落盤 runs/ → 寫 run_config.toml → 關閉 agent。
+    agent 的建立與 Tool 生命週期皆在本函式內完成（呼叫端不需持有 agent）。
 
     Args:
-        query: 使用者問題。
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        thread_id: 多輪記憶 session 識別（None 時每次獨立）。
-        stream: True 時逐 token 串流顯示回答。
+        query: 使用者問題。
+        thread_id: session 識別；None 時自動產生 auto-{uuid}。
+        stream: 是否逐 token 串流輸出。
+        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
-        agent_run_manager: 聊天專用 RunManager（base_folder="runs"，None 時自動建立）。
     """
-    agent_config = AgentConfig.from_toml(config_name, **config_overrides)
 
-    agent = create_agent(
-        config=agent_config,
-        run_manager=agent_run_manager,
+    run_manager, run_title = create_run_no_site_context(
+        module="agent",
+        config_name=config_name,
+        base_folder="runs",
     )
-    try:
-        # 問答過程也寫入 log 檔（append 至 agent 建立時開啟的同一個 terminal.log）
-        with save_logging_file(agent.run_manager.log_path):
+
+    with run_workflow_context(run_title, run_manager=run_manager):
+        # ---- 初始化 Agent -----
+        config = AgentConfig.from_toml(config_name, **config_overrides)
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_session("Agent Initialization", style="cyan")
+        agent = create_agent(config_name, **config_overrides)
+
+        # ---- Agent 問答 -----
+        try:
+            log_session("Agent Query and Response", style="cyan")
+            print_log(f"Query: {query}")
             if stream:
                 result = asyncio.run(
                     agent.astream_result(
@@ -483,77 +478,101 @@ def run_agent(
                 print()  # 串流 token 結束後換行
             else:
                 result = agent.ask(query, thread_id)
-            log_session("Agent Response", style="green")
-            print_log(result["response"])
+            print_log(f"Response: {result['response']}")
+
             log_session("Sources", style="cyan")
             for i, url in enumerate(result["sources"], 1):
-                print(f"{i}. {url}")
+                print_log(f"{i}. {url}")
+
+            # ---- 儲存結果 -----
             # 無 thread_id 時自動產生（確保每次執行都有結果檔）
             if thread_id is None:
                 thread_id = f"auto-{uuid.uuid4().hex[:8]}"
-            agent.save_results([result], thread_id=thread_id)
-            log_session("Conversation Saved", style="green")
-            print(f"Results json: {agent.run_manager.results_json_path}")
-    finally:
-        agent.close()
+            run_manager.save_agent_results_as_json(
+                thread_id=thread_id,
+                results=[result],
+                agent_config=agent.config,
+            )
 
-    return agent.run_manager
+            # ---- 儲存設定 -----
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+        except Exception as e:
+            log_session("Agent Query Failed", style="red")
+            print_log(f"Error: {e}")
+            agent.close()
+            raise
+        finally:
+            agent.close()
+
+        # ---- 輸出完成訊息 -----
+        log_session("Agent Query Completed", style="cyan")
 
 
-def run_server(
-    host: str = "127.0.0.1",
-    port: int = 8001,
+def run_app(
     config_name: str = "default",
-    mode: Literal["validate", "block"] = "validate",
-    *,
-    output: Literal["inherit", "devnull"] | Path = "devnull",
+    run_config: ServerRunConfig | None = None,
     allowed_origins: list[str] | None = None,
-    startup_timeout: int = 600,
-    query: str = DEFAULT_QUERY,
-    follow_up: str = DEFAULT_FOLLOW_UP,
-) -> None:
-    """Server 生命週期統一入口。
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    **config_overrides,
+) -> tuple[uvicorn.Server, ChatApp]:
+    """建立 Agent 與 ChatApp（FastAPI app）並回傳 server handle（非阻塞）。
 
-    mode="validate" → 啟動 → health check → SSE 驗證 → 落盤 → 關閉
-    mode="block"    → 啟動 → health check → 等待 Ctrl+C → 關閉
+    呼叫端可透過 server.run() 阻塞，或以 asyncio 啟動後透過 server.should_exit=True 關閉。
+    agent 資源生命週期由 ChatApp 承接：呼叫端持有回傳的 chat_app 並呼叫 chat_app.close()。
 
     Args:
-        host: server 監聽位址。
-        port: server 監聽 port。
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        mode: "validate"（測試）或 "block"（互動/正式）。
-        output: subprocess stdout/stderr 去向。
-        allowed_origins: CORS 允許來源。
-        startup_timeout: 等待 server 就緒的最長秒數。
-        query: validate 模式單輪測試問題。
-        follow_up: validate 模式多輪測試問題。
+        run_config: ServerRunConfig 實例（可選，用於落盤 run config toml）。
+        allowed_origins: CORS 允許來源（None 時全開放）。
+        host: 監聽位址，預設 "127.0.0.1"。
+        port: 監聽連接埠，預設 8000。
+        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
+
+    Returns:
+        (uvicorn.Server, ChatApp)：server 交由呼叫端 run()；chat_app 負責關閉 agent。
     """
-    base_url = f"http://{host}:{port}"
-
-    # allowed_origins: subprocess calls app.run_server() without this param;
-    # it defaults to ["*"] (full CORS). Override via app-level config if needed.
-    log_session(f"Starting Server ({mode})", style="purple")
-    proc = spawn_server(
-        host,
-        port,
-        config_name,
-        output=output,
+    run_manager, run_title = create_run_no_site_context(
+        module="agent",
+        config_name=config_name,
+        base_folder="runs",
     )
-    try:
-        wait_ready(base_url, timeout=startup_timeout)
-        if mode == "validate":
-            validate_server(base_url, query, follow_up)
-        else:  # block
-            log_session("Server Ready", style="green")
-            print_log(f"Server ready at {base_url} , use Ctrl+C to stop.")
-            proc.wait()
 
-    except TimeoutError as exc:
-        print_log(f"[bold red]FAIL: {exc}[/bold red]")
-        raise
-    except KeyboardInterrupt:
-        log_session("Server Shutting Down", style="yellow")
-        print_log("收到終止訊號，關閉 server...")
-    finally:
-        shutdown_server(proc)
-        log_session("Server Stopped", style="red")
+    with run_workflow_context(run_title, run_manager=run_manager):
+        # --- 初始化 Agent -----
+        config = AgentConfig.from_toml(config_name, **config_overrides)
+        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_session("Agent Initialization", style="cyan")
+        agent = create_agent(config_name, **config_overrides)
+
+        # --- 初始化 App & Server -----
+        try:
+            chat_app = ChatApp.create(
+                agent=agent,
+                run_manager=run_manager,
+                allowed_origins=allowed_origins,
+            )
+
+            # --- 啟動 Server -----
+            uvicorn_config = uvicorn.Config(
+                chat_app.app, host=host, port=port, log_level="info"
+            )
+            server = uvicorn.Server(uvicorn_config)
+
+            # ---- 儲存設定 -----
+            # 等待 server config 建立後儲存
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+
+        except Exception as e:
+            log_session("Server Initialization Failed", style="red")
+            print_log(f"Error: {e}")
+            agent.close()
+            raise
+
+        # ---- 輸出完成訊息 -----
+        log_session("Server Ready", style="cyan")
+
+    return server, chat_app

@@ -93,8 +93,8 @@ class RAGConfig(BaseModuleConfig):
     hybrid_top_k: int = 10
     alpha: float = 0.5
     # ----- query engine config -----
-    query_llm_name: str = "gemini-3.1-flash-lite"
-    evaluator_llm_name: str = "gpt-5.4"
+    query_llm_name: str = "gpt-5.6-luna"
+    evaluator_llm_name: str = "gpt-5.6-terra"
     cutoff: float = 0.0
     query: str = "實驗室發表過的論文"
 

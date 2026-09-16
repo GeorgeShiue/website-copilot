@@ -7,7 +7,7 @@ cache_download_images = true
 cache_image_captions = true
 
 [summarize]
-model = "gemini-3.1-flash-lite"
+model = "gpt-5.6-luna"
 vlm_max_workers = 20
 image_source = "markdown"
 prompt = """

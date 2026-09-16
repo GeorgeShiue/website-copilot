@@ -22,7 +22,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 - 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
 - SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
-- 對話落盤 `chats/<ts>/agent/<config>/`（每輪覆寫 `results.json` + 依 thread_id 分檔）。
+- 對話落盤 `runs/<ts>/agent/<config>/results_<thread_id>.json`（讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
 
 ### Phase 3：嵌入式互動介面
 
@@ -54,10 +54,10 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── uv.lock
 ├── src/
 │   ├── cli.py                   # CLI 入口（tyro 整合）
-│   ├── main.py                  # 協調爬蟲與圖片摘要的主流程（tyro MainCLI）
+│   ├── main.py                  # 協調爬蟲、圖片摘要、RAG 與聊天伺服器的主流程
 │   ├── app/
 │   │   ├── agent/
-│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / save_results / close）
+│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / close）
 │   │   ├── configs/
 │   │   │   ├── agent_config.py          # AgentConfig（無 site_id，多站由 RAGRegistry 管理）
 │   │   │   ├── base_config.py           # BaseModuleConfig（無 site_id，子類自行宣告）
@@ -85,36 +85,34 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   └── webpage_retriever.py # 多站路由 retriever → LangChain StructuredTool
 │   │   └── workflow/
 │   │       ├── data_manager.py      # DataManager（publish_* 方法）
-│   │       ├── run_manager.py       # RunManager（四層路徑）
-│   │       ├── run_persistence.py   # 結果持久化
-│   │       └── workflow.py          # 五個 run_* 入口
+│   │       ├── run_manager.py       # RunManager（for_run / for_run_no_site 路徑建立）
+│   │       ├── run_persistence.py   # 結果持久化與發現（無狀態函式）
+│   │       ├── workflow_helper.py   # 共用 run context / logging 生命週期 helper
+│   │       └── workflow.py          # 七個 run_* 入口
 │   ├── test/
 │   │   ├── test_main.py         # 主流程端到端
 │   │   ├── test_module.py       # 模組端到端（slow 標記）
-│   │   ├── test_agent.py        # Agent 純函式測試
-│   │   └── test_server.py       # Server SSE / CORS / static 測試
+│   │   └── dev/                 # 開發期單元／整合測試
 │   └── utils/
 │       ├── config_helper.py
 │       ├── html_date_extractor.py   # HTML 日期擷取（JSON-LD → OG → <time> → Generic → Dublin Core → HTTP Last-Modified）
 │       ├── langchain_helper.py      # LangChain 輔助（create_llm / thread_config / extract_sources）
 │       ├── log_helper.py
 │       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
-│       ├── rag_helper.py
-│       └── server_helper.py         # Server 輔助函式
+│       └── rag_helper.py
 ├── extension/                   # Chrome Extension（M4）
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
 │   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）+ keepalive + thread_id 共享
 │   ├── content.js               # 注入 widget + 偵測 hostname 帶入 page_url
 │   └── widget.js                # 複本（含 typing indicator，與 static/widget.js 同步）
 ├── scripts/
-│   ├── server_up.py             # 一條指令啟動 server（rich/tyro）
-│   ├── m3_server_smoke.py       # Server 端到端 smoke
-│   └── m4b_extension_test.py    # Extension 端到端測試
+│   └── multi_site.py            # 多站流程腳本
 ├── configs/
 │   ├── agent/                   # Agent 設定（default / test）
 │   ├── rag/
 │   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
 │   │   ├── milvus.toml          # Milvus + WeightedRanker
+│   │   ├── nculab.toml / ncucsie.toml  # 多站設定
 │   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
 │   ├── webpage_image_summarizer/
 │   └── website_crawler/
@@ -125,7 +123,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       ├── results/             # 爬蟲與摘要結果
 │       ├── results.json         # 結果索引
 │       └── module_config.toml   # 模組設定備份
-├── chats/                       # 聊天記錄（<ts>/agent/<config>/）
+├── runs/                         # 執行結果與聊天記錄（<ts>/agent/<config>/ 等）
 ├── dev/
 ├── docs/
 │   ├── project.md               # 專案總覽與路線圖
@@ -217,7 +215,7 @@ uv run python src/cli.py rag-query-cli --run.config-name milvus --module.similar
 ### 執行 Agent 問答（CLI）
 
 ```bash
-# 單輪問答（自動檢索 + 附引用來源 + 落盤 chats/）
+# 單輪問答（自動檢索 + 附引用來源 + 落盤 runs/）
 uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？"
 
 # 多輪對話（相同 thread-id 記得上下文）
@@ -231,10 +229,7 @@ uv run python src/cli.py agent-cli --run.query "實驗室的研究方向？" --r
 ### 啟動聊天伺服器（SSE）
 
 ```bash
-# 一條指令：啟動 + 等待就緒（約 40 秒建庫）＋保持運行，Ctrl+C 乾淨關閉
-uv run python scripts/server_up.py --port 8000
-
-# 或直接以 CLI 啟動（背景執行）
+# 直接以 CLI 啟動（背景執行）
 uv run python src/cli.py server-cli --run.port 8000
 
 # 限縮 CORS 來源（預設全開放）
@@ -264,22 +259,16 @@ uv run pytest -m "not slow"
 
 # 完整測試（含端到端 slow 測試）
 uv run pytest
-
-# Server 端到端驗證
-uv run python scripts/m3_server_smoke.py --start-server
-
-# Extension 端到端驗證（無顯示環境自動 xvfb-run）
-uv run python scripts/m4b_extension_test.py
 ```
 
 ## 輸出
 
-每次執行會在 `runs/<timestamp>/<module>/<run_name>/` 下產生以下 artefacts：
+每次執行會在 `runs/<timestamp>/<module>/<site_id>/<run_name>/`（無 site 的模組如 agent 為 `runs/<timestamp>/<module>/<run_name>/`）下產生以下 artefacts：
 
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — run-level 參數（`cli.py` 與 `main.py` 入口會寫出）
+- `run_config.toml` — run-level 參數（透過 `cli.py` 執行時寫出；`main.py` 目前不傳入 `run_config`，故不寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/<site_id>/`：
@@ -287,14 +276,14 @@ uv run python scripts/m4b_extension_test.py
 
 `run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
 
-### 聊天記錄（`chats/`）
+### 聊天記錄（`runs/`）
 
-Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
+Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 
-- `results.json` — 最新一輪問答（含 config 摘要）
-- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史
-- `results/milvus.db` — 每次建構隔離的向量庫副本（避免覆寫正式庫 `data/rag/results/`）
+- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
 - `module_config.toml` / `run_config.toml` / `terminal.log` — 設定備份與日誌
+
+> 註：`run_app`（server 入口）不寫 `module_config.toml`；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
 
 ## 開發
 
@@ -318,6 +307,7 @@ Agent 對話落盤於 `chats/<timestamp>/agent/<config>/`：
 - `docs/code/runs/cli.md` — CLI 使用方式
 - `docs/code/runs/config.md` — 設定機制說明
 - `docs/code/runs/workflow.md` — Workflow 流程說明
+- `docs/work/2026_0914/dev_log.md` — 9/7–9/10 實作紀錄（§七：Agent / RunManager 責任重構，含 CR / QA）
 - `docs/survey/phase1/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態

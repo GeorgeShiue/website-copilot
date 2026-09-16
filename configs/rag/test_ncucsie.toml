@@ -20,6 +20,6 @@ similarity_top_k = 10
 hybrid_top_k = 10
 
 [query_engine]
-query_llm_name = "gemini-3.1-flash-lite"
-evaluator_llm_name = "gpt-5.4"
+query_llm_name = "gpt-5.6-luna"
+evaluator_llm_name = "gpt-5.6-terra"
 query = "實驗室的成員有哪些人？"

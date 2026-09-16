@@ -8,6 +8,7 @@ from typing import Any
 from rich import box
 from rich.table import Table
 
+from app.configs.agent_config import AgentConfig
 from utils.log_helper import print_log
 
 RESULTS_JSON_NAME = "results.json"
@@ -172,6 +173,65 @@ class RunManager:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
+
+    def save_agent_results_as_json(
+        self,
+        thread_id: str,
+        results: list[dict[str, Any]],
+        agent_config: AgentConfig,
+    ) -> None:
+        """將 Agent 對話結果落盤（分檔：results_{thread_id}.json）。
+
+        合併邏輯：讀取既有歷史（含跨 run 目錄搜尋）→ extend 新結果 → 寫回。
+        本方法與 save_results_as_json()（crawler / rag 模組）完全獨立。
+
+        Args:
+            thread_id: session 識別（檔名的一部分，'/' 會置換為 '_'）。
+            results: 本輪新增的對話結果。
+            agent_config: Agent 設定，由此組出檔案的 config 摘要
+                （落盤責任上移後，呼叫端只需傳入 agent 自帶的設定）。
+
+        Returns:
+            None。檔案由 RunManager 內部管理，呼叫端無需持有路徑。
+        """
+        safe_id = thread_id.replace("/", "_")
+        history_filename = f"results_{safe_id}.json"
+        history_path = os.path.join(self.run_path, history_filename)
+
+        existing_results: list[dict[str, Any]] = []
+        if not os.path.isfile(history_path):
+            found = RunManager.find_thread_history_path(
+                self.base_folder,
+                self.module_name,
+                history_filename,
+            )
+            if found:
+                history_path = found
+        if os.path.isfile(history_path):
+            try:
+                with open(history_path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+                # CR S5：合法 JSON 但結構非預期（非 dict／results 非 list）時視為無歷史，
+                # 避免 AttributeError 中斷落盤。
+                if isinstance(existing, dict):
+                    stored = existing.get("results", [])
+                    existing_results = stored if isinstance(stored, list) else []
+            except (json.JSONDecodeError, OSError):
+                existing_results = []
+
+        existing_results.extend(results)
+        # config 摘要欄位與順序為落盤格式的一部分，重構前後須逐欄位等價（R3）
+        config_summary = {
+            "config_name": agent_config.config_name,
+            "run_name": self.run_name,
+            "llm_name": agent_config.llm_name,
+            "system_prompt": agent_config.system_prompt,
+        }
+        results_dict = {
+            "config": config_summary,
+            "results": existing_results,
+        }
+        self.save_results_as_json(results_dict, file_path=history_path)
 
     @staticmethod
     def find_thread_history_path(

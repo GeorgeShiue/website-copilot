@@ -1,21 +1,20 @@
 """Agent 層：以 LangGraph create_agent 包裝 webpage retriever 工具。
 
 M1 提供：
-- Agent：包裝 CompiledStateGraph 與其綁定資源（tool / run_manager / config / checkpointer）
+- Agent：包裝 CompiledStateGraph 與其綁定資源（Tool / config / checkpointer）
   - agent.ask()：單輪/多輪問答（thread_id 區分 session），回傳回答與來源 URL
   - agent.astream_text()：串流 model 節點文字 token（CLI 與 M3 server 共用核心）
   - agent.astream_result()：串流問答並收集完整結果（含來源 URL）
-  - agent.save_results()：將對話結果落盤（含設定摘要）
-- create_agent()：建立 retriever tool → LLM → Agent（LangGraph CompiledStateGraph）
+  - agent.close()：釋放 Tool 管理的資源（RAGRegistry 等）
+- create_agent()：建立 Agent（Tool 資源由 Agent 管理生命週期）
 
-資源生命週期：結束後由呼叫者呼叫 agent.close() 釋放 RAG 資源。
+資源生命週期：Agent 擁有 Tool 實例，close() 時釋放 Tool 內部資源。
+落盤責任不在 Agent：由呼叫端（run_agent_query / run_app / server）自行負責，
+agent 層因此不需知道 workflow 層。
 """
 
-import json
 import logging
-import os
 import time
-from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 
 from langchain.agents import create_agent as langchain_create_agent
@@ -23,49 +22,56 @@ from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.configs.agent_config import AgentConfig
-from app.tools.rag_registry import RAGRegistry
-from app.tools.site_discovery import create_site_discovery_tool
-from app.tools.webpage_retriever import (
-    create_webpage_retriever_tool,
-)
-from app.workflow.data_manager import DataManager
-from app.workflow.run_manager import RunManager
-from utils.config_helper import log_config, save_module_config_as_toml
+from app.tools.tool import Tool
 from utils.langchain_helper import (
     _message_content_to_text,
     create_llm,
     extract_sources_from_messages,
     thread_config,
 )
-from utils.log_helper import log_run_time, log_session, save_logging_file
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class Agent:
     """包裝 LangGraph Agent 與其綁定資源。
 
+    Agent 擁有 Tool 實例，負責其生命週期管理。
+
     Attributes:
         graph: LangGraph CompiledStateGraph（create_agent 回傳）。
-        tools: 綁定的 StructuredTool 列表（含 discover + retriever）。
-        run_manager: 本次執行的 RunManager（供落盤）。
+        tool: Tool 實例（管理 RAGRegistry 等資源）。
+        tools: 綁定的 StructuredTool 列表（向後相容，回傳 tool.tools）。
         config: Agent 設定。
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
-        registry: 多站 RAG 實例管理器（M3）。
     """
 
-    graph: Any
-    tools: list[StructuredTool]
-    run_manager: RunManager
-    config: AgentConfig
-    checkpointer: InMemorySaver = field(default_factory=InMemorySaver)
-    registry: RAGRegistry | None = None
+    def __init__(
+        self,
+        graph: Any,
+        tool: Tool,
+        config: AgentConfig,
+        checkpointer: InMemorySaver | None = None,
+    ) -> None:
+        self.graph = graph
+        self.tool = tool
+        self.config = config
+        self.checkpointer = checkpointer or InMemorySaver()
+
+    @property
+    def tools(self) -> list[StructuredTool]:
+        """向後相容：回傳 Tool 內的 StructuredTool 列表。"""
+        return self.tool.tools
 
     def close(self) -> None:
-        """釋放 RAG 資源（registry.close()）。"""
-        if self.registry is not None:
-            self.registry.close()
+        """釋放 Tool 管理的資源（RAGRegistry 等）。"""
+        self.tool.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def ask(self, query: str, thread_id: str | None = None) -> dict[str, Any]:
         """單輪/多輪問答：回傳回答與來源。
@@ -125,97 +131,33 @@ class Agent:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-    def save_results(
-        self,
-        results: list[dict[str, Any]],
-        thread_id: str | None = None,
-    ) -> None:
-        """將對話結果落盤（含設定摘要）。"""
-        if not thread_id:
-            return
-        run_manager = self.run_manager
-        config = self.config
-        safe_id = thread_id.replace("/", "_")
-        history_filename = f"results_{safe_id}.json"
-        history_path = os.path.join(run_manager.run_path, history_filename)
-        existing_results: list[dict[str, Any]] = []
-        if not os.path.isfile(history_path):
-            found = RunManager.find_thread_history_path(
-                run_manager.base_folder,
-                run_manager.module_name,
-                history_filename,
-            )
-            if found:
-                history_path = found
-        if os.path.isfile(history_path):
-            try:
-                with open(history_path, "r", encoding="utf-8") as f:
-                    existing = json.load(f)
-                    existing_results = existing.get("results", [])
-            except (json.JSONDecodeError, OSError):
-                existing_results = []
-        existing_results.extend(results)
-        results_dict = {
-            "config": {
-                "config_name": config.config_name,
-                "run_name": run_manager.run_name,
-                "llm_name": config.llm_name,
-                "system_prompt": config.system_prompt,
-            },
-            "results": existing_results,
-        }
-        run_manager.save_results_as_json(results_dict, file_path=history_path)
-
 
 def create_agent(
-    config: AgentConfig | None = None,
-    run_manager: RunManager | None = None,
+    config_name: str = "default",
+    **config_overrides,
 ) -> Agent:
-    """建立綁定多站 retriever 工具的 LangGraph Agent。
+    """組裝 Agent（Tool 資源由 Agent 管理生命週期）。
 
-    建立流程：
-    1. 初始化 RunManager（module="agent"）與落盤路徑
-    2. 建立 RAGRegistry（多站 RAG 實例管理）
-    3. 建立 list_knowledge_bases + webpage_retriever 兩個工具
-    4. 以 AgentConfig.llm_name 建立 ChatModel
-    5. create_agent 組裝並包裝為 Agent
+    內部建立 AgentConfig 和 Tool，方便 workflow 層直接呼叫。
+
+    流程：
+    1. 以 AgentConfig.from_toml() 建立設定
+    2. 以 Tool() 建立工具實例
+    3. 以 AgentConfig.llm_name 建立 ChatModel
+    4. 組裝 Agent（LangGraph CompiledStateGraph）
 
     Args:
-        config: Agent 設定（None 時使用預設）。
-        run_manager: 可選的 RunManager（傳 None 時內部自動建立）。
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
+        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
 
     Returns:
-        Agent：包裝 Agent、tools、run_manager、registry 與 config。
-        結束後呼叫 agent.close() 釋放 RAG 資源。
+        Agent：包裝 Tool 與 config。
     """
-    if config is None:
-        config = AgentConfig.from_toml("default")
-
-    if run_manager is None:
-        run_manager = RunManager.for_run_no_site(
-            module="agent",
-            run_name=config.config_name,
-            base_folder="runs",
-        )
-    run_title = f"Agent ({config.config_name})"
-
-    with (
-        save_logging_file(run_manager.log_path),
-        log_run_time(run_title),
-    ):
-        # ----- 建立多站 RAG Registry -----
-        registry = RAGRegistry(DataManager())
-
-        # ----- 建立工具（discover + retriever） -----
-        discovery_tool = create_site_discovery_tool(registry)
-        retriever_tool = create_webpage_retriever_tool(registry)
-
-        # ----- 輸出開始訊息 -----
-        log_session(run_title, style="purple")
-        log_config("Agent Config Loaded from toml", config)
-
-        # ----- 建立 LLM 與 Agent -----
-        log_session("Building Agent", style="cyan")
+    config = AgentConfig.from_toml(config_name, **config_overrides)
+    tool = Tool(config_name)
+    try:
+        if not tool.tools:
+            raise ValueError("create_agent requires at least one tool")
 
         llm = create_llm(config.llm_name)
         logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
@@ -225,29 +167,24 @@ def create_agent(
 
         graph = langchain_create_agent(
             llm,
-            [discovery_tool, retriever_tool],
+            tool.tools,  # langchain_create_agent needs list[StructuredTool]
             system_prompt=config.system_prompt,
             checkpointer=checkpointer,
         )
         logger.info(
-            "Successfully built Agent (llm=%s, tools=[list_knowledge_bases, "
-            "webpage_retriever])",
+            "Successfully built Agent (llm=%s, tools=%s)",
             config.llm_name,
+            [t.name for t in tool.tools],
         )
 
-        # ----- 儲存設定 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        log_session("Run Paths", style="cyan")
-        run_manager.log_run_paths("init")
+        agent = Agent(
+            graph=graph,
+            tool=tool,
+            config=config,
+            checkpointer=checkpointer,
+        )
+    except Exception:
+        tool.close()
+        raise
 
-        # ----- 輸出完成訊息 -----
-        log_session("Agent Ready", style="green")
-
-    return Agent(
-        graph=graph,
-        tools=[discovery_tool, retriever_tool],
-        run_manager=run_manager,
-        config=config,
-        checkpointer=checkpointer,
-        registry=registry,
-    )
+    return agent

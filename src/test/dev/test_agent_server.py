@@ -2,25 +2,28 @@
 
 涵蓋：
 - utils.langchain_helper 純函式：thread_config / extract_sources_from_messages / _message_content_to_text
-- Agent member function：save_results（透過 _FakeAgent 替身驗證）
 - Server 層：SSE 事件流 / error 事件 / health / CORS / static files / resolve_site_id / _enrich_query
+- 落盤委派：_event_stream 呼叫 run_manager.save_agent_results_as_json(agent_config=agent.config)
 
-替身 FakeAgent 只實作 graph.astream / graph.get_state / close / astream_text / save_results，
+替身 FakeAgent 只實作 graph.astream / graph.get_state / astream_text，
 避免測試觸發真實 LLM / RAG 資源與 LLM 呼叫。
+落盤責任已從 Agent 移至呼叫端：ChatApp 以注入的 RunManager 負責寫檔，
+因此替身 RunManager 只記錄呼叫內容，不做任何 I/O。
 """
 
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, cast
-
 from fastapi.testclient import TestClient
 
 from app.agent.agent import Agent
 from app.server.app import (
+    ChatApp,
     _enrich_query_with_site_context,
-    create_app,
     resolve_site_id,
 )
+from app.workflow.run_manager import RunManager
 from utils.langchain_helper import (
     _message_content_to_text,
     extract_sources_from_messages,
@@ -34,7 +37,7 @@ from utils.langchain_helper import (
 
 @dataclass
 class _FakeConfig:
-    """替身 AgentConfig（僅需 save_conversation_results 用到的欄位）。"""
+    """替身 AgentConfig（僅需落盤摘要用到的欄位）。"""
 
     config_name: str = "test"
     llm_name: str = "gemini-3.1-flash-lite"
@@ -43,21 +46,25 @@ class _FakeConfig:
 
 @dataclass
 class _FakeRunManager:
-    """替身 RunManager：記錄 save_results_as_json 的呼叫內容。"""
+    """替身 RunManager：記錄 save_agent_results_as_json 的呼叫內容。"""
 
     run_name: str = "test"
-    run_path: str = ""
-    base_folder: str = "runs"
-    module_name: str = "agent"
-    saved: dict[str, Any] = field(default_factory=dict)
-    saved_to: list[tuple[dict[str, Any], str]] = field(default_factory=list)
+    saved_thread_id: str | None = None
+    saved_results: list[dict[str, Any]] = field(default_factory=list)
+    saved_agent_config: Any = None
+    save_call_count: int = 0
 
-    def save_results_as_json(
-        self, results: dict[str, Any], file_path: str | None = None
-    ) -> None:
-        self.saved = results
-        if file_path is not None:
-            self.saved_to.append((results, file_path))
+    def save_agent_results_as_json(
+        self,
+        thread_id: str,
+        results: list[dict[str, Any]],
+        agent_config: Any,
+    ) -> str | None:
+        self.save_call_count += 1
+        self.saved_thread_id = thread_id
+        self.saved_results = results
+        self.saved_agent_config = agent_config
+        return f"results_{thread_id.replace('/', '_')}.json"
 
 
 @dataclass
@@ -89,7 +96,7 @@ class _FakeGraph:
         inputs: dict[str, Any],
         config: dict[str, Any] | None = None,
         stream_mode: str = "messages",
-    ) -> Any:
+    ) -> AsyncIterator[tuple[_Chunk, dict[str, Any]]]:
         for token in ("你", "好"):
             yield _Chunk(content=token), {"langgraph_node": "model"}
 
@@ -106,25 +113,17 @@ class _FailingGraph(_FakeGraph):
         inputs: dict[str, Any],
         config: dict[str, Any] | None = None,
         stream_mode: str = "messages",
-    ) -> Any:
+    ) -> AsyncIterator[tuple[_Chunk, dict[str, Any]]]:
         raise RuntimeError("boom")
         yield  # unreachable：使函數為 async generator
 
 
 class _FakeAgent:
-    """替身 Agent（僅需 graph / close / run_manager / config / astream_text / save_results）。"""
+    """替身 Agent（僅需 graph / config / astream_text）。"""
 
-    def __init__(
-        self,
-        graph: _FakeGraph | None = None,
-        run_manager: _FakeRunManager | None = None,
-    ) -> None:
+    def __init__(self, graph: _FakeGraph | None = None) -> None:
         self.graph = graph if graph is not None else _FakeGraph()
-        self.run_manager = run_manager if run_manager is not None else _FakeRunManager()
         self.config = _FakeConfig()
-
-    def close(self) -> None:
-        pass
 
     async def astream_text(self, query: str, config: dict[str, Any]) -> Any:
         """替身串流：delegate 至 _FakeGraph.astream。"""
@@ -138,32 +137,16 @@ class _FakeAgent:
                 if text:
                     yield text
 
-    def save_results(
-        self,
-        results: list[dict[str, Any]],
-        thread_id: str | None = None,
-    ) -> None:
-        """替身落盤：直接呼叫 run_manager.save_results_as_json。"""
-        if not thread_id:
-            return
-        safe_id = thread_id.replace("/", "_")
-        self.run_manager.save_results_as_json(
-            {
-                "config": {
-                    "config_name": self.config.config_name,
-                    "run_name": self.run_manager.run_name,
-                    "llm_name": self.config.llm_name,
-                    "system_prompt": self.config.system_prompt,
-                },
-                "results": results,
-            },
-            file_path=f"results_{safe_id}.json",
-        )
 
-
-def _make_client(agent: _FakeAgent) -> TestClient:
-    """建立注入替身 agent 的 TestClient（with 觸發 lifespan）。"""
-    app = create_app(agent=cast(Agent, agent))
+def _make_client(
+    agent: _FakeAgent,
+    run_manager: _FakeRunManager | None = None,
+) -> TestClient:
+    """建立注入替身 agent / run_manager 的 TestClient（with 觸發 lifespan）。"""
+    app = ChatApp.create(
+        agent=cast(Agent, agent),
+        run_manager=cast(RunManager, run_manager or _FakeRunManager()),
+    ).app
     return TestClient(app)
 
 
@@ -258,43 +241,49 @@ def test_message_content_to_text_other_types():
     assert _message_content_to_text(None) == "None"
 
 
-# ---------- save_conversation_results ----------
+# ---------- 落盤委派（server → RunManager） ----------
 
 
-def test_save_conversation_results_builds_dict():
-    """落盤 dict 含 config 摘要與 results 列表。"""
-    agent = _FakeAgent()
-    results = [{"query": "Q", "response": "A", "sources": ["u1"], "timestamp": "t"}]
-    agent.save_results(results, thread_id="test-thread")
+def test_chat_delegates_save_to_run_manager_with_agent_config():
+    """_event_stream 以 agent.config 呼叫 run_manager.save_agent_results_as_json。"""
+    fake = _FakeAgent()
+    run_manager = _FakeRunManager()
 
-    saved = agent.run_manager.saved
-    assert saved["config"]["config_name"] == "test"
-    assert saved["config"]["llm_name"] == "gemini-3.1-flash-lite"
-    assert saved["config"]["system_prompt"] == "prompt"
-    assert saved["config"]["run_name"] == "test"
-    assert saved["results"] == results
+    with _make_client(fake, run_manager) as client:
+        with client.stream("POST", "/api/chat", json={"query": "Q"}) as response:
+            _ = "".join(response.iter_text())
 
-
-def test_save_conversation_results_with_thread_id_splits_file():
-    """提供 thread_id 時寫入 results_<thread_id>.json 累積多輪歷史。"""
-    agent = _FakeAgent()
-    results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
-    agent.save_results(results, thread_id="demo-1")
-
-    assert len(agent.run_manager.saved_to) == 1
-    file_path = agent.run_manager.saved_to[0][1]
-    assert file_path.endswith("results_demo-1.json")
-    assert agent.run_manager.saved["results"] == results
+    assert run_manager.save_call_count == 1
+    assert run_manager.saved_agent_config is fake.config
+    assert run_manager.saved_results[0]["query"] == "Q"
+    assert run_manager.saved_results[0]["response"] == "你好"
+    assert run_manager.saved_results[0]["sources"] == ["https://example.com/page"]
 
 
-def test_save_conversation_results_sanitizes_thread_id():
-    """thread_id 含 / 時置換為 _（檔名安全）。"""
-    agent = _FakeAgent()
-    results = [{"query": "Q", "response": "A", "sources": [], "timestamp": "t"}]
-    agent.save_results(results, thread_id="a/b")
+def test_chat_passes_given_thread_id_to_run_manager():
+    """提供 thread_id 時原樣傳給 run_manager（分檔由 RunManager 負責）。"""
+    run_manager = _FakeRunManager()
 
-    file_path = agent.run_manager.saved_to[0][1]
-    assert file_path.endswith("results_a_b.json")
+    with _make_client(_FakeAgent(), run_manager) as client:
+        with client.stream(
+            "POST", "/api/chat", json={"query": "Q", "thread_id": "demo-1"}
+        ) as response:
+            _ = "".join(response.iter_text())
+
+    assert run_manager.saved_thread_id == "demo-1"
+
+
+def test_chat_thread_id_sanitization_owned_by_run_manager():
+    """Server 不自行淨化 thread_id（含 / 亦原樣傳遞，檔名安全由 RunManager 負責）。"""
+    run_manager = _FakeRunManager()
+
+    with _make_client(_FakeAgent(), run_manager) as client:
+        with client.stream(
+            "POST", "/api/chat", json={"query": "Q", "thread_id": "a/b"}
+        ) as response:
+            _ = "".join(response.iter_text())
+
+    assert run_manager.saved_thread_id == "a/b"
 
 
 # ===========================================================================
@@ -306,7 +295,8 @@ def test_save_conversation_results_sanitizes_thread_id():
 
 def test_chat_sse_streams_tokens_and_done():
     fake = _FakeAgent()
-    with _make_client(fake) as client:
+    run_manager = _FakeRunManager()
+    with _make_client(fake, run_manager) as client:
         with client.stream("POST", "/api/chat", json={"query": "你好"}) as response:
             assert response.status_code == 200
             assert response.headers["content-type"].startswith("text/event-stream")
@@ -321,14 +311,14 @@ def test_chat_sse_streams_tokens_and_done():
     # 引用已由 agent 寫入 response；done 事件不再回傳 sources
     assert "sources" not in done
 
-    # 落盤：save_conversation_results 以單輪結果覆寫（與 CLI 慣例一致），sources 保留
-    saved = fake.run_manager.saved
-    assert saved is not None
-    assert saved["results"][0]["response"] == "你好"
-    assert saved["results"][0]["sources"] == ["https://example.com/page"]
-    # thread_id 分檔：auto-{uuid} 亦寫入 results_<thread_id>.json
-    assert len(fake.run_manager.saved_to) == 1
-    assert fake.run_manager.saved_to[0][1].endswith(".json")
+    # 落盤：以單輪結果寫入（與 CLI 慣例一致），sources 保留
+    assert run_manager.save_call_count == 1
+    assert run_manager.saved_results[0]["response"] == "你好"
+    assert run_manager.saved_results[0]["sources"] == ["https://example.com/page"]
+    # thread_id 分檔：auto-{uuid} 亦傳入 run_manager
+    assert run_manager.saved_thread_id == done["thread_id"]
+    assert run_manager.saved_thread_id is not None
+    assert run_manager.saved_thread_id.startswith("auto-")
 
 
 def test_chat_thread_id_echo():
@@ -401,7 +391,11 @@ def test_cors_preflight():
 
 def _make_client_with_origins(agent: _FakeAgent, origins: list[str]) -> TestClient:
     """建立指定 CORS 來源的 TestClient。"""
-    app = create_app(agent=cast(Agent, agent), allowed_origins=origins)
+    app = ChatApp.create(
+        agent=cast(Agent, agent),
+        run_manager=cast(RunManager, _FakeRunManager()),
+        allowed_origins=origins,
+    ).app
     return TestClient(app)
 
 
