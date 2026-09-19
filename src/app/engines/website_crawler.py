@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 from typing import Any, Pattern
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from crawl4ai import (
     AsyncWebCrawler,
@@ -38,58 +38,6 @@ PAGE_TYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 # Markdown 內的影像 URL 擷取
 MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
-
-
-def resolve_dedup_key(url: str, path_prefix: str) -> str:
-    """從 URL 產生去重鍵：截去 path_prefix 後的相對路徑。"""
-    full_path = urlparse(url).path
-    base = path_prefix.rstrip("/")
-    relative = full_path[len(base) :].strip("/") if base else full_path.strip("/")
-    return relative.replace("/", "_") or "index"
-
-
-def _extract_metadata(
-    url: str,
-    raw_metadata: dict,
-    html: str | None = None,
-    response_headers: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """萃取內容屬性（給 LLM 閱讀 + DB pre-filter 使用）。"""
-    path = urlparse(url).path
-
-    metadata: dict[str, Any] = {
-        "description": raw_metadata.get("description")
-        or raw_metadata.get("og:description"),
-        "page_type": "general",
-    }
-
-    for pattern, label in PAGE_TYPE_PATTERNS:
-        if pattern.search(path):
-            metadata["page_type"] = label
-            break
-
-    if html:
-        date_info = extract_date_from_html(html, response_headers)
-        if date_info["published_date"]:
-            metadata["published_date"] = date_info["published_date"]
-        if date_info["modified_date"]:
-            metadata["modified_date"] = date_info["modified_date"]
-
-    return metadata
-
-
-def _extract_images(fit_markdown: str) -> list[dict[str, str]]:
-    """萃取 Markdown 內的影像 URL。"""
-    image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
-    return [{"url": url} for url in image_urls]
-
-
-def _extract_crawl_info(raw_metadata: dict) -> dict:
-    """萃取爬蟲環境資訊（僅供除錯／調度，不進 LLM）。"""
-    return {
-        "depth": raw_metadata.get("depth"),
-        "parent_url": raw_metadata.get("parent_url"),
-    }
 
 
 class WebsiteCrawler:
@@ -208,7 +156,6 @@ class WebsiteCrawler:
         去重鍵：從 URL path 截去 path_prefix 後的相對路徑。
         """
         filtered_results: dict[str, dict] = {}
-        existed_keys: set[str] = set()
 
         for crawl_result in crawl_results:
             if crawl_result.status_code == 404:
@@ -225,17 +172,16 @@ class WebsiteCrawler:
                 logger.debug("-" * 30)
                 continue
 
+            dedup_key = self._resolve_dedup_key(crawl_result.url, self.path_prefix)
+            if dedup_key in filtered_results:
+                self._crawl_stats["repeat_pages"] += 1
+                logger.debug(f"Webpage {dedup_key} already exists, skipping...")
+                continue
+
             fit_markdown = clean_markdown(
                 crawl_result.markdown.fit_markdown,
                 exclude_words=self.exclude_words,
             )
-            dedup_key = resolve_dedup_key(crawl_result.url, self.path_prefix)
-
-            if dedup_key in existed_keys:
-                self._crawl_stats["repeat_pages"] += 1
-                logger.debug(f"Webpage {dedup_key} already exists, skipping...")
-                continue
-            existed_keys.add(dedup_key)
 
             filtered_results[dedup_key] = {
                 "url": crawl_result.url,
@@ -262,14 +208,14 @@ class WebsiteCrawler:
             enriched_results[page_title] = {
                 "url": url,
                 "fit_markdown": fit_markdown,
-                "images": _extract_images(fit_markdown),
-                "metadata": _extract_metadata(
+                "images": self._extract_images(fit_markdown),
+                "metadata": self._extract_metadata(
                     url,
                     raw_metadata,
                     html=getattr(crawl_result, "html", None),
                     response_headers=getattr(crawl_result, "response_headers", None),
                 ),
-                "crawl_info": _extract_crawl_info(raw_metadata),
+                "crawl_info": self._extract_crawl_info(raw_metadata),
             }
 
             logger.debug(f"Successfully crawled webpage: {page_title}")
@@ -277,6 +223,62 @@ class WebsiteCrawler:
             logger.debug(f"*  Depth: {raw_metadata.get('depth', 0)}")
 
         return enriched_results
+
+    @staticmethod
+    def _resolve_dedup_key(url: str, path_prefix: str) -> str:
+        """從 URL 產生去重鍵：截去 path_prefix 後的相對路徑。
+
+        path 與 path_prefix 皆先做百分比解碼，使 `/news/碩論口試` 與
+        `/news/%E7%A2%A9...` 得到相同的鍵。
+        """
+        full_path = unquote(urlparse(url).path)
+        base = unquote(path_prefix).rstrip("/")
+        relative = full_path[len(base) :].strip("/") if base else full_path.strip("/")
+        return relative.replace("/", "_") or "index"
+
+    @staticmethod
+    def _extract_metadata(
+        url: str,
+        raw_metadata: dict,
+        html: str | None = None,
+        response_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """萃取內容屬性（給 LLM 閱讀 + DB pre-filter 使用）。"""
+        path = urlparse(url).path
+
+        metadata: dict[str, Any] = {
+            "description": raw_metadata.get("description")
+            or raw_metadata.get("og:description"),
+            "page_type": "general",
+        }
+
+        for pattern, label in PAGE_TYPE_PATTERNS:
+            if pattern.search(path):
+                metadata["page_type"] = label
+                break
+
+        if html:
+            date_info = extract_date_from_html(html, response_headers)
+            if date_info["published_date"]:
+                metadata["published_date"] = date_info["published_date"]
+            if date_info["modified_date"]:
+                metadata["modified_date"] = date_info["modified_date"]
+
+        return metadata
+
+    @staticmethod
+    def _extract_images(fit_markdown: str) -> list[dict[str, str]]:
+        """萃取 Markdown 內的影像 URL。"""
+        image_urls = MARKDOWN_IMAGE_PATTERN.findall(fit_markdown)
+        return [{"url": url} for url in image_urls]
+
+    @staticmethod
+    def _extract_crawl_info(raw_metadata: dict) -> dict:
+        """萃取爬蟲環境資訊（僅供除錯／調度，不進 LLM）。"""
+        return {
+            "depth": raw_metadata.get("depth"),
+            "parent_url": raw_metadata.get("parent_url"),
+        }
 
     @staticmethod
     def _new_crawl_stats() -> dict[str, int]:

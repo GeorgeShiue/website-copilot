@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "website-copilot"
 version = "0.1.0"
@@ -44,6 +48,9 @@ dev = [
 # 造成 ImportError（如 _redact_string 缺失），故從依賴圖中排除。
 [tool.uv]
 exclude-dependencies = ["unclecode-litellm"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app", "src/utils"]
 
 [tool.ruff]
 exclude = ["dev/**", ".venv"]
