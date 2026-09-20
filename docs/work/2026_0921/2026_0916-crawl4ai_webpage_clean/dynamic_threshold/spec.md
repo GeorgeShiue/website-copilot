@@ -68,14 +68,14 @@
 2. AB test 僅在 nculab 站點上進行測試，使用現有設定（max_depth=2）爬取所有可达頁面
 3. 評估指標包含自動指標（內容保留率 + 雜訊殘留率）加上 Verifier Agent 自行進行評估
 4. 成功標準：動態模式的內容保留率不低於固定模式，且雜訊殘留率不高於固定模式
-5. AB test 結果應以對比表格 + 圖表呈現，記錄於 `docs/work/2026_0921/crawl4ai_clean/dynamic_threshold/ab_test_report.md`
+5. AB test 結果應以對比表格 + 圖表呈現，記錄於 `docs/work/2026_0921/2026_0916-crawl4ai_webpage_clean/dynamic_threshold/ab_test_report.md`
 6. 需執行回歸測試，確認 `threshold_type="fixed"` 行為不變
 
 ---
 
 ## Spec Complete
 
-- **路徑**: `/home/george/website-copilot/docs/work/2026_0921/crawl4ai_clean/dynamic_threshold/spec.md`
+- **路徑**: `/home/george/website-copilot/docs/work/2026_0921/2026_0916-crawl4ai_webpage_clean/dynamic_threshold/spec.md`
 - **需求數量**: 8 個功能需求
 - **使用者故事數量**: 3 個
 - **澄清輪數**: 2 輪（共 7 個問題）

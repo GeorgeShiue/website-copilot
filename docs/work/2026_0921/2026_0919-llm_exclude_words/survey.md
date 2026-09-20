@@ -6,7 +6,7 @@
 
 `clean_markdown()`（`src/utils/markdown_cleaner.py`）的雜訊移除核心是 `exclude_words` 行級過濾：只要一行**包含**清單中任一詞，整行刪除。清單由人工維護於 `configs/website_crawler/<site>.toml`，每個新站台都要重做。
 
-前一輪 winnow-md 實驗（`../winnow_webpage_clean/claude/survey.md`）結論是：啟發式工具清不掉固定頁面元件文字（`Google Sites`、`焦點新聞`…），對清單型正文還會誤刪，無法取代 `exclude_words`。本次改問：**能否讓 LLM 幫忙產生 `exclude_words`？**
+前一輪 winnow-md 實驗（`../2026_0917-winnow_webpage_clean/claude/survey.md`）結論是：啟發式工具清不掉固定頁面元件文字（`Google Sites`、`焦點新聞`…），對清單型正文還會誤刪，無法取代 `exclude_words`。本次改問：**能否讓 LLM 幫忙產生 `exclude_words`？**
 
 ---
 
@@ -205,7 +205,7 @@ ncucsie（seed 1～4 加輪 4 的隨機 seed 共 5 個資料點）：
 
 ## 參考來源
 
-- 專案內：`src/utils/markdown_cleaner.py`、`src/app/engines/website_crawler.py`、`configs/website_crawler/{nculab,ncucsie}.toml`、`scripts/ab_test_llm_exclude_words.py`、`../winnow_webpage_clean/claude/survey.md`
+- 專案內：`src/utils/markdown_cleaner.py`、`src/app/engines/website_crawler.py`、`configs/website_crawler/{nculab,ncucsie}.toml`、`scripts/ab_test_llm_exclude_words.py`、`../2026_0917-winnow_webpage_clean/claude/survey.md`
 - [Reader-LM: Small Language Models for Cleaning and Converting HTML to Markdown](https://jina.ai/news/reader-lm-small-language-models-for-cleaning-and-converting-html-to-markdown/)
 - [Markdown Generation - Crawl4AI Documentation](https://docs.crawl4ai.com/core/markdown-generation/)
 - [Jina AI vs. Firecrawl for web-LLM extraction](https://blog.apify.com/jina-ai-vs-firecrawl/)

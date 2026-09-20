@@ -1,6 +1,6 @@
 # 2026/09/14 實作紀錄
 
-> 對應規劃文件：`2026_0907-resource_lifecycle_refactor.md`
+> 對應規劃文件：`resource_lifecycle_refactor.md`
 
 ---
 
@@ -101,7 +101,7 @@ run_agent / run_app
 
 ## 二：API 重構 (9/8)
 
-> 本段記錄模組 API 重構的完整執行結果。詳細規劃見 [2026_0908-api_refactor.md](./2026_0908-api_refactor.md)。
+> 本段記錄模組 API 重構的完整執行結果。詳細規劃見 [api_refactor.md](./api_refactor.md)。
 
 ### 1. 概覽
 
@@ -807,4 +807,4 @@ uv run python src/main.py                                 # 完整流程後長�
 2. 建立 R2 / R3 的自動回歸鎖（Medium），是目前最值得投入的測試強化。
 3. 併入下一輪排程處理 S2（原子寫入）、S3（錯誤訊息最小化）兩項既有 tech-debt。
 
-相關現行文件：[modules/agent.md](../../code/phase2_3_mvp/modules/agent.md) · [modules/server.md](../../code/phase2_3_mvp/modules/server.md) · [phase2_3_mvp.md](../../code/phase2_3_mvp/phase2_3_mvp.md) · [runs/workflow.md](../../code/runs/workflow.md) · [runs/cli.md](../../code/runs/cli.md) · [runs/config.md](../../code/runs/config.md)
+相關現行文件：[modules/agent.md](../../../code/phase2_3_mvp/modules/agent.md) · [modules/server.md](../../../code/phase2_3_mvp/modules/server.md) · [phase2_3_mvp.md](../../../code/phase2_3_mvp/phase2_3_mvp.md) · [runs/workflow.md](../../../code/runs/workflow.md) · [runs/cli.md](../../../code/runs/cli.md) · [runs/config.md](../../../code/runs/config.md)

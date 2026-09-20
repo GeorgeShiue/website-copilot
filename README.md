@@ -307,7 +307,7 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 - `docs/code/runs/cli.md` — CLI 使用方式
 - `docs/code/runs/config.md` — 設定機制說明
 - `docs/code/runs/workflow.md` — Workflow 流程說明
-- `docs/work/2026_0914/dev_log.md` — 9/7–9/10 實作紀錄（§七：Agent / RunManager 責任重構，含 CR / QA）
+- `docs/work/2026_0921/2026_0907-workflow_module_refactor/dev_log.md` — 9/7–9/10 實作紀錄（§七：Agent / RunManager 責任重構，含 CR / QA）
 - `docs/survey/phase1/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態
