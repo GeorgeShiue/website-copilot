@@ -35,11 +35,11 @@ PAGES = {
 
 
 def test_guard_words_rules():
-    samples = {"a": "Skip to main\nfoo", "b": "Skip to main\nbar", "c": "zzz"}
+    samples = {"a": "Skip to main\nfoo\nxy", "b": "Skip to main\nbar\nxy", "c": "zzz"}
     kept = WebpageMarkdownCleaner.guard_words(
-        ["Skip to main", "Skip to main", "ab", "foo", 3, "zzz"], samples
+        ["Skip to main", "Skip to main", "xy", "x", "foo", 3, "zzz"], samples
     )
-    assert kept == ["Skip to main"]  # 去重、長度 ≥3、需出現 ≥2 頁、非字串略過
+    assert kept == ["Skip to main", "xy"]  # 去重、長度 ≥2、需出現 ≥2 頁、非字串略過
 
 
 def test_sample_pages_min_and_no_repeat():

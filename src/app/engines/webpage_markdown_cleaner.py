@@ -2,7 +2,7 @@
 
 - 清理：exclude_words 行級過濾 + Regex 預處理 + mdformat 格式化 + 結構修復
 - 產生 exclude_words：對全站原始 fit_markdown 重複 N 次「隨機抽樣 → LLM 提議 →
-  程式端過濾」，取聯集（vote1），詳見 docs/work/2026_0921/llm_exclude_words/survey.md
+  程式端過濾」，取聯集（vote1），詳見 docs/work/2026_0921/2026_0919-llm_exclude_words/survey.md
 """
 
 import json
@@ -34,7 +34,7 @@ IMAGE_FOLLOW_TEXT_PATTERN = re.compile(r"(!\[.*?\]\(.*?\))\s*(?=\S)")
 
 # ── LLM 產生 exclude_words 的常數 ────────────────────────────────────
 
-MIN_WORD_LEN = 3
+MIN_WORD_LEN = 2  # 過短的詞是否誤傷正文，交由全站行覆蓋率驗證判斷
 MIN_SAMPLE_PAGES = 2  # 詞必須逐字出現在至少這麼多個樣本頁
 
 PROMPT = """你會看到同一個網站的數個頁面的 Markdown（由爬蟲產生）。
