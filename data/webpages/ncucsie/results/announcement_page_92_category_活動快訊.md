@@ -1,7 +1,3 @@
-- 下一頁 >
+### 活動快訊
 
-- 下一頁 >
-
-- 最終頁 »
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+[ 102年4月23日、4月25日大二專題說明會 2013-04-23 ](https://www.csie.ncu.edu.tw/announcement/cb85694fc8ed4c6cfa0742e89598ccd4 "102年4月23日、4月25日大二專題說明會") [ 第八屆戰國策創業競賽 2013-04-22 ](https://www.csie.ncu.edu.tw/announcement/71876e77bd9678ad0eed32bd9ff7aa91 "第八屆戰國策創業競賽") [ 5/14 2013經濟部通訊大賽 說明會 2013-04-22 ](https://www.csie.ncu.edu.tw/announcement/b4c99bc44286bf14e480b100c8bd6adf "5/14 2013經濟部通訊大賽 說明會") [ 102.4.24《資工書報討論》謝慧杰 副處長 (台灣積體電路股份有限公司) 2013-04-12 ](https://www.csie.ncu.edu.tw/announcement/5f29ae426c9875271ce14f865c32359e "102.4.24《資工書報討論》謝慧杰 副處長 (台灣積體電路股份有限公司) ") [ 第六屆「上銀智慧機器手」實作競賽 2013-04-12 ](https://www.csie.ncu.edu.tw/announcement/05020ff67228cef0322b3109bdee3a4b "第六屆「上銀智慧機器手」實作競賽") [ 102年度參賽得獎記錄 2013-03-28 ](https://www.csie.ncu.edu.tw/announcement/45403ea396b66aadc09bd3e2d9b3dc1a "102年度參賽得獎記錄")

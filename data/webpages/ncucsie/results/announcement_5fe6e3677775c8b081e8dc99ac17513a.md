@@ -6,25 +6,23 @@
 > # Image-1
 >
 > **圖片摘要：**
-> 2025 NSF HDR 競賽獲獎公告，列出指導教授張嘉惠與學生廖梓逸、簡資烜、張彣謙，標示獲得台灣區第一名。
+> 2025 NSF HDR海報列出張嘉惠教授、三名學生及神經預測競賽台灣區第一名。
 >
 > **主要元素：**
-> 1. 實體: 張嘉惠, 廖梓逸, 簡資烜, 張彣謙, NSF HDR
+> 1. 實體: 張嘉惠, 廖梓逸, 簡資恆, 張彤謙, 神經預測競賽
 > 2. OCR文字:
 > 2025 NSF HDR (Scientific-Mood)
 > 資工系 張嘉惠教授
-> 指導學生 廖梓逸, 簡資烜, 張彣謙
+> 指導學生 廖梓逸, 簡資恆, 張彤謙
 > Hackathon Competition (Neural Forecasting)領域
 > 台灣區第一名
-> 3. 主題標籤: 資訊工程, 駭客松, 神經預測, 學術競賽
+> 3. 主題標籤: NSF HDR, Hackathon Competition, Neural Forecasting, 資訊工程
 >
 > **頁面關聯：**
-> 本圖片為 2025 NSF HDR 競賽獲獎名單，隸屬資工系學術成果，檢索錨點包含張嘉惠教授與 Hackathon Competition。
+> 2025 NSF HDR成果頁面，錨點為張嘉惠與Neural Forecasting
 【恭賀】張嘉惠教授指導實驗室團隊大學部學生簡資烜，以及研究生廖梓逸、張彣謙參加 **2025 NSF HDR (Scientific-Mood)** 在**腦神經預測領域​ (Neural Forecasting)** 榮獲**台灣區第一名** ！
 
 - 競賽官網：<https://indico.cern.ch/event/1610056/overview>
 - 獲獎名單：<https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement>
 
-分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F5fe6e3677775c8b081e8dc99ac17513a "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F5fe6e3677775c8b081e8dc99ac17513a "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F5fe6e3677775c8b081e8dc99ac17513a "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F5fe6e3677775c8b081e8dc99ac17513a; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+[焦點新聞](https://www.csie.ncu.edu.tw/announcement/tags/%E7%84%A6%E9%BB%9E%E6%96%B0%E8%81%9E "焦點新聞")

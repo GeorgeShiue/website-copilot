@@ -6,6 +6,4 @@
 
 ______________________________________________________________________
 
-所有獲獎同學請於 _3/20(五)前_ 至系辦簽名確認撥帳資料。 **張躍騰、韓欣澄、陳霆翰、詹惟勻** 同學請至系辦補填"本人"之撥帳資料(若為銀行帳戶請提供存摺封面影本)，若為郵局帳戶請同時至以下路徑登錄: portal-便捷窗口-服務櫃台(iNCU)-教務專區-學籍/註冊-學籍登錄-Step3:其他非固定基本資料 請確實核對姓名，以利製作獎狀，預計四月底前以電子證書方式發放，屆時請獲獎同學自行查收信箱。 分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fcabb1a39309db9c32b75fc89471877ac "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fcabb1a39309db9c32b75fc89471877ac "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fcabb1a39309db9c32b75fc89471877ac "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fcabb1a39309db9c32b75fc89471877ac; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+所有獲獎同學請於 _3/20(五)前_ 至系辦簽名確認撥帳資料。 **張躍騰、韓欣澄、陳霆翰、詹惟勻** 同學請至系辦補填"本人"之撥帳資料(若為銀行帳戶請提供存摺封面影本)，若為郵局帳戶請同時至以下路徑登錄: portal-便捷窗口-服務櫃台(iNCU)-教務專區-學籍/註冊-學籍登錄-Step3:其他非固定基本資料 請確實核對姓名，以利製作獎狀，預計四月底前以電子證書方式發放，屆時請獲獎同學自行查收信箱。

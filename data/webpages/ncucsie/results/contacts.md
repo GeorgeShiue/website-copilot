@@ -27,5 +27,3 @@
 #### 張紅珍 Hung-Chen Chang
 
 > 職掌：公文收發、庶務處理、館舍環境清潔 分機：35254
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")

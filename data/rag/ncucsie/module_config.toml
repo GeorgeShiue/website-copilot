@@ -1,11 +1,10 @@
 [init]
-webpages_data_folder_path = "data/webpages/ncucsie"
 site_id = "ncucsie"
+webpages_data_folder_path = "data/webpages/ncucsie"
 
 [vector_store]
-qdrant_db_folder_path = "data/rag/ncucsie/qdrant_db"
-vector_store_type = "milvus" # run name
 milvus_uri = "data/rag/ncucsie/milvus.db"
+vector_store_type = "milvus" # run name
 hybrid_ranker = "WeightedRanker"
 
 [vector_store.hybrid_ranker_params]
@@ -22,11 +21,11 @@ embedding_name = "text-embedding-3-small"
 [retriever]
 similarity_top_k = 10
 hybrid_top_k = 10
-query_mode = "hybrid"
 alpha = 0.5
+query_mode = "hybrid"
 
 [query_engine]
 cutoff = 0.0
-query = "實驗室的成員有哪些人？"
-query_llm_name = "gemini-3.1-flash-lite"
-evaluator_llm_name = "gpt-5.4"
+query_llm_name = "gpt-5.6-luna"
+query = "介紹資工系課程"
+evaluator_llm_name = "gpt-5.6-terra"

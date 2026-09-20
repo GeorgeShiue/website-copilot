@@ -2,19 +2,24 @@
 
 Post date: Nov 22, 2015 1:11:00 PM 論文題目：整合多種搜尋結果以提高 POI 搜尋的準確性
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQW2dFxANqxCVgLLuKjUe7LTkoQXCwSRwF-Vh0CMlFbT-O1whAmMxuFuZZxigmXxOdKht30C31HP08ioK9i_K0tFLnnNdwyhGxPF92qeMYlsrUpfWErxvmKmzFqiLmSo7j0l2bePCMtKmoFNmMiQP8Wt4bXn3_qO6-6c_tlwbXi0dcU95DFt6q5To3aG8pKXsCr-1RE2ldfR=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sDTwzKeFUp1nT128asmF8YXrfqzcxCZDTdafMhMedTmFaQx8-gYyfpYGzeVyKsM9zenr8uvKSVtWWaOIOkbvqtQt_sKrHZUSsKwEuV1EJOKGdeTZ7C_Q6LUNf_XsyDYtWK9J_Iu_tN-dhD2wzTvlDVGY-gRZOk_47axirM8HnBQw6G_vyIFFOwJr1AZQvy5jA9uW2Y7x4b=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> TAAI 2015 研討會頒發給 Chung-Ting Cheng、Hsiu-Min Chuang 與 Chia-Hui Chang 的 Merit Paper Award 證書。
+> TAAI 2015 Merit Paper Award 證書，授予三位論文作者，附論文題名與會議簽署資訊。
 >
 > **主要元素：**
-> 1. 實體: TAAI 2015, Merit Paper Award, 證書, 研討會
+> 1. 實體: TAAI 2015會議, 人工智慧, POI搜尋, 國內組獎項, 台南
 > 2. OCR文字:
+> TAAI 2015
+> Tainan, Taiwan
 > The 2015 Conference on Technologies and Applications of Artificial Intelligence
 > (TAAI 2015)
 > Tainan, Taiwan
-> November 20 - November 22, 2015
+> November 20 – November 22, 2015
+> TAAI 2015
+> Tainan 臺南
+> Taiwan 臺灣
 > Merit Paper Award
 > (Domestic Track)
 > Presented to
@@ -31,10 +36,7 @@ Post date: Nov 22, 2015 1:11:00 PM 論文題目：整合多種搜尋結果以提
 > General Co-Chair
 > Mong-Fong Horng
 > Program Chair
-> TAAI 2015
-> Tainan (臺南)
-> Taiwan (臺灣)
-> 3. 主題標籤: 人工智慧, 學術研討會, 獲獎證書, 資訊科學
+> 3. 主題標籤: TAAI 2015, 人工智慧, POI搜尋, 論文獎, 學術會議
 >
 > **頁面關聯：**
-> 本證書由 TAAI 2015 研討會發放，紀錄 Chung-Ting Cheng 等人之獲獎紀錄，檢索錨點為 TAAI 2015 與 Merit Paper Award。
+> TAAI 2015會議獎項頁，人工智慧論文獎，錨點 Chung-Ting Cheng
