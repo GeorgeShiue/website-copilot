@@ -11,6 +11,8 @@ KEEP_TITLE_CONTENT_THRESHOLD = 0.45
 KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_CRAWL_CONFIG_SECTION = "crawl"
+DEFAULT_CLEAN_CONFIG_SECTION = "clean"
+DEFAULT_LLM_MODEL = "gpt-5.6-luna"
 INIT_KEYS = {
     "site_id",
     "max_depth",
@@ -23,12 +25,21 @@ CRAWL_KEYS = {
     "url",
     "url_patterns",
     "allowed_domains",
-    "exclude_words",
     "path_prefix",
+}
+CLEAN_KEYS = {
+    "llm_exclude_words",
+    "llm_model",
+    "sample_ratio",
+    "repeat",
+    "max_prompt_tokens",
+    "seed",
+    "exclude_words",
 }
 SECTIONS_TO_KEYS = {
     DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
     DEFAULT_CRAWL_CONFIG_SECTION: CRAWL_KEYS,
+    DEFAULT_CLEAN_CONFIG_SECTION: CLEAN_KEYS,
 }
 
 
@@ -50,8 +61,15 @@ class WebsiteCrawlerConfig(BaseModuleConfig):
     # ----- crawl config -----
     url_patterns: str | Pattern | list[str | Pattern] | None = None
     allowed_domains: str | list[str] | None = None
-    exclude_words: list[str] | None = None
     path_prefix: str | None = None
+    # ----- clean config -----
+    llm_exclude_words: bool = False
+    llm_model: str = DEFAULT_LLM_MODEL
+    sample_ratio: float = 0.1
+    repeat: int = 5
+    max_prompt_tokens: int = 200_000
+    seed: int | None = None
+    exclude_words: list[str] | None = None
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
@@ -96,7 +114,6 @@ def _validate_config(config: dict[str, Any]) -> None:
     url = config.get("url")
     url_patterns = config.get("url_patterns")
     allowed_domains = config.get("allowed_domains")
-    exclude_words = config.get("exclude_words")
 
     if not isinstance(url, str) or not url.strip():
         raise ConfigValidationError("url 必須是非空字串")
@@ -127,6 +144,41 @@ def _validate_config(config: dict[str, Any]) -> None:
                     "allowed_domains 列表中的每個元素必須是非空字串"
                 )
 
+    path_prefix = config.get("path_prefix")
+    if path_prefix is not None:
+        if not isinstance(path_prefix, str):
+            raise ConfigValidationError("path_prefix 必須是字串")
+        if not path_prefix.startswith("/"):
+            raise ConfigValidationError("path_prefix 必須以 / 開頭")
+
+    # ----- clean config -----
+    exclude_words = config.get("exclude_words")
+    llm_exclude_words = config.get("llm_exclude_words")
+    llm_model = config.get("llm_model")
+    sample_ratio = config.get("sample_ratio")
+    repeat = config.get("repeat")
+    max_prompt_tokens = config.get("max_prompt_tokens")
+    seed = config.get("seed")
+
+    if not isinstance(llm_exclude_words, bool):
+        raise ConfigValidationError("llm_exclude_words 必須是布林值")
+    if not isinstance(llm_model, str) or not llm_model.strip():
+        raise ConfigValidationError("llm_model 必須是非空字串")
+    if isinstance(sample_ratio, bool) or not isinstance(sample_ratio, (int, float)):
+        raise ConfigValidationError("sample_ratio 必須是數字")
+    if not 0 < sample_ratio <= 1:
+        raise ConfigValidationError("sample_ratio 必須大於 0 且不超過 1")
+    if isinstance(repeat, bool) or not isinstance(repeat, int) or repeat < 1:
+        raise ConfigValidationError("repeat 必須是大於等於 1 的整數")
+    if (
+        isinstance(max_prompt_tokens, bool)
+        or not isinstance(max_prompt_tokens, int)
+        or max_prompt_tokens <= 0
+    ):
+        raise ConfigValidationError("max_prompt_tokens 必須是正整數")
+    if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+        raise ConfigValidationError("seed 必須是整數或 None")
+
     if exclude_words is not None:
         if not isinstance(exclude_words, list):
             raise ConfigValidationError("exclude_words 必須是字串列表")
@@ -137,10 +189,3 @@ def _validate_config(config: dict[str, Any]) -> None:
                 raise ConfigValidationError(
                     "exclude_words 列表中的每個元素必須是非空字串"
                 )
-
-    path_prefix = config.get("path_prefix")
-    if path_prefix is not None:
-        if not isinstance(path_prefix, str):
-            raise ConfigValidationError("path_prefix 必須是字串")
-        if not path_prefix.startswith("/"):
-            raise ConfigValidationError("path_prefix 必須以 / 開頭")

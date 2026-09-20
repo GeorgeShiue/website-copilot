@@ -72,6 +72,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
 │   │   │   │   └── rag_eval_prompts.py
 │   │   │   ├── webpage_image_summarizer.py
+│   │   │   ├── webpage_markdown_cleaner.py  # Markdown 清洗 + LLM 產生 exclude_words
 │   │   │   └── website_crawler.py
 │   │   ├── server/
 │   │   │   ├── app.py           # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
@@ -98,7 +99,6 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       ├── html_date_extractor.py   # HTML 日期擷取（JSON-LD → OG → <time> → Generic → Dublin Core → HTTP Last-Modified）
 │       ├── langchain_helper.py      # LangChain 輔助（create_llm / thread_config / extract_sources）
 │       ├── log_helper.py
-│       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
 │       └── rag_helper.py
 ├── extension/                   # Chrome Extension（M4）
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限

@@ -11,6 +11,13 @@ url = "https://sites.google.com/site/nculab/labintro"
 url_patterns = ["*nculab*"]
 allowed_domains = ["sites.google.com"]
 path_prefix = "/site/nculab"
+
+[clean]
+llm_exclude_words = true
+llm_model = "gpt-5.6-luna"
+sample_ratio = 0.1
+repeat = 5
+max_prompt_tokens = 200000
 exclude_words = [
     "Search this site",
     "Embedded Files",

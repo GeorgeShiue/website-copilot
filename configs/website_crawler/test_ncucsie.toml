@@ -11,6 +11,13 @@ url = "https://www.csie.ncu.edu.tw/"
 url_patterns = ["*csie.ncu.edu.tw*"]
 allowed_domains = ["www.csie.ncu.edu.tw"]
 path_prefix = "/"
+
+[clean]
+llm_exclude_words = true
+llm_model = "gpt-5.6-luna"
+sample_ratio = 0.1
+repeat = 5
+max_prompt_tokens = 200000
 exclude_words = [
     # 頁首 logo 圖片
     "![資訊工程學系]",

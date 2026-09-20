@@ -9,6 +9,13 @@ wait_for_images = true
 url = "https://sites.google.com/site/nculab/labintro"
 url_patterns = ["*nculab*"]
 allowed_domains = ["sites.google.com"]
+
+[clean]
+llm_exclude_words = false
+llm_model = "gpt-5.6-luna"
+sample_ratio = 0.1
+repeat = 5
+max_prompt_tokens = 200000
 exclude_words = [
     "Search this site",
     "Embedded Files",
@@ -16,10 +23,4 @@ exclude_words = [
     "Skip to navigation",
     "Google Sites",
     "Report abuse",
-    "搜尋這個協作平台",
-    "嵌入的檔案",
-    "跳到主要內容",
-    "跳到導覽列",
-    "Google 協作平台",
-    "檢舉濫用情形",
 ]

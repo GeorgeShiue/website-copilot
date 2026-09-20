@@ -22,11 +22,13 @@ from app.configs.workflow_config import (
 from app.engines.rag import RAGBuilder
 from app.engines.rag.rag_factory import create_rag
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
+from app.engines.webpage_markdown_cleaner import WebpageMarkdownCleaner
 from app.engines.website_crawler import WebsiteCrawler
 from app.server.app import ChatApp
 from app.workflow.data_manager import DataManager
 from app.workflow.run_persistence import (
     load_latest_results,
+    save_generated_exclude_words,
     save_query_results_as_md,
     save_results_as_md,
 )
@@ -85,6 +87,13 @@ def run_website_crawler(
             content_threshold=config.content_threshold,
             light_mode=config.light_mode,
             wait_for_images=config.wait_for_images,
+            cleaner=WebpageMarkdownCleaner(
+                model=config.llm_model,
+                sample_ratio=config.sample_ratio,
+                repeat=config.repeat,
+                max_prompt_tokens=config.max_prompt_tokens,
+                seed=config.seed,
+            ),
         )
 
         # ---- 執行網站爬蟲 -----
@@ -95,6 +104,7 @@ def run_website_crawler(
             allowed_domains=config.allowed_domains,
             exclude_words=config.exclude_words,
             path_prefix=config.path_prefix,
+            llm_exclude_words=config.llm_exclude_words,
         )
 
         if crawl_results is None:
@@ -102,6 +112,13 @@ def run_website_crawler(
             return None
 
         # ---- 儲存結果 -----
+        if website_crawler.generation_result is not None:
+            save_generated_exclude_words(
+                website_crawler.generation_result,
+                website_crawler.raw_pages,
+                run_manager.run_path,
+            )
+
         run_manager.save_results_as_json(crawl_results)
         save_results_as_md(
             crawl_results, run_manager.results_folder_path, "fit_markdown"
