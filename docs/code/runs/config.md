@@ -48,7 +48,7 @@
 
 - `init`：`max_depth`、`max_pages`、`content_threshold`、`light_mode`、`wait_for_images`（`max_depth` 為 `None` 時不限制深度，驗證為 int 或 None 且不可小於 0；注意 crawl4ai 的 `max_depth=0` 語意為只爬首頁，因此「不限制」必須省略該參數）。
 - `crawl`：`url`、`url_patterns`、`allowed_domains`、`path_prefix`。
-- `clean`：`exclude_words`（必須為 list 或 None）、`llm_exclude_words`、`llm_model`、`sample_ratio`、`repeat`、`max_prompt_tokens`、`seed`。\*\*
+- `clean`：`llm_model`、`sample_ratio`、`repeat`、`max_prompt_tokens`、`seed`。exclude_words 一律由 LLM 產生並經全站行覆蓋率驗證，不再提供人工清單與開關。\*\*
   \*\*
 
 ### Webpage image summarizer

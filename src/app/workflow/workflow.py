@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 import uuid
 
@@ -102,9 +103,7 @@ def run_website_crawler(
             url=config.url,
             url_patterns=config.url_patterns,
             allowed_domains=config.allowed_domains,
-            exclude_words=config.exclude_words,
             path_prefix=config.path_prefix,
-            llm_exclude_words=config.llm_exclude_words,
         )
 
         if crawl_results is None:
@@ -279,10 +278,25 @@ def run_rag_build(
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
+        # ---- 發布向量庫 -----
+        # 先關閉 RAG 釋放 Milvus Lite，再複製向量庫，避免複製到寫入中的檔案
+        rag.close()
+        if data_manager is not None:
+            if rag.milvus_uri and os.path.exists(rag.milvus_uri):
+                data_manager.publish_vector_store(
+                    site_id=config.site_id,
+                    source_path=rag.milvus_uri,
+                )
+            data_manager.publish_run_metadata(
+                site_id=config.site_id,
+                category="rag",
+                module_config_path=run_manager.module_config_toml_path,
+                run_config_path=run_manager.run_config_toml_path,
+                log_path=run_manager.log_path,
+            )
+
         # ----- 輸出完成訊息 -----
         log_session("RAG Build Completed", style="cyan")
-
-    rag.close()
 
 
 def run_rag_query(

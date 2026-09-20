@@ -25,13 +25,13 @@ from ab_test_llm_exclude_words import (
     hit_lines,
     line_coverage,
     line_set,
+    load_manual_baseline,
     load_raw_pages,
     word_stats,
     write,
 )
 from dotenv import load_dotenv
 
-from app.configs.website_crawler_config import WebsiteCrawlerConfig
 
 POOL_ARMS = ("5x0.1", "1x0.1")
 
@@ -156,7 +156,7 @@ def main() -> None:
     args = parser.parse_args()
 
     load_dotenv()
-    manual = WebsiteCrawlerConfig.from_toml(args.config).exclude_words or []
+    manual = load_manual_baseline(args.config)
     pages = load_raw_pages(args.pages_from)
     pool, pool_keys, total = load_pool(args.config)
     print(f"pool: {len(pool)} distinct calls (from {total} calls), {len(pages)} pages")

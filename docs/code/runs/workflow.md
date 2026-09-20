@@ -142,7 +142,7 @@ Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與�
 
 ```bash
 # 依序執行爬蟲 → 圖片摘要 → RAG 建置，最後啟動 Chat 伺服器（阻塞至中斷）
-python src/main.py
+python src/main.py --run.config-name nculab  # 省略時使用 default
 ```
 
 ```bash

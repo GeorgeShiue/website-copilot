@@ -2,7 +2,7 @@
 
 共用同一份原始 fit_markdown（未經 clean_markdown）：
   A. none    無 exclude_words（只用來算字元減少率，不落盤）
-  B. manual  configs/website_crawler/{config}.toml 的人工清單
+  B. manual  人工基準清單（--manual-toml，預設 docs/work/.../survey/manual_baseline/{config}.toml）
   C. llm     LLM 從樣本頁產生（vote1 聯集），再以行覆蓋率驗證剔除詞
 
 驗證：詞命中的每一行，以「正規化（strip、一般連結去除 URL、圖片保留 URL）後完整相同的行」
@@ -29,7 +29,7 @@ import argparse
 import json
 import os
 import random
-import re
+import tomllib
 from collections import Counter
 from datetime import datetime
 from typing import Any
@@ -38,13 +38,19 @@ from dotenv import load_dotenv
 
 from app.configs.website_crawler_config import WebsiteCrawlerConfig
 from app.engines.webpage_markdown_cleaner import (
+    LOW_COVERAGE,
     ExcludeWordsGenerationError,
     WebpageMarkdownCleaner,
 )
 from app.engines.website_crawler import WebsiteCrawler
 
 DEFAULT_MODEL = "gpt-5.6-luna"
-MAIN_RATIO = 0.1  # 主策略：低覆蓋比例 <= 此值才保留
+MAIN_RATIO = (
+    0.1  # 主策略：低覆蓋比例 <= 此值才保留（同 [clean] max_low_occ_ratio 預設）
+)
+MANUAL_BASELINE_DIR = (
+    "docs/work/2026_0921/2026_0919-llm_exclude_words/survey/manual_baseline"
+)
 HOME_KEY = "index"  # 首頁的 raw 檔名（殘留行來源標註用）
 
 
@@ -92,38 +98,16 @@ def line_set(hits: dict[str, list[str]]) -> set[tuple[str, str]]:
     return {(k, ln) for k, v in hits.items() for ln in v}
 
 
-# 圖片 ![alt](url) 保留 URL（不同圖片即使 alt 相同也視為不同行）；一般連結去除 URL
-LINK_URL_RE = re.compile(r"(!\[[^\]]*\]\(\s*[^\s)]+)|\]\(\s*[^\s)]+")
+# 行覆蓋率與詞統計已移至 WebpageMarkdownCleaner（正式流程共用）
+line_coverage = WebpageMarkdownCleaner.line_coverage
+word_stats = WebpageMarkdownCleaner.word_stats
 
 
-def normalize_line(line: str) -> str:
-    """比對「同一行」用：strip 並移除一般連結的 URL，保留連結文字、title 與圖片 URL。"""
-    return LINK_URL_RE.sub(lambda m: m.group(1) or "](", line.strip())
-
-
-def line_coverage(pages: dict[str, str]) -> dict[str, float]:
-    """正規化後完整相同的行，出現在多少比例的頁面（每頁只算一次）。"""
-    counter: Counter[str] = Counter()
-    for md in pages.values():
-        counter.update({normalize_line(ln) for ln in md.splitlines() if ln.strip()})
-    total = len(pages)
-    return {ln: n / total for ln, n in counter.items()} if total else {}
-
-
-def word_stats(
-    pages: dict[str, str], word: str, coverage: dict[str, float], low: float
-) -> dict[str, Any]:
-    """詞的命中行數，及命中次數中落在低覆蓋行（覆蓋率 < low）的比例。"""
-    covs = [
-        coverage[normalize_line(ln)]
-        for md in pages.values()
-        for ln in md.splitlines()
-        if ln.strip() and word in ln
-    ]
-    return {
-        "hits": len(covs),
-        "low_occ_ratio": sum(c < low for c in covs) / len(covs) if covs else 0.0,
-    }
+def load_manual_baseline(config_name: str, path: str | None = None) -> list[str]:
+    """讀取人工基準清單（含 exclude_words 的 toml）。"""
+    path = path or f"{MANUAL_BASELINE_DIR}/{config_name}.toml"
+    with open(path, "rb") as f:
+        return tomllib.load(f)["exclude_words"]
 
 
 def merge_vote1(runs: list[list[str]]) -> tuple[list[str], Counter[str]]:
@@ -251,6 +235,7 @@ def run_compare(
                 repeat=repeat,
                 max_prompt_tokens=args.max_prompt_tokens,
                 seed=base_seed + t,
+                max_low_occ_ratio=1.0,  # 腳本自行驗證，cleaner 內不剔除
             )
             try:
                 gen = cleaner.generate_exclude_words(pages)
@@ -258,6 +243,8 @@ def run_compare(
                 print(f"      {spec} trial {t}: {e}")
                 trials.append({"error": str(e)})
                 break  # 超限或全部失敗，後續 trial 不會不同
+            if gen is None:
+                raise SystemExit(f"頁數不足 {len(pages)}，無法產生 exclude_words")
             trial: dict[str, Any] = {"gen": gen}
             for label, words in (("raw", gen.words), ("valid", validated(gen.words))):
                 set_c = line_set(hit_lines(pages, words))
@@ -474,6 +461,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--repeat", type=int, default=5)
     parser.add_argument(
+        "--manual-toml",
+        default=None,
+        help=f"人工基準清單（含 exclude_words 的 toml），預設 {MANUAL_BASELINE_DIR}/<config>.toml",
+    )
+    parser.add_argument(
         "--from-run",
         default=None,
         help="離線模式：讀取先前實驗輸出目錄的 raw/ 與 samples.json，不爬取、不呼叫 LLM",
@@ -481,7 +473,7 @@ def main() -> None:
     parser.add_argument(
         "--low-coverage",
         type=float,
-        default=0.05,
+        default=LOW_COVERAGE,
         help="低覆蓋行的界線（行覆蓋率低於此值視為低覆蓋行）",
     )
     parser.add_argument(
@@ -510,7 +502,7 @@ def main() -> None:
 
     load_dotenv()
     config = WebsiteCrawlerConfig.from_toml(args.config)
-    manual = config.exclude_words or []
+    manual = load_manual_baseline(args.config, args.manual_toml)
     out_dir = os.path.join(
         "runs",
         datetime.now().strftime("%Y%m%d_%H%M%S"),
@@ -539,11 +531,14 @@ def main() -> None:
             repeat=args.repeat,
             max_prompt_tokens=args.max_prompt_tokens,
             seed=args.seed,
+            max_low_occ_ratio=1.0,  # 腳本自行驗證，cleaner 內不剔除
         )
         try:
             generation = cleaner.generate_exclude_words(pages)
         except ExcludeWordsGenerationError as e:
             raise SystemExit(str(e))
+        if generation is None:
+            raise SystemExit(f"頁數不足 {len(pages)}，無法產生 exclude_words")
         seed, sample_keys = generation.seed, generation.samples
         runs, raw_runs, usages = generation.runs, generation.raw_runs, generation.usages
     print(f"      {len(pages)} pages, seed={seed}")

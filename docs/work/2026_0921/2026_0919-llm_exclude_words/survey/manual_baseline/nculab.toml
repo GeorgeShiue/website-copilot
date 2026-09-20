@@ -1,0 +1,8 @@
+exclude_words = [
+    "Search this site",
+    "Embedded Files",
+    "Skip to main content",
+    "Skip to navigation",
+    "Google Sites",
+    "Report abuse",
+]

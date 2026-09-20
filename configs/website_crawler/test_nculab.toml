@@ -1,7 +1,7 @@
 [init]
 site_id = "nculab"
 max_depth = 2
-max_pages = 10           # run name
+max_pages = 40           # run name
 content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD
 light_mode = true
 wait_for_images = true
@@ -13,16 +13,7 @@ allowed_domains = ["sites.google.com"]
 path_prefix = "/site/nculab"
 
 [clean]
-llm_exclude_words = true
 llm_model = "gpt-5.6-luna"
 sample_ratio = 0.1
 repeat = 5
 max_prompt_tokens = 200000
-exclude_words = [
-    "Search this site",
-    "Embedded Files",
-    "Skip to main content",
-    "Skip to navigation",
-    "Google Sites",
-    "Report abuse",
-]

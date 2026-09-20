@@ -28,13 +28,11 @@ CRAWL_KEYS = {
     "path_prefix",
 }
 CLEAN_KEYS = {
-    "llm_exclude_words",
     "llm_model",
     "sample_ratio",
     "repeat",
     "max_prompt_tokens",
     "seed",
-    "exclude_words",
 }
 SECTIONS_TO_KEYS = {
     DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
@@ -63,13 +61,11 @@ class WebsiteCrawlerConfig(BaseModuleConfig):
     allowed_domains: str | list[str] | None = None
     path_prefix: str | None = None
     # ----- clean config -----
-    llm_exclude_words: bool = False
     llm_model: str = DEFAULT_LLM_MODEL
     sample_ratio: float = 0.1
     repeat: int = 5
     max_prompt_tokens: int = 200_000
     seed: int | None = None
-    exclude_words: list[str] | None = None
 
     def __post_init__(self) -> None:
         _validate_config(vars(self))
@@ -152,16 +148,12 @@ def _validate_config(config: dict[str, Any]) -> None:
             raise ConfigValidationError("path_prefix 必須以 / 開頭")
 
     # ----- clean config -----
-    exclude_words = config.get("exclude_words")
-    llm_exclude_words = config.get("llm_exclude_words")
     llm_model = config.get("llm_model")
     sample_ratio = config.get("sample_ratio")
     repeat = config.get("repeat")
     max_prompt_tokens = config.get("max_prompt_tokens")
     seed = config.get("seed")
 
-    if not isinstance(llm_exclude_words, bool):
-        raise ConfigValidationError("llm_exclude_words 必須是布林值")
     if not isinstance(llm_model, str) or not llm_model.strip():
         raise ConfigValidationError("llm_model 必須是非空字串")
     if isinstance(sample_ratio, bool) or not isinstance(sample_ratio, (int, float)):
@@ -178,14 +170,3 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise ConfigValidationError("max_prompt_tokens 必須是正整數")
     if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
         raise ConfigValidationError("seed 必須是整數或 None")
-
-    if exclude_words is not None:
-        if not isinstance(exclude_words, list):
-            raise ConfigValidationError("exclude_words 必須是字串列表")
-        if not exclude_words:
-            raise ConfigValidationError("exclude_words 列表不可為空")
-        for word in exclude_words:
-            if not isinstance(word, str) or not word.strip():
-                raise ConfigValidationError(
-                    "exclude_words 列表中的每個元素必須是非空字串"
-                )

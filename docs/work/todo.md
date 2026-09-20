@@ -3,12 +3,10 @@
   - [x] 加強頁面網址去重機制
   - [x] 測試 winnow-md 模組 (失敗)
   - [x] 測試 LLM 方案 (失敗)
-  - [ ] 實作 LLM 方案
-    - [x] 測試 nculab 和 ncucsie
-    - [x] 解決 ncucsie 的殘留雜訊和誤刪正文問題
-    - [ ] 優化最佳方案
-    - [ ] 納入正式流程
+  - [x] 實作 LLM 方案
+  - [ ] 重新走過完整流程 （ncucsie、nculab）
 - [ ] 爬取多個網站 (中央大學主計室、中興大學)
+- [ ] Webpage Markdown Cleaner 獨立成一個模組
 
 ---
 

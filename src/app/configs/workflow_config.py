@@ -50,6 +50,13 @@ class AgentRunConfig:
 
 
 @dataclass
+class MainRunConfig:
+    """完整工作流程（main.py）的執行參數；config_name 同時決定各階段使用的 config。"""
+
+    config_name: str = "default"
+
+
+@dataclass
 class ServerRunConfig:
     config_name: str = "default"
     host: str = "127.0.0.1"

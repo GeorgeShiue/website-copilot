@@ -33,6 +33,7 @@ class RAG:
         self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
         self.results_json: dict[str, Any] = self._load_results_json()
 
+        self.milvus_uri: str | None = None  # 本次建構實際使用的向量庫位置
         self.vector_store: MilvusVectorStore | None = None
         self.index: VectorStoreIndex | None = None
         self.nodes: Sequence[BaseNode] | None = None

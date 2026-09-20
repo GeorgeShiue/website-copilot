@@ -2,7 +2,7 @@
 
 - 清理：exclude_words 行級過濾 + Regex 預處理 + mdformat 格式化 + 結構修復
 - 產生 exclude_words：對全站原始 fit_markdown 重複 N 次「隨機抽樣 → LLM 提議 →
-  程式端過濾」，取聯集（vote1），詳見 docs/work/2026_0921/2026_0919-llm_exclude_words/survey.md
+  程式端過濾」，取聯集（vote1），再以全站行覆蓋率驗證剔除會誤傷正文的詞，詳見 docs/work/2026_0921/2026_0919-llm_exclude_words/survey.md
 """
 
 import json
@@ -35,7 +35,11 @@ IMAGE_FOLLOW_TEXT_PATTERN = re.compile(r"(!\[.*?\]\(.*?\))\s*(?=\S)")
 # ── LLM 產生 exclude_words 的常數 ────────────────────────────────────
 
 MIN_WORD_LEN = 2  # 過短的詞是否誤傷正文，交由全站行覆蓋率驗證判斷
-MIN_SAMPLE_PAGES = 2  # 詞必須逐字出現在至少這麼多個樣本頁
+MIN_SAMPLE_PAGES = 2  # 詞必須逐字出現在至少這麼多個樣本頁；全站頁數不足時跳過產生
+LOW_COVERAGE = 0.05  # 行覆蓋率低於此值的行視為較像正文（survey：單一資料點）
+
+# 圖片 ![alt](url) 保留 URL（不同圖片即使 alt 相同也視為不同行）；一般連結去除 URL
+LINK_URL_RE = re.compile(r"(!\[[^\]]*\]\(\s*[^\s)]+)|\]\(\s*[^\s)]+")
 
 PROMPT = """你會看到同一個網站的數個頁面的 Markdown（由爬蟲產生）。
 請找出「網站模板 / 頁面元件」產生的雜訊文字，這些文字與頁面正文無關，
@@ -65,6 +69,12 @@ class GenerationResult:
     runs: list[list[str]]  # 每次重跑通過程式端保護的詞
     raw_runs: list[list[Any]]  # 每次重跑 LLM 的原始輸出
     usages: list[dict[str, float]] = field(default_factory=list)
+    rejected: dict[str, float] = field(
+        default_factory=dict
+    )  # 被驗證剔除的詞 → 低覆蓋比例
+    stats: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )  # 每詞 hits、low_occ_ratio
 
     @property
     def cost_usd(self) -> float:
@@ -79,6 +89,7 @@ class WebpageMarkdownCleaner:
         repeat: int = 5,
         max_prompt_tokens: int = 200_000,
         seed: int | None = None,
+        max_low_occ_ratio: float = 0.1,
     ) -> None:
         # ===== init args =====
         self.model = model
@@ -86,6 +97,7 @@ class WebpageMarkdownCleaner:
         self.repeat = repeat
         self.max_prompt_tokens = max_prompt_tokens
         self.seed = seed
+        self.max_low_occ_ratio = max_low_occ_ratio
 
     # ── 清理 ─────────────────────────────────────────────────────────
 
@@ -172,12 +184,21 @@ class WebpageMarkdownCleaner:
 
     # ── 產生 exclude_words（vote1）───────────────────────────────────
 
-    def generate_exclude_words(self, pages: dict[str, str]) -> GenerationResult:
-        """對全站原始 fit_markdown 產生 exclude_words（重複 repeat 次，取聯集）。
+    def generate_exclude_words(self, pages: dict[str, str]) -> GenerationResult | None:
+        """對全站原始 fit_markdown 產生 exclude_words（重複 repeat 次，取聯集後驗證）。
 
         單次 LLM 呼叫失敗只略過該次；prompt 超過 max_prompt_tokens 或所有重跑
-        皆失敗則拋出 ExcludeWordsGenerationError。
+        皆失敗則拋出 ExcludeWordsGenerationError。全站頁數少於 MIN_SAMPLE_PAGES
+        時無法通過樣本頁保護，跳過 LLM 並回傳 None。
         """
+        if len(pages) < MIN_SAMPLE_PAGES:
+            logger.warning(
+                "只有 %d 頁（< %d），跳過 LLM 產生 exclude_words",
+                len(pages),
+                MIN_SAMPLE_PAGES,
+            )
+            return None
+
         seed = self.seed if self.seed is not None else random.randrange(2**32)
         rng = random.Random(seed)
 
@@ -209,14 +230,20 @@ class WebpageMarkdownCleaner:
         votes = Counter(w for r in runs for w in r)
         order = {w: i for i, w in enumerate(w for r in runs for w in r)}
         ranked = sorted(votes, key=lambda w: (-votes[w], order[w]))
+        kept, stats = self.validate_words(pages, ranked)
+        rejected = {w: stats[w]["low_occ_ratio"] for w in ranked if w not in kept}
+        if not kept:
+            logger.warning("驗證後沒有可用的 exclude_words，不做行級過濾")
         return GenerationResult(
-            words=ranked,
+            words=kept,
             votes={w: votes[w] for w in ranked},
             seed=seed,
             samples=sample_keys,
             runs=runs,
             raw_runs=raw_runs,
             usages=usages,
+            rejected=rejected,
+            stats=stats,
         )
 
     @staticmethod
@@ -242,6 +269,53 @@ class WebpageMarkdownCleaner:
                 continue
             kept.append(word)
         return kept
+
+    @staticmethod
+    def normalize_line(line: str) -> str:
+        """比對「同一行」用：strip 並移除一般連結的 URL，保留連結文字、title 與圖片 URL。"""
+        return LINK_URL_RE.sub(lambda m: m.group(1) or "](", line.strip())
+
+    @staticmethod
+    def line_coverage(pages: dict[str, str]) -> dict[str, float]:
+        """正規化後完整相同的行，出現在多少比例的頁面（每頁只算一次）。"""
+        normalize = WebpageMarkdownCleaner.normalize_line
+        counter: Counter[str] = Counter()
+        for md in pages.values():
+            counter.update({normalize(ln) for ln in md.splitlines() if ln.strip()})
+        total = len(pages)
+        return {ln: n / total for ln, n in counter.items()} if total else {}
+
+    @staticmethod
+    def word_stats(
+        pages: dict[str, str],
+        word: str,
+        coverage: dict[str, float],
+        low: float = LOW_COVERAGE,
+    ) -> dict[str, Any]:
+        """詞的命中行數，及命中次數中落在低覆蓋行（覆蓋率 < low）的比例。"""
+        normalize = WebpageMarkdownCleaner.normalize_line
+        covs = [
+            coverage[normalize(ln)]
+            for md in pages.values()
+            for ln in md.splitlines()
+            if ln.strip() and word in ln
+        ]
+        return {
+            "hits": len(covs),
+            "low_occ_ratio": sum(c < low for c in covs) / len(covs) if covs else 0.0,
+        }
+
+    def validate_words(
+        self, pages: dict[str, str], words: list[str]
+    ) -> tuple[list[str], dict[str, dict[str, Any]]]:
+        """全站行覆蓋率驗證：低覆蓋比例超過 max_low_occ_ratio 的詞剔除。
+
+        回傳 (保留的詞（維持輸入順序）, 每詞統計)。
+        """
+        coverage = self.line_coverage(pages)
+        stats = {w: self.word_stats(pages, w, coverage) for w in words}
+        kept = [w for w in words if stats[w]["low_occ_ratio"] <= self.max_low_occ_ratio]
+        return kept, stats
 
     @staticmethod
     def count_word_hits(pages: dict[str, str], words: list[str]) -> dict[str, int]:

@@ -32,6 +32,10 @@ def _response(words):
 PAGES = {
     f"p{i}": f"Skip to main content\nbody {i}\nFooter text\nonly{i}" for i in range(10)
 }
+# 30 頁：單頁獨有行的覆蓋率 1/30 < LOW_COVERAGE（少於 20 頁時沒有任何行算低覆蓋）
+PAGES30 = {
+    f"p{i}": f"Skip to main content\nbody {i}\nFooter text\nonly{i}" for i in range(30)
+}
 
 
 def test_guard_words_rules():
@@ -123,17 +127,86 @@ def test_save_generated_exclude_words(tmp_path):
 
     result = GenerationResult(
         words=["Footer text"],
-        votes={"Footer text": 2},
+        votes={"Footer text": 2, "only0": 1},
         seed=1,
         samples=[["p0", "p1"]],
         runs=[["Footer text"]],
         raw_runs=[["Footer text"]],
         usages=[{"prompt_tokens": 1, "completion_tokens": 1, "cost_usd": 0.02}],
+        rejected={"only0": 1.0},
+        stats={"Footer text": {"hits": 10, "low_occ_ratio": 0.0}},
     )
     save_generated_exclude_words(result, PAGES, str(tmp_path))
 
     toml_text = (tmp_path / "generated_exclude_words.toml").read_text(encoding="utf-8")
     assert '"Footer text"' in toml_text
     report = json.loads((tmp_path / "exclude_words_report.json").read_text("utf-8"))
-    assert report["words"] == [{"word": "Footer text", "votes": 2, "hit_lines": 10}]
+    assert report["words"] == [
+        {"word": "Footer text", "votes": 2, "hit_lines": 10, "low_occ_ratio": 0.0}
+    ]
+    assert report["rejected"] == [{"word": "only0", "votes": 1, "low_occ_ratio": 1.0}]
     assert report["total_cost_usd"] == pytest.approx(0.02)
+
+
+def test_line_coverage_and_word_stats():
+    cov = WebpageMarkdownCleaner.line_coverage(PAGES)
+    assert cov["Footer text"] == 1.0
+    assert cov["only3"] == pytest.approx(0.1)
+    stats = WebpageMarkdownCleaner.word_stats(PAGES, "only", cov, low=0.15)
+    assert stats == {"hits": 10, "low_occ_ratio": 1.0}
+    stats = WebpageMarkdownCleaner.word_stats(PAGES, "Footer", cov, low=0.15)
+    assert stats == {"hits": 10, "low_occ_ratio": 0.0}
+
+
+def test_normalize_line_strips_link_url_keeps_image_url():
+    n = WebpageMarkdownCleaner.normalize_line
+    assert n(" [首頁](/a) ") == "[首頁]()" and n("[首頁](/b)") == n("[首頁](/a)")
+    assert n("![x](a.png)") != n("![x](b.png)")
+
+
+def test_validate_words_threshold_boundary():
+    # 30 頁（單頁行覆蓋率 1/30 < LOW_COVERAGE）：導覽詞每頁都有；「正文」只在 p0 出現
+    pages = {f"p{i}": f"nav bar\nbody {i}" for i in range(30)}
+    pages["p0"] += "\n正文 sentence"
+    cleaner = WebpageMarkdownCleaner(max_low_occ_ratio=0.1)
+    kept, stats = cleaner.validate_words(pages, ["nav bar", "正文"])
+    assert kept == ["nav bar"]
+    assert stats["正文"]["low_occ_ratio"] == 1.0
+    # 「body」30 行皆為低覆蓋行（各只在 1 頁）→ 比例 1.0；放寬到 1.0 才保留
+    assert cleaner.validate_words(pages, ["body"])[0] == []
+    assert WebpageMarkdownCleaner(max_low_occ_ratio=1.0).validate_words(
+        pages, ["body"]
+    )[0] == ["body"]
+
+
+def test_generate_rejects_low_coverage_word():
+    responses = [_response(["Footer text", "only"])] * 2
+    cleaner = WebpageMarkdownCleaner(repeat=2, seed=0)
+    with (
+        patch(f"{MOD}.completion", side_effect=responses),
+        patch(f"{MOD}.completion_cost", return_value=0.0),
+        patch(f"{MOD}.token_counter", return_value=100),
+    ):
+        result = cleaner.generate_exclude_words(PAGES30)
+    assert result is not None
+    assert result.words == ["Footer text"]
+    assert result.rejected == {"only": 1.0}
+    assert result.votes["only"] == 2  # votes 仍保留被剔除詞
+
+
+def test_generate_all_rejected_returns_empty_words():
+    cleaner = WebpageMarkdownCleaner(repeat=1, seed=0)
+    with (
+        patch(f"{MOD}.completion", return_value=_response(["only"])),
+        patch(f"{MOD}.completion_cost", return_value=0.0),
+        patch(f"{MOD}.token_counter", return_value=100),
+    ):
+        result = cleaner.generate_exclude_words(PAGES30)
+    assert result is not None and result.words == []
+
+
+def test_generate_skips_llm_when_too_few_pages():
+    cleaner = WebpageMarkdownCleaner(repeat=2)
+    with patch(f"{MOD}.completion") as c:
+        assert cleaner.generate_exclude_words({"a": "Footer text"}) is None
+        c.assert_not_called()

@@ -193,10 +193,10 @@ playwright install
 ### 執行爬取與圖片摘要流程
 
 ```bash
-uv run python src/main.py
+uv run python src/main.py --run.config-name nculab
 ```
 
-這會先執行網站爬蟲，然後將爬取結果傳給圖片摘要器。輸出會寫入 `runs/<timestamp>/...`。
+`--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，最後啟動 Chat 伺服器（阻塞至中斷）。輸出會寫入 `runs/<timestamp>/...`，並發布到 `data/`。
 
 ### 執行 RAG 查詢
 

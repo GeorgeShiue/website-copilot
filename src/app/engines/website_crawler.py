@@ -65,9 +65,7 @@ class WebsiteCrawler:
         self.url: str
         self.url_patterns: str | Pattern | list[str | Pattern] | None = None
         self.allowed_domains: str | list[str] | None = None
-        self.exclude_words: list[str] | None = None
         self.path_prefix: str = "/"
-        self.llm_exclude_words: bool = False
 
         # ===== internal state =====
         self._crawl_stats: dict[str, int] = self._new_crawl_stats()
@@ -79,16 +77,12 @@ class WebsiteCrawler:
         url: str,
         url_patterns: str | Pattern | list[str | Pattern] | None = None,
         allowed_domains: str | list[str] | None = None,
-        exclude_words: list[str] | None = None,
         path_prefix: str | None = None,
-        llm_exclude_words: bool = False,
     ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
         self.url = url
         self.url_patterns = url_patterns
         self.allowed_domains = allowed_domains
-        self.exclude_words = exclude_words
-        self.llm_exclude_words = llm_exclude_words
         self.generation_result = None
         self._crawl_stats = self._new_crawl_stats()
 
@@ -205,23 +199,14 @@ class WebsiteCrawler:
 
         return filtered_results
 
-    def _resolve_exclude_words(self, raw_pages: dict[str, str]) -> list[str] | None:
-        """人工 exclude_words 與（啟用時）LLM 產生的詞取聯集，人工在前、去重。
+    def _clean_results(self, filtered_results: dict[str, dict]) -> dict[str, dict]:
+        """由 LLM 產生 exclude_words 並逐頁清理 fit_markdown。
 
         LLM 步驟失敗會拋出例外，由 _safe_step 讓整個爬取失敗。
         """
-        if not self.llm_exclude_words:
-            return self.exclude_words
-
-        self.generation_result = self.cleaner.generate_exclude_words(raw_pages)
-        return list(
-            dict.fromkeys([*(self.exclude_words or []), *self.generation_result.words])
-        )
-
-    def _clean_results(self, filtered_results: dict[str, dict]) -> dict[str, dict]:
-        """產生（可選）exclude_words 並逐頁清理 fit_markdown。"""
         self.raw_pages = {k: d["fit_markdown"] for k, d in filtered_results.items()}
-        exclude_words = self._resolve_exclude_words(self.raw_pages)
+        self.generation_result = self.cleaner.generate_exclude_words(self.raw_pages)
+        exclude_words = self.generation_result.words if self.generation_result else None
         cleaned = self.cleaner.clean_pages(self.raw_pages, exclude_words)
         for key, fit_markdown in cleaned.items():
             filtered_results[key]["fit_markdown"] = fit_markdown

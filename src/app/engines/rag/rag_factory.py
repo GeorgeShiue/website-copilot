@@ -424,5 +424,6 @@ def create_rag(
     rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
     builder = RAGBuilder(config)
     builder.build_reusable(rag, force_rebuild=force_rebuild)
+    rag.milvus_uri = config.milvus_uri
 
     return rag

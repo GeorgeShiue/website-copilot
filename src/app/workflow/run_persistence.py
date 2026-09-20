@@ -171,8 +171,21 @@ def save_generated_exclude_words(
     report = {
         "seed": result.seed,
         "words": [
-            {"word": w, "votes": result.votes[w], "hit_lines": hits[w]}
+            {
+                "word": w,
+                "votes": result.votes[w],
+                "hit_lines": hits[w],
+                "low_occ_ratio": result.stats[w]["low_occ_ratio"],
+            }
             for w in result.words
+        ],
+        "rejected": [
+            {
+                "word": w,
+                "votes": result.votes[w],
+                "low_occ_ratio": ratio,
+            }
+            for w, ratio in result.rejected.items()
         ],
         "samples": result.samples,
         "runs": result.runs,
@@ -190,9 +203,20 @@ def save_generated_exclude_words(
     table.add_column("Word", style="green")
     table.add_column("Votes", style="white")
     table.add_column("Hit lines", style="white")
+    table.add_column("Low-occ ratio", style="white")
     for w in result.words:
-        table.add_row(w, str(result.votes[w]), str(hits[w]))
+        table.add_row(
+            w,
+            str(result.votes[w]),
+            str(hits[w]),
+            f"{result.stats[w]['low_occ_ratio']:.1%}",
+        )
     print_log(f"Total {len(result.usages)} calls, cost: ${result.cost_usd:.4f}")
+    if result.rejected:
+        rejected_text = ", ".join(
+            f"'{w}' ({ratio:.1%})" for w, ratio in result.rejected.items()
+        )
+        print_log(f"Rejected by coverage validation: {rejected_text}")
     print_log(table)
 
 
