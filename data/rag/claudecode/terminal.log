@@ -1,0 +1,581 @@
+─────────────────────────────────── Rag Build (claudecode) ───────────────────────────────────
+───────────────────────────────────────── Run Paths ──────────────────────────────────────────
+
+  Type                 Directory                                             Status
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base                 runs/20260921_150215                                  created
+  Module               runs/20260921_150215/rag_build                        created
+  Run                  runs/20260921_150215/rag_build/claudecode/vector_s…   created
+  Results folder       runs/20260921_150215/rag_build/claudecode/vector_s…   created
+  Results json         runs/20260921_150215/rag_build/claudecode/vector_s…   wait for saving
+  Module config toml   runs/20260921_150215/rag_build/claudecode/vector_s…   wait for saving
+  Run config toml      runs/20260921_150215/rag_build/claudecode/vector_s…   wait for saving
+  Log file             runs/20260921_150215/rag_build/claudecode/vector_s…   wait for saving
+
+───────────────────────────────── RAGConfig Loaded from toml ─────────────────────────────────
+                          init
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config                    ┃ Value                    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ site_id                   │ claudecode               │
+│ webpages_data_folder_path │ data/webpages/claudecode │
+└───────────────────────────┴──────────────────────────┘
+                      vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config               ┃ Value                         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ hybrid_ranker        │ WeightedRanker                │
+│ hybrid_ranker_params │ {'weights': [1.0, 0.5]}       │
+│ milvus_uri           │ data/rag/claudecode/milvus.db │
+│ vector_store_type    │ milvus                        │
+└──────────────────────┴───────────────────────────────┘
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_overlap       │ 100   │
+│ chunk_size          │ 800   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ alpha            │ 0.5    │
+│ hybrid_top_k     │ 10     │
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+└──────────────────┴────────┘
+                 query_engine
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config             ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ cutoff             │ 0.0                    │
+│ evaluator_llm_name │ gpt-5.6-terra          │
+│ query              │ 如何安裝 Claude Code？ │
+│ query_llm_name     │ gpt-5.6-luna           │
+└────────────────────┴────────────────────────┘
+──────────────────────────────── Finding Latest Webpages Data ────────────────────────────────
+──────────────────────────────────────── Building RAG ────────────────────────────────────────
+
+Loading files:   0%|          | 0/193 [00:00<?, ?it/s]WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+
+Loading files:  87%|########6 | 167/193 [00:00<00:00, 1658.86it/s]WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+WARNING  `llama-index-readers-file` package not found, some file readers will not be available
+         if not provided by the `file_extractor` parameter.
+
+Loading files: 100%|##########| 193/193 [00:00<00:00, 1659.89it/s]
+INFO     Loading 193 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  20%|##        | 1/5 [00:01<00:06,  1.52s/it]
+Applying transformations:  40%|####      | 2/5 [00:01<00:02,  1.31it/s]
+Applying transformations:  60%|######    | 3/5 [00:06<00:05,  2.79s/it]
+Applying transformations:  80%|########  | 4/5 [00:07<00:01,  1.81s/it]
+Applying transformations: 100%|##########| 5/5 [00:07<00:00,  1.38s/it]
+Applying transformations: 100%|##########| 5/5 [00:07<00:00,  1.58s/it]
+INFO     Pipeline produced 6465 nodes
+
+Downloading (incomplete total...): 0.00B [00:00, ?B/s]
+
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]
+Fetching 30 files: 100%|##########| 30/30 [00:00<00:00, 4328.64it/s]
+
+Download complete: : 0.00B [00:00, ?B/s]
+Download complete: : 0.00B [00:00, ?B/s]
+
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]
+Loading weights: 100%|##########| 391/391 [00:00<00:00, 9939.95it/s]
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     Loading faiss with AVX512 support.
+INFO     Could not load library with AVX512 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
+INFO     Loading faiss with AVX2 support.
+INFO     Could not load library with AVX2 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
+INFO     Loading faiss.
+INFO     Successfully loaded faiss.
+INFO     MilvusLite server started for
+         /home/george/website-copilot/runs/20260921_150215/rag_build/claudecode/claudecode/res
+         ults/milvus.db on port 46297
+ERROR    Exception calling application: Method not implemented!
+         ╭──────────────────────── Traceback (most recent call last) ────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:6 │
+         │ 08 in _call_behavior                                                              │
+         │                                                                                   │
+         │    605 │   │   │   │   │   argument, context, send_response_callback              │
+         │    606 │   │   │   │   )                                                          │
+         │    607 │   │   │   else:                                                          │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)         │
+         │    609 │   │   │   return response_or_iterator, True                              │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except     │
+         │    611 │   │   │   with state.condition:                                          │
+         │                                                                                   │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen │
+         │ /milvus_pb2_grpc.py:1168 in AllocTimestamp                                        │
+         │                                                                                   │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""     │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                    │
+         │   1167 │   │   context.set_details('Method not implemented!')                     │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')               │
+         │   1169 │                                                                          │
+         │   1170 │   def CreateDatabase(self, request, context):                            │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""     │
+         ╰───────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+ERROR    Exception calling application: Method not implemented!
+         ╭──────────────────────── Traceback (most recent call last) ────────────────────────╮
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/grpc/_server.py:6 │
+         │ 08 in _call_behavior                                                              │
+         │                                                                                   │
+         │    605 │   │   │   │   │   argument, context, send_response_callback              │
+         │    606 │   │   │   │   )                                                          │
+         │    607 │   │   │   else:                                                          │
+         │ ❱  608 │   │   │   │   response_or_iterator = behavior(argument, context)         │
+         │    609 │   │   │   return response_or_iterator, True                              │
+         │    610 │   │   except Exception as exception:  # pylint: disable=broad-except     │
+         │    611 │   │   │   with state.condition:                                          │
+         │                                                                                   │
+         │ /home/george/website-copilot/.venv/lib/python3.13/site-packages/pymilvus/grpc_gen │
+         │ /milvus_pb2_grpc.py:1168 in AllocTimestamp                                        │
+         │                                                                                   │
+         │   1165 │   │   """Missing associated documentation comment in .proto file."""     │
+         │   1166 │   │   context.set_code(grpc.StatusCode.UNIMPLEMENTED)                    │
+         │   1167 │   │   context.set_details('Method not implemented!')                     │
+         │ ❱ 1168 │   │   raise NotImplementedError('Method not implemented!')               │
+         │   1169 │                                                                          │
+         │   1170 │   def CreateDatabase(self, request, context):                            │
+         │   1171 │   │   """Missing associated documentation comment in .proto file."""     │
+         ╰───────────────────────────────────────────────────────────────────────────────────╯
+         NotImplementedError: Method not implemented!
+
+Generating embeddings:   0%|          | 0/2048 [00:00<?, ?it/s]
+Generating embeddings:  12%|#2        | 256/2048 [00:03<00:26, 68.13it/s]
+Generating embeddings:  25%|##5       | 512/2048 [00:05<00:14, 109.15it/s]
+Generating embeddings:  38%|###7      | 768/2048 [00:06<00:08, 152.10it/s]
+Generating embeddings:  50%|#####     | 1024/2048 [00:06<00:05, 203.36it/s]
+Generating embeddings:  62%|######2   | 1280/2048 [00:07<00:03, 245.83it/s]
+Generating embeddings:  75%|#######5  | 1536/2048 [00:07<00:01, 281.28it/s]
+Generating embeddings:  88%|########7 | 1792/2048 [00:08<00:00, 290.23it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:09<00:00, 310.95it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:09<00:00, 216.70it/s]
+
+Generating embeddings:   0%|          | 0/2048 [00:00<?, ?it/s]
+Generating embeddings:  12%|#2        | 256/2048 [00:01<00:10, 163.98it/s]
+Generating embeddings:  25%|##5       | 512/2048 [00:02<00:06, 232.13it/s]
+Generating embeddings:  38%|###7      | 768/2048 [00:03<00:04, 258.12it/s]
+Generating embeddings:  50%|#####     | 1024/2048 [00:03<00:03, 282.39it/s]
+Generating embeddings:  62%|######2   | 1280/2048 [00:04<00:02, 294.39it/s]
+Generating embeddings:  75%|#######5  | 1536/2048 [00:05<00:01, 298.94it/s]
+Generating embeddings:  88%|########7 | 1792/2048 [00:06<00:00, 311.56it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:07<00:00, 325.01it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:07<00:00, 289.32it/s]
+
+Generating embeddings:   0%|          | 0/2048 [00:00<?, ?it/s]
+Generating embeddings:  12%|#2        | 256/2048 [00:01<00:07, 240.31it/s]
+Generating embeddings:  25%|##5       | 512/2048 [00:01<00:05, 271.15it/s]
+Generating embeddings:  38%|###7      | 768/2048 [00:02<00:04, 311.15it/s]
+Generating embeddings:  50%|#####     | 1024/2048 [00:03<00:03, 335.40it/s]
+Generating embeddings:  62%|######2   | 1280/2048 [00:04<00:02, 312.13it/s]
+Generating embeddings:  75%|#######5  | 1536/2048 [00:04<00:01, 327.70it/s]
+Generating embeddings:  88%|########7 | 1792/2048 [00:05<00:00, 315.76it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:07<00:00, 258.16it/s]
+Generating embeddings: 100%|##########| 2048/2048 [00:07<00:00, 286.34it/s]
+
+Generating embeddings:   0%|          | 0/321 [00:00<?, ?it/s]
+Generating embeddings:  80%|#######9  | 256/321 [00:01<00:00, 233.57it/s]
+Generating embeddings: 100%|##########| 321/321 [00:01<00:00, 169.29it/s]
+Generating embeddings: 100%|##########| 321/321 [00:01<00:00, 181.20it/s]
+INFO     Successfully built index from nodes
+INFO     Successfully built retriever (query mode=hybrid)
+INFO     Successfully built query engine
+INFO     Published Milvus vector store to data/rag/claudecode/milvus.db
+INFO     Published module_config.toml to data/rag/claudecode/module_config.toml

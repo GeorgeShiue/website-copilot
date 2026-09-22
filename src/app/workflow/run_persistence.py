@@ -9,6 +9,7 @@ import json
 import logging
 import os
 
+from rich.markup import escape
 from rich.table import Table
 
 from app.engines.webpage_markdown_cleaner import (
@@ -206,7 +207,7 @@ def save_generated_exclude_words(
     table.add_column("Low-occ ratio", style="white")
     for w in result.words:
         table.add_row(
-            w,
+            escape(w),
             str(result.votes[w]),
             str(hits[w]),
             f"{result.stats[w]['low_occ_ratio']:.1%}",
@@ -214,7 +215,7 @@ def save_generated_exclude_words(
     print_log(f"Total {len(result.usages)} calls, cost: ${result.cost_usd:.4f}")
     if result.rejected:
         rejected_text = ", ".join(
-            f"'{w}' ({ratio:.1%})" for w, ratio in result.rejected.items()
+            f"'{escape(w)}' ({ratio:.1%})" for w, ratio in result.rejected.items()
         )
         print_log(f"Rejected by coverage validation: {rejected_text}")
     print_log(table)
