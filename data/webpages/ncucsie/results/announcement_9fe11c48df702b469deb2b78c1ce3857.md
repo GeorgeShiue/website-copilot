@@ -1,6 +1,6 @@
 ### 資工系【巴哈姆特】、【講學金】獎學金申請
 
-2026-08-13 09:53:45
+2026-09-18 13:53:04
 
 **【巴哈姆特】獎學金**
 
@@ -14,6 +14,4 @@
 - 名額：每學期提供研究所及大學部學生，共計五名。
 - 獎助金額：獲獎學生每學期發給新台幣壹萬元整，並頒發獎狀乙張。
 
-請於**10月30日(五)前檢附[獎學金申請表](https://www.csie.ncu.edu.tw/file/a6f14b58be2f66d35b3e517116f48e9c)，併附各項申請資料送交系辦公室**。 分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F9fe11c48df702b469deb2b78c1ce3857 "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F9fe11c48df702b469deb2b78c1ce3857 "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F9fe11c48df702b469deb2b78c1ce3857 "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2F9fe11c48df702b469deb2b78c1ce3857; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+請於**10月30日(五)前檢附[獎學金申請表](https://www.csie.ncu.edu.tw/file/a6f14b58be2f66d35b3e517116f48e9c)，併附各項申請資料送交系辦公室**。

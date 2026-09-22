@@ -8,8 +8,9 @@ Professor
 
 ### **Courses**
 
-- SPRING 2026
-  - [ CE2004 - Principles of Programming Languages ](http://www.csie.ncu.edu.tw/~hsufh/COURSES/SPRING2026/ppl.html)
-  - [ CEA036 - The Attack and Defense of Computers](http://www.csie.ncu.edu.tw/~hsufh/COURSES/SPRING2026/NCU_PT_attackdefense.html)
+- FALL 2026
+  - [ CE6105 - Linux Operating System ](http://www.csie.ncu.edu.tw/~hsufh/COURSES/FALL2026/linuxos.html)
+  - [ CE6107 - The Attack and Defense of Computers ](http://www.csie.ncu.edu.tw/~hsufh/COURSES/FALL2026/attackdefense.html)
+  - [ CEA039 - Linux Operating System (碩士專班) ](http://www.csie.ncu.edu.tw/~hsufh/COURSES/FALL2026/pt_linuxos.html)
 
 [Professional Activities](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html) [Publications](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#publication) [Patent](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#patent) [Award](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#award) [Interview](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#interview) [Talk](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#talk) [Invited Speaker](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#invited_speaker) [Campus Service](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#campus_service) [Public Service](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#public_service) [Academic Service](http://www.csie.ncu.edu.tw/~hsufh/professional_act.html#academic_service)

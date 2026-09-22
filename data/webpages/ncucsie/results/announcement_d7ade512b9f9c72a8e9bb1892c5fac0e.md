@@ -46,9 +46,8 @@ ______________________________________________________________________
 
 **應徵方式：**
 
+- 投遞方式：請將上述 PDF 應徵檔案連同求職信（Cover Letter），Email 至孫敏德教授信箱：[msun@csie.ncu.edu.tw](https://www.csie.ncu.edu.tw/announcement/msun@csie.ncu.edu.tw)。
 - 郵件主旨：請務必註明「**應徵專任助理- [求職者姓名]** 」。
 - 收件截止日：\*\* _即日起至 115 年 7 月 31 日止_\*\* 。
 
-備註： 1.履歷隨到隨審，資歷符合者將擇優以電話或 Email 通知面試。 2.不符資格者恕不另行通知，亦不退件。 分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fd7ade512b9f9c72a8e9bb1892c5fac0e "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fd7ade512b9f9c72a8e9bb1892c5fac0e "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fd7ade512b9f9c72a8e9bb1892c5fac0e "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fd7ade512b9f9c72a8e9bb1892c5fac0e; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+備註： 1.履歷隨到隨審，資歷符合者將擇優以電話或 Email 通知面試。 2.不符資格者恕不另行通知，亦不退件。

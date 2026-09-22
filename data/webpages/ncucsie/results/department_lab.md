@@ -11,19 +11,19 @@
 > # Image-1
 >
 > **圖片摘要：**
-> 電路板紋理的大腦圖示位於右側，左側疊放書籍、螢幕顯示維特魯威人與麥克風，下方標示文字。
+> 電路板腦部圖案居中，左側有書籍與電腦螢幕，右側有人臉及機械線條。
 >
 > **主要元素：**
-> 1. 實體: 大腦電路圖, 螢幕, 書籍, 麥克風, 維特魯威人
-> 2. OCR文字:
-> standards
+> 1. 實體: 電路板腦部圖案, 書籍, 電腦螢幕, 人臉, 機械線條
+> 2. OCR文字: standards
 > brains
 > and
 > machines
-> 3. 主題標籤: 人工智慧, 機器學習, 電腦科學, 資訊技術
+> 0101[模糊]
+> 3. 主題標籤: brains and machines, 電腦電路, 書籍, 人臉, 機械
 >
 > **頁面關聯：**
-> 呈現Brains and Machines研究主題，連結人工智慧與技術標準相關論述。
+> 「brains and machines」主題圖片，檢索錨點為 standards、brains and machines
 本實驗室研究方向包括：
 
 - 圖形識別
@@ -41,15 +41,15 @@
 > # Image-2
 >
 > **圖片摘要：**
-> DLCV 文字位於圓形圖案中心，背景為彩虹色澤的扭曲波紋圖形。
+> 圓形彩色圖案中央有黑色「DLCV」字樣。
 >
 > **主要元素：**
-> 1. 實體: DLCV, 圓形標誌
+> 1. 實體: 圓形圖像,彩色圖案
 > 2. OCR文字: DLCV
-> 3. 主題標籤: 電腦視覺, 深度學習, 數位影像
+> 3. 主題標籤: 無法辨識
 >
 > **頁面關聯：**
-> 作為 DLCV 專案或組織的識別標誌。
+> DLCV 圓形圖像，頁面檢索錨點為 DLCV
 本實驗室的研究全部是以深度學習技術結合影像處理與電腦視覺技術，應用於：
 
 1. 自動光學檢測SMT元件分類、電子元件的字元偵測與辨識、PCB元件定位與分類、3C產品表面瑕疵檢測、半督導式的錫球瑕疵判定、生成電子元件瑕疵影像樣本
@@ -67,19 +67,18 @@
 > # Image-3
 >
 > **圖片摘要：**
-> 蜂巢狀 Cellular Network 位於中央，左側連接 Internet 與 Personal Area Network，右側連接 Wireless LAN。
+> Internet 位於上方，連線至 Cellular Network；下方分布 Personal Area Network 與 Wireless LAN，各含裝置圖示。
 >
 > **主要元素：**
-> 1. 實體: Cellular Network, Internet, Personal Area Network, Wireless LAN, 行動通訊設備
-> 2. OCR文字:
-> Internet
+> 1. 實體: 網路拓撲圖, 雲端節點, 行動電話圖示, 筆記型電腦圖示, 網路連線線段
+> 2. OCR文字: Internet
 > Cellular Network
 > Personal Area Network
 > Wireless LAN
-> 3. 主題標籤: 無線通訊網路, 網路拓撲, 電信工程, 資訊架構
+> 3. 主題標籤: 電腦網路, 網路架構, 無線網路, 行動網路
 >
 > **頁面關聯：**
-> 本圖說明無線通訊網路架構，呈現 Cellular Network 與 Internet、Personal Area Network 及 Wireless LAN 的連線關係。
+> 電腦網路架構圖；Internet、Cellular Network、Wireless LAN人人操
 本實驗室研究方向包括：
 
 - 無線通訊與行動計算
@@ -103,28 +102,24 @@
 > # Image-4
 >
 > **圖片摘要：**
-> 中央資料庫與左右兩側各四個功能模組連接，左側為各類資料庫，右側為應用與管理功能。
+> 資料庫連接左右多個功能方框的系統架構圖。
 >
 > **主要元素：**
-> 1. 實體: 資料庫, 資料倉儲, 資料萃取, 多媒體教學, 輔助學習
+> 1. 實體: 資料庫, 左側功能方框, 右側功能方框, 連接線
 > 2. OCR文字:
-> 物件導向資料庫
-> 分散式資料庫
-> 超文件資料庫
-> 物件關連資料庫
-> 異質資料庫
-> 多媒體
-> 電腦教學
-> 資料倉儲
-> 資料萃取
-> 範例導向
-> 電腦輔助教學
-> 情境式多媒體
-> 輔助學習
-> 3. 主題標籤: 資料庫系統, 電腦輔助教學, 資料處理, 資訊系統架構
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> [模糊]
+> 3. 主題標籤: 資料庫, 系統架構, 資料管理
 >
 > **頁面關聯：**
-> 呈現資料庫系統架構圖，展示資料來源與應用功能之間的關聯，適合作為資訊工程教材的架構說明。
+> 資料庫架構示意圖，檢索錨點：資料庫
 資料庫實驗室目前研究的課題為：
 
 - 資料倉儲
@@ -140,16 +135,15 @@
 > # Image-5
 >
 > **圖片摘要：**
-> 大腦形狀圖案分為左右兩半，左側為藍色與綠色手繪線條，右側由橙色、綠色、黃色與暗紅色電路板線路構成，底部標示 CILAB 文字。
+> 腦形圖示由藍綠腦區與橙紅電路線路組成，下方標示 AI LAB。
 >
 > **主要元素：**
-> 1. 實體: 大腦, 電路板, CILAB, 線條
-> 2. OCR文字:
-> CILAB
-> 3. 主題標籤: 腦科學, 電路設計, 人工智慧, 實驗室, CILAB
+> 1. 實體: 腦形圖示, 電路板線路, 人工智慧實驗室
+> 2. OCR文字: AI LAB
+> 3. 主題標籤: 人工智慧,實驗室,電路設計
 >
 > **頁面關聯：**
-> 圖片為 CILAB 實驗室標誌，呈現腦部與電路結合意象，代表核心研究專案與組織識別。
+> AI LAB 標誌，人工智慧實驗室頁面錨點
 本實驗室研究方向包括：
 
 - 計算式智慧
@@ -172,21 +166,20 @@
 > # Image-6
 >
 > **圖片摘要：**
-> Mobile broadband networklab 文字標題位於左側，右側為地球與軌道圖形，下方列出國立中央大學資訊工程系與實驗室名稱。
+> 行動寬頻網路實驗室標誌，含紫色球體與藍色環繞軌道線。
 >
 > **主要元素：**
-> 1. 實體: Mobile broadband networklab, 地球, 國立中央大學, 資訊工程學系, 行動寬頻網路實驗室
-> 2. OCR文字:
-> Mobile
+> 1. 實體: 國立中央大學, 資訊工程學系, 球體標誌, 軌道線
+> 2. OCR文字: Mobile
 > broadband
 > networklab
-> Information Engineering National Central Unerversity &
-> Department Of Computer Sciences
+> Information Engineering National Central University  &
+> Department of Computer Sciences
 > 行動寬頻網路實驗室
-> 3. 主題標籤: 實驗室, 電腦科學, 國立中央大學, 行動網路, 資訊工程
+> 3. 主題標籤: 行動寬頻, 網路實驗室, 資訊工程, 學術研究
 >
 > **頁面關聯：**
-> 國立中央大學資訊工程學系行動寬頻網路實驗室標誌。
+> 國立中央大學資訊工程學系之行動寬頻網路實驗室標誌
 本實驗室研究方向包括：
 
 - 主動式網路 (Active Networks)
@@ -204,10 +197,10 @@
 > # Image-7
 >
 > **圖片摘要：**
-> 無線網路多媒體實驗室標題文字位於圖片中央，上方標示服務宗旨。
+> 「We provide」位於上方，下方排列無線網路多媒體實驗室中英文名稱與「Solution」。
 >
 > **主要元素：**
-> 1. 實體: 無線網路多媒體實驗室, Wireless Network & Multimedia Laboratory
+> 1. 實體: 無線通訊, 多媒體, 研究單位
 > 2. OCR文字:
 > We
 > provide
@@ -215,10 +208,10 @@
 > Wireless
 > Wireless Network & Multimedia Laboratory
 > Solution
-> 3. 主題標籤: 無線網路, 多媒體, 實驗室
+> 3. 主題標籤: 無線網路, 多媒體, 實驗室, Solution
 >
 > **頁面關聯：**
-> 本圖為無線網路多媒體實驗室的識別標題，錨點為無線網路多媒體實驗室。
+> 實驗室頁面；錨點：無線網路多媒體實驗室
 本實驗室研究方向包括： [無線網路組](http://wmlab.csie.ncu.edu.tw)
 
 - 機器學習(Machine Learning)
@@ -237,17 +230,16 @@
 > # Image-8
 >
 > **圖片摘要：**
-> 人工智慧與知識系統實驗室標誌，上方為數位電路構成的人形圖示，下方排列中英文實驗室名稱。
+> 人工智慧主題標誌置於右上方，下方為中文標題與AI數位轉型副標題
 >
 > **主要元素：**
-> 1. 實體: 人工智慧與知識系統實驗室, 實驗室標誌, 數位電路圖示
-> 2. OCR文字:
-> 人工智慧與知識系統實驗室
-> Artificial Intelligence & Knowledge System Lab
-> 3. 主題標籤: 人工智慧, 知識系統, 實驗室, 資訊工程
+> 1. 實體: 人工智慧標誌, 數位城市圖案, 中文標題, AI文字
+> 2. OCR文字: 人工智慧驅動力，創新[模糊]
+> 數位轉型新契機，AI驅動企業[模糊]
+> 3. 主題標籤: 人工智慧, 數位轉型, AI, 企業
 >
 > **頁面關聯：**
-> 本圖片為人工智慧與知識系統實驗室的組織標識，作為該單位官方頁面的識別錨點。
+> 人工智慧與數位轉型頁面，錨點為人工智慧驅動力
 本實驗室研究方向包括：
 
 - 人工智慧 (Artificial Intelligence)
@@ -267,19 +259,18 @@
 > # Image-9
 >
 > **圖片摘要：**
-> STL 標誌置於中心，周圍環繞灰色圓點與 Software、Methodology、Laboratory 文字，形成三角形構圖。
+> Software Methodology Laboratory 字樣環繞彩色幾何字母標誌。
 >
 > **主要元素：**
-> 1. 實體: STL標誌, 圓點, Software, Methodology, Laboratory
+> 1. 實體: 彩色幾何字母圖形, 灰色圓點
 > 2. OCR文字:
 > Software
-> STL
 > Methodology
 > Laboratory
-> 3. 主題標籤: 軟體工程, 實驗室, 方法論, STL
+> 3. 主題標籤: 軟體工程, 方法論, 實驗室
 >
 > **頁面關聯：**
-> 屬於 Software Methodology Laboratory 組織標誌，作為頁面檢索錨點。
+> Software Methodology Laboratory 標誌頁面
 本實驗室研究方向包括：
 
 - 軟體測試
@@ -294,15 +285,15 @@
 > # Image-10
 >
 > **圖片摘要：**
-> 藍色球體由左下往右上呈遞減排列，背景疊加模糊的半透明文字網格。
+> 藍色球體位於左下與中央，背景布滿淺藍波紋線條。
 >
 > **主要元素：**
-> 1. 實體: 藍色球體, 文字網格
+> 1. 實體: 藍色球體, 波紋線條
 > 2. OCR文字: 無
-> 3. 主題標籤: 數位視覺, 數據背景, 科技圖形
+> 3. 主題標籤: 無可辨識主題
 >
 > **頁面關聯：**
-> 作為科技類網站的裝飾性背景圖，錨點為科技視覺素材。
+> 無法辨識頁面主題與檢索錨點。
 本實驗室研究方向包括：
 
 - Self-Stabilizing Algorithms
@@ -323,15 +314,15 @@
 > # Image-11
 >
 > **圖片摘要：**
-> 菱形外框內包含由三個藍色漸層長條構成的抽象字母 E 與 N 組合標誌。
+> 藍白幾何圖形置於黑色背景中央，外圍為菱形框線。
 >
 > **主要元素：**
-> 1. 實體: 標誌, 字母E, 字母N, 菱形框
+> 1. 實體: 藍白幾何圖形, 菱形框線, 黑色背景
 > 2. OCR文字: 無
-> 3. 主題標籤: 企業識別, 品牌標誌, 視覺設計
+> 3. 主題標籤: 幾何圖形
 >
 > **頁面關聯：**
-> 圖片為 EN 品牌標誌，作為網頁頁首或企業識別系統的檢索錨點。
+> 圖片頁面；無可命名錨點與可辨識實體
 本實驗室研究方向包括：
 
 1. 互動式多媒體及遊戲 (Interactive Multimedia & Game) 1. 動態影像修補 Motion Inpainting 2. 三維物件製作 3D Object Generation 3. 影像物件移除及復原 Video Inpainting
@@ -346,18 +337,21 @@
 > # Image-12
 >
 > **圖片摘要：**
-> 三個圓形色塊重疊配置，上方為資訊萃取，左下方為資訊檢索，右下方為資料探勘與機器學習。
+> 三個重疊圓形：上方為 Information Extraction，左下為 Information Retrieval，右下為 Data Mining & Machine Learning。
 >
 > **主要元素：**
-> 1. 實體: 資訊萃取, 資訊檢索, 資料探勘, 機器學習
+> 1. 實體: 資訊擷取, 資訊檢索, 資料探勘與機器學習
 > 2. OCR文字:
-> Information Extraction
-> Information Retrieval
-> Data Mining & Machine Learning
-> 3. 主題標籤: 資訊科學, 人工智慧, 資料科學
+> Information
+> Extraction
+> Information
+> Retrieval
+> Data Mining &
+> Machine Learning
+> 3. 主題標籤: 資訊擷取, 資訊檢索, 資料探勘, 機器學習
 >
 > **頁面關聯：**
-> 呈現資訊檢索與資料探勘領域核心技術，隸屬資訊科學研究架構。
+> Information Extraction、Information Retrieval 與 Data Mining & Machine Learning 主題圖
 本實驗室研究方向包括：
 
 1. 網頁資料再利用與整合
@@ -385,15 +379,15 @@
 > # Image-13
 >
 > **圖片摘要：**
-> 盾牌圖案中心標示黑色 ADL 字樣，周圍環繞綠色月桂枝葉。
+> ADL字樣置於盾牌中央，外圍環繞綠色枝葉
 >
 > **主要元素：**
-> 1. 實體: ADL, 盾牌, 月桂枝
+> 1. 實體: 盾牌、綠色枝葉環
 > 2. OCR文字: ADL
-> 3. 主題標籤: ADL, 識別標誌, 組織徽章
+> 3. 主題標籤: ADL、標誌
 >
 > **頁面關聯：**
-> 隸屬於 ADL 組織識別標誌，檢索錨點為 ADL。
+> ADL頁面標誌與識別圖
 本實驗室研究方向包括：
 
 - 電腦與系統安全
@@ -426,18 +420,17 @@
 > # Image-14
 >
 > **圖片摘要：**
-> IISR 商標圖形置於灰色背景中心，左側為綠色與藍色垂直條狀物，右側銜接黃色 S 字元與粉紅色 R 字元。
+> iiSR ESEARCH 彩色標誌置於深色背景中央，下方有英文標語。
 >
 > **主要元素：**
-> 1. 實體: IISR, 商標, 英文單字
+> 1. 實體: iiSR研究品牌, 彩色字母標誌, 英文標語
 > 2. OCR文字:
-> iiSR
-> ESEARCH
+> iiSR ESEARCH
 > To Conduct Superior Research
-> 3. 主題標籤: 品牌識別, 學術研究, 組織機構
+> 3. 主題標籤: iiSR,ESEARCH,研究
 >
 > **頁面關聯：**
-> 此圖片為 IISR 組織之官方商標，用於標示該機構名稱及其研究宗旨。
+> 研究品牌識別，錨點：iiSR ESEARCH、To Conduct Superior Research
 本實驗室研究方向包括：
 
 - 自然語言處理(Natural Language Processing)
@@ -466,15 +459,15 @@
 > # Image-15
 >
 > **圖片摘要：**
-> 深藍色相機輪廓內鑲嵌彩色漸變光圈圖形，光圈中心標示深藍色 MSP 文字。
+> 分段彩色圓環置於中央白色圓形周圍，兩側為深藍色框形圖案。
 >
 > **主要元素：**
-> 1. 實體: 相機圖示, 光圈, MSP文字
+> 1. 實體: 分段彩色圓環, 中央白色圓形, 深藍色框形圖案
 > 2. OCR文字: MSP
-> 3. 主題標籤: 數位攝影, 品牌標識, MSP品牌
+> 3. 主題標籤: MSP, 圓環圖示
 >
 > **頁面關聯：**
-> MSP品牌標識，呈現於頁面視覺主體。
+> MSP 圖示；檢索錨點：MSP
 本實驗室研究方向包括：
 
 - 數位視訊與影像處理 (Digital Image and Video Processing)
@@ -490,17 +483,17 @@
 > # Image-16
 >
 > **圖片摘要：**
-> MSL字樣以紅綠藍三色排列於上方，下方標示白色文字媒體系統實驗室，具反射投影效果。
+> MSL字母標誌位於上方，中文「媒體系統實驗室」位於下方。
 >
 > **主要元素：**
-> 1. 實體: MSL, 媒體系統實驗室
+> 1. 實體: MSL字母標誌, 媒體系統, 實驗室
 > 2. OCR文字:
 > MSL
 > 媒體系統實驗室
-> 3. 主題標籤: 實驗室, 多媒體技術, 研究單位
+> 3. 主題標籤: 媒體系統, 實驗室
 >
 > **頁面關聯：**
-> 圖片為媒體系統實驗室的標準識別標識，作為該組織頁面的主標題與檢索錨點。
+> 媒體系統實驗室頁面標誌，錨點 MSL
 本實驗室研究方向包括：
 
 - 人工智慧、深層類神經網路、資料壓縮(Artificial Intelligence, Deep Neural Networks and Data Compression)
@@ -519,15 +512,15 @@
 > # Image-17
 >
 > **圖片摘要：**
-> 圓盤與三條垂直延伸的線路結構放置於藍綠色漸層背景中央。
+> 藍綠漸層方形圖示中，白色圓點、垂直線條與橢圓形底座組成抽象圖形。
 >
 > **主要元素：**
-> 1. 實體: 圓盤, 線路圖標
+> 1. 實體: 白色垂直線條, 白色圓點, 白色橢圓形底座, 藍綠漸層背景
 > 2. OCR文字: 無
-> 3. 主題標籤: 資訊科技, 網路通訊, 系統架構
+> 3. 主題標籤: 圖示
 >
 > **頁面關聯：**
-> 網站識別圖示，所屬對象為網路通訊技術平台。
+> 無可辨識頁面主題或檢索錨點
 本實驗室研究方向包括：
 
 - 嵌入式視覺
@@ -556,17 +549,16 @@
 > # Image-18
 >
 > **圖片摘要：**
-> 藍色圓形內部上方嵌入白色粗體字母 i，右側橫跨黑色斜體字 LEARN。
+> ZEA 字樣位於藍色方形與圓形徽章前，白色閃電符號置於左上方，右側字樣被黑色區塊遮擋。
 >
 > **主要元素：**
-> 1. 實體: i, LEARN, 藍色圓形
+> 1. 實體: 藍色方形底圖,圓形徽章,白色閃電符號,黑色遮擋區塊
 > 2. OCR文字:
-> i
-> LEARN
-> 3. 主題標籤: 品牌識別, 教育平台, 學習系統
+> ZEA
+> 3. 主題標籤: ZEA,標誌設計,品牌識別
 >
 > **頁面關聯：**
-> iLEARN 品牌標誌，代表學習教育專案。
+> ZEA 標誌圖像，右側完整字樣無法辨識
 本實驗室研究方向包括：
 
 - 電腦遊戲系統 Computer game system
@@ -583,17 +575,18 @@
 > # Image-19
 >
 > **圖片摘要：**
-> OOLAB 標誌由上方無限符號與下方英文名稱組成，呈現垂直排列結構。
+> OOLAB 標誌由交疊環形圖案、OOLAB 字樣與 Object Oriented Lab 副標組成。
 >
 > **主要元素：**
-> 1. 實體: OOLAB, 無限符號, Object Oriented Lab
+> 1. 實體: 交疊環形圖案, OOLAB 標誌, Object Oriented Lab
 > 2. OCR文字:
 > OOLAB
 > Object Oriented Lab
-> 3. 主題標籤: 軟體開發, 物件導向, 程式設計, 實驗室
+> 3. 主題標籤:
+> 物件導向, 軟體開發
 >
 > **頁面關聯：**
-> 隸屬於 OOLAB 組織，作為品牌識別標誌。
+> OOLAB 品牌標誌，錨點為 Object Oriented Lab
 本實驗室研究方向包括：
 
 - Software Visualization (3D Debugging Visualization, Program animations...)
@@ -619,25 +612,17 @@
 > # Image-20
 >
 > **圖片摘要：**
-> 地球圖示位於由二進位數字組成的網格背景中央，下方標註實驗室名稱。
+> 地球圖示置於二進位數字與網格線背景中央，下方為實驗室名稱。
 >
 > **主要元素：**
-> 1. 實體: 地球圖示, 數字網格, Parallel and Distributed Computing Laboratory
-> 2. OCR文字:
-> 1000101...1010101
-> 01101...1010
-> 10...101
-> 01...101
-> 0...101
-> 01...0101
-> 010...1010111
-> 010101010...1010101010
-> Parallel and Distributed Computing
+> 1. 實體: 地球圖示, 二進位數字, 網格線
+> 2. OCR文字: Parallel and Distributed Computing
 > Laboratory
-> 3. 主題標籤: 並行運算, 分散式系統, 實驗室, 計算科學
+> [模糊]
+> 3. 主題標籤: 平行運算, 分散式運算, 計算機科學
 >
 > **頁面關聯：**
-> 隸屬於 Parallel and Distributed Computing Laboratory 頁面標題。
+> Parallel and Distributed Computing Laboratory 實驗室頁面標誌ેદ
 本實驗室研究方向包括：
 
 - 大型分散式程式技術(以便利發展橫跨全球性的應用程式)
@@ -654,16 +639,15 @@
 > # Image-21
 >
 > **圖片摘要：**
-> 紅白色靶心圖示上方嵌入一枚飛鏢，下方標示 DART 文字。
+> 飛鏢插在紅白同心圓飛鏢靶右上方，底部標有DART。
 >
 > **主要元素：**
-> 1. 實體: 靶心, 飛鏢, 文字
-> 2. OCR文字:
-> DART
-> 3. 主題標籤: 遊戲, 標靶, 圖示
+> 1. 實體: 飛鏢靶, 飛鏢
+> 2. OCR文字: DART
+> 3. 主題標籤: 飛鏢運動, 飛鏢靶
 >
 > **頁面關聯：**
-> 圖片為 DART 專案的標誌圖像，用於代表 DART 專案頁面。
+> DART飛鏢主題頁面，檢索錨點為DART
 本實驗室研究方向包括：
 
 - 推薦系統
@@ -681,16 +665,40 @@
 > # Image-22
 >
 > **圖片摘要：**
-> 中央為彩色漸層 PS 標誌，周圍環繞排列電腦科學技術術語與程式設計概念詞彙。
+> 中央彩色雙旋渦標誌周圍排列黑色與灰色程式設計術語。
 >
 > **主要元素：**
-> 1. 實體: PS 標誌, 電腦科學術語, 程式設計概念
+> 1. 實體: 中央彩色雙旋渦標誌, 黑色前景術語, 灰色背景術語
 > 2. OCR文字:
-> Modularity, Event-Driven, Parallel, High-Performance Computing, Construct, Object-Oriented, Logic, Functional, Domain-Specific, Compiler, Language, Actor, Functional-Reactive, Imperative, Test, Debug, Feature-Oriented, Graphical User, Declarative, Interface, Optimization, Data-flow, Context-Oriented, Metaprogramming, Aspect-Oriented
-> 3. 主題標籤: 軟體工程, 程式語言, 電腦科學, 軟體開發, 系統架構
+> Event-Driven
+> Parallel
+> Modularity
+> High-Performance Computing
+> Concurrent
+> Object-Oriented
+> Construct
+> Domain-Specific
+> Functional
+> Logic
+> Language
+> Actor
+> Compiler
+> Functional-Reactive [模糊]
+> Test
+> Debug
+> Graphical User
+> Interface
+> Declarative
+> Data-flow
+> Context-Oriented
+> Optimization
+> Integrated Development Environment
+> Metaprogramming
+> Aspect Oriented
+> 3. 主題標籤: 程式語言, 軟體開發, 高效能運算, 整合開發環境, 程式設計
 >
 > **頁面關聯：**
-> 本圖為程式語言或開發環境之主題標籤雲，以 PS 縮寫為核心，檢索錨點包含 PS、軟體工程與開發技術。
+> 程式語言主題頁，錨點 Domain-Specific Language
 本實驗室研究方向包括：
 
 - 程式語言設計與實作 (Programming language design and implementation)
@@ -722,16 +730,16 @@
 > # Image-23
 >
 > **圖片摘要：**
-> 灰色城堡圖示位於中央，頂部設有黃色旗幟，城堡右側連接黃色流線軌跡，軌跡末端標註英文字母與星號。
+> 灰色城堡置中，中央懸掛黃色旗幟，右側有 CASTLE 字樣與星形符號。
 >
 > **主要元素：**
-> 1. 實體: 城堡, 旗幟, 星號
+> 1. 實體: 城堡,黃色旗幟,星形符號
 > 2. OCR文字:
 > CASTLE
-> 3. 主題標籤: 品牌識別, 商標設計, 建築圖示
+> 3. 主題標籤: 城堡,旗幟,CASTLE
 >
 > **頁面關聯：**
-> 本圖為 CASTLE 品牌識別商標，呈現於網頁標題區域或產品識別錨點。
+> 頁面標誌圖示，檢索錨點為 CASTLE
 本實驗室研究方向包括：
 
 - 新興記憶體與儲存技術(Emerging Memory and Storage Technologies)
@@ -749,15 +757,15 @@
 > # Image-24
 >
 > **圖片摘要：**
-> ASAI文字位於中央，左側有警官頭像，右下方有蒙面嫌疑人頭像，周圍由五個連接的紅色地圖標記點構成網絡結構。
+> ASAI字樣位於中央，六個定位標記以灰色連線連接警察與蒙面人物圖示。
 >
 > **主要元素：**
-> 1. 實體: ASAI, 警官, 嫌疑人, 地圖標記, 網絡
+> 1. 實體: 地圖定位標記,警察圖示,蒙面人物圖示,灰色連線
 > 2. OCR文字: ASAI
-> 3. 主題標籤: ASAI, 犯罪偵查, 警務系統, 網絡分析
+> 3. 主題標籤: ASAI,地圖定位,警察,蒙面人物,路線圖
 >
 > **頁面關聯：**
-> 圖片為ASAI專案的視覺識別，關聯檢索錨點為ASAI犯罪偵查系統。
+> ASAI頁面插圖；地圖定位、警察與蒙面人物
 本實驗室研究方向包括：
 
 - 路徑規劃演算法 Pathfinding Algorithm
@@ -773,17 +781,17 @@
 > # Image-25
 >
 > **圖片摘要：**
-> SALLY LAB 標誌由左側 AI 晶片圖示、中間品牌名稱與右側鎖頭盾牌圖示組成。
+> SAILAB標誌由電路腦、盾牌鎖孔圖示與實驗室名稱組成。
 >
 > **主要元素：**
-> 1. 實體: SALLY LAB, AI 晶片, 鎖頭盾牌
+> 1. 實體: 資安研究實驗室,人工智慧,電路腦,盾牌,鎖孔
 > 2. OCR文字:
-> AI SALLY LAB
-> Security and Artificial inteLLigence labortarY
-> 3. 主題標籤: 人工智慧, 資訊安全, 研究室
+> SAILAB
+> Security and Artificial Intelligence Laboratory
+> 3. 主題標籤: 資訊安全,人工智慧,實驗室
 >
 > **頁面關聯：**
-> 本圖片為 SALLY LAB 研究室品牌識別標誌。
+> SAILAB實驗室標誌；錨點：Security and Artificial Intelligence Laboratory
 本實驗室研究方向包括：
 
 - 人工智慧 (Artificial Intelligence)
@@ -793,6 +801,66 @@
 
 實驗室位置：工程五館 E6-B222 指導老師：[林家瑜助理教授](https://sites.google.com/view/sallylin/home?authuser=0) [相關連結](https://sallylinlab.github.io)
 
+### 焦點新聞
+
+[ 更多 ](https://www.csie.ncu.edu.tw/announcement/tags/%E7%84%A6%E9%BB%9E%E6%96%B0%E8%81%9E "更多")
+
 ______________________________________________________________________
 
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+[ ![賀！張嘉惠教授指導實驗室團隊參加2026台積電校園黑客松榮獲第一名](https://www.csie.ncu.edu.tw/file/65afab3fb2d9119e9a4263a6da087aba)
+> # Image-26
+>
+> **圖片摘要：**
+> 張嘉惠教授指導廖梓逸、簡資煜、陳冠蓉，獲台積電校園黑客松智慧助理組第一名。
+>
+> **主要元素：**
+> 1. 實體: 資訊工程學系, 張嘉惠, 台積電公司, 校園黑客松競賽, 智慧助理專案
+> 2. OCR文字:
+> 資工系 張嘉惠教授
+> 指導廖梓逸、簡資煜、陳冠蓉
+> 第7屆台積電校園黑客松
+> 洞察半導體產業鏈的智慧助理組第一名
+> 3. 主題標籤: 資訊工程, 台積電, 校園黑客松, 智慧助理, 半導體產業鏈
+>
+> **頁面關聯：**
+> 台積電校園黑客松得獎公告，張嘉惠教授指導團隊
+賀！張嘉惠教授指導實驗室團隊參加2026台積電校園黑客松榮獲第一名 【恭賀】張嘉惠教授指導實驗室團隊研究生廖梓逸、簡資烜、陳冠蓉參加**台積電校園黑客松 2026 TSMC IT Career Hack** 榮獲**洞察半導體產業鏈的智慧助理組第一名！** 競賽官網：[https://www.tsmc.com/static/english/careers/Careerhack/index.html][1] ![enter image description here][2] \[1\]: https://www.tsmc.com/static/english/careers/Careerhack/index.html \[2\]: /file/20849e15611ed44d18e5d9df47f4653a ](https://www.csie.ncu.edu.tw/announcement/fb4e7f4723440e0b97eee7654baa6581 "賀！張嘉惠教授指導實驗室團隊參加2026台積電校園黑客松榮獲第一名")
+[ ![賀！蔡宗翰教授指導實驗室團隊參加第十三屆 BioASQ 國際級競賽衛冕冠軍](https://www.csie.ncu.edu.tw/file/d13936ea87d4b1d98c29b2613f6619d2)
+> # Image-27
+>
+> **圖片摘要：**
+> 海報上方有煙火與松鼠吉祥物，中央列出蔡宗翰教授團隊參加BioASQ競賽並獲冠軍。
+>
+> **主要元素：**
+> 1. 實體: BioASQ, 蔡宗翰, 池秉宸, 韓任傑, 松鼠吉祥物
+> 2. OCR文字:
+> 資工系 蔡宗翰教授
+> 指導研究生池秉宸、助理韓任傑
+> 參加第十三屆BioASQ 國際級人工智慧競賽
+> 榮獲冠軍！（連續衛冕六年）
+> OUR
+> CECS
+> 3. 主題標籤: BioASQ, 人工智慧競賽, 資訊工程, 冠軍
+>
+> **頁面關聯：**
+> 蔡宗翰教授團隊參加第十三屆BioASQ競賽獲冠軍人體藝術
+賀！蔡宗翰教授指導實驗室團隊參加第十三屆 BioASQ 國際級競賽衛冕冠軍 【恭賀】蔡宗翰教授指導實驗室團隊研究生池秉宸、助理韓任倢參加第十三屆 BioASQ 國際級人工智慧競賽 (large-scale biomedical semantic indexing and question-answering challenge) 生醫語意問答任務 Ideal Answers 項目**連續六年衛冕冠軍**！並於生醫檢索和檢索增強生成任務部分項目取得佳績！ - 相關資訊：[https://bioasq.org/participate/thirteenth-challenge-winners][1] ![enter image description here][2] \[1\]: https://bioasq.org/participate/thirteenth-challenge-winners \[2\]: /file/f86fe8f2bf760fe33af7bdc3d6c2ff7e ](https://www.csie.ncu.edu.tw/announcement/a3992632e405fb027880dac88f4f38b0 "賀！蔡宗翰教授指導實驗室團隊參加第十三屆 BioASQ 國際級競賽衛冕冠軍")
+[ ![賀！張嘉惠教授指導實驗室團隊參加2025 NSF HDR Scientific-Mood 黑客松榮獲腦神經預測領域​台灣區第一名](https://www.csie.ncu.edu.tw/file/0564bfdd682f56177f3537163c2bcfcc)
+> # Image-28
+>
+> **圖片摘要：**
+> 2025 NSF HDR海報列出張嘉惠教授、三名學生及神經預測競賽台灣區第一名。
+>
+> **主要元素：**
+> 1. 實體: 張嘉惠, 廖梓逸, 簡資恆, 張彤謙, 神經預測競賽
+> 2. OCR文字:
+> 2025 NSF HDR (Scientific-Mood)
+> 資工系 張嘉惠教授
+> 指導學生 廖梓逸, 簡資恆, 張彤謙
+> Hackathon Competition (Neural Forecasting)領域
+> 台灣區第一名
+> 3. 主題標籤: NSF HDR, Hackathon Competition, Neural Forecasting, 資訊工程
+>
+> **頁面關聯：**
+> 2025 NSF HDR成果頁面，錨點為張嘉惠與Neural Forecasting
+賀！張嘉惠教授指導實驗室團隊參加2025 NSF HDR (Scientific-Mood) 黑客松榮獲腦神經預測領域​台灣區第一名 【恭賀】張嘉惠教授指導實驗室團隊大學部學生簡資烜，以及研究生廖梓逸、張彣謙參加 **2025 NSF HDR (Scientific-Mood)** 在**腦神經預測領域​ (Neural Forecasting)** 榮獲**台灣區第一名**！ - 競賽官網：[https://indico.cern.ch/event/1610056/overview][1] - 獲獎名單：[https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement][2] \[1\]: https://indico.cern.ch/event/1610056/overview \[2\]: https://indico.cern.ch/event/1610056/page/41091-taiwan-local-winners-announcement ](https://www.csie.ncu.edu.tw/announcement/5fe6e3677775c8b081e8dc99ac17513a "賀！張嘉惠教授指導實驗室團隊參加2025 NSF HDR (Scientific-Mood) 黑客松榮獲腦神經預測領域​台灣區第一名")

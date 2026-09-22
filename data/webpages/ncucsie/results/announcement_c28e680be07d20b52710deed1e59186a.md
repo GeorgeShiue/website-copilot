@@ -12,35 +12,32 @@
 > # Image-1
 >
 > **圖片摘要：**
-> AUO 友達光電 2026 預聘暨研發替代役說明會資訊，列出時間 3/24、地點國立中央大學工程五館及活動贈品內容。
+> AUO校園招募海報列出2026友達光電說明會時間、地點、對象與贈品。
 >
 > **主要元素：**
-> 1. 實體: AUO 友達光電, 國立中央大學, GARMIN 智慧手錶, 27 吋 ROG 電競螢幕
+> 1. 實體: AUO, Garmin, ROG, 校園招募活動, QR碼
 > 2. OCR文字:
 > AUO
-> 2026 友達光電
+> 2026友達光電
 > 預聘暨研替說明會
 > 加入友達引領視界 探索無限可能
 > 國立中央大學
 > 3/24
 > 12:00-13:00
 > 工程五館網學所
-> 4 樓 E6 - A406 教室
+> 4樓E6－A406教室
 > 適合對象
-> 科系 電子/電機/光電/資工/資管/機械/...等
-> 領域 前瞻技術研發、智慧製造、AI 應用
+> 科系｜電子/電機/光電/資工/資管/機械/...等
+> 領域｜前瞻技術研發、智慧製造、AI應用
 > 活動好康
-> GARMIN 智慧手錶
-> 27” ROG 電競螢幕
-> 參加說明會將有機會獲得 精美好禮
-> 填寫線上履歷抽 超值大獎
-> 即早報名，當日前 40 名入場提供 精緻餐點
+> Garmin 智慧手錶
+> 27” ROG電競螢幕
+> ・參加說明會將有機會獲得「精美好禮」
+> ・填寫線上履歷抽「超值大獎」
+> ・即早報名，當日前40名入場提供「精緻餐點」
 > 了解更多資訊
 > 掃描報名參加
-> 3. 主題標籤: 徵才說明會, 友達光電, 校園徵才, 研發替代役
+> 3. 主題標籤: 友達光電,校園招募,光電產業,智慧製造,AI應用
 >
 > **頁面關聯：**
-> 本圖為友達光電校園招募宣傳海報，錨點包含友達光電、國立中央大學、2026 預聘暨研替說明會。
-分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc28e680be07d20b52710deed1e59186a "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc28e680be07d20b52710deed1e59186a "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc28e680be07d20b52710deed1e59186a "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc28e680be07d20b52710deed1e59186a; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+> 友達光電校園招募頁；錨點：2026友達光電預聘暨研替說明會

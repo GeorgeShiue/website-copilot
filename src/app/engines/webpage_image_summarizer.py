@@ -8,6 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
@@ -26,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 
 MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
+
+# VLM（OpenAI）僅支援 png / jpeg / gif / webp，其他格式（如 svg、avif）直接略過
+SUPPORTED_IMAGE_CONTENT_TYPES = frozenset(
+    {"image/png", "image/jpeg", "image/gif", "image/webp"}
+)
+UNSUPPORTED_IMAGE_SUFFIXES = (".svg", ".avif", ".bmp", ".ico", ".tif", ".tiff")
 
 
 class WebpageImageSummarizer:
@@ -227,6 +234,12 @@ class WebpageImageSummarizer:
             images = crawl_result.get("images", [])
             image_urls = [image.get("url", "") for image in images if image.get("url")]
 
+        image_urls = [
+            url
+            for url in image_urls
+            if not urlparse(url).path.lower().endswith(UNSUPPORTED_IMAGE_SUFFIXES)
+        ]
+
         if target_urls is not None and not (set(image_urls) & target_urls):
             return None
 
@@ -296,9 +309,9 @@ class WebpageImageSummarizer:
             return None, "failed"
 
         content_type: str = raw_content_type.split(";")[0].strip()
-        if not content_type.startswith("image/"):
+        if content_type not in SUPPORTED_IMAGE_CONTENT_TYPES:
             logger.warning(
-                "Image content-type is not image/* (url=%s, content_type=%s)",
+                "Unsupported image content-type (url=%s, content_type=%s)",
                 url,
                 content_type or "<empty>",
             )

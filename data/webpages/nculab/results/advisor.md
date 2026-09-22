@@ -1,18 +1,18 @@
 # Advisor
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQWI5Ng4cb0xwXHn_RCw3jAz9hB3NLYCu4IQPb7ZiHzm_0L2k6pAAXZqEIbkoH1oQ9oQlW5VA-_ei-XF2HjCBTgjx-14uRt3KCUR11x70HVZWjVZAt1mZwigImqK1gCNpNDo6vfuraTfTU4YWe79kTM4Xp5EhkS1zEVgEpYUpgXqDJ2rJq4SDcALDTF-wse4-X_VMELFVeVzDED3szTN-Su9FBA7SkgpcjnjcNyiGWs=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72tbxXFKSf497kI6rb2-iIwbSByoQvsA01qTJsebEs5FJMSj30KCiW5aSaC_DE8yQliJSRfdElfD_rgB4VJDNfQxgfZDKFPjwpJa72CyloY8S0GX_GYcq0lEC5GGKW9WGf_sR7hLdikqNxD6q4hngwq5onfB2awhcrFAGCeb_jMpAF7Gxcv7xkdJyIPznvOvMFvctDa-lQxJKf8kp-WQ4stBV2eU-rSMHD-nu7q5gy0=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 女子佩戴眼鏡與識別證，站在戶外背景前微笑。
+> 女性人物佩戴眼鏡與藍色掛繩，背著背包站在山谷梯田前。
 >
 > **主要元素：**
-> 1. 實體: 女子, 眼鏡, 識別證, 背包帶
+> 1. 實體: 女性人物,眼鏡,背包,藍色掛繩,山谷梯田
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物影像, 個人肖像
+> 3. 主題標籤: 人物肖像,戶外場景,山谷梯田
 >
 > **頁面關聯：**
-> 本圖片為人物展示，用於個人簡介或活動紀錄。
+> 人物肖像與戶外場景，無可命名錨點
 [0000-0002-1101-6337](https://www.google.com/url?q=https%3A%2F%2Forcid.org%2F0000-0002-1101-6337&sa=D&sntz=1&usg=AOvVaw3wPdd5E5dDAlO-souovXb2) chiahui@g.ncu.edu.tw
 
 +886-3-422-7151 #35302 Engineering Building 5, B302 Jhongda Road, Jhongli Dist. Taoyuan, Taiwan [個人首頁 / Personal Website](https://sites.google.com/site/jahuichang/)

@@ -10,39 +10,46 @@ Finding activities to attend has been the prelude in our leisure time. Meanwhile
 
 ## Demo
 
-[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://lh3.googleusercontent.com/sitesv/AG8ngQWzYL0XTguRI-m5tFJuV0-4FPqw6dcZ-CtghHgpxLNJbbvW2AWsLqjk9w3zC1sPNRJId5HrFtoYCQ0Hy5ejDCzK99yweoOMJIZxmKx8SfUJzcUbunkHsqM6pOz1jrfxvF4bQI8syYtfmy3pQieLndOg3_vvZ4dxNYlNCdake5mIT9ZtzT7crjxOksZj9eS_cprHJq1vHilH=w1280)
+[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72vxgYA_fNCMtBgSKI-YmZSychtJVnlt0NsqWwj7GqNV-do1zsZXH_XklhrYUhAsCZO5swceDb801Bz07HoOQCwYtaKAyx0EKMYz37LOyr16qyyLTQ-gykq7JyWvPYdtU1jhfUC1_C-GjbsGORHEQ3ri_Bg2fUkKOWgEg3jV1Nnr-mMazjHtZlIpRc9ol1Z4PbPKmd6YGZ6t=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 左側展示 EventGO 應用程式啟動畫面，中間為顯示地圖資訊的手機操作介面，右側為列出活動清單與距離資訊的列表頁面。
+> EventGO! 應用程式商店頁面展示活動地圖、活動清單與定位導航功能。
 >
 > **主要元素：**
-> 1. 實體: EventGO, 手機介面, 地圖, 活動列表, WIDM
+> 1. 實體: WIDM lab, 活動地圖介面, 活動清單, GPS定位, 手機行事曆
 > 2. OCR文字:
 > EventGO!
-> WIDM lab 旅遊與地方資訊
+> WIDM lab　旅遊與地方資訊
 > 3+
 > 這個應用程式與您的所有裝置都相容。
+> 13
 > 加入願望清單
 > 安裝
-> 活動名稱/地點/描述
+> WIDM
+> 活動名稱/地點/描述…
 > 抽獎
-> 小豪包膜-淡水中正店【官方LINE網址】
-> 4月30(2017/04/30)~
+> 小溪包胭-淡水中正店【官方LINE網址】
+> 4月30日(2017年4/30)～
 > 淡水中正店
-> 距離: 11.69/公里
-> 透明美-醫師認證課程
-> 2017/4/30 09:30~2017/4/30 13:00
-> 透明美-透明/舒適/美觀的隱形矯正療程
-> 距離: 4.92/公里
-> 【不限金額發票抽獎活動】麻吉 the 機-第二波開獎日
-> 2017/4/30 13:00~2017/4/30 14:00
-> MAJI集食行樂
-> 距離: 4.5/公里
-> 3. 主題標籤: 旅遊資訊, 活動查詢, 行動應用程式, 地圖導航, 事件管理
+> 距離: 11.69公里
+> [模糊]
+> 2017/4/30 09:30 ~ 2017/4/30 13:00
+> [模糊]
+> 距離: 4.92公里
+> [模糊]
+> 2017/4/30 13:00 ~ 2017/4/30 14:00
+> [模糊]
+> 距離: 4.5公里
+> 您只要開啟GPS定位功能，即可透過活動或地名關鍵字，查詢近期舉辦的相關活動
+> 一旦您中意某一項活動，EventGO!能連結手機行事曆，幫助您輕松地將活動資訊儲存下來
+> 同時，EventGO!也結合導航功能，讓您即使在人生地不熟的外地，也能安心抵達活動地點
+> 只要透過EventGO!，就能將所有活動一手掌握！
+>
+> 3. 主題標籤: 旅遊與地方資訊, 活動搜尋, GPS定位, 行事曆, 導航功能
 >
 > **頁面關聯：**
-> 本圖為 EventGO 應用程式介紹頁面，展示其活動查詢與地圖定位功能。
+> EventGO! 應用程式介紹頁，所屬 WIDM lab，錨點為旅遊與地方資訊
 ](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW)
 
 ## Publication

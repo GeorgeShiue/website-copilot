@@ -12,29 +12,33 @@
 > # Image-1
 >
 > **圖片摘要：**
-> TSMC 預辦登積計畫線上徵才說明會資訊圖，列出三場次日期、時間及語言類別。
+> TSMC預辦登積計畫線上徵才說明會列出三場中文與英文場次、日期及時間。
 >
 > **主要元素：**
-> 1. 實體: TSMC, 預辦登積計畫, 線上徵才說明會, 資訊人才專場
+> 1. 實體: TSMC, 預辦登積計畫, 線上徵才說明會, 資訊人才專場, 徵才說明會
 > 2. OCR文字:
 > TSMC
 > 預辦登積計畫
 > 線上徵才
 > 說明會
-> 1 資訊人才專場 (中文)
-> 08/05 2026 Wed
+>
+> 1 資訊人才專場（中文）
+> 08/05 2026
+> Wed
 > 13:30 - 15:00
-> 2 徵才說明會 (中文)
-> 09/18 2026 Fri
+>
+> 2 徵才說明會（中文）
+> 09/18 2026
+> Fri
 > 12:15 - 13:15
-> 3 徵才說明會 (英文)
-> 10/15 2026 Thu
+>
+> 3 徵才說明會（英文）
+> 10/15 2026
+> Thu
 > 12:15 - 13:15
+>
 > tsmc
-> 3. 主題標籤: 台灣積體電路製造, 招募活動, 徵才說明會, 校園徵才
+> 3. 主題標籤: TSMC, 預辦登積計畫, 線上徵才, 資訊人才, 徵才說明會
 >
 > **頁面關聯：**
-> TSMC 預辦登積計畫線上徵才說明會日程表。
-分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc1e917b1eba6365d85f5c60796f1b436 "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc1e917b1eba6365d85f5c60796f1b436 "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc1e917b1eba6365d85f5c60796f1b436 "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fc1e917b1eba6365d85f5c60796f1b436; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")
+> TSMC預辦登積計畫線上徵才說明會資訊圖人體藝術

@@ -9,6 +9,15 @@ import json
 import logging
 import os
 
+from rich.markup import escape
+from rich.table import Table
+
+from app.engines.webpage_markdown_cleaner import (
+    GenerationResult,
+    WebpageMarkdownCleaner,
+)
+from utils.log_helper import log_session, print_log
+
 QUERY_MD_FILE_PREFIX = "query_"
 RESULTS_JSON_NAME = "results.json"
 
@@ -142,6 +151,74 @@ def save_results_as_md(
                 for image in images:
                     f.write(f"![]({image['src']})\n")
                 f.write("\n" + "-" * 5 + "\n")
+
+
+def save_generated_exclude_words(
+    result: GenerationResult, raw_pages: dict[str, str], run_path: str
+) -> None:
+    """落盤 LLM 產生的 exclude_words（可貼回 [clean]）與報告，並輸出 log 表格。"""
+    hits = WebpageMarkdownCleaner.count_word_hits(raw_pages, result.words)
+
+    toml_text = (
+        "exclude_words = [\n"
+        + "".join(f"    {json.dumps(w, ensure_ascii=False)},\n" for w in result.words)
+        + "]\n"
+    )
+    with open(
+        os.path.join(run_path, "generated_exclude_words.toml"), "w", encoding="utf-8"
+    ) as f:
+        f.write(toml_text)
+
+    report = {
+        "seed": result.seed,
+        "words": [
+            {
+                "word": w,
+                "votes": result.votes[w],
+                "hit_lines": hits[w],
+                "low_occ_ratio": result.stats[w]["low_occ_ratio"],
+            }
+            for w in result.words
+        ],
+        "rejected": [
+            {
+                "word": w,
+                "votes": result.votes[w],
+                "low_occ_ratio": ratio,
+            }
+            for w, ratio in result.rejected.items()
+        ],
+        "samples": result.samples,
+        "runs": result.runs,
+        "raw_runs": result.raw_runs,
+        "usages": result.usages,
+        "total_cost_usd": result.cost_usd,
+    }
+    with open(
+        os.path.join(run_path, "exclude_words_report.json"), "w", encoding="utf-8"
+    ) as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    log_session("LLM Generated exclude_words Stats", style="green")
+    table = Table(show_header=True, header_style="bold green")
+    table.add_column("Word", style="green")
+    table.add_column("Votes", style="white")
+    table.add_column("Hit lines", style="white")
+    table.add_column("Low-occ ratio", style="white")
+    for w in result.words:
+        table.add_row(
+            escape(w),
+            str(result.votes[w]),
+            str(hits[w]),
+            f"{result.stats[w]['low_occ_ratio']:.1%}",
+        )
+    print_log(f"Total {len(result.usages)} calls, cost: ${result.cost_usd:.4f}")
+    if result.rejected:
+        rejected_text = ", ".join(
+            f"'{escape(w)}' ({ratio:.1%})" for w, ratio in result.rejected.items()
+        )
+        print_log(f"Rejected by coverage validation: {rejected_text}")
+    print_log(table)
 
 
 def save_query_results_as_md(

@@ -14,7 +14,3 @@
 -涉及機密：係指國家機闢，請檢附相關證明文件，或填寫[「說明書」](https://pdc.adm.ncu.edu.tw/s/reg-form3-13-1)。(請至註冊組表格下載 3-13-1或4-13-1) -專利事項：申請表填妥專利案號即可，若正在專利申請審核中，或有新技術發表先後之疑慮者，應填寫[「說明書」](https://pdc.adm.ncu.edu.tw/s/reg-form3-13-1) -依法不得提供：須提出適用法規或具體事實證據。
 
 - 本校自111學年度起畢業生除可領取原有紙本學位證書外，學校另免費核發**數位學位證書** ，詳情請詳閱[註冊組公告](https://pdc.adm.ncu.edu.tw/p/412-1019-1938.php?Lang=zh-tw)
-
-分享 [](https://plus.google.com/share?hl=zh-TW&url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fb5e8fcfa09019a38e092c03da4fff394 "在Google+分享") [](https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fb5e8fcfa09019a38e092c03da4fff394 "在Facebook分享") [](https://twitter.com/intent/tweet?url=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fb5e8fcfa09019a38e092c03da4fff394 "在Twitter分享") [](http://www.plurk.com/?lang=tr_cn&qualifier=shares&status=http%3A%2F%2Fwww.csie.ncu.edu.tw%2Fannouncement%2Fb5e8fcfa09019a38e092c03da4fff394; "在Plurk分享") 標籤
-
-- [ 教室借用 ](https://classroom.csie.ncu.edu.tw/ "教室借用")

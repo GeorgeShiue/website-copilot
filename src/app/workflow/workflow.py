@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 import uuid
 
@@ -22,11 +23,13 @@ from app.configs.workflow_config import (
 from app.engines.rag import RAGBuilder
 from app.engines.rag.rag_factory import create_rag
 from app.engines.webpage_image_summarizer import WebpageImageSummarizer
+from app.engines.webpage_markdown_cleaner import WebpageMarkdownCleaner
 from app.engines.website_crawler import WebsiteCrawler
 from app.server.app import ChatApp
 from app.workflow.data_manager import DataManager
 from app.workflow.run_persistence import (
     load_latest_results,
+    save_generated_exclude_words,
     save_query_results_as_md,
     save_results_as_md,
 )
@@ -85,6 +88,13 @@ def run_website_crawler(
             content_threshold=config.content_threshold,
             light_mode=config.light_mode,
             wait_for_images=config.wait_for_images,
+            cleaner=WebpageMarkdownCleaner(
+                model=config.llm_model,
+                sample_ratio=config.sample_ratio,
+                repeat=config.repeat,
+                max_prompt_tokens=config.max_prompt_tokens,
+                seed=config.seed,
+            ),
         )
 
         # ---- 執行網站爬蟲 -----
@@ -93,7 +103,6 @@ def run_website_crawler(
             url=config.url,
             url_patterns=config.url_patterns,
             allowed_domains=config.allowed_domains,
-            exclude_words=config.exclude_words,
             path_prefix=config.path_prefix,
         )
 
@@ -102,6 +111,13 @@ def run_website_crawler(
             return None
 
         # ---- 儲存結果 -----
+        if website_crawler.generation_result is not None:
+            save_generated_exclude_words(
+                website_crawler.generation_result,
+                website_crawler.raw_pages,
+                run_manager.run_path,
+            )
+
         run_manager.save_results_as_json(crawl_results)
         save_results_as_md(
             crawl_results, run_manager.results_folder_path, "fit_markdown"
@@ -262,10 +278,25 @@ def run_rag_build(
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
+        # ---- 發布向量庫 -----
+        # 先關閉 RAG 釋放 Milvus Lite，再複製向量庫，避免複製到寫入中的檔案
+        rag.close()
+        if data_manager is not None:
+            if rag.milvus_uri and os.path.exists(rag.milvus_uri):
+                data_manager.publish_vector_store(
+                    site_id=config.site_id,
+                    source_path=rag.milvus_uri,
+                )
+            data_manager.publish_run_metadata(
+                site_id=config.site_id,
+                category="rag",
+                module_config_path=run_manager.module_config_toml_path,
+                run_config_path=run_manager.run_config_toml_path,
+                log_path=run_manager.log_path,
+            )
+
         # ----- 輸出完成訊息 -----
         log_session("RAG Build Completed", style="cyan")
-
-    rag.close()
 
 
 def run_rag_query(

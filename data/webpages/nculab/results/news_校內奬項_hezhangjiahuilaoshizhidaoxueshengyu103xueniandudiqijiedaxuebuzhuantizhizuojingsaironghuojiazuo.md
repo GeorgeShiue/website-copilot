@@ -5,42 +5,41 @@ Post date: Sep 23, 2015 11:27:02 AM
 - 賀！張嘉惠教授指導大學部學生郭泰麟、何驊益、劉至咸、及張國斌。榮獲『第七屆大學部專題製作競賽榮獲佳作』。
 - 行動中大： 何驊益、劉至咸、及張國斌
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQW7Jb5cJ_Uj-2G83FfnTPCnHD-VsZHKMMLtL8E9Xvh-aGUxrH9TGShodmeHpILShoKgssBNIv_UC2mxxkzpVqMjvj2lkazN-zhCyy6lE2kq_o6U5TcDBe76e4B5ZO8xZFk-wB0J18hfa6vEgWYsYfHpPxvGF8K561aERcI02h5j3L-8H5HPJeWfKKy7p2uZlGgfyrH4Uw=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72u0aP6FSNxif1hvVV_kaYJLPBZdFTOmY27sy4iyxrAnx800l0KO9wGyD6lNcq-S6qS4T7iNkH13WxhrHyTYIpQxFXJIw4aGffYzRW3KG12cnvqYM7WxnvRUsAXAfFtLwlOE0uIcAnyMP6izYY1hmlLp9lA9tIlGVD7IUYl0kAM2aL7Lu2TG24W6nSAOSovMzvUlkqf-fw=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 國立中央大學頒發之獎狀，頂部中央為校徽，劉至威同學獲第七屆大學部專題製作競賽佳作，由張嘉惠教授指導。
+> 國立中央大學獎狀列載行動中大獲大學部專題製作競賽佳作。
 >
 > **主要元素：**
-> 1. 實體: 國立中央大學, 第七屆大學部專題製作競賽, 劉至威, 張嘉惠, 佳作
+> 1. 實體: 國立中央大學, 大學部專題競賽, 行動中大專題, 資訊工程學系學生, 指導教師
 > 2. OCR文字:
 > 國立中央大學
-> 103學年度
+> 103 學年度
 > 第七屆大學部專題製作競賽
 > 行動中大
-> 資訊工程學系 劉至威同學
+> 資訊工程學系 劉至同學
 > 指導老師：張嘉惠 教授
 > 表現優異，榮獲 佳作，
 > 特頒獎狀，以資獎勵
 > 中央大學資訊電機學院
-> 中華民國104年10月6日
-> 中央大學資訊電機學院
-> 3. 主題標籤: 競賽獲獎, 專題製作, 資訊工程, 大學競賽
+> 中華民國 104 年 10 月 6 日
+> 印章文字[模糊]
+> 3. 主題標籤: 大學部專題製作競賽, 行動中大, 資訊工程, 獎狀
 >
 > **頁面關聯：**
-> 隸屬國立中央大學資訊電機學院，檢索錨點：第七屆大學部專題製作競賽、劉至威、張嘉惠。
+> 中央大學專題競賽獎狀，錨點為行動中大與張嘉惠教授
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQW2p39ZP-P7W3L6SlX9ae7xeBuB5By9ad2T7sURRAljSzaeTuYOdeBj_sxacGk2SQAYMjul5-4YavK5B2tio1eDNet_2oMKuNLPVcQA__KlHOiebE5eafPcQTKOX2J4qiGEEN8aVpnMK_urOC0jiV2xWiuUlUVGA688PPjKk3UC3Bm7l9z58uDNyt5h680P84tg1jiD3hE_=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72uST-_3CeQqaFrl_g6_s0VwYS8ofXUV1f3KGX6_a6Q4ReBKWPjUEZBbToUt_3I-OtpQkQQliUiT_x-jpi9Rxq2xf_OyVItATLX31Ikqe33zhHTzJDtNoeiRtCEz6NZqUZAW926ip9NNXCig5aS-T-lbBZz-GaVwtg0CPiFAK0mnNaOYQo8z8TGHePDo92JhpvBL1IkDDGAW=w1280)
 > # Image-2
 >
 > **圖片摘要：**
-> 中央大學獎狀標示何驛益獲第七屆大學部專題製作競賽佳作，由張嘉惠教授指導。
+> 中央大學專題競賽獎狀，表揚行動中大作品獲佳作。
 >
 > **主要元素：**
-> 1. 實體: 中央大學, 專題製作競賽, 何驛益, 張嘉惠, 資訊工程學系
+> 1. 實體: 國立中央大學校徽, 何驛益學生, 張嘉惠指導教授, 行動中大專題, 大學部競賽獎狀
 > 2. OCR文字:
-> 國立中央大學
-> 103學年度
+> 103 學年度
 > 第七屆大學部專題製作競賽
 > 行動中大
 > 資訊工程學系 何驛益同學
@@ -48,84 +47,82 @@ Post date: Sep 23, 2015 11:27:02 AM
 > 表現優異，榮獲 佳作，
 > 特頒獎狀，以資獎勵
 > 中央大學資訊電機學院
-> 中華民國104年 10月 6日
-> 國立中央大學資訊電機學院
-> 3. 主題標籤: 競賽獎項, 專題製作, 資訊工程, 大學教育
+> 中華民國 104 年 10 月 6 日
+> 3. 主題標籤: 行動中大, 專題製作競賽, 資訊工程, 競賽獎狀, 中央大學
 >
 > **頁面關聯：**
-> 本圖片為第七屆大學部專題製作競賽獲獎證明，所屬對象為何驛益，檢索錨點包含中央大學、資訊工程學系。
+> 中央大學競賽獎狀；錨點為行動中大、何驛益、張嘉惠
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQWeFgGKZliIEiERRS-YG3tzjtoBEnZhiy-YRTX0nipY2IS9YmtHX7pI6OXh2CrEY5eKIOEk1aqw6T_pwivVjhukMpVxlgD4FjjLoP1KYahtTFUIDmY5R5v_iR37riKCQCvnMnSnbO0IYeO3H3C3C8Csj68aWtPGkdtXScnSrzVEmWr_SVVWsz4rpR-Qr49nApS9d9XmubxM=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vnproo3B_cq5AiztnNc1AsEb16ZisLx_bwSIghd8LjgVhy-P2WZ_c2sPomoNFPaUO1UDFkb9q3aCxaBc_fmvP4gATcuw-uGA-U5WN-SsvxH4iZ4LKwy8yKVzkwNHNt3kGdjoBh38jWFVBpoEWsUIX0xbRulEXQRRvQquJAULB1tyyjGLR0kN5AinMkCVM46sg189F7-Un0=w1280)
 > # Image-3
 >
 > **圖片摘要：**
-> 國立中央大學頒發的獎狀，表彰何驊益參加第七屆大學部專題製作競賽獲得佳作。
+> 中央大學資訊工程學系學生何驥益獲大學部專題製作競賽佳作獎狀。
 >
 > **主要元素：**
-> 1. 實體: 國立中央大學, 專題製作競賽, 何驊益, 張嘉惠, 佳作獎狀
+> 1. 實體: 何驥益, 行動中大, 資訊工程學系, 大學部專題製作競賽, 中央大學資訊電機學院
 > 2. OCR文字:
 > 國立中央大學
 > 103 學年度
 > 第七屆大學部專題製作競賽
 > 行動中大
-> 資訊工程學系 何驊益同學
+> 資訊工程學系 何驥益同學
 > 指導老師：張嘉惠 教授
 > 表現優異，榮獲 佳作，
 > 特頒獎狀，以資獎勵
 > 中央大學資訊電機學院
-> 中華民國 104 年 10 月 6 日
-> 國立中央大學資訊電機學院
-> 3. 主題標籤: 大學部專題製作競賽, 資訊工程學系, 獲獎紀錄, 國立中央大學
+> 中華民國104年10月6日
+> 3. 主題標籤: 中央大學, 資訊工程學系, 專題製作競賽, 佳作, 行動中大
 >
 > **頁面關聯：**
-> 本圖為國立中央大學資訊電機學院頒發給何驊益的第七屆大學部專題製作競賽佳作獎狀。
+> 中央大學專題製作競賽獎狀；錨點：行動中大
 - 聖劍語錄：郭泰麟
 
 - 疾疾店家現身：
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQX1JmFB_ZM7L4Bo18CJQgvkC4FMiOpnD_yEB-b_IfOLphft58WVLIFO5DV6NaJ2T-vK2fdqasRuVWrmKYYT66asleZiM6WpIh6lJKFijZ-ZJUQmJ_i6zKaiwRkxFBCsFTxLPy4xGyx1mJEgnoqNVreOvEKUl5603BbFhFVw9_jeNPdzyMkLDFMMCgA7WxJXvVjD930VwePi=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vdQ8nIBRWl26meS8hg7oCFqp_MDp9yn-oM5op2OBTfrKIW9sT2K56MvwRUYqvdQtggvPxdXcKnI1QjebZDlkCCFHEaaFAXW-9oOqeplOnvhDmnRNt-qoB5Z7KqVwUZ-UNxudzre8v1icrkrUoxvMpwQNrGqcBClkrsSQ4o49r0onQS-7ijnAeXO9VtmJQbPL4kUtCpqny-=w1280)
 > # Image-4
 >
 > **圖片摘要：**
-> 國立中央大學第七屆大學部專題製作競賽獎狀，上方印有校徽，右下方蓋有資訊電機學院戳章，內容載明獲獎者郭泰麟與獎項。
+> 中央大學專題競賽獎狀，頒予郭泰麟佳作獎。
 >
 > **主要元素：**
-> 1. 實體: 國立中央大學, 專題製作競賽, 資訊工程學系, 郭泰麟, 資訊電機學院
+> 1. 實體: 郭泰麟同學, 專題競賽獎狀, 聖劍語錄, 資工系, 資電學院
 > 2. OCR文字:
-> 國立中央大學
-> 103學年度
+> 103 學年度
 > 第七屆大學部專題製作競賽
 > 聖劍語錄
 > 資訊工程學系 郭泰麟同學
 > 表現優異，榮獲 佳作，
 > 特頒獎狀，以資獎勵
-> 國立中央大學資訊電機學院
-> 中華民國104年10月6日
-> 3. 主題標籤: 學術競賽, 專題製作, 獎狀, 資訊工程
+> 中央大學資訊電機學院
+> 中華民國 104 年 10 月 6 日
+> 3. 主題標籤: 大學部專題製作競賽, 佳作, 資訊工程學系, 資訊電機學院
 >
 > **頁面關聯：**
-> 本圖片為國立中央大學第七屆大學部專題製作競賽獎狀，獲獎者為郭泰麟。
+> 郭泰麟之中央大學專題競賽佳作獎狀，錨點為聖劍語錄
 
-![](https://lh3.googleusercontent.com/sitesv/AG8ngQVG-CCMi2x7dxZtwBLz48lv6EGzwqVQJZc7gezScWRaOKb0NIF63zC6K_sOUtYrcPjxoVoo_fn90NvFxaSbzAbhMu8Oj37OvyWXpC5yVqXY9-uF5xQi3bjf0kDfwbcpSbi0Tp8RJtZQCKGgc8Ahj_6fHIROnvF1vXAwdrMlXnlf1S_bvshsH2BbIZUTwgnJ0cuPG4Vljg=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vXC8IQwq2aRSDQng1COglDowA5Jyg3ePJg5ho7tCdjI8c7lNslxtD9Rz5eWpf6DyuhsyttRvncqAgf6GrKU2we7qhiFe9FFYb4Iw22olXl4rgpZJlPqwdvHeBZKQ60Dg3ZKHnjBdM0DBZsF59ng4FYDcOeA-J86Vi8775T8I37xOKsnQRZccyAnpzuEGyjHyRfHXDeQw=w1280)
 > # Image-5
 >
 > **圖片摘要：**
-> 中央大學資訊電機學院頒發獎狀，授予資訊工程學系張國斌同學第七屆大學部專題製作競賽佳作，由指導教授張嘉惠指導。
+> 中央大學獎狀列出專題競賽佳作、參賽學生與指導教師。
 >
 > **主要元素：**
-> 1. 實體: 中央大學資訊電機學院, 國立中央大學, 張國斌, 張嘉惠, 專題製作競賽
+> 1. 實體: 獎狀,校徽,參賽學生,指導教師,校方印章
 > 2. OCR文字:
 > 國立中央大學
-> 103學年度
+> 103 學年度
 > 第七屆大學部專題製作競賽
 > 疾疾店家現身
 > 資訊工程學系 張國斌同學
 > 指導老師：張嘉惠 教授
 > 表現優異，榮獲 佳作，
 > 特頒獎狀，以資獎勵
-> 國立中央大學資訊電機學院
-> 中華民國104年10月6日
-> 3. 主題標籤: 專題製作競賽, 資訊工程, 大學競賽, 學術獲獎
+> 中央大學資訊電機學院
+> 中華民國 104 年 10 月 6 日
+> 印章文字：[模糊]
+> 3. 主題標籤: 大學部專題製作競賽,資訊工程學系,佳作獎,中央大學
 >
 > **頁面關聯：**
-> 本圖為第七屆大學部專題製作競賽獎狀，屬於國立中央大學資訊電機學院之學術活動紀錄。
+> 中央大學資訊電機學院專題競賽得獎獎狀；錨點：張國斌、疾疾店家現身

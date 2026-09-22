@@ -72,6 +72,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
 │   │   │   │   └── rag_eval_prompts.py
 │   │   │   ├── webpage_image_summarizer.py
+│   │   │   ├── webpage_markdown_cleaner.py  # Markdown 清洗 + LLM 產生 exclude_words
 │   │   │   └── website_crawler.py
 │   │   ├── server/
 │   │   │   ├── app.py           # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
@@ -98,7 +99,6 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │       ├── html_date_extractor.py   # HTML 日期擷取（JSON-LD → OG → <time> → Generic → Dublin Core → HTTP Last-Modified）
 │       ├── langchain_helper.py      # LangChain 輔助（create_llm / thread_config / extract_sources）
 │       ├── log_helper.py
-│       ├── markdown_cleaner.py      # Markdown 清洗（純函數）
 │       └── rag_helper.py
 ├── extension/                   # Chrome Extension（M4）
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
@@ -193,10 +193,10 @@ playwright install
 ### 執行爬取與圖片摘要流程
 
 ```bash
-uv run python src/main.py
+uv run python src/main.py --run.config-name nculab
 ```
 
-這會先執行網站爬蟲，然後將爬取結果傳給圖片摘要器。輸出會寫入 `runs/<timestamp>/...`。
+`--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，最後啟動 Chat 伺服器（阻塞至中斷）。輸出會寫入 `runs/<timestamp>/...`，並發布到 `data/`。
 
 ### 執行 RAG 查詢
 
@@ -307,7 +307,7 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 - `docs/code/runs/cli.md` — CLI 使用方式
 - `docs/code/runs/config.md` — 設定機制說明
 - `docs/code/runs/workflow.md` — Workflow 流程說明
-- `docs/work/2026_0914/dev_log.md` — 9/7–9/10 實作紀錄（§七：Agent / RunManager 責任重構，含 CR / QA）
+- `docs/work/2026_0921/2026_0907-workflow_module_refactor/dev_log.md` — 9/7–9/10 實作紀錄（§七：Agent / RunManager 責任重構，含 CR / QA）
 - `docs/survey/phase1/data_process_method.md` — 資料處理方法 survey
 
 ## 狀態

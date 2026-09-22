@@ -81,4 +81,4 @@
 
 # 重構紀錄
 
-> Agent 不再持有 `RunManager`（落盤責任上移至呼叫端）— 見 [2026_0914/dev_log.md §七](../../work/2026_0914/dev_log.md)
+> Agent 不再持有 `RunManager`（落盤責任上移至呼叫端）— 見 [2026_0907-workflow_module_refactor/dev_log.md §七](../../work/2026_0921/2026_0907-workflow_module_refactor/dev_log.md)

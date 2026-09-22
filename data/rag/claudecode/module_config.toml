@@ -1,0 +1,31 @@
+[init]
+webpages_data_folder_path = "data/webpages/claudecode"
+site_id = "claudecode"
+
+[vector_store]
+hybrid_ranker = "WeightedRanker"
+vector_store_type = "milvus" # run name
+milvus_uri = "data/rag/claudecode/milvus.db"
+
+[vector_store.hybrid_ranker_params]
+weights = [1.0, 0.5]
+
+[nodes]
+paragraph_separator = "\n\n"
+chunk_overlap = 100
+chunk_size = 800
+
+[index]
+embedding_name = "text-embedding-3-small"
+
+[retriever]
+similarity_top_k = 10
+hybrid_top_k = 10
+alpha = 0.5
+query_mode = "hybrid"
+
+[query_engine]
+query_llm_name = "gpt-5.6-luna"
+query = "如何安裝 Claude Code？"
+cutoff = 0.0
+evaluator_llm_name = "gpt-5.6-terra"
