@@ -248,3 +248,31 @@ class TestFilterCrawlResults:
         )
         assert c._crawl_stats["success_pages"] == 1
         assert c._crawl_stats["repeat_pages"] == 2
+
+
+# ── 過濾結果的 INFO log ──────────────────────────────────────────────
+
+
+def test_filter_logs_skipped_pages_with_reason_and_decoded_url(caplog):
+    import logging
+
+    crawler = _make_crawler("https://sites.google.com/site/nculab/labintro")
+    encoded = "https://sites.google.com/site/nculab/news/%E7%A2%A9%E8%AB%96"
+    not_found = _make_result(encoded)
+    not_found.status_code = 404
+    no_md = _make_result("https://sites.google.com/site/nculab/empty")
+    no_md.markdown = None
+    first = _make_result("https://sites.google.com/site/nculab/news/碩論")
+    dup = _make_result(encoded)
+
+    with caplog.at_level(logging.INFO, logger="app.engines.website_crawler"):
+        crawler._filter_crawl_results([first, dup, not_found, no_md])
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("news/碩論 (duplicate of" in m for m in messages)
+    assert any("(error: status code 404)" in m for m in messages)
+    assert any("empty (error: no markdown)" in m for m in messages)
+    assert not any("%E7" in m for m in messages)
+    assert crawler._crawl_stats["error_404"] == 1
+    assert crawler._crawl_stats["error_no_markdown"] == 1
+    assert crawler._crawl_stats["repeat_pages"] == 1

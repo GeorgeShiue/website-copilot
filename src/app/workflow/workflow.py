@@ -26,6 +26,7 @@ from app.engines.webpage_image_summarizer import WebpageImageSummarizer
 from app.engines.webpage_markdown_cleaner import WebpageMarkdownCleaner
 from app.engines.website_crawler import WebsiteCrawler
 from app.server.app import ChatApp
+from app.server.server import ChatServer
 from app.workflow.data_manager import DataManager
 from app.workflow.run_persistence import (
     load_latest_results,
@@ -106,11 +107,6 @@ def run_website_crawler(
             path_prefix=config.path_prefix,
         )
 
-        if crawl_results is None:
-            log_session("Website Crawling Failed", style="red")
-            return None
-
-        # ---- 儲存結果 -----
         if website_crawler.generation_result is not None:
             save_generated_exclude_words(
                 website_crawler.generation_result,
@@ -118,6 +114,13 @@ def run_website_crawler(
                 run_manager.run_path,
             )
 
+        # ----- 輸出完成訊息 -----
+        if crawl_results is None:
+            log_session("Website Crawling Failed", style="red")
+            return None
+        log_session("Website Crawling Completed", style="cyan")
+
+        # ---- 儲存結果 -----
         run_manager.save_results_as_json(crawl_results)
         save_results_as_md(
             crawl_results, run_manager.results_folder_path, "fit_markdown"
@@ -142,9 +145,6 @@ def run_website_crawler(
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
-
-        # ----- 輸出完成訊息 -----
-        log_session("Website Crawling Completed", style="cyan")
 
     return crawl_results
 
@@ -208,9 +208,11 @@ def run_webpage_image_summarizer(
             **config.litellm_kwargs,
         )
 
+        # ----- 輸出完成訊息 -----
         if enhanced_results is None:
             log_session("Image Summarization Failed", style="red")
             return None
+        log_session("Image Summarization Completed", style="cyan")
 
         # ---- 儲存結果 -----
         run_manager.save_results_as_json(enhanced_results)
@@ -236,9 +238,6 @@ def run_webpage_image_summarizer(
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
-        # ----- 輸出完成訊息 -----
-        log_session("Image Summarization Completed", style="cyan")
-
     return enhanced_results
 
 
@@ -262,7 +261,7 @@ def run_rag_build(
     )
 
     with run_workflow_context(run_title, run_manager=run_manager):
-        # ---- 初始化 RAG -----
+        # ---- 建置 RAG -----
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         rag = create_rag(
             config_name=config_name,
@@ -272,15 +271,17 @@ def run_rag_build(
             data_manager=data_manager,
             **config_overrides,
         )
+        rag.close()
+
+        # ----- 輸出完成訊息 -----
+        log_session("RAG Build Completed", style="cyan")
 
         # ---- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
-        # ---- 發布向量庫 -----
-        # 先關閉 RAG 釋放 Milvus Lite，再複製向量庫，避免複製到寫入中的檔案
-        rag.close()
+        # ---- 儲存結果 -----
         if data_manager is not None:
             if rag.milvus_uri and os.path.exists(rag.milvus_uri):
                 data_manager.publish_vector_store(
@@ -294,9 +295,6 @@ def run_rag_build(
                 run_config_path=run_manager.run_config_toml_path,
                 log_path=run_manager.log_path,
             )
-
-        # ----- 輸出完成訊息 -----
-        log_session("RAG Build Completed", style="cyan")
 
 
 def run_rag_query(
@@ -371,15 +369,17 @@ def run_rag_query(
                     )
                 )
 
-            faithfulness_pass_rate = faithfulness_pass / query_times * 100
-            relevancy_pass_rate = relevancy_pass / query_times * 100
+            # ----- 輸出完成訊息 -----
+            log_session("RAG Query Completed", style="cyan")
 
             # ----- 輸出評估結果 -----
             log_session("Evaluation Summary", style="green")
             print(f"Query times: {query_times}")
+            faithfulness_pass_rate = faithfulness_pass / query_times * 100
             print(
                 f"Faithfulness: {faithfulness_pass_rate:.2f}% ({faithfulness_pass}/{query_times})"
             )
+            relevancy_pass_rate = relevancy_pass / query_times * 100
             print(
                 f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})"
             )
@@ -427,9 +427,6 @@ def run_rag_query(
         finally:
             rag.close()
 
-        # ----- 輸出完成訊息 -----
-        log_session("RAG Query Completed", style="cyan")
-
 
 def run_agent_build(
     config_name: str = "default",
@@ -448,13 +445,13 @@ def run_agent_build(
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         agent = create_agent(config_name, **config_overrides)
 
+        # ----- 輸出完成訊息 -----
+        log_session("Agent Build Completed", style="cyan")
+
         # ---- 儲存設定 -----
         save_module_config_as_toml(config, run_manager.module_config_toml_path)
         if run_config is not None:
             save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
-
-        # ----- 輸出完成訊息 -----
-        log_session("Agent Build Completed", style="cyan")
 
     agent.close()
 
@@ -491,11 +488,10 @@ def run_agent_query(
         # ---- 初始化 Agent -----
         config = AgentConfig.from_toml(config_name, **config_overrides)
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
-        log_session("Agent Initialization", style="cyan")
         agent = create_agent(config_name, **config_overrides)
 
-        # ---- Agent 問答 -----
         try:
+            # ---- Agent 問答 -----
             log_session("Agent Query and Response", style="cyan")
             print_log(f"Query: {query}")
             if stream:
@@ -515,8 +511,15 @@ def run_agent_query(
             for i, url in enumerate(result["sources"], 1):
                 print_log(f"{i}. {url}")
 
+            # ---- 輸出完成訊息 -----
+            log_session("Agent Query Completed", style="cyan")
+
+            # ---- 儲存設定 -----
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+
             # ---- 儲存結果 -----
-            # 無 thread_id 時自動產生（確保每次執行都有結果檔）
             if thread_id is None:
                 thread_id = f"auto-{uuid.uuid4().hex[:8]}"
             run_manager.save_agent_results_as_json(
@@ -524,11 +527,6 @@ def run_agent_query(
                 results=[result],
                 agent_config=agent.config,
             )
-
-            # ---- 儲存設定 -----
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
-            if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
         except Exception as e:
             log_session("Agent Query Failed", style="red")
             print_log(f"Error: {e}")
@@ -536,9 +534,6 @@ def run_agent_query(
             raise
         finally:
             agent.close()
-
-        # ---- 輸出完成訊息 -----
-        log_session("Agent Query Completed", style="cyan")
 
 
 def run_app(
@@ -571,15 +566,15 @@ def run_app(
         base_folder="runs",
     )
 
-    with run_workflow_context(run_title, run_manager=run_manager):
+    # 標題註明僅為初始化：耗時訊息不應被誤讀成 server 的執行時間
+    with run_workflow_context("Server", run_manager=run_manager):
         # --- 初始化 Agent -----
         config = AgentConfig.from_toml(config_name, **config_overrides)
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
-        log_session("Agent Initialization", style="cyan")
         agent = create_agent(config_name, **config_overrides)
 
-        # --- 初始化 App & Server -----
         try:
+            # --- 初始化 App & Server -----
             chat_app = ChatApp.create(
                 agent=agent,
                 run_manager=run_manager,
@@ -590,20 +585,18 @@ def run_app(
             uvicorn_config = uvicorn.Config(
                 chat_app.app, host=host, port=port, log_level="info"
             )
-            server = uvicorn.Server(uvicorn_config)
+            server = ChatServer(uvicorn_config)
+
+            # ---- 輸出完成訊息 -----
+            log_session("Server Initialization Completed", style="cyan")
 
             # ---- 儲存設定 -----
-            # 等待 server config 建立後儲存
             if run_config is not None:
                 save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
-
         except Exception as e:
             log_session("Server Initialization Failed", style="red")
             print_log(f"Error: {e}")
             agent.close()
             raise
-
-        # ---- 輸出完成訊息 -----
-        log_session("Server Ready", style="cyan")
 
     return server, chat_app

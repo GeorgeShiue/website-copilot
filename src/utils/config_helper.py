@@ -240,6 +240,17 @@ def filter_commented_configs(config_path: str, comment_keyword: str) -> list[str
     return result
 
 
+CONFIG_VALUE_MAX_CHARS = 100
+
+
+def truncate_config_value(value: str, max_chars: int = CONFIG_VALUE_MAX_CHARS) -> str:
+    """將換行轉成 `\\n` 並截斷過長字串（超過 max_chars 加 `…`），供 config 表顯示。"""
+    display_value = value.replace("\n", "\\n")
+    if len(display_value) > max_chars:
+        return display_value[:max_chars] + "…"
+    return display_value
+
+
 def log_config(title: str, config: object) -> None:
     """Log config key-values as sectioned Rich tables."""
     config_dict = vars(config)
@@ -273,8 +284,8 @@ def log_config(title: str, config: object) -> None:
                 if isinstance(value, set):
                     value = sorted(value)
                 display_value = value
-                if isinstance(display_value, str) and "\n" in display_value:
-                    display_value = display_value.replace("\n", "\\n")
+                if isinstance(display_value, str):
+                    display_value = truncate_config_value(display_value)
                 table.add_row(str(key), str(display_value))
 
             print_log(table)

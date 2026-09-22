@@ -1,7 +1,7 @@
 # 圖片處理
 
 ## 模組總覽
-此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程會先從爬取結果收集圖片來源，再進行下載、快取、摘要與重試，最後產生包含圖片說明的 `enhanced_markdown` 與統計資訊。
+此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程會先從爬取結果收集圖片來源並過濾 VLM 不支援的格式，再進行下載、快取、摘要與重試，最後產生包含圖片說明的 `enhanced_markdown` 與統計資訊。
 
 - **模組實作**
 	- `src/app/engines/webpage_image_summarizer.py`（主流程，包含**圖片擷取**、**下載**、**摘要**、**快取**、**重試**與 **Markdown 增強**）
@@ -26,8 +26,9 @@
 - 若結果內沒有可處理圖片，會保留原始 Markdown，不進一步摘要。
 
 ### 2. 下載與摘要處理
+- 擷取到的圖片 URL 會先依副檔名（`.svg`／`.avif`／`.bmp`／`.ico`／`.tif`／`.tiff`）過濾掉 VLM 不支援的格式，再進入下載流程。
 - 使用 `ThreadPoolExecutor(max_workers=vlm_max_workers)` 併行下載圖片。
-- 下載時會檢查 `Content-Type` 是否為 `image/*`，再轉成 base64 data URL。
+- 下載時會檢查 `Content-Type` 是否屬於 `SUPPORTED_IMAGE_CONTENT_TYPES`（`image/png`／`image/jpeg`／`image/gif`／`image/webp`），非此範圍一律視為下載失敗，再轉成 base64 data URL。
 - 下載完成後呼叫 `LiteLLM` 的 `acompletion()` 產生圖片摘要與 caption。
 
 ### 3. 快取、重試與輸出

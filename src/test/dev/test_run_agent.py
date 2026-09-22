@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.agent.agent import Agent
+from app.server.server import ChatServer
 
 
 @dataclass
@@ -109,6 +110,7 @@ def _setup_mock_run_manager(mock_rm_cls: MagicMock) -> MagicMock:
 # ===========================================================================
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -120,6 +122,7 @@ def test_run_agent_build_calls_create_agent_and_returns_none(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """run_agent_build：建立 run context + 呼叫 create_agent，回傳 None，agent.close() 被呼叫。"""
     from app.workflow.workflow import run_agent_build
@@ -159,6 +162,7 @@ def test_run_agent_build_propagates_create_agent_error(
         run_agent_build(config_name="test")
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.save_run_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
@@ -172,6 +176,7 @@ def test_run_agent_build_writes_run_config_when_provided(
     mock_config_cls,
     mock_create_agent,
     mock_save_run_config,
+    mock_save_module_config,
 ):
     """run_config= 觸發一次 run_config.toml 落盤，且 agent.close() 被呼叫。"""
     from app.workflow.workflow import run_agent_build
@@ -195,6 +200,7 @@ def test_run_agent_build_writes_run_config_when_provided(
 # ===========================================================================
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -206,6 +212,7 @@ def test_run_agent_query_creates_run_manager_with_runs(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """run_agent_query：RunManager 以 module="agent" / base_folder="runs" 建立。"""
     from app.workflow.workflow import run_agent_query
@@ -223,6 +230,7 @@ def test_run_agent_query_creates_run_manager_with_runs(
     )
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -234,6 +242,7 @@ def test_run_agent_query_calls_agent_ask(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """run_agent_query：agent.ask() 以正確 query 和 thread_id 呼叫。"""
     from app.workflow.workflow import run_agent_query
@@ -250,6 +259,7 @@ def test_run_agent_query_calls_agent_ask(
     assert fake_agent.asked[0]["thread_id"] == "session-1"
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -261,6 +271,7 @@ def test_run_agent_query_delegates_save_to_run_manager(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """run_agent_query：落盤委派 run_manager.save_agent_results_as_json()。"""
     from app.workflow.workflow import run_agent_query
@@ -289,6 +300,7 @@ def test_run_agent_query_returns_none(mock_log_session):
         patch("app.workflow.workflow.AgentConfig") as mock_config_cls,
         patch("app.workflow.workflow_helper.RunManager") as mock_rm_cls,
         patch("app.workflow.workflow_helper.save_logging_file"),
+        patch("app.workflow.workflow.save_module_config_as_toml"),
     ):
         mock_create_agent.return_value = _FakeAgentStub()
         _setup_mock_run_manager(mock_rm_cls)
@@ -297,6 +309,7 @@ def test_run_agent_query_returns_none(mock_log_session):
         assert run_agent_query(config_name="test", query="hello") is None
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -308,6 +321,7 @@ def test_run_agent_query_auto_generates_thread_id(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """thread_id 為 None 時自動產生 auto-{uuid} 並用於落盤。"""
     from app.workflow.workflow import run_agent_query
@@ -323,6 +337,7 @@ def test_run_agent_query_auto_generates_thread_id(
     assert thread_id.startswith("auto-")
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -334,6 +349,7 @@ def test_run_agent_query_closes_agent_on_success(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """run_agent_query 在成功時以 finally 呼叫 agent.close()。"""
     from app.workflow.workflow import run_agent_query
@@ -400,6 +416,7 @@ def test_run_agent_query_closes_agent_on_stream_error(
     assert fake_agent.close_called
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
 @patch("app.workflow.workflow_helper.RunManager")
@@ -411,6 +428,7 @@ def test_run_agent_query_stream_persists_streamed_result(
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
+    mock_save_module_config,
 ):
     """stream=True 的 happy path：astream_result 的串流結果經 save_agent_results_as_json 落盤。"""
     from app.workflow.workflow import run_agent_query
@@ -435,6 +453,7 @@ def test_run_agent_query_stream_persists_streamed_result(
     assert fake_agent.close_called
 
 
+@patch("app.workflow.workflow.save_module_config_as_toml")
 @patch("app.workflow.workflow.save_run_config_as_toml")
 @patch("app.workflow.workflow.create_agent")
 @patch("app.workflow.workflow.AgentConfig")
@@ -448,6 +467,7 @@ def test_run_agent_query_writes_run_config_and_log_lifecycle(
     mock_config_cls,
     mock_create_agent,
     mock_save_run_config,
+    mock_save_module_config,
 ):
     """Goal 4：run_config= 觸發恰好一次 run_config.toml 落盤，log 生命週期為 init → complete。"""
     from app.workflow.workflow import run_agent_query
@@ -499,7 +519,8 @@ def test_run_app_returns_server_and_chat_app(
 
     server, chat_app = run_app(config_name="test")
 
-    assert server is mock_uvicorn.Server.return_value
+    assert isinstance(server, ChatServer)
+    assert server.config is mock_uvicorn.Config.return_value
     assert chat_app is mock_chat_app_cls.create.return_value
     mock_chat_app_cls.create.assert_called_once_with(
         agent=fake_agent,
@@ -591,3 +612,17 @@ def test_chat_app_close_closes_agent():
     chat_app.close()
 
     assert fake_agent.close_called
+
+
+@patch("app.server.server.log_session")
+def test_chat_server_handle_exit_logs_before_delegating(mock_log_session):
+    """ChatServer.handle_exit：先印 "Server Stopping"，再交回 uvicorn 原生行為。"""
+    import uvicorn
+
+    config = uvicorn.Config(app=MagicMock())
+    server = ChatServer(config)
+
+    server.handle_exit(sig=2, frame=None)  # signal.SIGINT
+
+    mock_log_session.assert_called_once_with("Server Stopping", style="yellow")
+    assert server.should_exit is True

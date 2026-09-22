@@ -17,6 +17,10 @@ class Tool:
             webpage_retriever_tool,
         ]
 
+    def list_sites(self) -> list[str]:
+        """回傳所有可用的 site_id 列表。"""
+        return self._registry.list_sites()
+
     def close(self) -> None:
         """釋放內部 RAGRegistry 資源。"""
         self._registry.close()

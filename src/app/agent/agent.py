@@ -13,13 +13,13 @@ M1 提供：
 agent 層因此不需知道 workflow 層。
 """
 
-import logging
 import time
 from typing import Any, AsyncIterator, Callable
 
 from langchain.agents import create_agent as langchain_create_agent
 from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
+from rich.table import Table
 
 from app.configs.agent_config import AgentConfig
 from app.tools.tool import Tool
@@ -29,8 +29,7 @@ from utils.langchain_helper import (
     extract_sources_from_messages,
     thread_config,
 )
-
-logger = logging.getLogger(__name__)
+from utils.log_helper import log_session, print_log
 
 
 class Agent:
@@ -160,21 +159,12 @@ def create_agent(
             raise ValueError("create_agent requires at least one tool")
 
         llm = create_llm(config.llm_name)
-        logger.info("Successfully built LLM (llm_name=%s)", config.llm_name)
-
         checkpointer = InMemorySaver()
-        logger.info("Successfully built InMemorySaver for multi-turn conversation")
-
         graph = langchain_create_agent(
             llm,
             tool.tools,  # langchain_create_agent needs list[StructuredTool]
             system_prompt=config.system_prompt,
             checkpointer=checkpointer,
-        )
-        logger.info(
-            "Successfully built Agent (llm=%s, tools=%s)",
-            config.llm_name,
-            [t.name for t in tool.tools],
         )
 
         agent = Agent(
@@ -183,6 +173,15 @@ def create_agent(
             config=config,
             checkpointer=checkpointer,
         )
+
+        log_session("Agent Stats", style="green")
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Config", style="green", no_wrap=True)
+        table.add_column("Value", style="white")
+        table.add_row("LLM", config.llm_name)
+        table.add_row("Tools", str([t.name for t in tool.tools]))
+        table.add_row("Knowledge bases", str(tool.list_sites()))
+        print_log(table)
     except Exception:
         tool.close()
         raise

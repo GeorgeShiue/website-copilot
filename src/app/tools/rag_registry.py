@@ -34,8 +34,12 @@ class RAGRegistry:
         self.config_name = config_name
         self._max_cached = max_cached
 
-    def _list_sites(self) -> list[str]:
-        """掃描 base_folder/webpages/，回傳所有 site_id（排序後）。"""
+    def _site_exists(self, site_id: str) -> bool:
+        """檢查指定 site_id 對應的目錄是否存在。"""
+        return os.path.isdir(os.path.join(self.base_folder, "webpages", site_id))
+
+    def list_sites(self) -> list[str]:
+        """回傳所有可用的 site_id 列表（掃描 data/webpages/）。"""
         webpages_path = os.path.join(self.base_folder, "webpages")
         if not os.path.isdir(webpages_path):
             return []
@@ -44,14 +48,6 @@ class RAGRegistry:
             for item in os.listdir(webpages_path)
             if os.path.isdir(os.path.join(webpages_path, item))
         )
-
-    def _site_exists(self, site_id: str) -> bool:
-        """檢查指定 site_id 對應的目錄是否存在。"""
-        return os.path.isdir(os.path.join(self.base_folder, "webpages", site_id))
-
-    def list_sites(self) -> list[str]:
-        """回傳所有可用的 site_id 列表（掃描 data/webpages/）。"""
-        return self._list_sites()
 
     def get(self, site_id: str) -> RAG:
         """取得指定 site_id 的 RAG 實例（cache hit 直接回傳，miss 則 lazy build）。

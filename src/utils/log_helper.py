@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import sys
 import time
@@ -16,6 +17,7 @@ from rich.progress import (
     TextColumn,
 )
 from rich.rule import Rule
+from rich.table import Table
 from rich.text import Text
 
 # 全域變數用於檔案輸出
@@ -31,6 +33,19 @@ PROGRESS_LINE_PREFIXES = (
     "Downloading images...",
     "Generating captions...",
 )
+# 無害的第三方雜訊：logger 名稱 → 最低放行等級
+NOISY_LOGGER_LEVELS = {
+    # SimpleDirectoryReader 對每個檔案都重試 import llama-index-readers-file 並警告；
+    # 本專案只讀 .md 且刻意不安裝該套件（其 MarkdownReader 會改變切分與圖片處理）
+    "llama_index.core.readers.file.base": logging.ERROR,
+    # milvus-lite 內建 gRPC server 對未實作方法（AllocTimestamp）印出完整 traceback
+    "grpc._server": logging.CRITICAL,
+}
+
+# 執行摘要累加器：由 log_run_time 登記耗時、各 engine 登記 LLM 花費
+_stage_stack: list[str] = []
+_stage_elapsed: dict[str, float] = {}
+_stage_costs: dict[str, float] = {}
 
 
 class _TeeStream:
@@ -76,6 +91,9 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
         force=True,
     )
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)  # * 減少 debug log
+    for noisy_logger_name, noisy_logger_level in NOISY_LOGGER_LEVELS.items():
+        logging.getLogger(noisy_logger_name).setLevel(noisy_logger_level)
+    disable_model_progress_bars()
 
     logging_level = logging.INFO
     if level.lower() == "debug":
@@ -87,6 +105,17 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
 
     if logger is not None:
         logger.setLevel(logging_level)
+
+
+def disable_model_progress_bars() -> None:
+    """關閉 huggingface_hub 的下載 / 載入進度條（Downloading、Fetching files）。"""
+    # 環境變數只在 huggingface_hub 尚未被 import 時有效；runtime API 涵蓋已 import 的情況
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    try:
+        from huggingface_hub.utils.tqdm import disable_progress_bars
+    except ImportError:
+        return
+    disable_progress_bars()
 
 
 def setup_logging_file(log_file_path: str) -> None:
@@ -208,17 +237,72 @@ def _detach_handlers_from_tee() -> None:
 
 
 @contextmanager
-def log_run_time(title: str = ""):
-    """Context manager that logs elapsed run time in finally block."""
+def log_run_time(title: str = "", record: bool = True):
+    """Context manager that logs elapsed run time in finally block.
+
+    record=True 且有 title 時，同時登記到執行摘要（見 log_run_summary），
+    並把 title 視為進行中的階段，讓期間的 record_cost 歸到該階段。
+    細部步驟（不想出現在摘要內）請傳 record=False。
+    """
     start_time = time.perf_counter()
+    tracked = record and bool(title)
+    if tracked:
+        _stage_stack.append(title)
     try:
         yield
     finally:
         elapsed_seconds = time.perf_counter() - start_time
+        if tracked:
+            _stage_stack.pop()
+            record_elapsed(title, elapsed_seconds)
         message = f"Completed in {elapsed_seconds:.3f} seconds"
         if title:
             message = f"{title} {message}"
         logging.getLogger(__name__).info(message)
+
+
+def record_elapsed(stage: str, seconds: float) -> None:
+    """登記階段耗時（同名階段累加）。"""
+    _stage_elapsed[stage] = _stage_elapsed.get(stage, 0.0) + seconds
+
+
+def record_cost(usd: float) -> None:
+    """登記 LLM 花費，歸屬於目前最內層進行中的階段（無階段時歸入 unattributed）。"""
+    stage = _stage_stack[-1] if _stage_stack else "unattributed"
+    _stage_costs[stage] = _stage_costs.get(stage, 0.0) + usd
+
+
+def reset_run_summary() -> None:
+    """清空執行摘要累加器。"""
+    _stage_stack.clear()
+    _stage_elapsed.clear()
+    _stage_costs.clear()
+
+
+def log_main_workflow_run_summary() -> None:
+    """印出各階段耗時與 LLM 花費；最後一列為總計（花費為所有階段加總）。"""
+    if not _stage_elapsed and not _stage_costs:
+        return
+
+    table = Table(show_header=True, header_style="bold green")
+    table.add_column("Stage", style="green", no_wrap=True)
+    table.add_column("Elapsed", style="white", justify="right")
+    table.add_column("Cost", style="white", justify="right")
+
+    stages = list(_stage_elapsed)
+    stages += [stage for stage in _stage_costs if stage not in _stage_elapsed]
+    for stage in stages:
+        elapsed = _stage_elapsed.get(stage)
+        cost = _stage_costs.get(stage)
+        table.add_row(
+            stage,
+            f"{elapsed:.1f}s" if elapsed is not None else "-",
+            f"${cost:.4f}" if cost is not None else "-",
+        )
+
+    table.add_section()
+    table.add_row("Total cost", "", f"${sum(_stage_costs.values()):.4f}")
+    print_log(table)
 
 
 def _get_logging_console() -> Console:
@@ -232,10 +316,13 @@ def _get_logging_console() -> Console:
     return Console()
 
 
-def print_log(content: object) -> None:
-    """Get logging console and print content directly."""
+def print_log(content: object, soft_wrap: bool = False) -> None:
+    """Get logging console and print content directly.
+
+    soft_wrap=True 時不由 rich 硬折行（長 URL 等需完整保留在單行的內容）。
+    """
     console = _get_logging_console()
-    console.print(content)
+    console.print(content, soft_wrap=soft_wrap)
 
 
 def log_session(title: str | Text, style: str) -> None:

@@ -26,7 +26,7 @@ from app.engines.webpage_markdown_cleaner import (
     WebpageMarkdownCleaner,
 )
 from utils.html_date_extractor import extract_date_from_html
-from utils.log_helper import log_session, print_log
+from utils.log_helper import log_session, print_log, record_cost
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +150,7 @@ class WebsiteCrawler:
             ),
             deep_crawl_strategy=bfs_strategy,
             wait_for_images=self.wait_for_images,
+            verbose=False,  # 關閉 crawl4ai 逐頁 FETCH/SCRAPE/COMPLETE，明細改由 _filter_crawl_results 輸出
         )
 
         async with AsyncWebCrawler(config=browser_config) as crawler:
@@ -171,23 +172,23 @@ class WebsiteCrawler:
 
         for crawl_result in crawl_results:
             if crawl_result.status_code == 404:
-                self._crawl_stats["error_pages"] += 1
-                logger.debug(
-                    f"Webpage {crawl_result.url} status code is 404, skipping..."
+                self._crawl_stats["error_404"] += 1
+                logger.info(
+                    f"Skip {unquote(crawl_result.url)} (error: status code 404)"
                 )
-                logger.debug("-" * 30)
                 continue
 
             if crawl_result.markdown is None:
-                self._crawl_stats["error_pages"] += 1
-                logger.debug(f"Webpage {crawl_result.url} has no markdown, skipping...")
-                logger.debug("-" * 30)
+                self._crawl_stats["error_no_markdown"] += 1
+                logger.info(f"Skip {unquote(crawl_result.url)} (error: no markdown)")
                 continue
 
             dedup_key = self._resolve_dedup_key(crawl_result.url, self.path_prefix)
             if dedup_key in filtered_results:
                 self._crawl_stats["repeat_pages"] += 1
-                logger.debug(f"Webpage {dedup_key} already exists, skipping...")
+                logger.info(
+                    f"Skip {unquote(crawl_result.url)} (duplicate of {dedup_key})"
+                )
                 continue
 
             filtered_results[dedup_key] = {
@@ -206,6 +207,8 @@ class WebsiteCrawler:
         """
         self.raw_pages = {k: d["fit_markdown"] for k, d in filtered_results.items()}
         self.generation_result = self.cleaner.generate_exclude_words(self.raw_pages)
+        if self.generation_result:
+            record_cost(self.generation_result.cost_usd)
         exclude_words = self.generation_result.words if self.generation_result else None
         cleaned = self.cleaner.clean_pages(self.raw_pages, exclude_words)
         for key, fit_markdown in cleaned.items():
@@ -304,7 +307,8 @@ class WebsiteCrawler:
     def _new_crawl_stats() -> dict[str, int]:
         return {
             "success_pages": 0,
-            "error_pages": 0,
+            "error_404": 0,
+            "error_no_markdown": 0,
             "repeat_pages": 0,
         }
 

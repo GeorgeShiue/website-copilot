@@ -21,7 +21,7 @@ from app.configs.webpage_image_summarizer_config import (
     VLM_MODEL_TO_API_KEY,
 )
 from utils.config_helper import EnvironmentVariableError
-from utils.log_helper import TaskCountProgress, log_session, print_log
+from utils.log_helper import TaskCountProgress, log_session, print_log, record_cost
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,13 @@ class WebpageImageSummarizer:
         self._downloaded_images: dict[str, str] = {}
         self._image_captions: dict[str, str] = {}
         self._page_stats: dict[str, int | float] = self._new_page_stats()
+        self._page_stats_by_page: list[tuple[str, dict[str, int | float]]] = []
         self._all_page_stats: dict[str, int | float] = self._new_all_page_stats()
         self._all_round_stats: dict[str, int | float] = self._new_all_round_stats()
+        # 最終仍失敗的圖片：url -> (頁面, 原因)；重試成功時移除
+        self._failed_images: dict[str, tuple[str, str]] = {}
+        self._download_failure_reasons: dict[str, str] = {}
+        self._current_page: str = ""
 
     # * 下載和摘要拆成兩個模組
     def summarize_crawl_results_images(
@@ -97,16 +102,19 @@ class WebpageImageSummarizer:
             self._image_cache = {}
 
         self._all_round_stats = self._new_all_round_stats()
+        self._failed_images = {}
+        self._download_failure_reasons = {}
 
         target_urls: set[str] | None = None
         enhanced_crawl_results = crawl_results
         while True:
             self._all_page_stats = self._new_all_page_stats()
+            self._page_stats_by_page = []
             enhanced_crawl_results = self._summarize_crawl_results_images(
                 crawl_results, target_urls
             )
 
-            self._log_stats(self._all_page_stats, "All Image Summarize Stats")
+            self._log_page_stats_table("All Image Summarize Stats")
             self._all_round_stats["cost_usd"] += self._all_page_stats["cost_usd"]
             self._all_round_stats["success"] += self._all_page_stats["success"]
             self._all_round_stats["failure"] += self._all_page_stats["failure"]
@@ -122,6 +130,8 @@ class WebpageImageSummarizer:
 
         if self._all_round_stats["retries"] > 1:
             self._log_stats(self._all_round_stats, "All Rounds Image Summarize Stats")
+
+        self._log_failed_images()
 
         return enhanced_crawl_results
 
@@ -139,11 +149,13 @@ class WebpageImageSummarizer:
                 continue
 
             log_session(
-                Text.assemble("Summarizing Images in [", page_title, "]"),
+                Text.assemble("[", page_title, "]"),
                 style="blue",
             )
+
             fit_markdown, image_urls = crawl_result_content
             self._page_stats = self._new_page_stats()
+            self._current_page = page_title
 
             image_uncached_urls, caption_uncached_urls = self._collect_cached_items(
                 image_urls
@@ -158,13 +170,14 @@ class WebpageImageSummarizer:
                 if url in self._image_captions:
                     image["caption"] = self._image_captions[url]
 
-            self._log_stats(self._page_stats)
+            self._page_stats_by_page.append((page_title, dict(self._page_stats)))
             self._all_page_stats["success"] += self._page_stats["success"]
             self._all_page_stats["failure"] += (
                 self._page_stats["download_failure"]
                 + self._page_stats["summarize_failure"]
             )
             self._all_page_stats["cost_usd"] += self._page_stats["cost_usd"]
+            record_cost(self._page_stats["cost_usd"])
 
         return crawl_results
 
@@ -278,7 +291,14 @@ class WebpageImageSummarizer:
                         }
                         self._downloaded_images[image_url] = ""
                         self._image_captions[image_url] = ""
+                        self._failed_images[image_url] = (
+                            self._current_page,
+                            self._download_failure_reasons.pop(
+                                image_url, "download failed"
+                            ),
+                        )
                     else:
+                        self._failed_images.pop(image_url, None)
                         self._downloaded_images[image_url] = image_base64_url
                         self._image_cache[image_url] = {
                             "base_64_url": image_base64_url,
@@ -305,7 +325,8 @@ class WebpageImageSummarizer:
                 data = resp.read()
                 raw_content_type: str = resp.headers.get("Content-Type", "")
         except (URLError, TimeoutError, OSError) as e:
-            logger.warning("Image download failed (url=%s): %s", url, e)
+            logger.warning("Image download failed - %s (url=%s)", str(e), url)
+            self._download_failure_reasons[url] = str(e)
             return None, "failed"
 
         content_type: str = raw_content_type.split(";")[0].strip()
@@ -314,6 +335,9 @@ class WebpageImageSummarizer:
                 "Unsupported image content-type (url=%s, content_type=%s)",
                 url,
                 content_type or "<empty>",
+            )
+            self._download_failure_reasons[url] = (
+                f"unsupported content-type {content_type or '<empty>'}"
             )
             return None, "failed"
 
@@ -350,8 +374,13 @@ class WebpageImageSummarizer:
             if summarize_status == "success":
                 self._page_stats["success"] += 1
                 self._page_stats["cost_usd"] += cost_usd
+                self._failed_images.pop(image_url, None)
             else:
                 self._page_stats["summarize_failure"] += 1
+                self._failed_images[image_url] = (
+                    self._current_page,
+                    "caption generation failed",
+                )
 
             self._image_cache[image_url]["caption"] = image_caption
             self._image_cache[image_url]["summarize_status"] = summarize_status
@@ -594,6 +623,17 @@ class WebpageImageSummarizer:
         logger.warning("-" * 30)
         time.sleep(wait_sec)
 
+    def _log_failed_images(self) -> None:
+        """彙整最終仍失敗的圖片（頁面 · 原因 · 完整 URL，單行不折行）。"""
+        if not self._failed_images:
+            return
+
+        log_session(f"Failed Images ({len(self._failed_images)})", style="yellow")
+        for url, (page, reason) in self._failed_images.items():
+            # soft_wrap：URL 不被 rich 硬折行，方便複製
+            # Text 而非 str：避免 "[page]" 被 rich 當成 markup 標籤吞掉
+            print_log(Text(f"[{page}] {reason}: {url}"), soft_wrap=True)
+
     @staticmethod
     def _new_page_stats() -> dict[str, int | float]:
         return {
@@ -620,6 +660,46 @@ class WebpageImageSummarizer:
             "failure": 0,
             "retries": 0,
         }
+
+    @staticmethod
+    def _truncate_page_title(title: str, max_len: int = 20) -> str:
+        """裁剪過長的頁面名稱，避免壓縮表格其餘欄位的可讀性。"""
+        if len(title) <= max_len:
+            return title
+        return title[:max_len] + "…"
+
+    def _log_page_stats_table(self, title: str) -> None:
+        """彙整逐頁統計為單一表格（取代逐頁各自的 Rule + 表格）。"""
+        log_session(title, style="green")
+
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Page", style="green", no_wrap=True)
+        for key in self._new_page_stats():
+            table.add_column(key, style="white")
+
+        for page_title, stats in self._page_stats_by_page:
+            table.add_row(
+                self._truncate_page_title(page_title),
+                *(
+                    f"${value:.6f}" if key == "cost_usd" else str(value)
+                    for key, value in stats.items()
+                ),
+            )
+
+        total = self._new_page_stats()
+        for _, stats in self._page_stats_by_page:
+            for key, value in stats.items():
+                total[key] += value
+
+        table.add_section()
+        table.add_row(
+            "Total",
+            *(
+                f"${value:.6f}" if key == "cost_usd" else str(value)
+                for key, value in total.items()
+            ),
+        )
+        print_log(table)
 
     @staticmethod
     def _log_stats(stats: dict[str, int | float], title: str = "") -> None:

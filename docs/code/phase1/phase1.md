@@ -7,9 +7,10 @@
 ## 實作進度
 - [x] **網站爬蟲**
     - [x] **網頁轉Markdown**
-    - [x] **篩選網域**、**雜訊**
+    - [x] **篩選網域**
     - [x] **平行處理**
 - [x] **HTML 日期擷取**（`utils/html_date_extractor.py`：JSON-LD → OG → `<time>` → Generic meta → Dublin Core → HTTP Last-Modified）
+- [x] **Markdown 雜訊清洗**（`webpage_markdown_cleaner.py`：LLM 對全站抽樣頁面自動產生排除詞，多次重跑取聯集後以全站行覆蓋率驗證，取代人工 `exclude_words` 詞表）
 
 ## 已知問題
 - [ ] **HTML** 可包含更多**結構化資訊**

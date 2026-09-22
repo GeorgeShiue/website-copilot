@@ -26,6 +26,7 @@ from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.vector_stores.milvus.utils import (
     BGEM3SparseEmbeddingFunction,
 )
+from rich.table import Table
 
 from app.configs.rag_config import RAGConfig
 from app.engines.rag import RAG
@@ -37,7 +38,7 @@ from app.engines.rag.rag_eval_prompts import (
 )
 from app.workflow.data_manager import DataManager
 from app.workflow.run_manager import RunManager
-from utils.log_helper import log_session
+from utils.log_helper import log_run_time, log_session, print_log
 from utils.rag_helper import (
     MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
@@ -64,6 +65,7 @@ class NodePipelineBuilder:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.paragraph_separator = paragraph_separator
+        self.last_doc_count = 0
 
     @staticmethod
     def _build_file_metadata(
@@ -110,6 +112,7 @@ class NodePipelineBuilder:
                 "No .md files found in %s, returning empty list", md_folder_path
             )
             return []
+        self.last_doc_count = len(md_docs)
         logger.info("Loading %d Markdown Documents", len(md_docs))
 
         pipeline = IngestionPipeline(
@@ -211,6 +214,7 @@ class VectorStoreBuilder:
 class RAGBuilder:
     def __init__(self, config: RAGConfig) -> None:
         self.config = config
+        self._build_stats: dict[str, str] = {}
 
     def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> None:
         """建到 query engine 層級，視情況重建或載入既有 index。
@@ -220,12 +224,18 @@ class RAGBuilder:
         - 載入：build_vector_store(overwrite=False) → load_index。
         - 最後一律 build_retriever → build_query_engine。
         """
+        self._build_stats = {}
         rebuild = self._should_rebuild(force_rebuild)
         if rebuild:
-            self.clean_vector_store(rag)
-            self.build_nodes(rag)
-            self.build_vector_store(rag)
-            self.build_index(rag)
+            # record=False：細部步驟只印耗時，不進入 main workflow 的階段摘要
+            with log_run_time("Clean vector store", record=False):
+                self.clean_vector_store(rag)
+            with log_run_time("Build nodes", record=False):
+                self.build_nodes(rag)
+            with log_run_time("Build vector store", record=False):
+                self.build_vector_store(rag)
+            with log_run_time("Build index", record=False):
+                self.build_index(rag)
         else:
             self.build_vector_store(rag, overwrite=False)
             # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
@@ -238,6 +248,14 @@ class RAGBuilder:
 
         self.build_retriever(rag)
         self.build_query_engine(rag)
+
+        log_session("RAG Build Stats", style="green")
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Metric", style="green", no_wrap=True)
+        table.add_column("Value", style="white")
+        for metric, value in self._build_stats.items():
+            table.add_row(metric, value)
+        print_log(table)
 
     def _should_rebuild(self, force_rebuild: bool) -> bool:
         """決定是否需要重建 vector store / index。
@@ -260,9 +278,15 @@ class RAGBuilder:
             results_json=rag.results_json,
             site_id=self.config.site_id,
         )
+        self._build_stats["Documents loaded"] = str(builder.last_doc_count)
+        self._build_stats["Nodes produced"] = str(len(rag.nodes))
 
     def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
         assert self.config.milvus_uri is not None
+        logger.info(
+            "Building Milvus vector store (sparse embedding: BGE-M3, hybrid_ranker=%s)",
+            self.config.hybrid_ranker,
+        )
         rag.vector_store = VectorStoreBuilder.build(
             collection_name=self.config.site_id,
             embedding_name=self.config.embedding_name,
@@ -281,6 +305,11 @@ class RAGBuilder:
         if rag.nodes is None:
             raise RuntimeError("Nodes have not been built, cannot build index")
 
+        logger.info(
+            "Building index (dense embedding: %s, nodes=%d)",
+            self.config.embedding_name,
+            len(rag.nodes),
+        )
         embed_model = self._set_embed_model(self.config.embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=rag.vector_store)
         rag.index = VectorStoreIndex(
@@ -289,7 +318,7 @@ class RAGBuilder:
             embed_model=embed_model,
             show_progress=True,
         )
-        logger.info("Successfully built index from nodes")
+        self._build_stats["Index nodes"] = str(len(rag.nodes))
 
     def load_index(self, rag: RAG) -> None:
         if rag.vector_store is None:
@@ -299,7 +328,7 @@ class RAGBuilder:
         rag.index = VectorStoreIndex.from_vector_store(
             rag.vector_store, embed_model, show_progress=True
         )
-        logger.info("Successfully loaded index from vector store")
+        self._build_stats["Index nodes"] = "loaded from existing vector store"
 
     def build_retriever(
         self, rag: RAG, filter_dict: dict[str, Any] | None = None
@@ -324,9 +353,6 @@ class RAGBuilder:
             hybrid_top_k=self.config.hybrid_top_k,
             alpha=self.config.alpha,
         )
-        logger.info(
-            f"Successfully built retriever (query mode={self.config.query_mode})"
-        )
 
     def build_query_engine(self, rag: RAG) -> None:
         if rag.retriever is None:
@@ -348,8 +374,6 @@ class RAGBuilder:
             response_synthesizer,
             node_postprocessors=node_postprocessors,
         )
-
-        logger.info("Successfully built query engine")
 
     def build_evaluators(self, rag: RAG) -> None:
         """建立 Faithfulness / Relevancy evaluator 並注入 rag.evaluators。"""

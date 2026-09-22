@@ -16,6 +16,10 @@ from typing import Any
 
 import mdformat
 from litellm import ModelResponse, completion, completion_cost, token_counter
+from rich.markup import escape
+from rich.table import Table
+
+from utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,7 @@ class GenerationResult:
     stats: dict[str, dict[str, Any]] = field(
         default_factory=dict
     )  # 每詞 hits、low_occ_ratio
+    hits: dict[str, int] = field(default_factory=dict)  # 每詞在全站的命中行數
 
     @property
     def cost_usd(self) -> float:
@@ -202,6 +207,7 @@ class WebpageMarkdownCleaner:
         seed = self.seed if self.seed is not None else random.randrange(2**32)
         rng = random.Random(seed)
 
+        log_session("Generating exclude_words", style="cyan")
         sample_keys: list[list[str]] = []
         runs: list[list[str]] = []
         raw_runs: list[list[Any]] = []
@@ -217,6 +223,10 @@ class WebpageMarkdownCleaner:
                     "exclude_words run %d/%d failed: %s", i + 1, self.repeat, e
                 )
                 continue
+            print_log(
+                f"Run {i + 1}/{self.repeat}: sampled {len(samples)} pages, "
+                f"proposed {len(words)} exclude_words (cost ${usage['cost_usd']:.4f})"
+            )
             sample_keys.append(list(samples))
             runs.append(words)
             raw_runs.append(raw_words)
@@ -234,6 +244,27 @@ class WebpageMarkdownCleaner:
         rejected = {w: stats[w]["low_occ_ratio"] for w in ranked if w not in kept}
         if not kept:
             logger.warning("驗證後沒有可用的 exclude_words，不做行級過濾")
+
+        hits = self.count_word_hits(pages, ranked)
+        total_cost_usd = sum(u["cost_usd"] for u in usages)
+        log_session("Generating exclude_words Stats", style="green")
+        print_log(f"Total {len(usages)} calls, cost: ${total_cost_usd:.4f}")
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Word", style="green")
+        table.add_column("Votes", style="white")
+        table.add_column("Hit lines", style="white")
+        table.add_column("Low-occ ratio", style="white")
+        table.add_column("Status", style="white")
+        for w in ranked:
+            table.add_row(
+                escape(w),
+                str(votes[w]),
+                str(hits[w]),
+                f"{stats[w]['low_occ_ratio']:.1%}",
+                "Kept" if w in kept else "Rejected",
+            )
+        print_log(table)
+
         return GenerationResult(
             words=kept,
             votes={w: votes[w] for w in ranked},
@@ -244,6 +275,7 @@ class WebpageMarkdownCleaner:
             usages=usages,
             rejected=rejected,
             stats=stats,
+            hits=hits,
         )
 
     @staticmethod
