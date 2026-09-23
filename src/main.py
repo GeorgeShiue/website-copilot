@@ -51,7 +51,6 @@ def main(config_name: str = "default") -> None:
             # ----- RAG Build -----
             run_rag_build(
                 config_name=config_name,
-                force_rebuild=True,
                 save=False,
                 publish=True,
             )

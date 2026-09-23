@@ -77,7 +77,7 @@ class RAGRegistry:
         config = RAGConfig.from_toml(self.config_name, site_id=site_id)
         assert config.webpages_data_folder_path is not None
         rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
-        RAGBuilder(config).build_reusable(rag, force_rebuild=False)
+        RAGBuilder(config).build_to_retriever(rag, force_rebuild=False)
 
         self._cache[site_id] = rag
         self._evict_if_needed()

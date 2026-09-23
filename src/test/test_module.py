@@ -28,7 +28,7 @@ def test_webpage_image_summarizer():
 
 
 def test_rag():
-    run_rag_build(config_name="test", force_rebuild=True)
+    run_rag_build(config_name="test")
 
 
 def test_agent():

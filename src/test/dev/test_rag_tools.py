@@ -184,7 +184,7 @@ class TestGetCacheMiss:
         mock_rag_cls.assert_called_once_with(
             webpages_data_folder_path="data/webpages/nculab"
         )
-        mock_builder_cls.return_value.build_reusable.assert_called_once_with(
+        mock_builder_cls.return_value.build_to_retriever.assert_called_once_with(
             fake_rag, force_rebuild=False
         )
         assert result is fake_rag

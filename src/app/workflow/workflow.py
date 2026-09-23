@@ -257,7 +257,6 @@ def run_webpage_image_summarizer(
 
 def run_rag_build(
     config_name: str = "default",
-    force_rebuild: bool = False,
     webpages_data_use_latest_results: bool = False,
     save: bool = True,
     publish: bool = False,
@@ -267,8 +266,9 @@ def run_rag_build(
 ) -> None:
     """建構 RAG 並落盤結果。完整包含建立 rag 流程。
 
-    save 同時控制向量庫的建構位置（透過 create_rag 的
-    save_vector_store_to_runs）與 module_config／run_config 是否落盤到 runs/，
+    一律重建向量庫，不受既有向量庫是否存在影響。
+    save 只控制向量庫的建構位置（透過 create_rag 的
+    run_manager）與 module_config／run_config 是否落盤到 runs/，
     因為向量庫本來就是這個階段的「結果」，不再獨立開關。
     """
     config = RAGConfig.from_toml(config_name, **config_overrides)
@@ -285,12 +285,12 @@ def run_rag_build(
         # ---- 建置 RAG -----
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         rag = create_rag(
-            config_name=config_name,
-            force_rebuild=force_rebuild,
+            config=config,
+            force_rebuild=True,
             webpages_data_use_latest_results=webpages_data_use_latest_results,
-            save_vector_store_to_runs=save,
+            run_manager=run_manager,
+            build_query_engine=False,
             data_manager=data_manager,
-            **config_overrides,
         )
         rag.close()
 
@@ -353,9 +353,8 @@ def run_rag_query(
         log_session("Building RAG and Evaluators", style="cyan")
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         rag = create_rag(
-            config_name=config_name,
+            config=config,
             force_rebuild=force_rebuild,
-            **config_overrides,
         )
 
         try:
@@ -393,9 +392,6 @@ def run_rag_query(
                     )
                 )
 
-            # ----- 輸出完成訊息 -----
-            log_session("RAG Query Completed", style="cyan")
-
             # ----- 輸出評估結果 -----
             log_session("Evaluation Summary", style="green")
             print(f"Query times: {query_times}")
@@ -407,6 +403,9 @@ def run_rag_query(
             print(
                 f"Relevancy: {relevancy_pass_rate:.2f}% ({relevancy_pass}/{query_times})"
             )
+
+            # ----- 輸出完成訊息 -----
+            log_session("RAG Query Completed", style="cyan")
 
             # ----- 儲存結果 -----
             query_results_dict = {

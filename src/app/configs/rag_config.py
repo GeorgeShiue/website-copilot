@@ -11,7 +11,6 @@ from utils.config_helper import (
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_VECTOR_STORE_TYPE = "milvus"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
 DEFAULT_NODES_CONFIG_SECTION = "nodes"
@@ -72,12 +71,11 @@ SECTIONS_TO_KEYS = {
 class RAGConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/rag"
     sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
-
     # ----- init config -----
     site_id: str
     webpages_data_folder_path: str | None = None
     # ----- vector store config -----
-    vector_store_type: str = DEFAULT_VECTOR_STORE_TYPE
+    vector_store_type: str = "milvus"
     milvus_uri: str | None = None
     hybrid_ranker: str = "WeightedRanker"
     hybrid_ranker_params: dict[str, Any] | None = None

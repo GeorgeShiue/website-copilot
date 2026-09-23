@@ -171,10 +171,15 @@ class VectorStoreBuilder:
         collection_name: str,
         milvus_uri: str,
         embedding_name: str,
-        overwrite: bool = True,
         hybrid_ranker: str = "WeightedRanker",
         hybrid_ranker_params: dict | None = None,
     ) -> MilvusVectorStore:
+        """建立 MilvusVectorStore。
+
+        固定不使用 MilvusVectorStore 內建的 overwrite（collection 層級的
+        drop + recreate），一律沿用既有 collection；若要重建，呼叫端須先以
+        clean_milvus() 整檔刪除，讓這裡等同於全新建立。
+        """
         dim = VectorStoreBuilder.resolve_embedding_dim(embedding_name)
         if hybrid_ranker_params is None:
             hybrid_ranker_params = VectorStoreBuilder.default_hybrid_ranker_params(
@@ -188,7 +193,7 @@ class VectorStoreBuilder:
         vector_store = MilvusVectorStore(
             milvus_uri,
             collection_name=collection_name,
-            overwrite=overwrite,
+            overwrite=False,
             dim=dim,
             output_fields=["_node_content", "_node_type"],
             enable_sparse=True,
@@ -216,13 +221,12 @@ class RAGBuilder:
         self.config = config
         self._build_stats: dict[str, str] = {}
 
-    def build_reusable(self, rag: RAG, force_rebuild: bool = False) -> None:
-        """建到 query engine 層級，視情況重建或載入既有 index。
+    def build_to_vector_store(self, rag: RAG, force_rebuild: bool = False) -> None:
+        """建到 index 層級，視情況重建或載入既有 index。不含 retriever／query engine。
 
         - force_rebuild=True 或 store 路徑不存在時重建。
-        - 重建：clean → nodes → vector store → index。
-        - 載入：build_vector_store(overwrite=False) → load_index。
-        - 最後一律 build_retriever → build_query_engine。
+        - 重建：clean（整檔刪除）→ nodes → vector store → index。
+        - 載入：build_vector_store（沿用既有 collection）→ load_index。
         """
         self._build_stats = {}
         rebuild = self._should_rebuild(force_rebuild)
@@ -237,7 +241,7 @@ class RAGBuilder:
             with log_run_time("Build index", record=False):
                 self.build_index(rag)
         else:
-            self.build_vector_store(rag, overwrite=False)
+            self.build_vector_store(rag)
             # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
             if self.config.vector_store_type == "milvus":
                 assert rag.vector_store is not None
@@ -246,9 +250,6 @@ class RAGBuilder:
                 )
             self.load_index(rag)
 
-        self.build_retriever(rag)
-        self.build_query_engine(rag)
-
         log_session("RAG Build Stats", style="green")
         table = Table(show_header=True, header_style="bold green")
         table.add_column("Metric", style="green", no_wrap=True)
@@ -256,6 +257,16 @@ class RAGBuilder:
         for metric, value in self._build_stats.items():
             table.add_row(metric, value)
         print_log(table)
+
+    def build_to_retriever(self, rag: RAG, force_rebuild: bool = False) -> None:
+        """建到 retriever 層級：build_to_vector_store → build_retriever。不含 query engine。"""
+        self.build_to_vector_store(rag, force_rebuild=force_rebuild)
+        self.build_retriever(rag)
+
+    def build_to_query_engine(self, rag: RAG, force_rebuild: bool = False) -> None:
+        """建到 query engine 層級：build_to_retriever → build_query_engine。"""
+        self.build_to_retriever(rag, force_rebuild=force_rebuild)
+        self.build_query_engine(rag)
 
     def _should_rebuild(self, force_rebuild: bool) -> bool:
         """決定是否需要重建 vector store / index。
@@ -281,7 +292,7 @@ class RAGBuilder:
         self._build_stats["Documents loaded"] = str(builder.last_doc_count)
         self._build_stats["Nodes produced"] = str(len(rag.nodes))
 
-    def build_vector_store(self, rag: RAG, overwrite: bool = True) -> None:
+    def build_vector_store(self, rag: RAG) -> None:
         assert self.config.milvus_uri is not None
         logger.info(
             "Building Milvus vector store (sparse embedding: BGE-M3, hybrid_ranker=%s)",
@@ -291,7 +302,6 @@ class RAGBuilder:
             collection_name=self.config.site_id,
             embedding_name=self.config.embedding_name,
             milvus_uri=self.config.milvus_uri,
-            overwrite=overwrite,
             hybrid_ranker=self.config.hybrid_ranker,
             hybrid_ranker_params=self.config.hybrid_ranker_params,
         )
@@ -406,24 +416,34 @@ def create_rag(
     config_name: str = "default",
     force_rebuild: bool = False,
     webpages_data_use_latest_results: bool = False,
-    save_vector_store_to_runs: bool = False,
+    run_manager: RunManager | None = None,
+    build_query_engine: bool = True,
     data_manager: DataManager | None = None,
+    config: RAGConfig | None = None,
     **config_overrides,
 ) -> RAG:
     """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟。
 
     Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
+        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。config 為
+            None 時才會用它從 toml 解析。
         force_rebuild: 是否強制重建向量庫。
         webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
-        save_vector_store_to_runs: 是否將向量庫儲存到 runs/ 目錄。
+        run_manager: 呼叫端已建立的 RunManager（可選）。傳入時向量庫會建到
+            該 run 的 results/ 目錄下；None 時使用 config 的預設持久化路徑。
+        build_query_engine: 是否建到 retriever／query engine 層級；
+            False 時僅建到 vector store／index 層級。
         data_manager: DataManager 實例（可選，用於解決 webpages 資料路徑）。
-        **config_overrides: RAGConfig 覆寫值（含 site_id）。
+        config: 呼叫端已建立的 RAGConfig（可選）。傳入時直接沿用，不再重新
+            解析 toml；此時 config_name／**config_overrides 會被忽略。
+        **config_overrides: RAGConfig 覆寫值（含 site_id），僅在 config 為
+            None 時生效。
 
     Returns:
         已建構的 RAG 實例（呼叫端負責 close）。
     """
-    config = RAGConfig.from_toml(config_name, **config_overrides)
+    if config is None:
+        config = RAGConfig.from_toml(config_name, **config_overrides)
 
     # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
     if webpages_data_use_latest_results:
@@ -435,19 +455,18 @@ def create_rag(
         webpages_data_folder_path = data_manager.get_webpages_path(config.site_id)
         config.webpages_data_folder_path = webpages_data_folder_path
 
-    # ----- 解決向量庫存放位置（預設位置 vs 本次 run 的 results/）-----
-    if save_vector_store_to_runs:
-        run_manager = RunManager.for_run(
-            module="rag_build",
-            site_id=config.site_id,
-            run_name=config.config_name,
-        )
+    # ----- 解決向量庫存放位置（預設位置 vs 呼叫端 run 的 results/）-----
+    if run_manager is not None:
         config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
 
-    log_session("Building RAG", style="cyan")
     rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path or "")
     builder = RAGBuilder(config)
-    builder.build_reusable(rag, force_rebuild=force_rebuild)
+    if build_query_engine:
+        log_session("Building RAG to Query Engine", style="cyan")
+        builder.build_to_query_engine(rag, force_rebuild=force_rebuild)
+    else:
+        log_session("Building RAG to Vector Store", style="cyan")
+        builder.build_to_vector_store(rag, force_rebuild=force_rebuild)
     rag.milvus_uri = config.milvus_uri
 
     return rag
