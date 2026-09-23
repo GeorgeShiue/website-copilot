@@ -54,7 +54,8 @@ from utils.rag_helper import response_to_dict
 def run_website_crawler(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
-    data_manager: DataManager | None = None,
+    save: bool = True,
+    publish: bool = False,
     run_config: WebsiteCrawlerRunConfig | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
@@ -63,7 +64,8 @@ def run_website_crawler(
     Args:
         config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        data_manager: DataManager 實例（可選，用於發布結果到 data/）。
+        save: 是否將本次執行結果落盤到 runs/（預設 True）。
+        publish: 是否將本次執行結果 publish 到 data/（預設 False）。
         run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
 
@@ -77,7 +79,9 @@ def run_website_crawler(
         config_name=config_name,
         config=config,
         run_name_use_config_name=run_name_use_config_name,
+        save=save,
     )
+    data_manager = DataManager()
 
     crawl_results = None
     with run_workflow_context(run_title, run_manager=run_manager):
@@ -107,44 +111,48 @@ def run_website_crawler(
             path_prefix=config.path_prefix,
         )
 
-        if website_crawler.generation_result is not None:
-            save_generated_exclude_words(
-                website_crawler.generation_result,
-                website_crawler.raw_pages,
-                run_manager.run_path,
-            )
-
         # ----- 輸出完成訊息 -----
         if crawl_results is None:
             log_session("Website Crawling Failed", style="red")
             return None
         log_session("Website Crawling Completed", style="cyan")
 
-        # ---- 儲存結果 -----
-        run_manager.save_results_as_json(crawl_results)
-        save_results_as_md(
-            crawl_results, run_manager.results_folder_path, "fit_markdown"
-        )
+        # ----- Save（存到 runs/） -----
+        if save:
+            assert run_manager is not None
+            if website_crawler.generation_result is not None:
+                save_generated_exclude_words(
+                    website_crawler.generation_result,
+                    website_crawler.raw_pages,
+                    run_manager.run_path,
+                )
+            run_manager.save_results_as_json(crawl_results)
+            save_results_as_md(
+                crawl_results, run_manager.results_folder_path, "fit_markdown"
+            )
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
-        if data_manager is not None:
+        # ----- Publish（publish 到 data/） -----
+        if publish:
             data_manager.publish_crawl_results(
                 site_id=config.site_id,
                 results=crawl_results,
-                results_json_path=run_manager.results_json_path,
-                results_folder_path=run_manager.results_folder_path,
             )
+            if website_crawler.generation_result is not None:
+                data_manager.publish_generated_exclude_words(
+                    site_id=config.site_id,
+                    generation_result=website_crawler.generation_result,
+                    raw_pages=website_crawler.raw_pages,
+                )
             data_manager.publish_run_metadata(
-                site_id=run_manager.site_id,
-                category="webpages",
-                module_config_path=run_manager.module_config_toml_path,
-                run_config_path=run_manager.run_config_toml_path,
-                log_path=run_manager.log_path,
+                site_id=config.site_id,
+                category="raw_webpages",
+                config=config,
+                run_config=run_config,
+                log_path=run_manager.log_path if run_manager is not None else None,
             )
-
-        # ----- 儲存設定 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        if run_config is not None:
-            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
     return crawl_results
 
@@ -153,7 +161,8 @@ def run_webpage_image_summarizer(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
-    data_manager: DataManager | None = None,
+    save: bool = True,
+    publish: bool = False,
     run_config: WebpageImageSummarizerRunConfig | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
@@ -163,7 +172,8 @@ def run_webpage_image_summarizer(
         config_name: WebpageImageSummarizerConfig 名稱。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
-        data_manager: DataManager 實例（可選，用於發布結果到 data/）。
+        save: 是否將本次執行結果落盤到 runs/（預設 True）。
+        publish: 是否將本次執行結果 publish 到 data/（預設 False）。
         run_config: RunConfig 實例（可選，用於落盤 run config toml）。
         **config_overrides: WebpageImageSummarizerConfig 覆寫值（含 site_id）。
 
@@ -177,7 +187,9 @@ def run_webpage_image_summarizer(
         config_name=config_name,
         config=config,
         run_name_use_config_name=run_name_use_config_name,
+        save=save,
     )
+    data_manager = DataManager()
 
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
@@ -194,7 +206,8 @@ def run_webpage_image_summarizer(
         if crawl_results is None:
             log_session("Loading Latest Results", style="cyan")
             crawl_results = load_latest_results(
-                run_manager.base_folder, "website_crawler"
+                run_manager.base_folder if run_manager is not None else "runs",
+                "website_crawler",
             )
 
         # ---- 執行圖片摘要 -----
@@ -214,29 +227,30 @@ def run_webpage_image_summarizer(
             return None
         log_session("Image Summarization Completed", style="cyan")
 
-        # ---- 儲存結果 -----
-        run_manager.save_results_as_json(enhanced_results)
-        save_results_as_md(
-            enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
-        )
-        if data_manager is not None:
+        # ----- Save（存到 runs/） -----
+        if save:
+            assert run_manager is not None
+            run_manager.save_results_as_json(enhanced_results)
+            save_results_as_md(
+                enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
+            )
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+
+        # ----- Publish（publish 到 data/） -----
+        if publish:
             data_manager.publish_markdown(
                 site_id=config.site_id,
                 enhanced_results=enhanced_results,
-                results_folder_path=run_manager.results_folder_path,
             )
             data_manager.publish_run_metadata(
-                site_id=run_manager.site_id,
+                site_id=config.site_id,
                 category="webpages",
-                module_config_path=run_manager.module_config_toml_path,
-                run_config_path=run_manager.run_config_toml_path,
-                log_path=run_manager.log_path,
+                config=config,
+                run_config=run_config,
+                log_path=run_manager.log_path if run_manager is not None else None,
             )
-
-        # ----- 儲存設定 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        if run_config is not None:
-            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
     return enhanced_results
 
@@ -245,20 +259,27 @@ def run_rag_build(
     config_name: str = "default",
     force_rebuild: bool = False,
     webpages_data_use_latest_results: bool = False,
-    save_vector_store_to_runs: bool = False,
+    save: bool = True,
+    publish: bool = False,
     run_name_use_config_name: bool = False,
-    data_manager: DataManager | None = None,
     run_config: RAGBuildRunConfig | None = None,
     **config_overrides,
 ) -> None:
-    """建構 RAG 並落盤結果。完整包含建立 rag 流程。"""
+    """建構 RAG 並落盤結果。完整包含建立 rag 流程。
+
+    save 同時控制向量庫的建構位置（透過 create_rag 的
+    save_vector_store_to_runs）與 module_config／run_config 是否落盤到 runs/，
+    因為向量庫本來就是這個階段的「結果」，不再獨立開關。
+    """
     config = RAGConfig.from_toml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
         module="rag_build",
         config_name=config_name,
         config=config,
         run_name_use_config_name=run_name_use_config_name,
+        save=save,
     )
+    data_manager = DataManager()
 
     with run_workflow_context(run_title, run_manager=run_manager):
         # ---- 建置 RAG -----
@@ -267,7 +288,7 @@ def run_rag_build(
             config_name=config_name,
             force_rebuild=force_rebuild,
             webpages_data_use_latest_results=webpages_data_use_latest_results,
-            save_vector_store_to_runs=save_vector_store_to_runs,
+            save_vector_store_to_runs=save,
             data_manager=data_manager,
             **config_overrides,
         )
@@ -276,13 +297,15 @@ def run_rag_build(
         # ----- 輸出完成訊息 -----
         log_session("RAG Build Completed", style="cyan")
 
-        # ---- 儲存設定 -----
-        save_module_config_as_toml(config, run_manager.module_config_toml_path)
-        if run_config is not None:
-            save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+        # ----- Save（存到 runs/；向量庫已由上面 create_rag 決定位置） -----
+        if save:
+            assert run_manager is not None
+            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            if run_config is not None:
+                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
 
-        # ---- 儲存結果 -----
-        if data_manager is not None:
+        # ----- Publish（publish 到 data/） -----
+        if publish:
             if rag.milvus_uri and os.path.exists(rag.milvus_uri):
                 data_manager.publish_vector_store(
                     site_id=config.site_id,
@@ -291,9 +314,9 @@ def run_rag_build(
             data_manager.publish_run_metadata(
                 site_id=config.site_id,
                 category="rag",
-                module_config_path=run_manager.module_config_toml_path,
-                run_config_path=run_manager.run_config_toml_path,
-                log_path=run_manager.log_path,
+                config=config,
+                run_config=run_config,
+                log_path=run_manager.log_path if run_manager is not None else None,
             )
 
 
@@ -323,6 +346,7 @@ def run_rag_query(
         config=config,
         run_name_use_config_name=run_name_use_config_name,
     )
+    assert run_manager is not None  # save 未在此函式開放，永遠會建立 RunManager
 
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化 RAG 和 評估器 -----

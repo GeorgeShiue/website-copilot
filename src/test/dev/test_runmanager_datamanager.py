@@ -221,34 +221,23 @@ class TestDataManager:
         assert path == expected
 
     def test_publish_crawl_results(self):
-        """測試 publish_crawl_results 正確複製檔案。"""
+        """測試 publish_crawl_results 直接從記憶體中的 results 序列化。"""
         data_manager = DataManager(base_folder=self.data_dir)
 
-        # 建立來源資料
-        source_dir = os.path.join(self.temp_dir, "source")
-        os.makedirs(source_dir)
-        results_json_path = os.path.join(source_dir, "results.json")
-        results_folder_path = os.path.join(source_dir, "results")
-        os.makedirs(results_folder_path)
-
-        # 寫入測試資料
-        test_results = {"page1": {"url": "http://example.com"}}
-        with open(results_json_path, "w") as f:
-            json.dump(test_results, f)
-
-        # 寫入測試 Markdown
-        with open(os.path.join(results_folder_path, "page1.md"), "w") as f:
-            f.write("# Page 1")
+        test_results = {
+            "page1": {"url": "http://example.com", "fit_markdown": "# Page 1"}
+        }
 
         # 發布
         published_path = data_manager.publish_crawl_results(
             site_id="nculab",
             results=test_results,
-            results_json_path=results_json_path,
-            results_folder_path=results_folder_path,
         )
 
-        # 驗證發布結果
+        # 驗證發布結果（crawler 原始輸出寫到 data/raw_webpages/，跟 image
+        # summarizer 寫入的 data/webpages/ 完全分開，避免後續階段覆蓋掉
+        # crawler 自己的輸出）
+        assert published_path == os.path.join(self.data_dir, "raw_webpages", "nculab")
         assert os.path.isdir(published_path)
         assert os.path.isfile(os.path.join(published_path, "results.json"))
         assert os.path.isdir(os.path.join(published_path, "results"))
@@ -257,6 +246,9 @@ class TestDataManager:
         with open(os.path.join(published_path, "results.json")) as f:
             published_results = json.load(f)
         assert published_results == test_results
+
+        with open(os.path.join(published_path, "results", "page1.md")) as f:
+            assert f.read() == "# Page 1"
 
     def test_publish_vector_store_milvus(self):
         """測試 publish_vector_store 正確複製 Milvus 向量庫。"""

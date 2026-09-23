@@ -23,19 +23,25 @@ def create_run_context(
     config_name: str,
     config: SiteModuleConfig,
     run_name_use_config_name: bool = False,
-) -> tuple[RunManager, str]:
+    save: bool = True,
+) -> tuple[RunManager | None, str]:
     """共用初始化：建立 RunManager 與 run_title。
 
+    save=False 時完全不建立 RunManager（也就不會在 runs/ 底下建立任何目錄）。
+
     Returns:
-        (RunManager, run_title)。
+        (RunManager | None, run_title)。
     """
+    run_title = f"{module.replace('_', ' ').title()} ({config_name})"
+    if not save:
+        return None, run_title
+
     run_name = config.config_name if run_name_use_config_name else config.run_name
     run_manager = RunManager.for_run(
         module=module,
         site_id=config.site_id,
         run_name=run_name,
     )
-    run_title = f"{module.replace('_', ' ').title()} ({config_name})"
     return run_manager, run_title
 
 
@@ -75,20 +81,23 @@ class _WorkflowContext:
 
 def run_workflow_context(
     run_title: str,
-    run_manager: RunManager,
+    run_manager: RunManager | None,
 ) -> _WorkflowContext:
     """共用 logging preamble context manager。
 
     取代 run_* 函式中重複的 logging pattern：
     save_logging_file + log_run_time + log_session + run_paths。
     log_config 已移至各呼叫端，不再由本函式處理。
+    run_manager 為 None（save=False）時跳過所有 runs/ 相關的 log 檔操作。
     """
     stack = ExitStack()
-    stack.enter_context(save_logging_file(run_manager.log_path))
+    if run_manager is not None:
+        stack.enter_context(save_logging_file(run_manager.log_path))
     stack.enter_context(log_run_time(run_title))
     log_session(run_title, style="purple")
 
-    log_session("Run Paths", style="cyan")
-    run_manager.log_run_paths("init")
+    if run_manager is not None:
+        log_session("Run Paths", style="cyan")
+        run_manager.log_run_paths("init")
 
     return _WorkflowContext(stack, run_manager)

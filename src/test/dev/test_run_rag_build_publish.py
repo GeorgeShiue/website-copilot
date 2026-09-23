@@ -31,7 +31,9 @@ def env(tmp_path):
     rag = _FakeRAG(str(source))
     config = RAGConfig.from_toml("test")
 
-    def _run_context(module, config_name, config, run_name_use_config_name=False):
+    def _run_context(
+        module, config_name, config, run_name_use_config_name=False, save=True
+    ):
         run_manager = RunManager.for_run(
             module=module,
             site_id=config.site_id,
@@ -40,16 +42,19 @@ def env(tmp_path):
         )
         return run_manager, "Rag Build (test)"
 
+    data_manager = DataManager(base_folder=str(tmp_path / "data"))
+
     with (
         patch("app.workflow.workflow.create_rag", return_value=rag),
         patch("app.workflow.workflow.create_run_context", side_effect=_run_context),
+        patch("app.workflow.workflow.DataManager", return_value=data_manager),
     ):
-        yield rag, config, DataManager(base_folder=str(tmp_path / "data")), tmp_path
+        yield rag, config, tmp_path
 
 
 def test_publishes_vector_store_and_metadata(env):
-    rag, config, data_manager, tmp_path = env
-    run_rag_build(config_name="test", data_manager=data_manager)
+    rag, config, tmp_path = env
+    run_rag_build(config_name="test", publish=True)
 
     dest = tmp_path / "data" / "rag" / config.site_id
     assert (dest / "milvus.db" / "vec.bin").read_text() == "v"
@@ -57,8 +62,8 @@ def test_publishes_vector_store_and_metadata(env):
     assert rag.closed
 
 
-def test_no_data_manager_does_not_publish(env):
-    rag, _, _, tmp_path = env
+def test_publish_false_does_not_publish(env):
+    rag, _, tmp_path = env
     run_rag_build(config_name="test")
 
     assert not (tmp_path / "data" / "rag").exists()
@@ -66,9 +71,9 @@ def test_no_data_manager_does_not_publish(env):
 
 
 def test_missing_vector_store_skips_vector_publish_but_publishes_metadata(env):
-    rag, config, data_manager, tmp_path = env
+    rag, config, tmp_path = env
     rag.milvus_uri = str(tmp_path / "does_not_exist")
-    run_rag_build(config_name="test", data_manager=data_manager)
+    run_rag_build(config_name="test", publish=True)
 
     dest = tmp_path / "data" / "rag" / config.site_id
     assert not (dest / "milvus.db").exists()

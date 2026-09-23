@@ -9,7 +9,6 @@
 import os
 import sys
 
-from app.workflow.data_manager import DataManager
 from app.workflow.workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
@@ -36,7 +35,7 @@ EXPECTED_METADATA_FILES = ["module_config.toml", "run_config.toml", "terminal.lo
 
 def _check_published_files(
     site_label: str,
-    data_manager: DataManager,
+    base_folder: str,
     site_id: str,
     category: str,
 ) -> list[str]:
@@ -45,7 +44,7 @@ def _check_published_files(
     Returns:
         缺失的檔案名稱列表（空列表表示全部存在）。
     """
-    dest_folder = os.path.join(data_manager.base_folder, category, site_id)
+    dest_folder = os.path.join(base_folder, category, site_id)
     missing: list[str] = []
     for filename in EXPECTED_METADATA_FILES:
         fpath = os.path.join(dest_folder, filename)
@@ -75,13 +74,12 @@ def run_site_pipeline(
     print(f"  RAG config:     {rag_config}")
     print(f"{'=' * 60}\n")
 
-    data_manager = DataManager()
     all_missing: list[str] = []
 
     # ----- 1. 網站爬蟲 -----
     crawl_results = run_website_crawler(
         config_name=crawler_config,
-        data_manager=data_manager,
+        publish=True,
     )
     if crawl_results is None:
         print(f"[FAIL] {site_label}: 爬蟲失敗，終止 pipeline")
@@ -92,7 +90,7 @@ def run_site_pipeline(
     enhanced_results = run_webpage_image_summarizer(
         config_name=image_config,
         crawl_results=crawl_results,
-        data_manager=data_manager,
+        publish=True,
     )
     if enhanced_results is None:
         print(f"[FAIL] {site_label}: 圖片摘要失敗，終止 pipeline")
@@ -100,21 +98,22 @@ def run_site_pipeline(
     print(f"[OK]   {site_label}: 圖片摘要完成")
 
     # ----- 3. RAG 建庫 -----
-    # save_vector_store_to_runs=True：向量庫先建在 runs/ 再 publish 到 data/rag/，
+    # save=True（預設值）：向量庫先建在 runs/ 再 publish 到 data/rag/，
     # 避免 config.milvus_uri 與 publish 目標路徑相同導致 self-copy 錯誤。
     run_rag_build(
         config_name=rag_config,
         force_rebuild=True,
         webpages_data_use_latest_results=True,
-        save_vector_store_to_runs=True,
-        data_manager=data_manager,
+        publish=True,
     )
     print(f"[OK]   {site_label}: RAG 建庫完成")
 
     # ----- 4. 驗證 publish 結果 -----
+    # 注意：第三個參數要傳實際的 site_id（site_label），不是 config 名稱
+    # （rag_config 是 "test_nculab" 這種 config 檔名，實際 site_id 是 "nculab"）。
     print(f"\n--- Verify published files for {site_label} ---")
-    for cat in ("webpages", "rag"):
-        missing = _check_published_files(site_label, data_manager, rag_config, cat)
+    for cat in ("raw_webpages", "webpages", "rag"):
+        missing = _check_published_files(site_label, "data", site_label, cat)
         all_missing.extend(f"{cat}/{m}" for m in missing)
 
     return True, all_missing
@@ -152,7 +151,14 @@ def main() -> None:
         print("Verify data isolation:")
         for site in SITES:
             site_id = site["crawler"].replace("test_", "")
-            print(f"  data/webpages/{site_id}/results.json")
+            print(f"  data/raw_webpages/{site_id}/results.json  (crawler 原始輸出)")
+            print(f"  data/raw_webpages/{site_id}/results/")
+            print(f"  data/raw_webpages/{site_id}/module_config.toml")
+            print(f"  data/raw_webpages/{site_id}/run_config.toml")
+            print(f"  data/raw_webpages/{site_id}/terminal.log")
+            print(
+                f"  data/webpages/{site_id}/results.json  (image summarizer 最終輸出)"
+            )
             print(f"  data/webpages/{site_id}/results/")
             print(f"  data/webpages/{site_id}/module_config.toml")
             print(f"  data/webpages/{site_id}/run_config.toml")

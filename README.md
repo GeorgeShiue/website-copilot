@@ -119,9 +119,13 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── data/
 │   ├── rag/
 │   │   └── results/             # 向量資料庫（milvus.db）
+│   ├── raw_webpages/             # 爬蟲原始輸出（fit_markdown，跟 webpages/ 完全分開）
+│   │   ├── results/
+│   │   ├── results.json
+│   │   └── module_config.toml
 │   └── webpages/
-│       ├── results/             # 爬蟲與摘要結果
-│       ├── results.json         # 結果索引
+│       ├── results/             # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
+│       ├── results.json         # 結果索引（含 enhanced_markdown）
 │       └── module_config.toml   # 模組設定備份
 ├── runs/                         # 執行結果與聊天記錄（<ts>/agent/<config>/ 等）
 ├── dev/

@@ -16,6 +16,7 @@ class BaseRunConfig:
     config_name: str = "default"
     run_name_use_config_name: bool = False
     publish: bool = False
+    save: bool = True
 
 
 @dataclass
@@ -31,7 +32,6 @@ class WebpageImageSummarizerRunConfig(BaseRunConfig):
 @dataclass
 class RAGBuildRunConfig(BaseRunConfig):
     webpages_data_use_latest_results: bool = False
-    save_vector_store_to_runs: bool = False
 
 
 @dataclass

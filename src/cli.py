@@ -52,7 +52,6 @@ class ServerCLI:
 if __name__ == "__main__":
     import tyro
 
-    from app.workflow.data_manager import DataManager
     from app.workflow.workflow import (
         run_agent_query,
         run_app,
@@ -85,30 +84,33 @@ if __name__ == "__main__":
                 else:
                     module_config_overrides[key] = value
 
-    # 從 RunConfig 提前取出 publish，避免洩漏進 **config_overrides
+    # 從 RunConfig 提前取出 publish／save，避免洩漏進 **config_overrides
     run_kwargs = vars(cli_arg.run) if not isinstance(cli_arg, ServerCLI) else {}
+    save = run_kwargs.pop("save", True) if run_kwargs else True
     publish = run_kwargs.pop("publish", False) if run_kwargs else False
-    data_manager = DataManager() if publish else None
 
     if isinstance(cli_arg, WebsiteCrawlerCLI):
         run_website_crawler(
             **run_kwargs,
             **module_config_overrides,
-            data_manager=data_manager,
+            save=save,
+            publish=publish,
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, WebpageImageSummarizerCLI):
         run_webpage_image_summarizer(
             **run_kwargs,
             **module_config_overrides,
-            data_manager=data_manager,
+            save=save,
+            publish=publish,
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGBuildCLI):
         run_rag_build(
             **run_kwargs,
             **module_config_overrides,
-            data_manager=data_manager,
+            save=save,
+            publish=publish,
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGQueryCLI):

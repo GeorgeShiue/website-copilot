@@ -25,8 +25,6 @@ def test_main():
     if enhanced_crawl_results is None:
         return
 
-    run_rag_build(
-        config_name="test", force_rebuild=True, save_vector_store_to_runs=True
-    )
+    run_rag_build(config_name="test", force_rebuild=True)
 
     run_agent_query(config_name="test", query="實驗室有哪些成員？")
