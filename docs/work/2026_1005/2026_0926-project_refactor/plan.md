@@ -19,7 +19,7 @@
 - 單一 CLI 指令 `website-copilot`（`cli/` 子套件、tyro 子命令），`scripts/` 只放一次性腳本。
 - `data/` 維持在版控，不變動。
 - `widget.js` 以 `server/static/` 為來源，兩份都進版控，用 `make sync-widget` 同步，並由 CI 比對。
-- 刪除 `dev/legacy`、`dev/crawl4ai`、`dev/llama_index`；`dev/marp` 移到 `docs/progress_report/drafts/`。
+- 刪除 `dev/legacy`、`dev/crawl4ai`、`dev/llama_index`；`dev/marp` 只保留 `2026_0518_marp_v3.md`，改名為 `docs/progress_report/2026_0518/2026_0518_marp.md`，其餘草稿刪除。
 - 測試分為 `tests/unit`、`tests/integration`。新增 `.env.example` 與 `Makefile`。
 
 在 `dev-tech-debt` 上開新分支 `refactor/project-layout`，每個 phase 一個 commit，詳見「執行步驟」。**每個 phase 的 commit 完成並通過檢查後都先暫停，回報結果（diff 摘要、測試數字、里程碑檢查輸出），等使用者確認後才進行下一個 phase。**
@@ -168,10 +168,10 @@ tests/
 - 驗證：每步檢查、各子命令的 `--help`，以及 `uv run website-copilot serve` 端到端；prepare 以 `website-copilot run rag-build --run.config-name test` 驗證（完整 `prepare` 會 publish 覆寫版控中的 `data/`，需使用者同意才執行）。
 
 ### Phase E：雜項（步驟順序不限，合併為一個 commit）
-- **E1 widget**：以 extension 版覆蓋 static；新增 `make sync-widget` 與 CI `cmp`。驗證：`/static/demo.html` 顯示 typing indicator，且 `make sync-widget && git diff --exit-code extension/`。
-- **E2 dev/**：刪除 `legacy`、`crawl4ai`、`llama_index`，`marp` 移到 `docs/progress_report/drafts/`，並移除 ruff 與 pyright 的 `dev/**` 排除規則。驗證：ruff 與 pyright 通過。
-- **E3 `.env.example` 與 Makefile**：Makefile 新增 `check` 目標（ruff、pyright、pytest），同時作為 bisect 用指令。
-- **E4 文件**：README、`docs/code/**`，將舊路徑與舊指令全數改新；以 grep 確認沒有殘留。
+- **E1 widget**：以 extension 版覆蓋 static；新增 `make sync-widget` / `make check-widget` 與 CI（`ci.yml`、`ci-test.yml`）的 `cmp` 步驟。驗證：serve 送出的 `/static/widget.js` 含 typing indicator 且與 `extension/widget.js` 相同，且 `make sync-widget && git diff --exit-code extension/`。
+- **E2 dev/**：刪除 `legacy`、`crawl4ai`、`llama_index` 的版控檔案；`marp` 只保留 `2026_0518_marp_v3.md`，改名為 `docs/progress_report/2026_0518/2026_0518_marp.md`，其餘草稿刪除；並移除 ruff 與 pyright 的 `dev/**` 排除規則。被 gitignore 的本機輸出 `dev/crawl4ai/tmp/` 不在版控內，保留由使用者自行處理。驗證：ruff 與 pyright 通過。
+- **E3 `.env.example` 與 Makefile**：`.env.example` 列出程式實際讀取的 4 個金鑰；Makefile 提供 `help` / `install` / `check`（lint + typecheck + test + check-widget）/ `format` / `sync-widget` / `serve`。注意：A1 基線即存在的 pyright 4 個錯誤與 1 個失敗測試（皆在 `test_webpage_markdown_cleaner.py`）修正前，`make check` 不會通過，也就無法直接作為 bisect 指令。
+- **E4 文件**：README、`docs/code/**`，將舊路徑與舊指令全數改新；以 grep 確認沒有殘留。README 的環境變數表同步改為實際使用的 4 個金鑰；`docs/code` 中早於本次重構即已過時的 RAG API 描述（`build_reusable`、`build_to_*`）一併改為 `IndexBuilder` / `RAGBuilder` / `build_rag` / `load_rag`。
 
 ## 驗證
 

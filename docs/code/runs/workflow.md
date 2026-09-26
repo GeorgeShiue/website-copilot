@@ -2,30 +2,32 @@
 
 ## 一、主要檔案與角色
 
-- workflow 依階段拆成三個模組，負責把 config、module 與 RunManager 串起來並執行實際流程：
-  - [src/app/workflow/prepare_workflow.py](src/app/workflow/prepare_workflow.py)：Prepare 階段（爬蟲、圖片摘要、RAG 建置）。
-  - [src/app/workflow/serve_workflow.py](src/app/workflow/serve_workflow.py)：Serve 階段（Agent 建置／問答與 server 啟動）；不 import 爬蟲與 VLM 模組。
-  - [src/app/workflow/eval_workflow.py](src/app/workflow/eval_workflow.py)：RAG 查詢評估（實驗／除錯用）。
-- [src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 CLI 與程式使用。
-- [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)：以 `for_run()`（3 層）/ `for_run_no_site()`（2 層）classmethod 建立 `runs/<timestamp>/<module>/<site_id>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
-- [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py)：結果持久化與發現函式（從 RunManager 分離的無狀態工具）。
-- [src/app/workflow/workflow_helper.py](src/app/workflow/workflow_helper.py)：模組無關的共用 helper（`create_run_context()` / `create_run_no_site_context()` 的 run context 建立、`run_workflow_context()` 的 ExitStack logging 生命週期管理）。
-- [src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)：管理 `data/` 目錄的持久化資料，提供 `publish_*` 方法將 run 產物發布到 `data/webpages/<site_id>/` 等路徑。
-- [src/prepare.py](src/prepare.py)：Prepare 階段入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段並 publish 到 `data/`。
-- [src/serve.py](src/serve.py)：Serve 階段入口，以 `run_app()` 啟動 Chat 伺服器並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`，缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `RAGBuilder.load_to_retriever()` 載入，不建置）。
-- `src/app/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫檢索。
-- `src/app/tools/rag_registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
-- `src/app/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
-- [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
-- [src/app/engines/webpage_image_summarizer.py](src/app/engines/webpage_image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
-- [src/app/engines/rag/rag.py](src/app/engines/rag/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
-- [src/app/engines/rag/rag_factory.py](src/app/engines/rag/rag_factory.py)：負責 RAG 建構流程（`RAGBuilder` / `NodePipelineBuilder` / `VectorStoreBuilder`）。
-- [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)、[src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)、[src/app/configs/rag_config.py](src/app/configs/rag_config.py)、[src/app/configs/agent_config.py](src/app/configs/agent_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
-- [src/utils/config_helper.py](src/utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
+- workflow 依階段拆成下列模組，負責把 config、module 與 RunManager 串起來並執行實際流程：
+  - [src/website_copilot/pipelines/prepare.py](src/website_copilot/pipelines/prepare.py)：Prepare 階段（爬蟲、圖片摘要、RAG 建置，以及三階段串接的 `run_prepare()`）。
+  - [src/website_copilot/pipelines/agent.py](src/website_copilot/pipelines/agent.py)：Agent 單模組流程（`run_agent_build()` / `run_agent_query()`）；不 import 爬蟲與 VLM 模組。
+  - [src/website_copilot/server/bootstrap.py](src/website_copilot/server/bootstrap.py)：Serve 階段（`run_app()` 建立 server、`serve_forever()` 管理生命週期）；不 import 爬蟲與 VLM 模組。
+  - [src/website_copilot/pipelines/exp.py](src/website_copilot/pipelines/exp.py)：RAG 查詢評估與批次實驗（實驗／除錯用）。
+- [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 CLI 與程式使用。
+- [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)：以 `for_run()`（3 層）/ `for_run_no_site()`（2 層）classmethod 建立 `runs/<timestamp>/<module>/<site_id>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
+- [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)：結果持久化與發現函式（從 RunManager 分離的無狀態工具）。
+- [src/website_copilot/storage/run_context.py](src/website_copilot/storage/run_context.py)：模組無關的共用 helper（`create_run_context()` / `create_run_no_site_context()` 的 run context 建立、`run_workflow_context()` 的 ExitStack logging 生命週期管理）。
+- [src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)：管理 `data/` 目錄的持久化資料，提供 `publish_*` 方法將 run 產物發布到 `data/webpages/<site_id>/` 等路徑。
+- `website-copilot prepare`（`cli/prepare.py` → `run_prepare()`）：Prepare 階段入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段並 publish 到 `data/`。
+- `website-copilot serve`（`cli/serve.py` → `serve_forever()`）：Serve 階段入口，以 `run_app()` 啟動 Chat 伺服器並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`（不需要 `data/webpages/`），缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `load_rag()` 載入，不建置）。
+- `src/website_copilot/agent/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫檢索。
+- `src/website_copilot/retrieval/registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
+- `src/website_copilot/agent/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
+- [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
+- [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
+- [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
+- [src/website_copilot/ingestion/indexing/index.py](src/website_copilot/ingestion/indexing/index.py)：`IndexBuilder` 負責向量庫的 clean / nodes / vector store / index 建置與載入，回傳 `IndexHandle`（nodes 與向量庫分別由 `node_pipeline.py`、`vector_store.py` 建立）。
+- [src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)：`RAGBuilder` 在 `IndexHandle` 之上建立 retriever / query engine；`build_rag()`（建置）與 `load_rag()`（serve 載入，絕不建置）為兩個入口。
+- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
+- [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
 
 ## 二、Workflow 解析與執行流程
 
-1. workflow 的核心實作分散在 `prepare_workflow.py`／`serve_workflow.py`／`eval_workflow.py`，共提供七個主要入口：
+1. workflow 的核心實作分散在 `pipelines/prepare.py`／`pipelines/agent.py`／`pipelines/exp.py`／`server/bootstrap.py`，共提供七個主要入口（另有 `run_prepare()` 串接 prepare 三階段、`serve_forever()` 包裝 `run_app()` 的生命週期）：
    - `run_website_crawler()`
    - `run_webpage_image_summarizer()`
    - `run_rag_build()`
@@ -33,9 +35,9 @@
    - `run_agent_build()` / `run_agent_query()`
    - `run_app()`
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
-3. 每個 workflow 都會建立或接收 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
-4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫，`run_app` 不寫），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
-5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`src/cli.py` 會傳入 run 參數（`src/prepare.py` 目前不寫出）。
+3. 每個 workflow 都會建立或接收 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
+4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫，`run_app` 不寫），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
+5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
 
 ## 三、主要 Workflow 入口
 
@@ -43,8 +45,8 @@
 
 - 目的：從指定網站爬取頁面、清理 Markdown，並產出可供後續流程使用的 crawl results。
 - 流程：
-  1. 建立 [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py) 的 `WebsiteCrawler`。
-  2. 透過 [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py) 從 `configs/website_crawler/{config_name}.toml` 讀入設定。
+  1. 建立 [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py) 的 `WebsiteCrawler`。
+  2. 透過 [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py) 從 `configs/website_crawler/{config_name}.toml` 讀入設定。
   3. 套用 `override_init_config()` 與 `crawl_website()` 的執行參數。
   4. 若爬取成功，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
@@ -52,17 +54,17 @@
 
 - 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown。
 - 流程：
-  1. 建立 [src/app/engines/webpage_image_summarizer.py](src/app/engines/webpage_image_summarizer.py) 的 `WebpageImageSummarizer`。
-  2. 透過 [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py) 載入 `configs/webpage_image_summarizer/{config_name}.toml`。
-  3. 若未直接傳入 `crawl_results`，則由 [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py) 的 `load_latest_results()` 自動載入最近一次 crawler 結果。
+  1. 建立 [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py) 的 `WebpageImageSummarizer`。
+  2. 透過 [src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py) 載入 `configs/webpage_image_summarizer/{config_name}.toml`。
+  3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results()` 自動載入最近一次 crawler 結果。
   4. 執行圖片摘要後，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
 ### 3. `run_rag_build()`
 
 - 目的：建立 RAG 所需的 nodes、vector store、index、retriever 與 query engine（**不含 query 步驟**），並落盤建置產物。
 - 流程：
-  1. 透過 [src/app/configs/rag_config.py](src/app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
-  2. 呼叫 `create_rag(...)`（[src/app/engines/rag/rag_factory.py](src/app/engines/rag/rag_factory.py)）建立並回傳已建構的 `RAG`；內部以 `RAGBuilder(config).build_reusable(rag, force_rebuild=...)` 一鍵建構：`build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()` → `build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）→ `build_query_engine()`。
+  1. 透過 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
+  2. 呼叫 `build_rag(..., build_query_engine=False)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）建立並回傳 `RAG`；內部以 `IndexBuilder(config).build_or_load(force_rebuild=True)` 讀取 webpages 來源（`load_source()`）後重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
   3. `save=True` 時在 run 路徑寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，最後 `rag.close()` 釋放資源。
   4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。發布的 `module_config.toml` 會記錄正式路徑。建庫位置：
 
@@ -79,9 +81,9 @@
 
 - 目的：以既有的 vector store / index 為基礎，重建必要資源並執行多輪 query 與評估。
 - 流程：
-  1. 建立 `RAG` 實例並載入 `RAGConfig`，以 `RAGBuilder` 進行編排。
-  2. 呼叫 `RAGBuilder.build_reusable(rag, force_rebuild=...)`：依 `force_rebuild` 或 `vector_store_type="milvus"`（MilvusLite 不支援增量，每次需重建）決定「重建」整套 RAG 資源，或「載入」既有 index。
-  3. 呼叫 `RAGBuilder.build_evaluators(rag)` 注入 Faithfulness / Relevancy evaluator，再針對預設 query 或指定 query 進行多輪查詢與評估。
+  1. 載入 `RAGConfig`，呼叫 `build_rag(config=config, force_rebuild=...)`：`IndexBuilder.build_or_load()` 依 `force_rebuild` 或向量庫是否存在決定「重建」（讀取 webpages 來源）或「載入」既有 index，再由 `RAGBuilder.build()` 建立 retriever（支援 `query_mode="hybrid"` 與 `filter_dict`）與 query engine。
+  2. 呼叫 `build_evaluators(config)` 取得 Faithfulness / Relevancy evaluator。
+  3. 針對預設 query 或指定 query 進行多輪查詢，並以 `evaluate_response(evaluators, query, response)` 評估。
   4. 回報 faithfulness / relevancy 評估結果，並將每次 query 結果落盤：
      - `results.json` — 結構化結果（`config` / `summary` / `results` 三層；`summary` 含各評估 pass count 與 pass rate）
      - `results/query_{index}.md` — 每次 query 與回覆各一份，含來源與評估
@@ -89,7 +91,7 @@
 
 ### 5. `run_agent_build()` / `run_agent_query()`
 
-- 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，執行 Agent 問答（CLI 的 `agent-cli` 分支）。舊版 `run_agent()` 已移除；`run_agent_query()` 與 `run_app()` 為完整入口（各自建立 run context、agent、落盤與關閉），`run_agent_build()` 為 agent 建構 + 落盤的程式化 API（**兩者不經過它**）。
+- 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，執行 Agent 問答（`website-copilot run agent`；定義於 `pipelines/agent.py`）。舊版 `run_agent()` 已移除；`run_agent_query()` 與 `run_app()` 為完整入口（各自建立 run context、agent、落盤與關閉），`run_agent_build()` 為 agent 建構 + 落盤的程式化 API（**兩者不經過它**）。
 - `run_agent_build(config_name="default", run_config=None, **config_overrides) -> None`：
   1. 以 `create_run_no_site_context(module="agent_build", config_name=...)` 建立 `RunManager`（`runs/<ts>/agent_build/<config>/`），並以 `with run_workflow_context(...)` 包住 logging 生命週期。
   2. 載入 `AgentConfig.from_toml(config_name, **config_overrides)` 後呼叫 `create_agent(config_name, **config_overrides)`（內部建立 `Tool(config_name)`、LLM 與編譯圖；失敗時 `tool.close()` 後 re-raise）。
@@ -103,13 +105,13 @@
 
 ### 6. `run_app()`
 
-- 目的：以 `ChatApp.create()` 建立 FastAPI app，並回傳 `(server, chat_app)`（`server` 為**非阻塞**的 `uvicorn.Server`；`src/serve.py` 使用）。
+- 目的：以 `ChatApp.create()` 建立 FastAPI app，並回傳 `(server, chat_app)`（`server` 為**非阻塞**的 `uvicorn.Server`；由 `serve_forever()` 使用）。
 - 流程：
   1. `run_app(config_name="default", run_config=None, allowed_origins=None, host="127.0.0.1", port=8000, **config_overrides) -> tuple[uvicorn.Server, ChatApp]` 自行建立 run context（`RunManager`）並直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）。
   2. `ChatApp.create(agent=agent, run_manager=run_manager, allowed_origins=allowed_origins)` 組裝 app，再以 `uvicorn.Config(chat_app.app, host=..., port=...)` 建立 `uvicorn.Server`。
   3. `run_config` 非 None 時寫出 `run_config.toml`（路徑為 `run_manager.run_config_toml_path`），最後 `log_run_paths("complete")`。
   4. 建立 app / server 過程失敗時 `agent.close()` 後 re-raise（資源守衛）。
-  5. 呼叫端負責 `server.run()` 阻塞與 `chat_app.close()`（`ChatApp.close()` 釋放 agent）。
+  5. 呼叫端負責 `server.run()` 阻塞與 `chat_app.close()`（`ChatApp.close()` 釋放 agent）；`serve_forever(run_config)` 封裝了這段生命週期（`KeyboardInterrupt` 後於 `finally` 關閉）。
 
 ## 四、Workflow 與 RunManager
 
@@ -138,61 +140,61 @@ Workflow 內部常見行為：
 - `run_manager.save_results_as_json(results, file_path=None)`：寫出 JSON 結果（crawler / summarizer 的爬取結果、`run_rag_query` 的 query 三層結構，或 agent 指定分檔）。
 - `run_manager.save_agent_results_as_json(thread_id, results, agent_config)`：agent 對話結果落盤（呼叫端 `run_agent_query` / server `_event_stream` 傳入 `agent_config`）— 依 `thread_id` 寫出 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；無既有分檔時以 `RunManager.find_thread_history_path()` 回掃歷史 run）。
 - `run_manager.find_thread_history_path(base_folder, module_name, history_filename)`（staticmethod）：跨 timestamped run 目錄搜尋最新的 thread 歷史檔。
-- 模組無關的持久化／發現函式位於 [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py)：`save_results_as_md()`、`save_query_results_as_md()`、`load_latest_results()`、`load_latest_run_path()`（皆為無狀態函式，**非 RunManager 方法**）；image summarizer 未直接收到 `crawl_results` 時即呼叫 `load_latest_results()` 載入最近一次 crawler 輸出。
+- 模組無關的持久化／發現函式位於 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)：`save_results_as_md()`、`save_query_results_as_md()`、`load_latest_results()`、`load_latest_run_path()`（皆為無狀態函式，**非 RunManager 方法**）；image summarizer 未直接收到 `crawl_results` 時即呼叫 `load_latest_results()` 載入最近一次 crawler 輸出。
 
 ## 五、Workflow 與 Config 的互動
 
 Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與共用 helper：
 
-1. `src/app/configs/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
+1. `src/website_copilot/config/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
 2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 負責讀入、過濾與覆寫。
 3. `save_module_config_as_toml()` 會把實際使用到的設定寫回 `module_config.toml`，方便追蹤本次執行。
-4. `save_run_config_as_toml()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`src/cli.py` 會傳入；`src/prepare.py` 目前不寫出）。
+4. `save_run_config_as_toml()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`website-copilot run` 會傳入；`website-copilot prepare` 目前不寫出）。
 
-這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `src/app/configs/`。
+這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `src/website_copilot/config/`。
 
 ## 六、使用範例
 
 ```bash
 # Prepare：依序執行爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
-python src/prepare.py --run.config-name nculab  # 省略時使用 default
+uv run website-copilot prepare --run.config-name nculab  # 省略時使用 default
 
 # Serve：啟動 Chat 伺服器（阻塞至中斷）
-python src/serve.py --run.port 8000
+uv run website-copilot serve --run.port 8000
 ```
 
 ```bash
 # 只跑 workflow 層的 RAG 建置流程（通常透過 CLI 或程式入口呼叫）
-python src/cli.py rag-build-cli --run.config-name default
+uv run website-copilot run rag-build --run.config-name default
 ```
 
 ```bash
 # 執行 RAG 查詢流程並允許重建
-python src/cli.py rag-query-cli --run.config-name test --run.force-rebuild
+uv run website-copilot run rag-query --run.config-name test --run.force-rebuild
 ```
 
 ## 七、注意事項與建議
 
-- 若要修改 workflow 的執行行為，優先檢查對應階段的 `src/app/workflow/*_workflow.py` 與對應的 `src/app/configs/*_config.py`，不要把設定邏輯分散到 module 本體。
-- 若要調整輸出目錄與 artifacts 命名，優先修改 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)。
-- 若要新增 workflow，建議先在對應階段的 `src/app/workflow/*_workflow.py` 定義入口（serve 階段不可 import 爬蟲／VLM 模組），再補上對應的 config dataclass 與 RunManager 輸出行為。
+- 若要修改 workflow 的執行行為，優先檢查對應階段的 `src/website_copilot/pipelines/*.py`（serve 為 `server/bootstrap.py`）與對應的 `src/website_copilot/config/*_config.py`，不要把設定邏輯分散到 module 本體。
+- 若要調整輸出目錄與 artifacts 命名，優先修改 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)。
+- 若要新增 workflow，建議先在 `src/website_copilot/pipelines/` 定義入口（serve 路徑不可 import 爬蟲／VLM 模組），再補上對應的 config dataclass、RunManager 輸出行為與 `cli/` 子命令。
 
 ## 八、參考與證據
 
-- [src/app/workflow/prepare_workflow.py](src/app/workflow/prepare_workflow.py)
-- [src/app/workflow/serve_workflow.py](src/app/workflow/serve_workflow.py)
-- [src/app/workflow/eval_workflow.py](src/app/workflow/eval_workflow.py)
-- [src/app/workflow/workflow_helper.py](src/app/workflow/workflow_helper.py)
-- [src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)
-- [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)
-- [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py)
-- [src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)
-- [src/prepare.py](src/prepare.py)
-- [src/serve.py](src/serve.py)
-- [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py)
-- [src/app/engines/webpage_image_summarizer.py](src/app/engines/webpage_image_summarizer.py)
-- [src/app/engines/rag/rag.py](src/app/engines/rag/rag.py)
-- [src/app/configs/website_crawler_config.py](src/app/configs/website_crawler_config.py)
-- [src/app/configs/webpage_image_summarizer_config.py](src/app/configs/webpage_image_summarizer_config.py)
-- [src/app/configs/rag_config.py](src/app/configs/rag_config.py)
-- [src/utils/config_helper.py](src/utils/config_helper.py)
+- [src/website_copilot/pipelines/prepare.py](src/website_copilot/pipelines/prepare.py)
+- [src/website_copilot/pipelines/agent.py](src/website_copilot/pipelines/agent.py)
+- [src/website_copilot/server/bootstrap.py](src/website_copilot/server/bootstrap.py)
+- [src/website_copilot/pipelines/exp.py](src/website_copilot/pipelines/exp.py)
+- [src/website_copilot/storage/run_context.py](src/website_copilot/storage/run_context.py)
+- [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)
+- [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)
+- [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)
+- [src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)
+- [src/website_copilot/cli/](src/website_copilot/cli/)
+- [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)
+- [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py)
+- [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)
+- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)
+- [src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py)
+- [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)
+- [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)

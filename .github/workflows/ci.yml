@@ -32,6 +32,9 @@ jobs:
 
       - name: Run type check
         run: uv run pyright .
+
+      - name: Check widget.js in sync
+        run: cmp src/website_copilot/server/static/widget.js extension/widget.js
   unit-test:
     needs: quality-check
     runs-on: ubuntu-latest

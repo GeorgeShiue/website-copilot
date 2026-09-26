@@ -56,10 +56,10 @@ exclude-dependencies = ["unclecode-litellm"]
 packages = ["src/website_copilot"]
 
 [tool.ruff]
-exclude = ["dev/**", ".venv"]
+exclude = [".venv"]
 
 [tool.pyright]
-exclude = ["dev/**", "**/node_modules", "**/__pycache__", ".venv", "**/.*"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", "**/.*"]
 typeCheckingMode = "basic"
 
 [tool.pyright.typeEvaluation]

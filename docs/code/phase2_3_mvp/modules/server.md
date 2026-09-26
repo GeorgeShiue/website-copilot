@@ -13,9 +13,9 @@
 - **嵌入表面 static** — `chat.html`（iframe）/ `widget.js`（script widget）/ `demo.html`（示範頁）
 
 - **模組實作**
-	- `src/app/server/app.py`（**FastAPI app**：`ChatApp`、`_build_fastapi_app`、`ChatRequest`、`_event_stream`、`_sse`）
-	- `src/app/server/__init__.py`（匯出 `ChatApp` / `ChatRequest`）
-	- `src/app/server/static/`（**嵌入表面前端檔**：chat.html / widget.js / demo.html，詳見 [interface.md](interface.md)）
+	- `src/website_copilot/server/app.py`（**FastAPI app**：`ChatApp`、`_build_fastapi_app`、`ChatRequest`、`_event_stream`、`_sse`）
+	- `src/website_copilot/server/__init__.py`（匯出 `ChatApp` / `ChatRequest`）
+	- `src/website_copilot/server/static/`（**嵌入表面前端檔**：chat.html / widget.js / demo.html，詳見 [interface.md](interface.md)）
 
 - **模組設定**
 	- `config_name`：AgentConfig 名稱（對應 `configs/agent/{name}.toml`，預設 `default`）
@@ -46,15 +46,15 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`ChatApp.create(agent, run_manager, allowed_origins=None)`** — 工廠方法：`_build_fastapi_app()` 建立 FastAPI app 並綁定 agent 與 run_manager：
   - **lifespan**：啟動時將注入的 `agent` 與 `run_manager` 綁定至 `app.state`（不在 lifespan 建立/關閉資源；資源由呼叫端透過 `ChatApp.close()` 或 context manager 管理）
   - **CORS middleware**：`allow_origins=allowed_origins`（None → `["*"]` 全開放）
-  - **static mount**：`/static` → `src/app/server/static/`（M4a）
+  - **static mount**：`/static` → `src/website_copilot/server/static/`（M4a）
   - `GET /` → redirect `/static/demo.html`（嵌入示範入口）
   - `GET /api/health` → `{"status": "ok"}`（供健康檢查／就緒輪詢）
   - `POST /api/chat` → `StreamingResponse(_event_stream(...))`（SSE；空白 query 直接回 error 事件；`thread_id` 未提供時自動 `auto-{uuid}`）；`agent` 與 `run_manager` 由 `Depends(get_agent)` / `Depends(get_run_manager)` 自 `app.state` 取得
 
 - **`_event_stream(agent, run_manager, query, thread_id, site_id=None)`** — SSE 事件流核心：
-  1. `thread_config(thread_id)`（utils.langchain_helper）建立執行設定
+  1. `thread_config(thread_id)`（agent.langchain_helper）建立執行設定
   2. `astream_text` 逐 token → `yield _sse({"type": "token", "content": text})`
-  3. 完成後 `graph.get_state()` 讀回 messages → `extract_sources_from_messages`（utils.langchain_helper）抽來源
+  3. 完成後 `graph.get_state()` 讀回 messages → `extract_sources_from_messages`（agent.langchain_helper）抽來源
   4. 組 `result` → `run_manager.save_agent_results_as_json(thread_id=..., results=[result], agent_config=agent.config)` 落盤 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；檔名安全由 RunManager 負責，server 原樣傳遞 `thread_id`）
   5. `yield _sse({"type": "done", ...})`；任何例外 → `yield _sse({"type": "error", ...})`
 
@@ -64,7 +64,7 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
-- **`run_app(...)`（serve_workflow.py）** — 啟動入口（`src/serve.py` 使用）：
+- **`run_app(...)`（server/bootstrap.py）** — 啟動入口（`serve_forever()`，即 `website-copilot serve` 使用）：
   - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）→ `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `uvicorn.Server`，回傳 `(server, chat_app)` **tuple（非阻塞）**；由呼叫端執行 `server.run()` 並以 `try/finally` 呼叫 `chat_app.close()`
   - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出（**不寫 `module_config.toml`**）；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
@@ -73,10 +73,10 @@ data: {"type": "error", "message": "..."}       ← 失敗
 
 ```bash
 # 啟動 serve 階段（阻塞至中斷）
-uv run python src/serve.py --run.port 8000
+uv run website-copilot serve --run.port 8000
 
 # 限縮 CORS 來源
-uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
+uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 ```
 
 ## 已知問題

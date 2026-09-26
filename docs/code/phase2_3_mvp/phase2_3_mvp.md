@@ -38,7 +38,7 @@
     - [x] **錯誤處理**（error 事件；空白 query 拒絕）
 - [x] **健康檢查**（`GET /api/health`）
 - [x] **CORS**（預設全開放；`allowed_origins` 可限縮）
-- [x] **啟動方式**（`uv run python src/cli.py server-cli --run.port 8000`，2026-09 起改為 `uv run python src/serve.py --run.port 8000`；`run_app()` 回傳非阻塞 `uvicorn.Server` + `ChatApp`，由呼叫端控制生命週期）
+- [x] **啟動方式**（`uv run python src/cli.py server-cli --run.port 8000`，2026-09 起改為 `uv run python src/serve.py --run.port 8000`，專案重構後為 `uv run website-copilot serve --run.port 8000`；`run_app()` 回傳非阻塞 `uvicorn.Server` + `ChatApp`，由呼叫端控制生命週期）
 - [x] **站點偵測**（M4：`DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`）
     - [x] `ChatRequest` 新增 `page_url` 欄位
     - [x] 從 `page_url` 解析 hostname → 查 `DOMAIN_SITE_MAP` → 得到 `site_id`
@@ -71,7 +71,7 @@
     - [x] **跨頁面 session 共享**（`chrome.storage.session` 保存 `thread_id`，換頁面保留對話記憶）
 
 ## 已知問題
-- [ ] `extension/widget.js` 為 `static/widget.js` 的複本（Chrome 不載入 symlink），需手動同步
+- [x] `extension/widget.js` 為 `static/widget.js` 的複本（Chrome 不載入 symlink），以 `make sync-widget` 同步、CI 比對
 - [ ] Extension 的 widget 輸入框無 id/name（可及性 warning，已補 name 消除）
 
 ## 未來規劃
