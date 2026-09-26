@@ -38,7 +38,12 @@ from website_copilot.utils.config_helper import (
     save_module_config_as_toml,
     save_run_config_as_toml,
 )
-from website_copilot.utils.log_helper import log_session
+from website_copilot.utils.log_helper import (
+    log_run_summary,
+    log_run_time,
+    log_session,
+    reset_run_summary,
+)
 
 
 def run_website_crawler(
@@ -330,3 +335,50 @@ def run_rag_build(
     finally:
         if staging_dir is not None:
             shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+def run_prepare(config_name: str = "default") -> None:
+    """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置，各階段結果 publish 到 data/。
+
+    與 serve 階段以 data/ 目錄為唯一介面：本階段負責寫入，serve 階段只讀取已 publish
+    的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
+
+    Args:
+        config_name: 各階段共用的 config 名稱（對應 configs/{module}/{name}.toml）。
+    """
+    reset_run_summary()
+
+    with log_run_time(f"Prepare Workflow ({config_name})"):
+        log_session(f"Prepare Workflow ({config_name})", style="purple")
+
+        try:
+            # ----- Website Crawler -----
+            crawl_results = run_website_crawler(
+                config_name=config_name,
+                save=False,
+                publish=True,
+            )
+            if crawl_results is None:
+                return
+
+            # ----- Webpage Image Summarizer -----
+            enhanced_results = run_webpage_image_summarizer(
+                config_name=config_name,
+                crawl_results=crawl_results,
+                save=False,
+                publish=True,
+            )
+            if enhanced_results is None:
+                return
+
+            # ----- RAG Build -----
+            run_rag_build(
+                config_name=config_name,
+                save=False,
+                publish=True,
+            )
+
+            # ----- 輸出完成訊息 -----
+            log_session("Prepare Workflow Completed", style="cyan")
+        finally:
+            log_run_summary()

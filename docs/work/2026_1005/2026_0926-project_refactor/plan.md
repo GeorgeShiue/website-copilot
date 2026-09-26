@@ -34,8 +34,8 @@ src/website_copilot/
 │   ├── __init__.py  __main__.py   # main()：tyro 子命令分派
 │   ├── prepare.py                 # ← src/prepare.py 的 PrepareCLI（只解析參數）
 │   ├── serve.py                   # ← src/serve.py 的 ServeCLI
-│   ├── run.py                     # ← src/cli.py（單模組執行：crawler / image summarizer / rag build / rag query / agent）
-│   └── exp.py                     # ← src/exp.py（只留參數；邏輯移入 pipelines/eval.py）
+│   ├── run.py                     # ← src/cli.py（`run website-crawler | image-summarizer | rag-build | rag-query | agent`）
+│   └── exp.py                     # ← src/exp.py（`exp <name>`，只留參數；實驗定義在 pipelines/exp.py 的 EXPERIMENTS）
 ├── config/                        # ← app/configs/*；workflow_config.py → pipeline_config.py
 ├── ingestion/
 │   ├── crawling/                  # 網站爬蟲
@@ -64,11 +64,11 @@ src/website_copilot/
 │   ├── data_manager.py  run_manager.py  run_persistence.py   # ← app/workflow/*
 │   └── run_context.py             # ← app/workflow/workflow_helper.py
 ├── server/                        # ← app/server/*（含 static/）
-│   └── bootstrap.py               # ← serve_workflow.run_app + src/serve.py 的生命週期（run → close）
+│   └── bootstrap.py               # ← serve_workflow.run_app + serve_forever（src/serve.py 的生命週期：run → close）
 ├── pipelines/                     # 離線批次流程
 │   ├── prepare.py                 # ← prepare_workflow.py + src/prepare.py 的三階段串接（run_prepare）
-│   ├── agent.py                   # ← serve_workflow 中的 run_agent_build 等單模組流程
-│   └── eval.py                    # ← eval_workflow.py + src/exp.py 的實驗邏輯
+│   ├── agent.py                   # ← serve_workflow 中的 run_agent_build / run_agent_query
+│   └── exp.py                     # ← eval_workflow.py（run_rag_query）+ src/exp.py 的實驗（EXPERIMENTS / run_experiment）
 └── utils/                         # ← utils/{log_helper,config_helper}.py
 tests/
 ├── unit/                          # ← src/test/dev/*（含 _helpers.py）
@@ -117,7 +117,7 @@ tests/
 
 **B4. `workflow/` 拆成 `storage/` + `pipelines/`，並將 `configs` 改名為 `config`**
 - `data_manager`、`run_manager`、`run_persistence`、`workflow_helper`（改名為 `run_context`）移到 `storage/`。
-- `prepare_workflow`、`eval_workflow` 移到 `pipelines/{prepare,eval}.py`；`serve_workflow.py` 整檔移到 `server/bootstrap.py`。
+- `prepare_workflow`、`eval_workflow` 移到 `pipelines/{prepare,eval}.py`（`eval.py` 於 D2 改名為 `exp.py`）；`serve_workflow.py` 整檔移到 `server/bootstrap.py`。
 - `configs/` → `config/`，`workflow_config.py` → `pipeline_config.py`。
 - 驗證：每步檢查，並確認 `storage` 沒有 import `ingestion`（grep）。
 
@@ -156,14 +156,16 @@ tests/
 
 ### Phase D：入口
 **D1. 邏輯下移（保留舊入口作為薄包裝）**
-- `run_prepare()` 移到 `pipelines/prepare.py`；`serve_forever()` 移到 `server/bootstrap.py`；`run_agent_build` 等函式移到 `pipelines/agent.py`；`exp.py` 的迴圈移到 `pipelines/eval.py`。
+- `run_prepare()` 移到 `pipelines/prepare.py`；`serve_forever()` 移到 `server/bootstrap.py`；`run_agent_build`、`run_agent_query` 移到 `pipelines/agent.py`；`exp.py` 的實驗函式移到 `pipelines/eval.py`（D2 改名為 `pipelines/exp.py`），以 `EXPERIMENTS` 名稱表與 `run_experiment(name)` 執行。`setup_logging` 留在入口層呼叫。
 - 舊的 `src/prepare.py`、`src/serve.py`、`src/exp.py` 只保留參數解析，並呼叫新函式。
 - 驗證：每步檢查，並用舊入口執行 serve 與 prepare（test config）。
 
 **D2. `cli/` 與 console script**
-- 新增 `cli/` 子命令，以及 `[project.scripts] website-copilot`。
-- 刪除舊入口；刪除 `pythonpath = ["src"]`；更新 `scripts/multi_site.py`。
-- 驗證：每步檢查、各子命令的 `--help`，以及 `uv run website-copilot serve` 端到端。
+- 新增 `cli/` 子命令，以及 `[project.scripts] website-copilot`。子命令模組只在頂層 import 參數 dataclass，執行邏輯延遲 import。
+- `pipelines/eval.py` 改名為 `pipelines/exp.py`（`run_rag_query` 與批次實驗），與 `cli/exp.py` 對應，並避免與 `retrieval/evaluation.py` 混淆。
+- `run` 子命令改為複製 run config 後再拆出 `save`／`publish`，`run_config.toml` 會完整記錄這兩個參數（修正舊 `src/cli.py` 直接 pop run config 物件的問題）。
+- 刪除舊入口；刪除 `pythonpath = ["src"]`（改靠 editable install）；`scripts/multi_site.py` 只 import `pipelines.prepare`，不需修改。
+- 驗證：每步檢查、各子命令的 `--help`，以及 `uv run website-copilot serve` 端到端；prepare 以 `website-copilot run rag-build --run.config-name test` 驗證（完整 `prepare` 會 publish 覆寫版控中的 `data/`，需使用者同意才執行）。
 
 ### Phase E：雜項（步驟順序不限，合併為一個 commit）
 - **E1 widget**：以 extension 版覆蓋 static；新增 `make sync-widget` 與 CI `cmp`。驗證：`/static/demo.html` 顯示 typing indicator，且 `make sync-widget && git diff --exit-code extension/`。

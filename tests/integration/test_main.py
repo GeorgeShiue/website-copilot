@@ -5,7 +5,7 @@ from website_copilot.pipelines.prepare import (
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from website_copilot.server.bootstrap import run_agent_query
+from website_copilot.pipelines.agent import run_agent_query
 from website_copilot.utils.log_helper import setup_logging
 
 setup_logging("debug")

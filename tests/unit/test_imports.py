@@ -1,4 +1,4 @@
-"""Import 冒煙測試：逐一 import 所有套件模組與入口，及早發現壞掉的 import 與循環 import。
+"""Import 冒煙測試：逐一 import 所有套件模組（含 cli 入口），及早發現壞掉的 import 與循環 import。
 
 以檔案系統掃描（而非 pkgutil.walk_packages）列出模組，因為部分目錄是沒有
 __init__.py 的 namespace package，walk_packages 會略過。
@@ -13,7 +13,6 @@ import pytest
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 PACKAGE_ROOTS = ["website_copilot"]
-ENTRY_MODULES = ["cli", "prepare", "serve"]
 
 
 def _discover_modules() -> list[str]:
@@ -24,7 +23,7 @@ def _discover_modules() -> list[str]:
             if parts[-1] == "__init__":
                 parts = parts[:-1]
             modules.append(".".join(parts))
-    return modules + ENTRY_MODULES
+    return modules
 
 
 @pytest.mark.parametrize("module_name", _discover_modules())

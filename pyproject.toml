@@ -33,6 +33,9 @@ dependencies = [
     "uvicorn>=0.52.1",
 ]
 
+[project.scripts]
+website-copilot = "website_copilot.cli:main"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
@@ -66,7 +69,6 @@ strictListInference = true
 strictSetInference = true
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-s -v"
 markers = [
