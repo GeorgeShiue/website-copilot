@@ -12,7 +12,7 @@
 
 已確認的決策：
 - 套件改名為 `src/website_copilot/`，這一輪完成全部模組重組。
-- `ingestion/` 下分 `crawling/`、`augmentation/`、`indexing/`。凡是建置或載入 index 的程式碼都放在 `indexing/`，`retrieval/` 分成 `builder.py`（組裝查詢物件）與 `loader.py`（serve 載入）。
+- `ingestion/` 下分 `crawling/`、`augmentation/`、`indexing/`。凡是建置或載入 index 的程式碼都放在 `indexing/`；`retrieval/factory.py` 負責組裝查詢物件，並提供 `build_rag`（建置）與 `load_rag`（serve 載入）兩個入口。
 - RAG 容器改為回傳式建構：builder 回傳物件，不再從外部寫入欄位。
 - `workflow/` 改名為 `pipelines/`，檔名去掉後綴；server 啟動移到 `server/`。
 - `DataManager`、`RunManager`、run context 移到 `storage/`；跨層共用型別放在 `schemas.py`。
@@ -45,18 +45,17 @@ src/website_copilot/
 │   ├── augmentation/              # 資料加強
 │   │   └── image_summarizer.py        # ← app/engines/webpage_image_summarizer.py
 │   └── indexing/                  # RAG 建置
-│       ├── source.py             # ← 原 RAG 容器的 results.json / md 目錄載入
+│       ├── source.py                  # ← 原 RAG 容器的 results.json / md 目錄載入（Source / load_source）
 │       ├── transforms.py              # ← rag_helper: MarkdownHeadingMergeParser / ImageExtractor / DateExtractor
 │       ├── node_pipeline.py           # ← rag_factory: NodePipelineBuilder
-│       ├── vector_store.py            # ← VectorStoreBuilder、EMBEDDING_DIM_MAP、create_embed_model
-│       └── index.py                   # ← IndexBuilder：clean / build / load，回傳 IndexHandle
+│       ├── vector_store.py            # ← VectorStoreBuilder、EMBEDDING_DIM_MAP
+│       └── index.py                   # ← IndexBuilder：clean / build / load（含 embedding 模型建立），回傳 IndexHandle
 ├── retrieval/
 │   ├── rag.py                     # ← app/engines/rag/rag.py（由建構子接收查詢物件）
-│   ├── builder.py                 # ← build_retriever / build_query_engine + create_rag
-│   ├── loader.py                  # ← load_rag：serve 載入入口（絕不建置）
-│   ├── evaluation.py              # ← build_evaluators + eval prompts + response_to_dict 等
+│   ├── factory.py                 # ← RAGBuilder（build_retriever / build_query_engine）+ build_rag（原 create_rag）+ load_rag（serve 載入入口，絕不建置）
+│   ├── evaluation.py              # ← build_evaluators / evaluate_response + eval prompts + response_to_dict 等
 │   ├── registry.py                # ← app/tools/rag_registry.py
-│   └── helpers.py                 # ← rag_helper: build_filters / create_llm / extract_sources_info
+│   └── llama_index_helpers.py     # ← rag_helper: build_filters / create_llm / extract_sources_info + log_source_nodes
 ├── agent/
 │   ├── agent.py                   # ← app/agent/agent.py
 │   ├── langchain_helper.py        # ← utils/langchain_helper.py
@@ -135,22 +134,21 @@ tests/
 
 ### Phase C：RAG 重構（邏輯變更，逐步進行）
 **C1. 抽出 helper 模組（函式搬家，簽名不變）**
-- `indexing/vector_store.py`：`VectorStoreBuilder`（不含 `clean_milvus`）、`EMBEDDING_DIM_MAP`、`create_embed_model()`。
+- `indexing/vector_store.py`：`VectorStoreBuilder`（不含 `clean_milvus`）、`EMBEDDING_DIM_MAP`。
 - `indexing/transforms.py`：3 個 Markdown transformation。
-- `indexing/source.py`：`load_source_docs()`，暫時仍由 `RAG._load_results_json` 呼叫。
+- `indexing/source.py`：`load_source()`，暫時仍由 `RAG` 建構子呼叫。
 - `retrieval/evaluation.py`：補入 `response_to_dict`、`evaluation_result_to_dict`、`extract_sources_list`。
 - 驗證：每步檢查。
 
 **C2. 拆分 `RAGBuilder` 類別（仍採用 mutate 模式）**
 - `indexing/index.py` 的 `IndexBuilder`：包含 clean、nodes、vector store、index、load、`build_or_load`、`_should_rebuild` 與 Build Stats 表。
-- `retrieval/builder.py` 的 `RAGBuilder`：`build_retriever`、`build_query_engine`；`create_rag` 移到這裡。
-- `retrieval/loader.py`：`load_to_retriever(config, rag)`。
+- `retrieval/factory.py` 的 `RAGBuilder`：`build_retriever`、`build_query_engine`；`create_rag` 移到這裡並改名為 `build_rag`，serve 載入函式也放在這裡（C2 為 `load_to_retriever(config, rag)`）。
 - `retrieval/evaluation.py`：`build_evaluators(config, rag)`。
 - 同步更新呼叫端與測試的 patch 目標。
 - 驗證：每步檢查。A1 的 serve 特性測試只允許改 patch 路徑，斷言不變。
 
 **C3. 回傳式建構與移除 `webpages` 依賴（本次唯一的行為變更）**
-- 新增 `IndexHandle`；`IndexBuilder.build`、`load`、`build_or_load` 改為回傳值；`RAGBuilder` 的方法改為回傳值；新增 `RAG(index_handle, retriever, query_engine)`，並移除 webpages 相關欄位；`load_to_retriever` 改為 `load_rag(config) -> RAG`；`build_evaluators(config)` 改為回傳 tuple。
+- 新增 `IndexHandle`；`IndexBuilder.build`、`load`、`build_or_load` 改為回傳值；embedding 模型改由 `IndexBuilder._create_embed_model` 建立；`RAGBuilder` 的方法改為回傳值；新增 `RAG(index_handle, retriever, query_engine)`，並移除 webpages 相關欄位；`load_to_retriever` 改為 `load_rag(config) -> RAG`；`build_evaluators(config)` 改為回傳 tuple，`RAG.evaluate` 移到 `evaluation.evaluate_response`；`RAG._log_sources` 移到 `llama_index_helpers.log_source_nodes`。
 - `indexing` 不再 import `retrieval`。
 - 改寫 A1 的特性測試與 `test_rag_tools.py`、`test_run_rag_build_publish.py`。新增測試：沒有 `data/webpages/` 時 `load_rag` 仍能成功。
 - 驗證：每步檢查，並確認 serve 路徑不會載入爬蟲模組（驗證第 5 項）。

@@ -10,7 +10,7 @@ import os
 from collections import OrderedDict
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.ingestion.indexing.index import RAGBuilder
+from website_copilot.retrieval.factory import load_rag
 from website_copilot.retrieval.rag import RAG
 
 logger = logging.getLogger(__name__)
@@ -79,10 +79,8 @@ class RAGRegistry:
         logger.info("RAG cache miss, loading: site_id=%s", site_id)
 
         config = RAGConfig.from_toml(self.config_name, site_id=site_id)
-        assert config.webpages_data_folder_path is not None
-        rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
         # serve 階段唯讀：只載入 prepare 已 publish 的向量庫，不在 request 中建庫
-        RAGBuilder(config).load_to_retriever(rag)
+        rag = load_rag(config)
 
         self._cache[site_id] = rag
         self._evict_if_needed()

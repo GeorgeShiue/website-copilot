@@ -4,9 +4,10 @@
 - 走「載入既有向量庫」路徑：不清除、不建 nodes、不建 index，並重新 load collection。
 - 只建到 retriever 層級，不建 query engine。
 - 向量庫不存在時，拋出指示先執行 prepare 的 FileNotFoundError。
+- 不需要 data/webpages/（serve 只讀向量庫）。
 
 只 patch 掉 Milvus / embedding / retriever 等外部資源，其餘（RAGConfig、RAGRegistry、
-RAGBuilder 的流程）皆為真實程式碼。重構期間只允許調整 patch 路徑，斷言不變。
+IndexBuilder／RAGBuilder 的流程）皆為真實程式碼。
 """
 
 from __future__ import annotations
@@ -20,13 +21,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.retrieval.rag import RAG
-from website_copilot.ingestion.indexing.index import RAGBuilder
+from website_copilot.retrieval.factory import load_rag
 from website_copilot.retrieval.registry import RAGRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SITE_ID = "demo"
-FACTORY = "website_copilot.ingestion.indexing.index"
+INDEX = "website_copilot.ingestion.indexing.index"
+FACTORY = "website_copilot.retrieval.factory"
 
 
 @pytest.fixture
@@ -52,11 +53,11 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def fake_backends() -> Iterator[dict[str, MagicMock]]:
     """patch 掉 Milvus、embedding、index 與 retriever，並記錄建置步驟是否被呼叫。"""
     with (
-        patch(f"{FACTORY}.VectorStoreBuilder.build") as build_store,
-        patch(f"{FACTORY}.VectorStoreBuilder.clean_milvus") as clean_store,
-        patch(f"{FACTORY}.NodePipelineBuilder.build") as build_nodes,
-        patch(f"{FACTORY}.RAGBuilder._set_embed_model") as embed_model,
-        patch(f"{FACTORY}.VectorStoreIndex") as index_cls,
+        patch(f"{INDEX}.VectorStoreBuilder.build") as build_store,
+        patch(f"{INDEX}.IndexBuilder.clean") as clean_store,
+        patch(f"{INDEX}.NodePipelineBuilder.build") as build_nodes,
+        patch(f"{INDEX}.IndexBuilder._create_embed_model") as embed_model,
+        patch(f"{INDEX}.VectorStoreIndex") as index_cls,
         patch(f"{FACTORY}.VectorIndexRetriever") as retriever_cls,
     ):
         yield {
@@ -97,14 +98,24 @@ def test_load_raises_when_vector_store_missing(
 ) -> None:
     (workspace / "data" / "rag" / SITE_ID / "milvus.db").unlink()
     config = RAGConfig.from_toml("default", site_id=SITE_ID)
-    assert config.webpages_data_folder_path is not None
-    rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
 
     with pytest.raises(FileNotFoundError) as exc_info:
-        RAGBuilder(config).load_to_retriever(rag)
+        load_rag(config)
 
     assert str(exc_info.value) == (
         f"Vector store not found: data/rag/{SITE_ID}/milvus.db"
         "（請先執行 prepare 階段建置並 publish 向量庫）"
     )
     fake_backends["build_store"].assert_not_called()
+
+
+def test_registry_get_works_without_webpages(
+    workspace: Path, fake_backends: dict[str, MagicMock]
+) -> None:
+    shutil.rmtree(workspace / "data" / "webpages")
+
+    with RAGRegistry(config_name="default", base_folder="data") as registry:
+        rag = registry.get(SITE_ID)
+
+        assert rag.retriever is fake_backends["retriever_cls"].return_value
+        assert rag.milvus_uri == f"data/rag/{SITE_ID}/milvus.db"

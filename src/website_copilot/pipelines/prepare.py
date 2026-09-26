@@ -7,31 +7,31 @@ import os
 import shutil
 import tempfile
 
-from website_copilot.config.rag_config import RAGConfig
-from website_copilot.config.webpage_image_summarizer_config import (
-    WebpageImageSummarizerConfig,
-)
-from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.config.pipeline_config import (
     RAGBuildRunConfig,
     WebpageImageSummarizerRunConfig,
     WebsiteCrawlerRunConfig,
 )
-from website_copilot.ingestion.indexing.index import create_rag
+from website_copilot.config.rag_config import RAGConfig
+from website_copilot.config.webpage_image_summarizer_config import (
+    WebpageImageSummarizerConfig,
+)
+from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.ingestion.augmentation.image_summarizer import (
     WebpageImageSummarizer,
 )
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
+from website_copilot.retrieval.factory import build_rag
 from website_copilot.storage.data_manager import DataManager
+from website_copilot.storage.run_context import (
+    create_run_context,
+    run_workflow_context,
+)
 from website_copilot.storage.run_persistence import (
     load_latest_results,
     save_generated_exclude_words,
     save_results_as_md,
-)
-from website_copilot.storage.run_context import (
-    create_run_context,
-    run_workflow_context,
 )
 from website_copilot.utils.config_helper import (
     log_config,
@@ -274,7 +274,7 @@ def run_rag_build(
     )
     data_manager = DataManager()
 
-    # ----- 決定向量庫建置位置（save=True 時由 create_rag 依 run_manager 決定）-----
+    # ----- 決定向量庫建置位置（save=True 時由 build_rag 依 run_manager 決定）-----
     staging_dir: str | None = None
     if run_manager is None:
         staging_dir = (
@@ -288,7 +288,7 @@ def run_rag_build(
         with run_workflow_context(run_title, run_manager=run_manager):
             # ---- 建置 RAG -----
             log_config(f"{config.__class__.__name__} Loaded from toml", config)
-            rag = create_rag(
+            rag = build_rag(
                 config=config,
                 force_rebuild=True,
                 webpages_data_use_latest_results=webpages_data_use_latest_results,
@@ -301,7 +301,7 @@ def run_rag_build(
             # ----- 輸出完成訊息 -----
             log_session("RAG Build Completed", style="cyan")
 
-            # ----- Save（存到 runs/；向量庫已由上面 create_rag 決定位置） -----
+            # ----- Save（存到 runs/；向量庫已由上面 build_rag 決定位置） -----
             if save:
                 assert run_manager is not None
                 save_module_config_as_toml(config, run_manager.module_config_toml_path)

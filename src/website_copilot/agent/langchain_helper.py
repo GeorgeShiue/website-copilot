@@ -7,7 +7,7 @@
 - _message_content_to_text()：將 AIMessage content 轉為純文字
 
 注意：create_llm 為 LangChain ChatModel 版（回傳 ChatGoogleGenerativeAI | ChatOpenAI），
-與 retrieval.helpers.create_llm（LlamaIndex 版，回傳 GoogleGenAI | OpenAI）對稱。
+與 retrieval.llama_index_helpers.create_llm（LlamaIndex 版，回傳 GoogleGenAI | OpenAI）對稱。
 """
 
 import os
@@ -43,7 +43,7 @@ def create_llm(llm_name: str) -> ChatGoogleGenerativeAI | ChatOpenAI:
     - 其他（含 "gpt" 等）：使用 ChatOpenAI，
       使用 OPENAI_API_KEY 環境變數。
 
-    與 retrieval.helpers.create_llm 的 gemini / openai 分支對稱。
+    與 retrieval.llama_index_helpers.create_llm 的 gemini / openai 分支對稱。
     """
     load_dotenv()
     if "gemini" in llm_name.lower():

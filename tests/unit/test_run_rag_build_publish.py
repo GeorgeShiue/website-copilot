@@ -1,6 +1,6 @@
 """run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}/）。
 
-create_rag 以 fake 替代：依 config.milvus_uri／run_manager 決定位置寫出假向量庫，
+build_rag 以 fake 替代：依 config.milvus_uri／run_manager 決定位置寫出假向量庫，
 不呼叫 embedding；runs/、data/ 與系統暫存資料夾皆在 tmp。
 """
 
@@ -35,11 +35,11 @@ class _Env:
         self.site_id = RAGConfig.from_toml("test").site_id
         self.rag_dir = self.data / "rag" / self.site_id
         self.rags: list[_FakeRAG] = []
-        # 設為 False 時 fake create_rag 不寫出向量庫（模擬建庫無產出）
+        # 設為 False 時 fake build_rag 不寫出向量庫（模擬建庫無產出）
         self.write_store = True
         self.build_error: Exception | None = None
 
-    def fake_create_rag(self, config, run_manager=None, **_kwargs) -> _FakeRAG:
+    def fake_build_rag(self, config, run_manager=None, **_kwargs) -> _FakeRAG:
         if run_manager is not None:
             config.milvus_uri = os.path.join(
                 run_manager.results_folder_path, "milvus.db"
@@ -87,8 +87,8 @@ def env(tmp_path, monkeypatch):
 
     with (
         patch(
-            "website_copilot.pipelines.prepare.create_rag",
-            side_effect=e.fake_create_rag,
+            "website_copilot.pipelines.prepare.build_rag",
+            side_effect=e.fake_build_rag,
         ),
         patch(
             "website_copilot.pipelines.prepare.create_run_context",

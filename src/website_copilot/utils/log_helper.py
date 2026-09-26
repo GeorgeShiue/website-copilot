@@ -106,9 +106,8 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
         "website_copilot.ingestion.augmentation.image_summarizer"
     ).setLevel(logging_level)
     for rag_logger_name in (
-        "website_copilot.ingestion.indexing.index",
-        "website_copilot.retrieval.rag",
-        "website_copilot.retrieval.evaluation",
+        "website_copilot.ingestion.indexing",
+        "website_copilot.retrieval",
     ):
         logging.getLogger(rag_logger_name).setLevel(logging_level)
 
@@ -249,7 +248,7 @@ def _detach_handlers_from_tee() -> None:
 def log_run_time(title: str = "", record: bool = True):
     """Context manager that logs elapsed run time in finally block.
 
-    record=True 且有 title 時，同時登記到執行摘要（見 log_prepare_workflow_run_summary），
+    record=True 且有 title 時，同時登記到執行摘要（見 log_run_summary），
     並把 title 視為進行中的階段，讓期間的 record_cost 歸到該階段。
     細部步驟（不想出現在摘要內）請傳 record=False。
     """
@@ -288,7 +287,7 @@ def reset_run_summary() -> None:
     _stage_costs.clear()
 
 
-def log_prepare_workflow_run_summary() -> None:
+def log_run_summary() -> None:
     """印出各階段耗時與 LLM 花費；最後一列為總計（花費為所有階段加總）。"""
     if not _stage_elapsed and not _stage_costs:
         return

@@ -49,7 +49,7 @@ class DataManager:
 
         跟 publish_markdown() 寫入的 data/webpages/{site_id}/ 完全分開存放——後者
         才是 image summarizer 產生、RAG 建庫實際讀取的最終版本
-        （見 RAG.md_docs_folder_path），避免 webpage_image_summarizer 執行後
+        （見 indexing.source.load_source），避免 webpage_image_summarizer 執行後
         覆蓋掉 crawler 自己的原始輸出。
 
         Args:

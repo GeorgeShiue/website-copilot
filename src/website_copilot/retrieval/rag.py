@@ -1,46 +1,45 @@
 import gc
-import json
 import logging
-import os
-from typing import Any, Self, Sequence
+from typing import Any, Self
 
-from llama_index.core import VectorStoreIndex
 from llama_index.core.base.response.schema import Response
-from llama_index.core.evaluation import (
-    FaithfulnessEvaluator,
-    RelevancyEvaluator,
-)
-from llama_index.core.evaluation.base import EvaluationResult
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.core.schema import BaseNode, NodeWithScore
-from llama_index.core.utils import truncate_text
-from llama_index.vector_stores.milvus import MilvusVectorStore
 
-from website_copilot.utils.log_helper import log_session, log_source_title
-from website_copilot.retrieval.helpers import build_filters, extract_sources_info
+from website_copilot.ingestion.indexing.index import IndexHandle
+from website_copilot.retrieval.llama_index_helpers import (
+    build_filters,
+    extract_sources_info,
+    log_source_nodes,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class RAG:
+    """查詢服務：以 IndexHandle 為底，持有 retriever 與（可選的）query engine。
+
+    Attributes:
+        index_handle: 已建置或載入的向量庫 index（close 時一併關閉）。
+        retriever: 檢索器；None 表示只建到 index 層級。
+        query_engine: 問答引擎；None 表示不支援 query()。
+    """
+
     def __init__(
         self,
-        webpages_data_folder_path: str,
+        index_handle: IndexHandle,
+        retriever: VectorIndexRetriever | None = None,
+        query_engine: RetrieverQueryEngine | None = None,
     ) -> None:
-        self.webpages_data_folder_path = webpages_data_folder_path
-        self.md_docs_folder_path = os.path.join(webpages_data_folder_path, "results")
-        self.results_json_path = os.path.join(webpages_data_folder_path, "results.json")
-        self.results_json: dict[str, Any] = self._load_results_json()
-
-        self.milvus_uri: str | None = None  # 本次建構實際使用的向量庫位置
-        self.vector_store: MilvusVectorStore | None = None
-        self.index: VectorStoreIndex | None = None
-        self.nodes: Sequence[BaseNode] | None = None
-        self.retriever: VectorIndexRetriever | None = None
-        self.query_engine: RetrieverQueryEngine | None = None
-        self.evaluators: tuple[FaithfulnessEvaluator, RelevancyEvaluator] | None = None
+        self.index_handle: IndexHandle | None = index_handle
+        self.retriever = retriever
+        self.query_engine = query_engine
         self._closed: bool = False
+
+    @property
+    def milvus_uri(self) -> str | None:
+        """本次建構實際使用的向量庫位置。"""
+        return self.index_handle.milvus_uri if self.index_handle else None
 
     def __enter__(self) -> Self:
         return self
@@ -56,34 +55,17 @@ class RAG:
     def __del__(self) -> None:
         self.close()
 
-    def _load_results_json(
-        self, results_json_path: str | None = None
-    ) -> dict[str, Any]:
-        if results_json_path is None:
-            results_json_path = self.results_json_path
-        if not os.path.exists(results_json_path):
-            raise FileNotFoundError(
-                f"Results JSON file not found at {results_json_path}"
-            )
-        with open(results_json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
     def close(self) -> None:
         if getattr(self, "_closed", False):
             return
 
-        if isinstance(self.vector_store, MilvusVectorStore):
-            try:
-                self.vector_store._milvusclient.close()
-            except Exception:
-                logger.warning("Milvus client close() failed", exc_info=True)
+        if self.index_handle is not None:
+            self.index_handle.close()
 
         self._closed = True
-        self.vector_store = None
-        self.index = None
+        self.index_handle = None
         self.retriever = None
         self.query_engine = None
-        self.evaluators = None
 
         gc.collect()
 
@@ -96,7 +78,7 @@ class RAG:
         if isinstance(response, Response):
             logger.info(f"Response: {response.response}")
             if log_sources:
-                self._log_sources(response.source_nodes)
+                log_source_nodes(response.source_nodes)
             return response
         raise TypeError(
             f"Query engine returned unexpected response type: {type(response)}"
@@ -138,44 +120,3 @@ class RAG:
             )
 
         return results
-
-    def evaluate(
-        self,
-        query: str,
-        response: Response,
-    ) -> tuple[EvaluationResult, EvaluationResult]:
-        if self.evaluators is None:
-            raise RuntimeError("Evaluators have not been built, cannot evaluate")
-        faithfulness_evaluator, relevancy_evaluator = self.evaluators
-
-        faithfulness_result = faithfulness_evaluator.evaluate_response(
-            response=response
-        )
-        self._log_evaluation_result("Faithfulness", faithfulness_result)
-
-        relevancy_result = relevancy_evaluator.evaluate_response(
-            query=query,
-            response=response,
-        )
-        self._log_evaluation_result("Relevancy", relevancy_result)
-        return faithfulness_result, relevancy_result
-
-    def _log_sources(self, source_nodes: Sequence[NodeWithScore]) -> None:
-        log_session("Sources", style="blue")
-        logger.info(f"Retrieved {len(source_nodes)} sources")
-        for source_node in source_nodes:
-            page_title, score, page_type = extract_sources_info(source_node)
-            log_source_title(page_title, score, page_type)
-            raw_content = source_node.node.get_content()
-            format_content = truncate_text(raw_content, max_length=500)
-            logger.info(format_content)
-
-    def _log_evaluation_result(
-        self, evaluation_type: str, evaluation_result: EvaluationResult
-    ) -> None:
-        log_session(f"{evaluation_type} Result", style="blue")
-        logger.info(f"Passing: {evaluation_result.passing}")
-        reason = None
-        if evaluation_result.feedback:
-            reason = evaluation_result.feedback.split("Reason:", 1)[-1].strip()
-        logger.info(f"Reason: {reason}")

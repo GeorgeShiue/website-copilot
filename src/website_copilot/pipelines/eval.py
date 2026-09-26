@@ -2,22 +2,25 @@
 
 import time
 
-from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.pipeline_config import RAGQueryRunConfig
-from website_copilot.ingestion.indexing.index import RAGBuilder
-from website_copilot.ingestion.indexing.index import create_rag
-from website_copilot.storage.run_persistence import save_query_results_as_md
+from website_copilot.config.rag_config import RAGConfig
+from website_copilot.retrieval.factory import build_rag
+from website_copilot.retrieval.evaluation import (
+    build_evaluators,
+    evaluate_response,
+    response_to_dict,
+)
 from website_copilot.storage.run_context import (
     create_run_context,
     run_workflow_context,
 )
+from website_copilot.storage.run_persistence import save_query_results_as_md
 from website_copilot.utils.config_helper import (
     log_config,
     save_module_config_as_toml,
     save_run_config_as_toml,
 )
 from website_copilot.utils.log_helper import log_session, print_log
-from website_copilot.retrieval.helpers import response_to_dict
 
 
 def run_rag_query(
@@ -52,14 +55,13 @@ def run_rag_query(
         # ----- 初始化 RAG 和 評估器 -----
         log_session("Building RAG and Evaluators", style="cyan")
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
-        rag = create_rag(
+        rag = build_rag(
             config=config,
             force_rebuild=force_rebuild,
         )
 
         try:
-            builder = RAGBuilder(config)
-            builder.build_evaluators(rag)
+            evaluators = build_evaluators(config)
 
             # ----- Query -----
             query_results: list[dict] = []
@@ -73,8 +75,8 @@ def run_rag_query(
                 # ----- 回應評估 -----
                 # * 可改用 regas 或 deepeval 評估
                 log_session("Evaluation", style="cyan")
-                faithfulness_result, relevancy_result = rag.evaluate(
-                    query=config.query, response=response
+                faithfulness_result, relevancy_result = evaluate_response(
+                    evaluators, query=config.query, response=response
                 )
                 if faithfulness_result.passing:
                     faithfulness_pass += 1

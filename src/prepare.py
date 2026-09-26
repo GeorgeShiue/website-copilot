@@ -13,7 +13,7 @@ from website_copilot.pipelines.prepare import (
     run_website_crawler,
 )
 from website_copilot.utils.log_helper import (
-    log_prepare_workflow_run_summary,
+    log_run_summary,
     log_run_time,
     log_session,
     reset_run_summary,
@@ -64,7 +64,7 @@ def main(config_name: str = "default") -> None:
             # ----- 輸出完成訊息 -----
             log_session("Prepare Workflow Completed", style="cyan")
         finally:
-            log_prepare_workflow_run_summary()
+            log_run_summary()
 
 
 if __name__ == "__main__":

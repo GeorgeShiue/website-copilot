@@ -2,7 +2,7 @@
 
 涵蓋：
 - RAGRegistry：cache hit / cache miss / LRU eviction / close / list_sites
-- RAGBuilder._should_rebuild / load_to_retriever：Milvus 路徑判斷
+- IndexBuilder._should_rebuild / load_rag：Milvus 路徑判斷
 - Retriever 工具：schema 驗證、tool 建立、retrieve 路由、格式化
 - create_site_discovery_tool / Agent dataclass
 - Smoke 驗證：registry + tool 建立 → invoke → close 流程
@@ -23,13 +23,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from langchain_core.tools import StructuredTool
 
-from website_copilot.ingestion.indexing.index import RAGBuilder
-from website_copilot.retrieval.registry import RAGRegistry
 from website_copilot.agent.tools.webpage_retriever import (
     RetrieverInputSchema,
     _format_retrieval_results,
     create_webpage_retriever_tool,
 )
+from website_copilot.ingestion.indexing.index import IndexBuilder
+from website_copilot.retrieval.factory import load_rag
+from website_copilot.retrieval.registry import RAGRegistry
 
 # ===========================================================================
 # Helpers
@@ -66,6 +67,13 @@ def _make_mock_rag(site_id: str = "test") -> MagicMock:
     rag._closed = False
     rag.close = MagicMock(side_effect=lambda: setattr(rag, "_closed", True))
     return rag
+
+
+def _config_for_site(config_name: str, **overrides: Any) -> MagicMock:
+    """RAGConfig.from_toml 替身：回傳帶有對應 site_id 的 config。"""
+    cfg = MagicMock()
+    cfg.site_id = overrides.get("site_id", "x")
+    return cfg
 
 
 def _make_registry(
@@ -170,51 +178,42 @@ class TestGetSiteNotFound:
 class TestGetCacheMiss:
     """RAGRegistry.get() cache miss 時建立 RAG 並快取。"""
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_builds_rag_on_first_call(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
-        fake_config.webpages_data_folder_path = "data/webpages/nculab"
+        fake_config.site_id = "nculab"
         mock_config_cls.from_toml.return_value = fake_config
 
         fake_rag = _make_mock_rag("nculab")
-        mock_rag_cls.return_value = fake_rag
+        mock_load_rag.return_value = fake_rag
 
         result = registry.get("nculab")
 
         mock_config_cls.from_toml.assert_called_once_with("default", site_id="nculab")
-        mock_rag_cls.assert_called_once_with(
-            webpages_data_folder_path="data/webpages/nculab"
-        )
-        mock_builder_cls.return_value.load_to_retriever.assert_called_once_with(
-            fake_rag
-        )
+        mock_load_rag.assert_called_once_with(fake_config)
         assert result is fake_rag
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_stores_in_cache_after_build(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
-        fake_config.webpages_data_folder_path = "data/webpages/nculab"
+        fake_config.site_id = "nculab"
         mock_config_cls.from_toml.return_value = fake_config
         fake_rag = _make_mock_rag("nculab")
-        mock_rag_cls.return_value = fake_rag
+        mock_load_rag.return_value = fake_rag
 
         registry.get("nculab")
         assert "nculab" in registry._cache
@@ -227,54 +226,48 @@ class TestGetCacheMiss:
 class TestGetCacheHit:
     """RAGRegistry.get() cache hit 時不重建，直接回傳快取。"""
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_returns_same_instance(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
-        fake_config.webpages_data_folder_path = "data/webpages/nculab"
+        fake_config.site_id = "nculab"
         mock_config_cls.from_toml.return_value = fake_config
         fake_rag = _make_mock_rag("nculab")
-        mock_rag_cls.return_value = fake_rag
+        mock_load_rag.return_value = fake_rag
 
         first = registry.get("nculab")
         second = registry.get("nculab")
 
         assert first is second
-        # RAG 只建立一次
-        mock_rag_cls.assert_called_once()
+        # RAG 只載入一次
+        mock_load_rag.assert_called_once()
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_moves_to_end_on_hit(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         """cache hit 時 move_to_end 更新 LRU 順序。"""
         registry = _make_registry(existing_sites=["a", "b", "c"], max_cached=3)
-        fake_config = MagicMock()
-        fake_config.webpages_data_folder_path = "data/webpages/x"
-        mock_config_cls.from_toml.return_value = fake_config
+        mock_config_cls.from_toml.side_effect = _config_for_site
 
         rags: OrderedDict[str, MagicMock] = OrderedDict()
 
-        def make_rag_side_effect(**kwargs: Any) -> MagicMock:
-            site = kwargs["webpages_data_folder_path"].split("/")[-1]
+        def make_rag_side_effect(config: Any) -> MagicMock:
+            site = config.site_id
             rag = _make_mock_rag(site)
             rags[site] = rag
             return rag
 
-        mock_rag_cls.side_effect = make_rag_side_effect
+        mock_load_rag.side_effect = make_rag_side_effect
 
         registry.get("a")
         registry.get("b")
@@ -293,35 +286,26 @@ class TestGetCacheHit:
 class TestLRUEviction:
     """RAGRegistry._evict_if_needed() 淘汰最久未使用項。"""
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_evicts_oldest_when_exceeding_max(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["a", "b", "c"], max_cached=2)
 
-        def config_side_effect(config_name: str, **overrides: Any) -> MagicMock:
-            site = overrides.get("site_id", "x")
-            cfg = MagicMock()
-            cfg.webpages_data_folder_path = f"data/webpages/{site}"
-            return cfg
-
-        mock_config_cls.from_toml.side_effect = config_side_effect
+        mock_config_cls.from_toml.side_effect = _config_for_site
 
         rags: OrderedDict[str, MagicMock] = OrderedDict()
 
-        def make_rag_side_effect(**kwargs: Any) -> MagicMock:
-            path = kwargs["webpages_data_folder_path"]
-            site = path.split("/")[-1]
+        def make_rag_side_effect(config: Any) -> MagicMock:
+            site = config.site_id
             rag = _make_mock_rag(site)
             rags[site] = rag
             return rag
 
-        mock_rag_cls.side_effect = make_rag_side_effect
+        mock_load_rag.side_effect = make_rag_side_effect
 
         registry.get("a")  # cache: [a]
         registry.get("b")  # cache: [a, b]
@@ -331,30 +315,25 @@ class TestLRUEviction:
         assert list(registry._cache.keys()) == ["b", "c"]
         rags["a"].close.assert_called_once()
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_does_not_evict_when_under_max(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["a", "b"], max_cached=5)
-        fake_config = MagicMock()
-        fake_config.webpages_data_folder_path = "data/webpages/x"
-        mock_config_cls.from_toml.return_value = fake_config
+        mock_config_cls.from_toml.side_effect = _config_for_site
 
         rags: OrderedDict[str, MagicMock] = OrderedDict()
 
-        def make_rag_side_effect(**kwargs: Any) -> MagicMock:
-            path = kwargs["webpages_data_folder_path"]
-            site = path.split("/")[-1]
+        def make_rag_side_effect(config: Any) -> MagicMock:
+            site = config.site_id
             rag = _make_mock_rag(site)
             rags[site] = rag
             return rag
 
-        mock_rag_cls.side_effect = make_rag_side_effect
+        mock_load_rag.side_effect = make_rag_side_effect
 
         registry.get("a")
         registry.get("b")
@@ -370,35 +349,26 @@ class TestLRUEviction:
 class TestClose:
     """RAGRegistry.close() 釋放所有快取中的 RAG 實例。"""
 
-    @patch("website_copilot.retrieval.registry.RAGBuilder")
-    @patch("website_copilot.retrieval.registry.RAG")
+    @patch("website_copilot.retrieval.registry.load_rag")
     @patch("website_copilot.retrieval.registry.RAGConfig")
     def test_closes_all_cached_rags(
         self,
         mock_config_cls: MagicMock,
-        mock_rag_cls: MagicMock,
-        mock_builder_cls: MagicMock,
+        mock_load_rag: MagicMock,
     ) -> None:
         registry = _make_registry(existing_sites=["a", "b"])
 
-        def config_side_effect(config_name: str, **overrides: Any) -> MagicMock:
-            site = overrides.get("site_id", "x")
-            cfg = MagicMock()
-            cfg.webpages_data_folder_path = f"data/webpages/{site}"
-            return cfg
-
-        mock_config_cls.from_toml.side_effect = config_side_effect
+        mock_config_cls.from_toml.side_effect = _config_for_site
 
         rags: OrderedDict[str, MagicMock] = OrderedDict()
 
-        def make_rag_side_effect(**kwargs: Any) -> MagicMock:
-            path = kwargs["webpages_data_folder_path"]
-            site = path.split("/")[-1]
+        def make_rag_side_effect(config: Any) -> MagicMock:
+            site = config.site_id
             rag = _make_mock_rag(site)
             rags[site] = rag
             return rag
 
-        mock_rag_cls.side_effect = make_rag_side_effect
+        mock_load_rag.side_effect = make_rag_side_effect
 
         registry.get("a")
         registry.get("b")
@@ -416,15 +386,15 @@ class TestClose:
 
 
 # ===========================================================================
-# RAGBuilder 測試
+# IndexBuilder / loader 測試
 # ===========================================================================
 
 
 @dataclass
 class _FakeRAGConfig:
-    """最小化的 RAGConfig 替身，僅含 RAGBuilder 所需欄位。
+    """最小化的 RAGConfig 替身，僅含 IndexBuilder 所需欄位。
 
-    RAGBuilder.__init__ 僅儲存 config；
+    IndexBuilder.__init__ 僅儲存 config；
     _should_rebuild 只讀取 vector_store_type 與 milvus_uri。
     """
 
@@ -432,10 +402,10 @@ class _FakeRAGConfig:
     milvus_uri: str | None = "data/rag/test/milvus.db"
 
 
-def _make_builder(vector_store_type: str, **overrides: Any) -> RAGBuilder:
-    """建立帶有指定 vector_store_type 的 RAGBuilder（使用 fake config）。"""
+def _make_builder(vector_store_type: str, **overrides: Any) -> IndexBuilder:
+    """建立帶有指定 vector_store_type 的 IndexBuilder（使用 fake config）。"""
     config = _FakeRAGConfig(vector_store_type=vector_store_type, **overrides)
-    return RAGBuilder(config)  # type: ignore[arg-type]
+    return IndexBuilder(config)  # type: ignore[arg-type]
 
 
 class TestShouldRebuildMilvus:
@@ -466,30 +436,63 @@ class TestShouldRebuildMilvus:
             assert builder._should_rebuild(force_rebuild=True) is True
 
 
-class TestLoadToRetriever:
-    """load_to_retriever：serve 階段只載入、不建置。"""
+class TestLoadRag:
+    """load_rag：serve 階段只載入、不建置。"""
 
     def test_raises_when_milvus_db_missing(self) -> None:
-        """milvus.db 不存在 → 拋 FileNotFoundError，且不觸發建置。"""
-        builder = _make_builder("milvus")
+        """milvus.db 不存在 → 拋 FileNotFoundError，且不觸發載入或建置。"""
+        config = _FakeRAGConfig()
         with (
             patch("os.path.exists", return_value=False),
-            patch.object(builder, "build_to_retriever") as mock_build,
+            patch("website_copilot.retrieval.factory.IndexBuilder") as mock_index,
             pytest.raises(FileNotFoundError, match="milvus.db"),
         ):
-            builder.load_to_retriever(MagicMock())
-        mock_build.assert_not_called()
+            load_rag(config)  # type: ignore[arg-type]
+        mock_index.assert_not_called()
 
-    def test_loads_without_rebuild_when_milvus_db_exists(self) -> None:
-        """milvus.db 存在 → 以 force_rebuild=False 載入。"""
-        builder = _make_builder("milvus")
-        rag = MagicMock()
+    def test_loads_to_retriever_when_milvus_db_exists(self) -> None:
+        """milvus.db 存在 → 只 load（不走 build_or_load），並建到 retriever 層級。"""
+        config = _FakeRAGConfig()
         with (
             patch("os.path.exists", return_value=True),
-            patch.object(builder, "build_to_retriever") as mock_build,
+            patch("website_copilot.retrieval.factory.IndexBuilder") as mock_index,
+            patch("website_copilot.retrieval.factory.RAGBuilder") as mock_builder,
         ):
-            builder.load_to_retriever(rag)
-        mock_build.assert_called_once_with(rag, force_rebuild=False)
+            result = load_rag(config)  # type: ignore[arg-type]
+        mock_index.return_value.load.assert_called_once_with()
+        mock_index.return_value.build_or_load.assert_not_called()
+        mock_builder.return_value.build.assert_called_once_with(
+            mock_index.return_value.load.return_value, build_query_engine=False
+        )
+        assert result is mock_builder.return_value.build.return_value
+
+
+class TestReturnStyleBuild:
+    """回傳式建構：失敗時釋放資源、重建前先讀來源。"""
+
+    def test_rag_builder_closes_handle_when_build_fails(self) -> None:
+        from website_copilot.retrieval.factory import RAGBuilder
+
+        handle = MagicMock()
+        builder = RAGBuilder(MagicMock())
+        with (
+            patch.object(builder, "build_retriever", side_effect=RuntimeError("boom")),
+            pytest.raises(RuntimeError, match="boom"),
+        ):
+            builder.build(handle)
+        handle.close.assert_called_once()
+
+    def test_rebuild_reads_source_before_cleaning(self, tmp_path: Any) -> None:
+        """results.json 不存在 → 在清除既有向量庫前就失敗。"""
+        config = MagicMock()
+        config.webpages_data_folder_path = str(tmp_path / "missing")
+        builder = IndexBuilder(config)
+        with (
+            patch.object(builder, "clean") as mock_clean,
+            pytest.raises(FileNotFoundError, match="results.json"),
+        ):
+            builder.build_or_load(force_rebuild=True)
+        mock_clean.assert_not_called()
 
 
 # ===========================================================================
