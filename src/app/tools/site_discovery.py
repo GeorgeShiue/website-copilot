@@ -1,6 +1,6 @@
 """Site Discovery 工具：list_knowledge_bases（供 LLM 確認可用站點）。
 
-掃描 data/webpages/ 回傳所有可用 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
+掃描 data/rag/ 回傳所有已 publish 向量庫的 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
 """
 
 from langchain_core.tools import StructuredTool
@@ -16,7 +16,7 @@ class _DiscoveryInputSchema(BaseModel):
 def create_site_discovery_tool(registry: RAGRegistry) -> StructuredTool:
     """建立 list_knowledge_bases 工具。
 
-    掃描 data/webpages/ 回傳所有可用 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
+    掃描 data/rag/ 回傳所有已 publish 向量庫的 site_id，供 LLM 在呼叫 webpage_retriever 前確認站點。
     """
 
     def _list_sites() -> str:

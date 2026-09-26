@@ -1,8 +1,8 @@
 """共用 workflow helper 函式。
 
-自 workflow.py 拆分而出，提供各 run_* 工作流程共用的初始化與 logging 樣板，
-以及 RAG 建構流程。僅依賴 RunManager / DataManager / config / log 工具，
-不依賴 workflow.py，避免循環匯入。
+提供 prepare_workflow／serve_workflow／eval_workflow 各 run_* 工作流程共用的
+初始化與 logging 樣板。僅依賴 RunManager / config / log 工具，不依賴各
+*_workflow 模組，避免循環匯入；也不 import 任何引擎，serve 階段可安全使用。
 """
 
 from contextlib import ExitStack

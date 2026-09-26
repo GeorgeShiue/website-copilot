@@ -9,7 +9,7 @@
 import os
 import sys
 
-from app.workflow.workflow import (
+from app.workflow.prepare_workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
@@ -98,11 +98,10 @@ def run_site_pipeline(
     print(f"[OK]   {site_label}: 圖片摘要完成")
 
     # ----- 3. RAG 建庫 -----
-    # save=True（預設值）：向量庫先建在 runs/ 再 publish 到 data/rag/，
-    # 避免 config.milvus_uri 與 publish 目標路徑相同導致 self-copy 錯誤。
+    # save=True（預設值）：向量庫建在 runs/，再以原子替換 publish 到 data/rag/。
+    # run_rag_build 一律重建，不需傳 force_rebuild。
     run_rag_build(
         config_name=rag_config,
-        force_rebuild=True,
         webpages_data_use_latest_results=True,
         publish=True,
     )

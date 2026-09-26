@@ -12,7 +12,7 @@
 
 ## 一、config 架構
 
-[src/app/workflow/workflow.py](src/app/workflow/workflow.py)、[src/cli.py](src/cli.py) 與 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py) 共同負責執行路徑與檔案留存。
+`src/app/workflow/*_workflow.py`、[src/cli.py](src/cli.py) 與 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py) 共同負責執行路徑與檔案留存。
 
 專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 dataclass 在 `src/app/configs/` 中載入與驗證。根據目前程式碼庫，四個主要 config 類分別位於：
 
@@ -28,7 +28,7 @@
 3. 使用共用 helper（`src/utils/config_helper.py`）做欄位過濾、覆寫與合併
 4. 建構 dataclass 並在 `__post_init__` 或模組內呼叫 `_validate_config()` 進行型別與範圍驗證
 
-備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`src/cli.py` 與 `src/main.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
+備註：`run_config.toml` 不會由 workflow 函式自動產生，而是由呼叫端（`src/cli.py` 與 `src/serve.py`）在流程結束時呼叫 `utils.config_helper.save_run_config_as_toml()` 寫出（此機制同為保持執行可追溯性）。
 
 ## 二、各模組怎麼載入與覆寫
 
@@ -114,7 +114,7 @@
   - 若某 section 的 allowed keys 為空（residual section），函式會把剩餘未消耗的鍵寫入該 section；注意：不支援多個 residual section（會拋出 ValueError）。
 
 - save_run_config_as_toml(config, toml_file_path)
-  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`src/cli.py` 或 `src/main.py`）在流程結束時呼叫以記錄 run-level 參數。
+  - 扁平化 run dataclass（只寫非 None 欄位）並寫入 run_config.toml，通常由呼叫端（`src/cli.py` 或 `src/serve.py`）在流程結束時呼叫以記錄 run-level 參數。
 
 - filter_commented_configs(config_path, comment_keyword)
   - 解析 TOML 原始文字，抓出在註解中包含指定關鍵字（例如 `run name`）的設定鍵，供 `run_name` 生成使用。
@@ -150,7 +150,7 @@
 module_config 與 run_config 的寫入機制：
 
 - `utils/config_helper.save_module_config_as_toml(config, path)` 會依 `sections_to_keys` 把 config 分 section 寫出為 `module_config.toml`；若某 section 的 allowed keys 為空（例如 `litellm_kwargs`），helper 會把該 section 視為 residual section，並把未消耗的 key 寫入該 section。
-- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`src/cli.py` 會傳入 run 參數（`src/main.py` 目前不寫出）。
+- `utils/config_helper.save_run_config_as_toml(run_config, path)` 會把 run dataclass 扁平化寫入 `run_config.toml`（只包含非 None 欄位）。由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`src/cli.py` 會傳入 run 參數（`src/prepare.py` 目前不寫出）。
 
 結果檔案與產出：
 
@@ -159,7 +159,7 @@ module_config 與 run_config 的寫入機制：
 - 目前主要 workflow 入口的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.toml`（與 `run_config.toml`）；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/milvus.db`（`module_config.toml` 記錄覆寫後路徑），否則寫入 config 預設位置（`data/rag/results/`）。
+  - `run_rag_build()`：寫 `module_config.toml`（與 `run_config.toml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
   - `run_agent_query()`：寫 `module_config.toml`（與 `run_config.toml`），並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
   - `run_app()`：寫 `run_config.toml`（**不寫 `module_config.toml`**）；對話結果同樣由 server 的 `_event_stream()` 以 `save_agent_results_as_json()` 落盤至 `runs/<ts>/agent/<config>/results_{thread_id}.json`。
@@ -184,12 +184,13 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 目前實際寫入時機：
 
 - `src/cli.py`：tyro 解析 CLI → 以 `run_config=cli_arg.run` 傳入對應 workflow 函式 → 函式內在流程中呼叫 `save_run_config_as_toml(run_config, run_manager.run_config_toml_path)`
-- `src/main.py`：目前不傳入 `run_config`，因此不寫出 `run_config.toml`
+- `src/prepare.py`：目前不傳入 `run_config`，因此不寫出 `run_config.toml`
+- `src/serve.py`：傳入 `ServeRunConfig`，由 `run_app()` 寫出 `run_config.toml`
 
 因此：
 
 - 走 `src/cli.py` 入口時，run_config.toml 會被寫出（由 workflow 函式代為寫入）
-- 直接呼叫 `src/app/workflow/workflow.py` 內函式時，需在呼叫時傳入 `run_config` 才會寫出；`src/main.py` 目前不寫出
+- 直接呼叫 `src/app/workflow/*_workflow.py` 內函式時，需在呼叫時傳入 `run_config` 才會寫出；`src/prepare.py` 目前不寫出
 
 ### 結果檔案
 
@@ -202,7 +203,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.toml（與 run_config.toml）；開啟 `save_vector_store_to_runs` 時，向量庫改存至 `results/vector_store/milvus.db`，否則寫入 config 預設位置（`data/rag/results/`）
+- run_rag_build()：寫 module_config.toml（與 run_config.toml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
 - run_agent_query()：寫 module_config.toml（與 run_config.toml）與 `results_{thread_id}.json`（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
 - run_app()：寫 run_config.toml（不寫 module_config.toml）；對話結果由 server 的 `_event_stream()` 落盤至 `runs/<ts>/agent/<config>/results_{thread_id}.json`
@@ -244,6 +245,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - [src/app/configs/agent_config.py](src/app/configs/agent_config.py)
 - [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py)
 - [src/cli.py](src/cli.py)
-- [src/main.py](src/main.py)
+- [src/prepare.py](src/prepare.py)
+- [src/serve.py](src/serve.py)
 - [src/test/test_module.py](src/test/test_module.py)
 - [src/test/test_main.py](src/test/test_main.py)

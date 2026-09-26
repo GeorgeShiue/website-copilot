@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 from typing import Any
 
 from app.engines.webpage_markdown_cleaner import GenerationResult
@@ -16,6 +17,14 @@ from app.workflow.run_persistence import save_generated_exclude_words
 from utils.config_helper import save_module_config_as_toml, save_run_config_as_toml
 
 logger = logging.getLogger(__name__)
+
+
+def _remove_path(path: str) -> None:
+    """刪除檔案或資料夾（不存在時略過）。"""
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    elif os.path.exists(path):
+        os.remove(path)
 
 
 class DataManager:
@@ -125,16 +134,33 @@ class DataManager:
         save_generated_exclude_words(generation_result, raw_pages, raw_webpages_path)
         return raw_webpages_path
 
+    def create_vector_store_staging(self, site_id: str) -> str:
+        """在 data/rag/{site_id}/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
+
+        與正式向量庫位於同一檔案系統，publish 時可直接以 rename 移入；
+        呼叫端負責在結束時刪除（無論成功或失敗）。
+        """
+        rag_path = os.path.join(self.base_folder, "rag", site_id)
+        os.makedirs(rag_path, exist_ok=True)
+        return tempfile.mkdtemp(prefix=".staging-", dir=rag_path)
+
     def publish_vector_store(
         self,
         site_id: str,
         source_path: str,
+        move: bool = False,
     ) -> str:
-        """發布 Milvus 向量庫到 data/rag/{site_id}/。
+        """以原子替換發布 Milvus 向量庫到 data/rag/{site_id}/milvus.db。
+
+        先將新向量庫放到同目錄的 milvus.db.tmp，再以 rename 替換：
+        舊 milvus.db → milvus.db.old、milvus.db.tmp → milvus.db，最後刪除 .old。
+        正式路徑不會出現複製到一半的內容；已開啟舊向量庫的 server 不受影響。
 
         Args:
             site_id: 站點識別碼。
             source_path: 原始向量庫路徑。
+            move: True 時以 rename 移入（來源為同檔案系統的 staging，不保留來源）；
+                False 時複製（來源為 runs/，保留來源）。
 
         Returns:
             發布後的向量庫所在資料夾路徑。
@@ -143,18 +169,38 @@ class DataManager:
         os.makedirs(rag_path, exist_ok=True)
 
         dest_path = os.path.join(rag_path, "milvus.db")
-        # source == dest 時跳過，避免 rmtree 銷毀 source 後 copytree 失敗
+        # source == dest 時跳過，避免清掉 dest 時連同 source 一起刪除
         if os.path.realpath(source_path) == os.path.realpath(dest_path):
             logger.info(f"Milvus vector store already at {dest_path}, skipping publish")
-        elif os.path.isdir(source_path):
-            if os.path.exists(dest_path):
-                shutil.rmtree(dest_path)
-            shutil.copytree(source_path, dest_path)
-            logger.info(f"Published Milvus vector store to {dest_path}")
-        elif os.path.isfile(source_path):
-            shutil.copy2(source_path, dest_path)
-            logger.info(f"Published Milvus vector store to {dest_path}")
+            return rag_path
 
+        tmp_path = f"{dest_path}.tmp"
+        old_path = f"{dest_path}.old"
+        # 清掉前次中斷殘留的 .tmp／.old
+        _remove_path(tmp_path)
+        _remove_path(old_path)
+
+        try:
+            if move:
+                shutil.move(source_path, tmp_path)
+            elif os.path.isdir(source_path):
+                shutil.copytree(source_path, tmp_path)
+            else:
+                shutil.copy2(source_path, tmp_path)
+
+            if os.path.exists(dest_path):
+                os.replace(dest_path, old_path)
+            os.replace(tmp_path, dest_path)
+        except BaseException:
+            # 替換中途失敗：舊向量庫已移成 .old 時還原，確保正式路徑維持舊版
+            if os.path.exists(old_path) and not os.path.exists(dest_path):
+                os.replace(old_path, dest_path)
+            raise
+        finally:
+            _remove_path(tmp_path)
+        _remove_path(old_path)
+
+        logger.info(f"Published Milvus vector store to {dest_path}")
         return rag_path
 
     # ----- Publish 元資料方法 -----

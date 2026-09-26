@@ -50,14 +50,16 @@ class AgentRunConfig:
 
 
 @dataclass
-class MainRunConfig:
-    """完整工作流程（main.py）的執行參數；config_name 同時決定各階段使用的 config。"""
+class PrepareRunConfig:
+    """Prepare 階段（prepare.py）的執行參數；config_name 同時決定各階段使用的 config。"""
 
     config_name: str = "default"
 
 
 @dataclass
-class ServerRunConfig:
+class ServeRunConfig:
+    """Serve 階段（serve.py）的執行參數；config_name 對應 configs/agent/{name}.toml。"""
+
     config_name: str = "default"
     host: str = "127.0.0.1"
     port: int = 8000

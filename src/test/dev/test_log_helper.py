@@ -7,7 +7,7 @@ import pytest
 from utils import log_helper
 from utils.config_helper import CONFIG_VALUE_MAX_CHARS, truncate_config_value
 from utils.log_helper import (
-    log_main_workflow_run_summary,
+    log_prepare_workflow_run_summary,
     log_run_time,
     record_cost,
     record_elapsed,
@@ -116,7 +116,7 @@ def test_log_run_summary_prints_stage_rows_and_total_cost(capsys):
     record_elapsed("Crawler", 12.34)
     with log_run_time("Summarizer"):
         record_cost(0.0893)
-    log_main_workflow_run_summary()
+    log_prepare_workflow_run_summary()
 
     out = capsys.readouterr().out
     assert "Crawler" in out
@@ -127,7 +127,7 @@ def test_log_run_summary_prints_stage_rows_and_total_cost(capsys):
 
 
 def test_log_run_summary_prints_nothing_when_empty(capsys):
-    log_main_workflow_run_summary()
+    log_prepare_workflow_run_summary()
     assert capsys.readouterr().out == ""
 
 

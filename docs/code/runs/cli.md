@@ -3,23 +3,23 @@
 ## 一、主要檔案與角色
 
 - `src/cli.py`：CLI 入口，使用 `tyro` 解析 dataclass 型態，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline（`run_config` 以參數傳入，`run_config.toml` 由 pipeline 函式寫出）。
-- `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`：實作主要 pipeline（`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_rag_query`、`run_agent_build`、`run_agent_query`、`run_app`），負責載入 module config、執行流程與落盤結果。其中 `run_agent_query` / `run_app` 為 CLI 與 server 的完整入口（各自建立 run context、agent 與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（兩者不經過它）。
+- `src/app/workflow/{prepare,serve,eval}_workflow.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`；eval：`run_rag_query`；serve：`run_agent_build`、`run_agent_query`、`run_app`；`cli.py` 在各分支才 import 對應模組），負責載入 module config、執行流程與落盤結果。其中 `run_agent_query` / `run_app` 為 CLI 與 server 的完整入口（各自建立 run context、agent 與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（兩者不經過它）。
 - `[src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)`：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。
-  - `RAGBuildRunConfig` 含 `save_vector_store_to_runs`（預設 `False`，CLI 旗標 `--run.save-vector-store-to-runs`）：開啟時向量庫寫入本次 run 的 `results/vector_store/`。
+  - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
 - `[src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)`：管理 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
 - `src/utils/config_helper.py`：共用設定工具，提供載入、覆寫、與寫出 TOML 的 helper 函式。
 
 ## 二、CLI 解析與 dispatch 流程
 
-1. `src/cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI | ServerCLI`。
-   - 除 `ServerCLI`（僅 `run` 欄位）外，每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
+1. `src/cli.py` 定義 union 型別：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI`（聊天伺服器改由 `src/serve.py` 啟動）。
+   - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass）。
    - `RAGBuildCLI.module` / `RAGQueryCLI.module`（`RAGModuleConfig`）支援以下 hybrid 相關覆寫：
      - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`
      - `weights` — `list[float]`，設定 WeightedRanker 權重（`[1.0, 0.5]`；CLI 會轉為 `hybrid_ranker_params={"weights": [...]}`）
      - `similarity_top_k`、`query_mode`、`hybrid_top_k`、`alpha` — retriever 參數
      - `cutoff`、`query` — query engine 參數
 2. 使用 `tyro.cli(...)` 解析命令列並回傳對應的 dataclass 實例 `cli_arg`。
-3. 非 `ServerCLI` 分支以 `vars(cli_arg.module)` 收集 module 參數，僅保留非 `None` 欄位作為 `module_config_overrides`（`ServerCLI` 無 `module` 欄位，直接跳過）。
+3. 以 `vars(cli_arg.module)` 收集 module 參數，僅保留非 `None` 欄位作為 `module_config_overrides`。
 4. 根據 `cli_arg` 型別 dispatch 對應的 workflow 入口：
    - 資料 pipeline（crawler / summarizer / rag_build / rag_query）：傳入 `**run_kwargs`（`vars(cli_arg.run)`，剔除 `publish`）、`data_manager`（`publish` 開啟時建立）、`run_config=cli_arg.run` 與 `**module_config_overrides`。
    - Agent / Server 分支：`run_agent_query(...)` / `run_app(...)` 各自負責 agent 的建立與關閉（Agent 分支於 `finally` 呼叫 `agent.close()`；Server 分支以 `try/finally` 呼叫 `chat_app.close()`）；`RunManager` 由各入口函式內部建立，`Agent` 不再持有。
@@ -41,16 +41,17 @@ uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人�
 uv run python src/cli.py agent-cli --run.query "..." --run.thread-id demo --run.stream
 ```
 
-### 聊天伺服器（server-cli）
+### 聊天伺服器（`src/serve.py`）
 
-- `ServerCLI.run`（`ServerRunConfig`）：`config_name`（預設 `default`）、`host`、`port`、`allowed_origins`（CORS 限縮，預設 None 全開放）。
+- 已自 `cli.py` 移出，改由獨立的 serve 階段入口 `src/serve.py` 啟動。
+- `ServeCLI.run`（`ServeRunConfig`）：`config_name`（預設 `default`）、`host`、`port`、`allowed_origins`（CORS 限縮，預設 None 全開放）。
 - 由 `workflow.run_app` 啟動：函式內建立 run context 與直接呼叫 `create_agent()`（建立 agent，**不經 `run_agent_build()`**）→ 建立 `ChatApp.create(agent, run_manager, allowed_origins)` + `uvicorn.Config` → 回傳 `(server, chat_app)`（server 為非阻塞 `uvicorn.Server`）→ 呼叫端 `server.run()` 阻塞，並以 `try/finally` 呼叫 `chat_app.close()` 關閉 agent。`run_config.toml` 由 `run_app` 寫出（不寫 `module_config.toml`；傳 app 物件而非 import string，避免 reloader sys.path 問題）。
 - agent 由 CLI 於啟動前建立一次後注入 app（lifespan 僅綁定，不重建；`create_agent` 每次會重建向量庫隔離副本，不可 per-request 建立）。
 - 啟動後瀏覽器開啟 `http://localhost:8000/`（redirect 至 `/static/demo.html` 嵌入示範）。
 
 ```bash
-uv run python src/cli.py server-cli --run.port 8000
-uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.edu.tw
+uv run python src/serve.py --run.port 8000
+uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
 ```
 
 ## 三、參數覆寫規則要點
@@ -61,7 +62,7 @@ uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.ed
 ## 四、`run_config.toml` 與 `module_config.toml` 的差異與產生時機
 
 - `module_config.toml`：由 pipeline（`run_*`）呼叫 `save_module_config_as_toml(config, run_manager.module_config_toml_path)` 產生，內容以 `sections_to_keys` 為準分 section 寫出；若存在 residual section（section keys 為空），未消耗欄位會寫入該 residual section。
-- `run_config.toml`：由 workflow 函式在 `run_config` 非 None 時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。`src/cli.py` 會傳入 run 參數（`src/main.py` 目前不寫出）。
+- `run_config.toml`：由 workflow 函式在 `run_config` 非 None 時呼叫 `save_run_config_as_toml(...)` 寫出（僅包含非 `None` 欄位）。`src/cli.py` 會傳入 run 參數（`src/prepare.py` 目前不寫出）。
 
 ## 五、執行範例
 
@@ -75,8 +76,8 @@ python src/cli.py rag-query-cli --run.config-name milvus --module.hybrid_ranker 
 # 範例：設定 hybrid 檢索參數（test 與 default 皆為 Milvus hybrid；此處示範 CLI 覆寫）
 python src/cli.py rag-query-cli --run.config-name test --module.query_mode hybrid --module.hybrid_top_k 20 --module.alpha 0.7
 
-# 範例：RAG 建置時把向量庫存至本次 run 的 results/vector_store/
-python src/cli.py rag-build-cli --run.config-name default --run.save-vector-store-to-runs
+# 範例：RAG 建置（向量庫存在本次 run 的 results/），並原子替換發布到 data/rag/
+python src/cli.py rag-build-cli --run.config-name default --run.publish
 ```
 
 （備註：開發環境常見 wrapper：`uv run python src/cli.py ...`，依環境而定）
@@ -89,7 +90,9 @@ python src/cli.py rag-build-cli --run.config-name default --run.save-vector-stor
 ## 七、參考與證據
 
 - `src/cli.py`
-- `[src/app/workflow/workflow.py](src/app/workflow/workflow.py)`
+- `src/app/workflow/prepare_workflow.py`
+- `src/app/workflow/serve_workflow.py`
+- `src/app/workflow/eval_workflow.py`
 - `[src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)`
 - `[src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)`
 - `[src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)`

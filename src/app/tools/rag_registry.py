@@ -1,4 +1,6 @@
-"""RAGRegistry：多站 RAG 實例管理器（lazy + LRU 快取）。
+"""RAGRegistry：多站 RAG 實例管理器（lazy 載入 + LRU 快取，唯讀）。
+
+只載入 prepare 階段已 publish 的向量庫（data/rag/{site_id}/milvus.db），不做任何建置。
 
 此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
 """
@@ -35,22 +37,23 @@ class RAGRegistry:
         self._max_cached = max_cached
 
     def _site_exists(self, site_id: str) -> bool:
-        """檢查指定 site_id 對應的目錄是否存在。"""
-        return os.path.isdir(os.path.join(self.base_folder, "webpages", site_id))
-
-    def list_sites(self) -> list[str]:
-        """回傳所有可用的 site_id 列表（掃描 data/webpages/）。"""
-        webpages_path = os.path.join(self.base_folder, "webpages")
-        if not os.path.isdir(webpages_path):
-            return []
-        return sorted(
-            item
-            for item in os.listdir(webpages_path)
-            if os.path.isdir(os.path.join(webpages_path, item))
+        """檢查指定 site_id 是否已 publish 向量庫（data/rag/{site_id}/milvus.db）。"""
+        return os.path.exists(
+            os.path.join(self.base_folder, "rag", site_id, "milvus.db")
         )
 
+    def list_sites(self) -> list[str]:
+        """回傳所有可查詢的 site_id 列表（掃描 data/rag/ 下已 publish 向量庫的站點）。
+
+        以向量庫而非 data/webpages/ 判斷，避免列出 prepare 尚未完成 RAG 建置的站點。
+        """
+        rag_path = os.path.join(self.base_folder, "rag")
+        if not os.path.isdir(rag_path):
+            return []
+        return sorted(item for item in os.listdir(rag_path) if self._site_exists(item))
+
     def get(self, site_id: str) -> RAG:
-        """取得指定 site_id 的 RAG 實例（cache hit 直接回傳，miss 則 lazy build）。
+        """取得指定 site_id 的 RAG 實例（cache hit 直接回傳，miss 則載入已 publish 的向量庫）。
 
         Args:
             site_id: 目標知識庫的 site_id。
@@ -72,12 +75,13 @@ class RAGRegistry:
                 f"可用的站點：{', '.join(self.list_sites()) or '（無）'}"
             )
 
-        logger.info("RAG cache miss, building: site_id=%s", site_id)
+        logger.info("RAG cache miss, loading: site_id=%s", site_id)
 
         config = RAGConfig.from_toml(self.config_name, site_id=site_id)
         assert config.webpages_data_folder_path is not None
         rag = RAG(webpages_data_folder_path=config.webpages_data_folder_path)
-        RAGBuilder(config).build_to_retriever(rag, force_rebuild=False)
+        # serve 階段唯讀：只載入 prepare 已 publish 的向量庫，不在 request 中建庫
+        RAGBuilder(config).load_to_retriever(rag)
 
         self._cache[site_id] = rag
         self._evict_if_needed()

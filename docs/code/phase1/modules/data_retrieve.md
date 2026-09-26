@@ -18,7 +18,7 @@
 	- `src/app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
 	- `src/utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
 	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由）
-	- `src/app/tools/rag_registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy + LRU 快取）
+	- `src/app/tools/rag_registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy 載入 + LRU 快取；唯讀）
 	- `src/app/tools/site_discovery.py`（**Site Discovery** — `list_knowledge_bases` 工具，回傳可用站點列表）
 
 - **模組設定**
@@ -45,7 +45,10 @@ RAGBuilder(config)
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
 ├── build_retriever()        # (4) 建立檢索器（支援 filter_dict 動態過濾）
 ├── build_query_engine()     # (5) 建立查詢引擎
-└── build_reusable()         # 依需求自動選擇「重建」或「載入」路徑（run_rag_query 使用）
+├── build_to_vector_store()  # 依需求自動選擇「重建」或「載入」路徑，建到 index 層級（run_rag_build 使用）
+├── build_to_retriever()     # build_to_vector_store → build_retriever
+├── build_to_query_engine()  # build_to_retriever → build_query_engine（run_rag_query 使用）
+└── load_to_retriever()      # 只載入已 publish 的向量庫到 retriever，不存在時拋錯（RAGRegistry／serve 階段使用）
 
 RAG（runtime）
 ├── query() / evaluate()     # (6) 執行查詢與評估
@@ -208,7 +211,7 @@ Pydantic v2 schema，定義四個參數供 LLM 填寫：
 
 ### create_webpage_retriever_tool()
 工具工廠，接受 `registry: RAGRegistry`，流程：
-1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 建構 + LRU 快取；內部以 `RAGBuilder(config).build_reusable(rag)` 建立 Nodes → Vector Store → Index → Retriever）
+1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `RAGBuilder(config).load_to_retriever(rag)` 載入已 publish 的 `data/rag/{site_id}/milvus.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/rag/{site_id}/milvus.db` 是否存在判斷
 2. 包裝為 `StructuredTool(name="webpage_retriever")`，執行期以 `rag.retrieve(...)` 檢索
 3. 回傳格式化後的檢索結果（含 `URL:` 行，供 `extract_sources_from_messages()` 解析來源）
 4. RAG 資源生命週期由 `RAGRegistry` 管理（`registry.close()` 統一釋放），工具本身不負責關閉

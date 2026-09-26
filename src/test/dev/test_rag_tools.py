@@ -2,7 +2,7 @@
 
 涵蓋：
 - RAGRegistry：cache hit / cache miss / LRU eviction / close / list_sites
-- RAGBuilder._should_rebuild：Milvus 路徑判斷
+- RAGBuilder._should_rebuild / load_to_retriever：Milvus 路徑判斷
 - Retriever 工具：schema 驗證、tool 建立、retrieve 路由、格式化
 - create_site_discovery_tool / Agent dataclass
 - Smoke 驗證：registry + tool 建立 → invoke → close 流程
@@ -74,17 +74,17 @@ def _make_registry(
 ) -> RAGRegistry:
     """建立使用臨時目錄的 RAGRegistry。
 
-    在臨時資料夾中建立 data/webpages/<site_id> 目錄結構，
-    讓 _list_sites() 與 _site_exists() 能正確運作。
+    在臨時資料夾中建立 data/rag/<site_id>/milvus.db（模擬已 publish 的向量庫），
+    讓 list_sites() 與 _site_exists() 能正確運作。
 
     Returns:
         registry: 已就緒的 RAGRegistry 實例。
     """
     tmp_dir = tempfile.mkdtemp()
-    webpages_dir = os.path.join(tmp_dir, "data", "webpages")
-    os.makedirs(webpages_dir, exist_ok=True)
+    rag_dir = os.path.join(tmp_dir, "data", "rag")
+    os.makedirs(rag_dir, exist_ok=True)
     for site_id in existing_sites or []:
-        os.makedirs(os.path.join(webpages_dir, site_id))
+        os.makedirs(os.path.join(rag_dir, site_id, "milvus.db"))
     registry = RAGRegistry(
         base_folder=os.path.join(tmp_dir, "data"),
         config_name="default",
@@ -105,7 +105,7 @@ def _make_registry(
 class TestListSites:
     """RAGRegistry.list_sites() 掃描目錄。"""
 
-    def test_list_sites_scans_webpages_directory(self) -> None:
+    def test_list_sites_scans_rag_directory(self) -> None:
         registry = _make_registry(existing_sites=["nculab", "ncucsie"])
         result = registry.list_sites()
         assert result == ["ncucsie", "nculab"]
@@ -114,12 +114,22 @@ class TestListSites:
         registry = _make_registry(existing_sites=[])
         assert registry.list_sites() == []
 
-    def test_list_sites_returns_empty_when_webpages_dir_missing(self) -> None:
-        """webpages/ 子目錄不存在時 list_sites() 回傳 []。"""
+    def test_excludes_sites_without_vector_store(self) -> None:
+        """只有 webpages 或空 rag 目錄（尚未 publish 向量庫）的站點不列出。"""
+        registry = _make_registry(existing_sites=["nculab"])
+        base = registry.base_folder
+        os.makedirs(os.path.join(base, "webpages", "ncucsie"))
+        os.makedirs(os.path.join(base, "rag", "pending"))
+        assert registry.list_sites() == ["nculab"]
+        with pytest.raises(ValueError, match="ncucsie.*不存在"):
+            registry.get("ncucsie")
+
+    def test_list_sites_returns_empty_when_rag_dir_missing(self) -> None:
+        """rag/ 子目錄不存在時 list_sites() 回傳 []。"""
         import tempfile
 
         tmp_dir = tempfile.mkdtemp()
-        # Create data/ but NOT data/webpages/
+        # Create data/ but NOT data/rag/
         os.makedirs(os.path.join(tmp_dir, "data"), exist_ok=True)
         registry = RAGRegistry(
             base_folder=os.path.join(tmp_dir, "data"),
@@ -184,8 +194,8 @@ class TestGetCacheMiss:
         mock_rag_cls.assert_called_once_with(
             webpages_data_folder_path="data/webpages/nculab"
         )
-        mock_builder_cls.return_value.build_to_retriever.assert_called_once_with(
-            fake_rag, force_rebuild=False
+        mock_builder_cls.return_value.load_to_retriever.assert_called_once_with(
+            fake_rag
         )
         assert result is fake_rag
 
@@ -454,6 +464,32 @@ class TestShouldRebuildMilvus:
         builder = _make_builder("milvus")
         with patch("os.path.exists", return_value=False):
             assert builder._should_rebuild(force_rebuild=True) is True
+
+
+class TestLoadToRetriever:
+    """load_to_retriever：serve 階段只載入、不建置。"""
+
+    def test_raises_when_milvus_db_missing(self) -> None:
+        """milvus.db 不存在 → 拋 FileNotFoundError，且不觸發建置。"""
+        builder = _make_builder("milvus")
+        with (
+            patch("os.path.exists", return_value=False),
+            patch.object(builder, "build_to_retriever") as mock_build,
+            pytest.raises(FileNotFoundError, match="milvus.db"),
+        ):
+            builder.load_to_retriever(MagicMock())
+        mock_build.assert_not_called()
+
+    def test_loads_without_rebuild_when_milvus_db_exists(self) -> None:
+        """milvus.db 存在 → 以 force_rebuild=False 載入。"""
+        builder = _make_builder("milvus")
+        rag = MagicMock()
+        with (
+            patch("os.path.exists", return_value=True),
+            patch.object(builder, "build_to_retriever") as mock_build,
+        ):
+            builder.load_to_retriever(rag)
+        mock_build.assert_called_once_with(rag, force_rebuild=False)
 
 
 # ===========================================================================

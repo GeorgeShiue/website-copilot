@@ -1,13 +1,19 @@
+"""Prepare 階段入口：網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 data/。
+
+與 serve 階段（src/serve.py）以 data/ 目錄為唯一介面：本階段負責寫入，
+serve 階段只讀取已 publish 的向量庫。
+"""
+
 from dataclasses import dataclass
 
-from app.configs.workflow_config import MainRunConfig
-from app.workflow.workflow import (
+from app.configs.workflow_config import PrepareRunConfig
+from app.workflow.prepare_workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
 from utils.log_helper import (
-    log_main_workflow_run_summary,
+    log_prepare_workflow_run_summary,
     log_run_time,
     log_session,
     reset_run_summary,
@@ -16,17 +22,17 @@ from utils.log_helper import (
 
 
 @dataclass
-class MainCLI:
-    run: MainRunConfig
+class PrepareCLI:
+    run: PrepareRunConfig
 
 
 def main(config_name: str = "default") -> None:
     reset_run_summary()
 
-    with log_run_time(f"Main Workflow ({config_name})"):
-        # ----- 初始化 Main Workflow -----
+    with log_run_time(f"Prepare Workflow ({config_name})"):
+        # ----- 初始化 Prepare Workflow -----
         setup_logging("info")
-        log_session(f"Main Workflow ({config_name})", style="purple")
+        log_session(f"Prepare Workflow ({config_name})", style="purple")
 
         try:
             # ----- Website Crawler -----
@@ -56,25 +62,13 @@ def main(config_name: str = "default") -> None:
             )
 
             # ----- 輸出完成訊息 -----
-            log_session("Main Workflow Completed", style="cyan")
+            log_session("Prepare Workflow Completed", style="cyan")
         finally:
-            log_main_workflow_run_summary()
-
-    # 暫時移除 Chat Server 的啟動，避免在測試時啟動 server
-    # # ----- Chat Server -----
-    # server, chat_app = run_app(config_name="default")  # server 不因網站變更 config
-
-    # try:
-    #     server.run()
-    # except KeyboardInterrupt:
-    #     pass
-    # finally:
-    #     chat_app.close()
-    #     log_session("Server Stopped", style="cyan")
+            log_prepare_workflow_run_summary()
 
 
 if __name__ == "__main__":
     import tyro
 
-    cli_arg = tyro.cli(MainCLI)
+    cli_arg = tyro.cli(PrepareCLI)
     main(config_name=cli_arg.run.config_name)

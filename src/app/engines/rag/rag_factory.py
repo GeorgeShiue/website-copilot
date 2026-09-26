@@ -231,7 +231,7 @@ class RAGBuilder:
         self._build_stats = {}
         rebuild = self._should_rebuild(force_rebuild)
         if rebuild:
-            # record=False：細部步驟只印耗時，不進入 main workflow 的階段摘要
+            # record=False：細部步驟只印耗時，不進入 prepare workflow 的階段摘要
             with log_run_time("Clean vector store", record=False):
                 self.clean_vector_store(rag)
             with log_run_time("Build nodes", record=False):
@@ -262,6 +262,20 @@ class RAGBuilder:
         """建到 retriever 層級：build_to_vector_store → build_retriever。不含 query engine。"""
         self.build_to_vector_store(rag, force_rebuild=force_rebuild)
         self.build_retriever(rag)
+
+    def load_to_retriever(self, rag: RAG) -> None:
+        """只載入既有向量庫到 retriever 層級，絕不建置（供 serve 階段使用）。
+
+        Raises:
+            FileNotFoundError: 向量庫不存在時（應先執行 prepare 階段 publish）。
+        """
+        assert self.config.milvus_uri is not None
+        if not os.path.exists(self.config.milvus_uri):
+            raise FileNotFoundError(
+                f"Vector store not found: {self.config.milvus_uri}"
+                "（請先執行 prepare 階段建置並 publish 向量庫）"
+            )
+        self.build_to_retriever(rag, force_rebuild=False)
 
     def build_to_query_engine(self, rag: RAG, force_rebuild: bool = False) -> None:
         """建到 query engine 層級：build_to_retriever → build_query_engine。"""

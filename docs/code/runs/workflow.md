@@ -2,13 +2,17 @@
 
 ## 一、主要檔案與角色
 
-- [src/app/workflow/workflow.py](src/app/workflow/workflow.py)：定義七個主要入口（爬蟲、圖片摘要、RAG 建置／查詢、Agent 建置／問答與 server 啟動），負責把 config、module 與 RunManager 串起來並執行實際流程。
+- workflow 依階段拆成三個模組，負責把 config、module 與 RunManager 串起來並執行實際流程：
+  - [src/app/workflow/prepare_workflow.py](src/app/workflow/prepare_workflow.py)：Prepare 階段（爬蟲、圖片摘要、RAG 建置）。
+  - [src/app/workflow/serve_workflow.py](src/app/workflow/serve_workflow.py)：Serve 階段（Agent 建置／問答與 server 啟動）；不 import 爬蟲與 VLM 模組。
+  - [src/app/workflow/eval_workflow.py](src/app/workflow/eval_workflow.py)：RAG 查詢評估（實驗／除錯用）。
 - [src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 CLI 與程式使用。
 - [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)：以 `for_run()`（3 層）/ `for_run_no_site()`（2 層）classmethod 建立 `runs/<timestamp>/<module>/<site_id>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
 - [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py)：結果持久化與發現函式（從 RunManager 分離的無狀態工具）。
 - [src/app/workflow/workflow_helper.py](src/app/workflow/workflow_helper.py)：模組無關的共用 helper（`create_run_context()` / `create_run_no_site_context()` 的 run context 建立、`run_workflow_context()` 的 ExitStack logging 生命週期管理）。
 - [src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)：管理 `data/` 目錄的持久化資料，提供 `publish_*` 方法將 run 產物發布到 `data/webpages/<site_id>/` 等路徑。
-- [src/main.py](src/main.py)：示範以程式直呼 workflow 的串接入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段，最後以 `run_app()` 啟動 Chat 伺服器並阻塞至中斷（CTRL+C）。
+- [src/prepare.py](src/prepare.py)：Prepare 階段入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段並 publish 到 `data/`。
+- [src/serve.py](src/serve.py)：Serve 階段入口，以 `run_app()` 啟動 Chat 伺服器並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`，缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `RAGBuilder.load_to_retriever()` 載入，不建置）。
 - `src/app/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫檢索。
 - `src/app/tools/rag_registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
 - `src/app/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
@@ -21,7 +25,7 @@
 
 ## 二、Workflow 解析與執行流程
 
-1. workflow 的核心實作集中在 [src/app/workflow/workflow.py](src/app/workflow/workflow.py)，目前提供七個主要入口：
+1. workflow 的核心實作分散在 `prepare_workflow.py`／`serve_workflow.py`／`eval_workflow.py`，共提供七個主要入口：
    - `run_website_crawler()`
    - `run_webpage_image_summarizer()`
    - `run_rag_build()`
@@ -31,7 +35,7 @@
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
 3. 每個 workflow 都會建立或接收 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫，`run_app` 不寫），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
-5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`src/cli.py` 會傳入 run 參數（`src/main.py` 目前不寫出）。
+5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`src/cli.py` 會傳入 run 參數（`src/prepare.py` 目前不寫出）。
 
 ## 三、主要 Workflow 入口
 
@@ -59,8 +63,17 @@
 - 流程：
   1. 透過 [src/app/configs/rag_config.py](src/app/configs/rag_config.py) 載入 `configs/rag/{config_name}.toml`。
   2. 呼叫 `create_rag(...)`（[src/app/engines/rag/rag_factory.py](src/app/engines/rag/rag_factory.py)）建立並回傳已建構的 `RAG`；內部以 `RAGBuilder(config).build_reusable(rag, force_rebuild=...)` 一鍵建構：`build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()` → `build_retriever()`（支援 `query_mode="hybrid"` 與 `filter_dict`）→ `build_query_engine()`。
-  3. 在 run 路徑寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，最後 `rag.close()` 釋放資源（**不另存 `module_config.toml` 到向量庫路徑**；該另存行為僅 `run_rag_query` 於 rebuild 時執行）。
-  4. 可選 `save_vector_store_to_runs=True`（CLI 旗標 `--run.save-vector-store-to-runs`）：把向量庫改存至本次 run 的 `results/vector_store/milvus.db`，避免覆寫 `data/rag/results/` 固定位置；`module_config.toml` 會記錄覆寫後路徑。
+  3. `save=True` 時在 run 路徑寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，最後 `rag.close()` 釋放資源。
+  4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。發布的 `module_config.toml` 會記錄正式路徑。建庫位置：
+
+     | save | publish | 建庫位置 | 結束後留下的檔案 |
+     |---|---|---|---|
+     | True | True | `runs/.../results/milvus.db` | runs/ 保留一份，另複製到 data/ 後原子替換 |
+     | True | False | `runs/.../results/milvus.db` | 只有 runs/ |
+     | False | True | `data/rag/<site_id>/.staging-*/milvus.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
+     | False | False | 系統暫存資料夾 | 無（結束時刪除） |
+
+  5. 暫存資料夾（staging 或系統暫存）以 `try/finally` 保證刪除，建庫失敗時舊向量庫不受影響。
 
 ### 4. `run_rag_query()`
 
@@ -90,7 +103,7 @@
 
 ### 6. `run_app()`
 
-- 目的：以 `ChatApp.create()` 建立 FastAPI app，並回傳 `(server, chat_app)`（`server` 為**非阻塞**的 `uvicorn.Server`；CLI 的 `server-cli` 分支與 `src/main.py` 皆使用）。
+- 目的：以 `ChatApp.create()` 建立 FastAPI app，並回傳 `(server, chat_app)`（`server` 為**非阻塞**的 `uvicorn.Server`；`src/serve.py` 使用）。
 - 流程：
   1. `run_app(config_name="default", run_config=None, allowed_origins=None, host="127.0.0.1", port=8000, **config_overrides) -> tuple[uvicorn.Server, ChatApp]` 自行建立 run context（`RunManager`）並直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）。
   2. `ChatApp.create(agent=agent, run_manager=run_manager, allowed_origins=allowed_origins)` 組裝 app，再以 `uvicorn.Config(chat_app.app, host=..., port=...)` 建立 `uvicorn.Server`。
@@ -113,7 +126,7 @@
 
 `DataManager` 則負責將 run 產物發布到 `data/` 持久化路徑（如 `data/webpages/<site_id>/`）。
 
-> 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 開啟 `save_vector_store_to_runs` 時，向量庫寫入 `results/vector_store/`（而非 `data/rag/results/`）。
+> 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 在 `save=True` 時把向量庫寫入 `results/milvus.db`，只有 publish 才會原子替換到 `data/rag/<site_id>/`。
 >
 > 註：agent 對話結果由 `run_manager.save_agent_results_as_json()` 寫入 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；未提供 `thread_id` 時自動 `auto-{uuid}`，CLI 與 server 行為一致）；agent 路徑無 `site_id` 層，也**不寫 `results.json`**。
 
@@ -134,15 +147,18 @@ Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與�
 1. `src/app/configs/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
 2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 負責讀入、過濾與覆寫。
 3. `save_module_config_as_toml()` 會把實際使用到的設定寫回 `module_config.toml`，方便追蹤本次執行。
-4. `save_run_config_as_toml()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`src/cli.py` 會傳入；`src/main.py` 目前不寫出）。
+4. `save_run_config_as_toml()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`src/cli.py` 會傳入；`src/prepare.py` 目前不寫出）。
 
 這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `src/app/configs/`。
 
 ## 六、使用範例
 
 ```bash
-# 依序執行爬蟲 → 圖片摘要 → RAG 建置，最後啟動 Chat 伺服器（阻塞至中斷）
-python src/main.py --run.config-name nculab  # 省略時使用 default
+# Prepare：依序執行爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
+python src/prepare.py --run.config-name nculab  # 省略時使用 default
+
+# Serve：啟動 Chat 伺服器（阻塞至中斷）
+python src/serve.py --run.port 8000
 ```
 
 ```bash
@@ -157,19 +173,22 @@ python src/cli.py rag-query-cli --run.config-name test --run.force-rebuild
 
 ## 七、注意事項與建議
 
-- 若要修改 workflow 的執行行為，優先檢查 [src/app/workflow/workflow.py](src/app/workflow/workflow.py) 與對應的 `src/app/configs/*_config.py`，不要把設定邏輯分散到 module 本體。
+- 若要修改 workflow 的執行行為，優先檢查對應階段的 `src/app/workflow/*_workflow.py` 與對應的 `src/app/configs/*_config.py`，不要把設定邏輯分散到 module 本體。
 - 若要調整輸出目錄與 artifacts 命名，優先修改 [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)。
-- 若要新增 workflow，建議先在 `src/app/workflow/workflow.py` 定義入口，再補上對應的 config dataclass 與 RunManager 輸出行為。
+- 若要新增 workflow，建議先在對應階段的 `src/app/workflow/*_workflow.py` 定義入口（serve 階段不可 import 爬蟲／VLM 模組），再補上對應的 config dataclass 與 RunManager 輸出行為。
 
 ## 八、參考與證據
 
-- [src/app/workflow/workflow.py](src/app/workflow/workflow.py)
+- [src/app/workflow/prepare_workflow.py](src/app/workflow/prepare_workflow.py)
+- [src/app/workflow/serve_workflow.py](src/app/workflow/serve_workflow.py)
+- [src/app/workflow/eval_workflow.py](src/app/workflow/eval_workflow.py)
 - [src/app/workflow/workflow_helper.py](src/app/workflow/workflow_helper.py)
 - [src/app/configs/workflow_config.py](src/app/configs/workflow_config.py)
 - [src/app/workflow/run_manager.py](src/app/workflow/run_manager.py)
 - [src/app/workflow/run_persistence.py](src/app/workflow/run_persistence.py)
 - [src/app/workflow/data_manager.py](src/app/workflow/data_manager.py)
-- [src/main.py](src/main.py)
+- [src/prepare.py](src/prepare.py)
+- [src/serve.py](src/serve.py)
 - [src/app/engines/website_crawler.py](src/app/engines/website_crawler.py)
 - [src/app/engines/webpage_image_summarizer.py](src/app/engines/webpage_image_summarizer.py)
 - [src/app/engines/rag/rag.py](src/app/engines/rag/rag.py)

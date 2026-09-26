@@ -19,7 +19,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ### Phase 2：AI Agent
 
 - 以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，自動檢索後回答（回答內含引用來源 URL）。
-- 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
+- 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy 載入 + LRU 快取；只讀取已 publish 的向量庫，不建置）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
 - SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
 - 對話落盤 `runs/<ts>/agent/<config>/results_<thread_id>.json`（讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
@@ -54,7 +54,8 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── uv.lock
 ├── src/
 │   ├── cli.py                   # CLI 入口（tyro 整合）
-│   ├── main.py                  # 協調爬蟲、圖片摘要、RAG 與聊天伺服器的主流程
+│   ├── prepare.py               # Prepare 階段入口：爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
+│   ├── serve.py                 # Serve 階段入口：啟動聊天伺服器（唯讀 data/ 已 publish 的向量庫）
 │   ├── app/
 │   │   ├── agent/
 │   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / close）
@@ -89,9 +90,11 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │       ├── run_manager.py       # RunManager（for_run / for_run_no_site 路徑建立）
 │   │       ├── run_persistence.py   # 結果持久化與發現（無狀態函式）
 │   │       ├── workflow_helper.py   # 共用 run context / logging 生命週期 helper
-│   │       └── workflow.py          # 七個 run_* 入口
+│   │       ├── prepare_workflow.py  # Prepare 階段：run_website_crawler / run_webpage_image_summarizer / run_rag_build
+│   │       ├── serve_workflow.py    # Serve 階段：run_agent_build / run_agent_query / run_app（不 import 爬蟲）
+│   │       └── eval_workflow.py     # RAG 查詢評估：run_rag_query
 │   ├── test/
-│   │   ├── test_main.py         # 主流程端到端
+│   │   ├── test_main.py         # 端到端（prepare 三階段 + agent 問答）
 │   │   ├── test_module.py       # 模組端到端（slow 標記）
 │   │   └── dev/                 # 開發期單元／整合測試
 │   └── utils/
@@ -194,13 +197,22 @@ playwright install
 
 ## 使用方式
 
-### 執行爬取與圖片摘要流程
+### 系統分為兩個階段
+
+| 階段 | 入口 | 職責 |
+|---|---|---|
+| Prepare | `src/prepare.py` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
+| Serve | `src/serve.py` | 啟動 Chat 伺服器，只讀取 `data/rag/<site_id>/milvus.db`，不做任何建置 |
+
+兩階段唯一的介面是 `data/` 目錄：站點只有在 prepare 成功 publish 向量庫後，才會出現在 server 的可用知識庫中。
+
+### Prepare：爬取、圖片摘要與 RAG 建置
 
 ```bash
-uv run python src/main.py --run.config-name nculab
+uv run python src/prepare.py --run.config-name nculab
 ```
 
-`--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，最後啟動 Chat 伺服器（阻塞至中斷）。輸出會寫入 `runs/<timestamp>/...`，並發布到 `data/`。
+`--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
 
 ### 執行 RAG 查詢
 
@@ -233,11 +245,11 @@ uv run python src/cli.py agent-cli --run.query "實驗室的研究方向？" --r
 ### 啟動聊天伺服器（SSE）
 
 ```bash
-# 直接以 CLI 啟動（背景執行）
-uv run python src/cli.py server-cli --run.port 8000
+# 啟動 serve 階段（阻塞至中斷）
+uv run python src/serve.py --run.port 8000
 
 # 限縮 CORS 來源（預設全開放）
-uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.edu.tw
+uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
 ```
 
 啟動後瀏覽器開啟 **http://localhost:8000/**（自動轉至嵌入示範頁），即可用 iframe 與 widget 兩種方式對話。
@@ -272,13 +284,20 @@ uv run pytest
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — run-level 參數（透過 `cli.py` 執行時寫出；`main.py` 目前不傳入 `run_config`，故不寫出）
+- `run_config.toml` — run-level 參數（透過 `cli.py` / `serve.py` 執行時寫出；`prepare.py` 目前不傳入 `run_config`，故不寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/<site_id>/`：
 - `milvus.db` — Milvus Lite 向量儲存
 
-`run_rag_build` 可加 `--run.save-vector-store-to-runs`，將向量庫改存至該次 run 的 `results/vector_store/`，避免不同 run 互相覆寫。
+`run_rag_build` 絕不直接寫入 `data/rag/<site_id>/milvus.db`，只透過 publish 原子替換（先放 `milvus.db.tmp`，再 rename 取代舊版），因此執行中的 server 不會讀到建到一半的向量庫，建庫失敗時舊版也完整保留。建庫位置依 `save`／`publish` 而定：
+
+| save | publish | 建庫位置 | 結束後留下的檔案 |
+|---|---|---|---|
+| True | True | `runs/.../results/milvus.db` | runs/ 保留一份，另複製到 data/ 後原子替換 |
+| True | False | `runs/.../results/milvus.db` | 只有 runs/ |
+| False | True | `data/rag/<site_id>/.staging-*/milvus.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
+| False | False | 系統暫存資料夾 | 無（結束時刪除） |
 
 ### 聊天記錄（`runs/`）
 
@@ -292,7 +311,7 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 ## 開發
 
 - 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定。
-- `src/test/test_main.py` 會使用測試設定檔執行完整流程。
+- `src/test/test_main.py` 會使用測試設定檔執行完整流程（prepare 三階段 + agent 問答）。
 - `src/test/test_module.py` 會獨立執行爬蟲與摘要器。
 
 ## 文件
@@ -328,7 +347,8 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 - RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
-- Query 結果落盤（`results.json` + `results/query_{index}.md`）與向量庫可存至 run 內（`save_vector_store_to_runs`）
+- Query 結果落盤（`results.json` + `results/query_{index}.md`）；RAG 建庫位置依 `save`／`publish` 決定，publish 以原子替換更新 `data/rag/`
+- Prepare／Serve 兩階段分離（`src/prepare.py`／`src/serve.py`，以 `data/` 為唯一介面）
 - Chrome Extension 站點偵測（`hostname` → `page_url` → `resolve_site_id`）
 - Service Worker Keepalive + Typing Indicator + 跨頁面 session 共享
 

@@ -67,7 +67,7 @@
   - **Metadata 過濾** — 利用爬蟲階段賦予的分類標籤，在檢索前隔離不相關的頁面類型（如查論文時排除公告與人員頁面），減少跨類別雜訊造成的幻覺。
   - **RAG Retriever Tool** — 將檢索能力包裝為可供 Agent 直接呼叫的工具，支援動態調整過濾條件與檢索數量，讓上層應用能靈活運用。
   - **查詢引擎與評估** — 串接 LLM 生成回答，並以忠實度與相關性兩項指標進行自動化成效評估，確保回答品質。
-  - **結果落盤** — 每次執行將 query 結果以結構化 JSON（`results.json`）與逐筆 Markdown（`results/query_{index}.md`）保存；RAG 建置可選擇將向量庫存至該次 run 內（`save_vector_store_to_runs`），避免實驗互相覆寫。
+  - **結果落盤** — 每次執行將 query 結果以結構化 JSON（`results.json`）與逐筆 Markdown（`results/query_{index}.md`）保存；RAG 建置的向量庫位置依 `save`／`publish` 決定（`save=True` 存於該次 run 內），publish 時以原子替換更新 `data/rag/`，避免實驗互相覆寫、也不影響執行中的 server。
 
 ## Phase 2/3 MVP（完成）
 
@@ -77,7 +77,7 @@
 
 - 簡介
   - **AI Agent** — 以 LangGraph `create_agent` 包裝 RAG 檢索工具，由 LLM 推理迴圈自行決定呼叫，回答附引用來源 URL；支援多輪記憶（`InMemorySaver` + `thread_id`）與 SSE 逐 token 串流。
-  - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
+  - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy 載入 + LRU 快取；只讀取 prepare 階段已 publish 的向量庫）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
   - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 由呼叫端（`run_app()`）建立後注入 `ChatApp`，lifespan 僅綁定至 `app.state`、關閉由 `ChatApp.close()` 負責；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
   - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS，支援站點偵測（`hostname` → `page_url`）、Service Worker Keepalive（`chrome.alarms`）、跨頁面 session 共享（`chrome.storage.session`）、Typing Indicator。
   - **對話落盤** — `runs/<ts>/agent/<config>/results_<thread_id>.json`（依 thread_id 分檔，讀取既有分檔 → 合併本輪 → 覆寫）。

@@ -64,7 +64,7 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
-- **`run_app(...)`（workflow.py）** — 啟動入口（`src/cli.py server-cli` / `src/main.py` 皆使用）：
+- **`run_app(...)`（serve_workflow.py）** — 啟動入口（`src/serve.py` 使用）：
   - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）→ `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `uvicorn.Server`，回傳 `(server, chat_app)` **tuple（非阻塞）**；由呼叫端執行 `server.run()` 並以 `try/finally` 呼叫 `chat_app.close()`
   - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出（**不寫 `module_config.toml`**）；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
@@ -72,11 +72,11 @@ data: {"type": "error", "message": "..."}       ← 失敗
 ### 啟動方式
 
 ```bash
-# 直接 CLI（背景執行）
-uv run python src/cli.py server-cli --run.port 8000
+# 啟動 serve 階段（阻塞至中斷）
+uv run python src/serve.py --run.port 8000
 
 # 限縮 CORS 來源
-uv run python src/cli.py server-cli --run.allowed-origins https://lab.example.edu.tw
+uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
 ```
 
 ## 已知問題

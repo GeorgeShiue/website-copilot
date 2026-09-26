@@ -2,13 +2,12 @@ import asyncio
 
 import pytest
 
-from app.workflow.workflow import (
-    run_agent_query,
-    run_app,
+from app.workflow.prepare_workflow import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
+from app.workflow.serve_workflow import run_agent_query, run_app
 from utils.log_helper import setup_logging
 
 setup_logging("debug")
