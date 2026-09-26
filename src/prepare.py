@@ -6,13 +6,13 @@ serve 階段只讀取已 publish 的向量庫。
 
 from dataclasses import dataclass
 
-from app.configs.workflow_config import PrepareRunConfig
-from app.workflow.prepare_workflow import (
+from website_copilot.config.pipeline_config import PrepareRunConfig
+from website_copilot.pipelines.prepare import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from utils.log_helper import (
+from website_copilot.utils.log_helper import (
     log_prepare_workflow_run_summary,
     log_run_time,
     log_session,

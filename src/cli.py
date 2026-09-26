@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.configs.workflow_config import (
+from website_copilot.config.pipeline_config import (
     AgentModuleConfig,
     AgentRunConfig,
     RAGBuildRunConfig,
@@ -46,7 +46,7 @@ class AgentCLI:
 if __name__ == "__main__":
     import tyro
 
-    from utils.log_helper import (
+    from website_copilot.utils.log_helper import (
         setup_logging,
     )
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     # 各分支才 import 對應階段的 workflow，避免載入用不到的依賴（如 server 不需爬蟲）
     if isinstance(cli_arg, WebsiteCrawlerCLI):
-        from app.workflow.prepare_workflow import run_website_crawler
+        from website_copilot.pipelines.prepare import run_website_crawler
 
         run_website_crawler(
             **run_kwargs,
@@ -85,7 +85,9 @@ if __name__ == "__main__":
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, WebpageImageSummarizerCLI):
-        from app.workflow.prepare_workflow import run_webpage_image_summarizer
+        from website_copilot.pipelines.prepare import (
+            run_webpage_image_summarizer,
+        )
 
         run_webpage_image_summarizer(
             **run_kwargs,
@@ -95,7 +97,7 @@ if __name__ == "__main__":
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGBuildCLI):
-        from app.workflow.prepare_workflow import run_rag_build
+        from website_copilot.pipelines.prepare import run_rag_build
 
         run_rag_build(
             **run_kwargs,
@@ -105,7 +107,7 @@ if __name__ == "__main__":
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, RAGQueryCLI):
-        from app.workflow.eval_workflow import run_rag_query
+        from website_copilot.pipelines.eval import run_rag_query
 
         run_rag_query(
             **run_kwargs,
@@ -113,7 +115,7 @@ if __name__ == "__main__":
             run_config=cli_arg.run,
         )
     elif isinstance(cli_arg, AgentCLI):
-        from app.workflow.serve_workflow import run_agent_query
+        from website_copilot.server.bootstrap import run_agent_query
 
         run_agent_query(
             config_name=cli_arg.run.config_name,

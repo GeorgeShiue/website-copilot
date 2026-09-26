@@ -50,7 +50,7 @@ dev = [
 exclude-dependencies = ["unclecode-litellm"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app", "src/utils"]
+packages = ["src/website_copilot"]
 
 [tool.ruff]
 exclude = ["dev/**", ".venv"]
@@ -67,7 +67,7 @@ strictSetInference = true
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["src/test"]
+testpaths = ["tests"]
 addopts = "-s -v"
 markers = [
     "slow: 端到端測試（真實爬蟲 / LLM / 建庫），預設略過。執行完整測試用 -m slow",

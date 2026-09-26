@@ -6,9 +6,9 @@
 
 from dataclasses import dataclass
 
-from app.configs.workflow_config import ServeRunConfig
-from app.workflow.serve_workflow import run_app
-from utils.log_helper import log_session, setup_logging
+from website_copilot.config.pipeline_config import ServeRunConfig
+from website_copilot.server.bootstrap import run_app
+from website_copilot.utils.log_helper import log_session, setup_logging
 
 
 @dataclass

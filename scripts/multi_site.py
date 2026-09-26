@@ -9,7 +9,7 @@
 import os
 import sys
 
-from app.workflow.prepare_workflow import (
+from website_copilot.pipelines.prepare import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,

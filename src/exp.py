@@ -1,8 +1,8 @@
 import time
 
-from app.workflow.eval_workflow import run_rag_query
-from app.workflow.prepare_workflow import run_webpage_image_summarizer
-from utils.log_helper import setup_logging
+from website_copilot.pipelines.eval import run_rag_query
+from website_copilot.pipelines.prepare import run_webpage_image_summarizer
+from website_copilot.utils.log_helper import setup_logging
 
 setup_logging("debug")
 
