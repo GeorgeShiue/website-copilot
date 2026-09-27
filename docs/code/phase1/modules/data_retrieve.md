@@ -25,7 +25,7 @@
 - **模組設定**
 	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `src/website_copilot/config/rag_config.py` 載入）
 	- 可在 `RagConfig` 或執行參數中覆寫 **embedding**、**vector store 類型**、**hybrid ranker**、**chunk 參數**、**檢索設定**與 **LLM 模型**
-	- API key 依用途分為三組獨立環境變數：`OPENAI_API_KEY`（Embedding）、`OPENAI_API_KEY` / `GEMINI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`OPENAI_API_KEY` / `GEMINI_RAG_EVALUATOR_API_KEY`（評估）
+	- API key 依 model name 的供應商選用：Embedding 固定用 `OPENAI_API_KEY`；查詢引擎與評估的 `gpt-*` 用 `OPENAI_API_KEY`、`gemini-*` 用 `GEMINI_API_KEY`
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
@@ -142,7 +142,7 @@ RAG（runtime）
 
 - **Hybrid 模式**：跳過 `SimilarityPostprocessor`，因為 hybrid 分數已由 ranker 融合，不再適用 similarity cutoff。
 - **Dense 模式**：加入 `SimilarityPostprocessor(similarity_cutoff=cutoff)`（預設 `cutoff=0.0`，通常設定 `0.4`）。
-- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_RAG_QUERY_ENGINE_API_KEY`（對應表見 `retrieval/llama_index_helpers.LLM_API_KEY_ENV_VARS`）。
+- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_API_KEY`（對應表見 `retrieval/llama_index_helpers.LLM_API_KEY_ENV_VARS`）。
 - 回答生成器使用 `get_response_synthesizer(llm=llm)`。
 
 #### 執行查詢
@@ -170,7 +170,7 @@ RAG（runtime）
 
 #### Evaluator LLM
 - 預設使用 `gpt-5.6-terra`（`OpenAI`）；`RAGConfig.evaluator_llm_name` 可覆寫。
-- API key 一律來自 `OPENAI_API_KEY`；若切回 Gemini model，則改用 `GEMINI_RAG_EVALUATOR_API_KEY`。
+- API key 一律來自 `OPENAI_API_KEY`；若切回 Gemini model，則改用 `GEMINI_API_KEY`。
 
 ---
 

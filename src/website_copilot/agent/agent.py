@@ -9,7 +9,7 @@ M1 提供：
 - create_agent()：建立 Agent（Tool 資源由 Agent 管理生命週期）
 
 資源生命週期：Agent 擁有 Tool 實例，close() 時釋放 Tool 內部資源。
-落盤責任不在 Agent：由呼叫端（run_agent_query / run_app / server）自行負責，
+落盤責任不在 Agent：由呼叫端（run_agent_query / run_server_build / server）自行負責，
 agent 層因此不需知道 workflow 層。
 """
 
@@ -21,14 +21,14 @@ from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from rich.table import Table
 
-from website_copilot.config.agent_config import AgentConfig
-from website_copilot.agent.tools.tool import Tool
 from website_copilot.agent.langchain_helper import (
     _message_content_to_text,
     create_llm,
     extract_sources_from_messages,
     thread_config,
 )
+from website_copilot.agent.tools.tool import Tool
+from website_copilot.config.agent_config import AgentConfig
 from website_copilot.utils.log_helper import log_session, print_log
 
 

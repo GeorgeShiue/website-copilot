@@ -39,7 +39,7 @@ def create_llm(llm_name: str) -> ChatGoogleGenerativeAI | ChatOpenAI:
     """建立 Agent 使用的 LangChain ChatModel（Gemini 或 OpenAI，依 model name 自動路由）。
 
     - model name 含 "gemini"：使用 ChatGoogleGenerativeAI，
-      沿用 RAG query LLM 的 API key 環境變數（GEMINI_RAG_QUERY_ENGINE_API_KEY）。
+      使用 GEMINI_API_KEY 環境變數。
     - 其他（含 "gpt" 等）：使用 ChatOpenAI，
       使用 OPENAI_API_KEY 環境變數。
 
@@ -47,10 +47,10 @@ def create_llm(llm_name: str) -> ChatGoogleGenerativeAI | ChatOpenAI:
     """
     load_dotenv()
     if "gemini" in llm_name.lower():
-        api_key = os.getenv("GEMINI_RAG_QUERY_ENGINE_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError(
-                "GEMINI_RAG_QUERY_ENGINE_API_KEY is not set. "
+                "GEMINI_API_KEY is not set. "
                 "Please set it in .env before running the agent."
             )
         return ChatGoogleGenerativeAI(model=llm_name, api_key=api_key)

@@ -122,7 +122,7 @@ def main(cli: RunCLI) -> None:
             run_config=command.run,
         )
     elif isinstance(command, AgentCLI):
-        from website_copilot.pipelines.agent import run_agent_query
+        from website_copilot.pipelines.exp import run_agent_query
 
         run_agent_query(
             config_name=command.run.config_name,

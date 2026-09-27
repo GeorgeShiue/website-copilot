@@ -180,7 +180,7 @@ Evaluators = tuple[FaithfulnessEvaluator, RelevancyEvaluator]
 
 def build_evaluators(config: RAGConfig) -> Evaluators:
     """建立 Faithfulness / Relevancy evaluator。"""
-    llm = create_llm(config.evaluator_llm_name, "evaluator")
+    llm = create_llm(config.evaluator_llm_name)
     faithfulness_evaluator = FaithfulnessEvaluator(
         llm=llm,
         eval_template=FAITHFULNESS_EVAL_TEMPLATE,

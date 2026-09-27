@@ -56,7 +56,16 @@ exclude-dependencies = ["unclecode-litellm"]
 packages = ["src/website_copilot"]
 
 [tool.ruff]
-exclude = [".venv"]
+# extend-exclude 保留 ruff 內建的預設排除（.git / build / dist / node_modules 等），
+# 另外排除執行產物、資料與非 Python 原始碼目錄
+extend-exclude = [
+    ".venv",
+    "runs",       # run 產物
+    "chats",      # 對話紀錄
+    "data",       # prepare 階段 publish 的資料
+    "docs",       # 文件與實驗紀錄
+    "extension",  # Chrome Extension（JS）
+]
 
 [tool.pyright]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", "**/.*"]

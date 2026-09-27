@@ -5,7 +5,7 @@
 - run 子命令的 module override 轉換（weights → hybrid_ranker_params）與 save／publish 拆出，
   且 run_config 保留 save／publish（run_config.toml 完整記錄）
 - exp 名稱清單與 pipelines.exp.EXPERIMENTS 一致
-- serve_forever：中斷時關閉 chat_app；run_prepare：階段串接與提前結束
+- serve：執行 server.run() 並吞下 KeyboardInterrupt；run_prepare：階段串接與提前結束
 - CLI 與 serve 路徑不載入爬蟲模組
 """
 
@@ -38,10 +38,10 @@ def test_prepare_dispatches_run_prepare() -> None:
     mock_prepare.assert_called_once_with(config_name="test")
 
 
-def test_serve_dispatches_serve_forever() -> None:
+def test_serve_dispatches_serve() -> None:
     with (
         patch(LOG_SETUP),
-        patch("website_copilot.server.bootstrap.serve_forever") as mock_serve,
+        patch("website_copilot.pipelines.serve.serve") as mock_serve,
     ):
         main(["serve", "--run.port", "9000"])
     run_config = mock_serve.call_args.args[0]
@@ -117,7 +117,7 @@ def test_run_rag_query_dispatches_without_save_publish() -> None:
 def test_run_agent_dispatches_run_agent_query() -> None:
     with (
         patch(LOG_SETUP),
-        patch("website_copilot.pipelines.agent.run_agent_query") as mock_agent,
+        patch("website_copilot.pipelines.exp.run_agent_query") as mock_agent,
     ):
         main(["run", "agent", "--run.query", "hi", "--module.llm-name", "gpt-x"])
     kwargs = mock_agent.call_args.kwargs
@@ -169,22 +169,18 @@ def test_run_experiment_rejects_unknown_name() -> None:
 # ===========================================================================
 
 
-def test_serve_forever_closes_chat_app_on_interrupt() -> None:
+def test_serve_runs_server_and_swallows_interrupt() -> None:
     from website_copilot.config.pipeline_config import ServeRunConfig
-    from website_copilot.server.bootstrap import serve_forever
+    from website_copilot.pipelines.serve import serve
 
-    server, chat_app = MagicMock(), MagicMock()
+    server = MagicMock()
     server.run.side_effect = KeyboardInterrupt
-    with (
-        patch(
-            "website_copilot.server.bootstrap.run_app",
-            return_value=(server, chat_app),
-        ) as mock_run_app,
-        patch("website_copilot.server.bootstrap.log_session"),
-    ):
-        serve_forever(ServeRunConfig(port=9000))
-    assert mock_run_app.call_args.kwargs["port"] == 9000
-    chat_app.close.assert_called_once()
+    with patch(
+        "website_copilot.pipelines.serve.run_server_build", return_value=server
+    ) as mock_run_server_build:
+        serve(ServeRunConfig(port=9000))
+    assert mock_run_server_build.call_args.kwargs["port"] == 9000
+    server.run.assert_called_once()
 
 
 def test_run_prepare_chains_stages_with_publish() -> None:
@@ -221,7 +217,7 @@ def test_run_prepare_stops_when_crawler_returns_none() -> None:
 def test_cli_and_serve_path_do_not_load_crawler() -> None:
     code = (
         "import sys, website_copilot.cli, website_copilot.cli.serve, "
-        "website_copilot.server.bootstrap; "
+        "website_copilot.pipelines.serve; "
         "print([m for m in sys.modules if 'crawl4ai' in m or 'ingestion.crawling' in m])"
     )
     result = subprocess.run(

@@ -73,7 +73,7 @@ SECTIONS_TO_KEYS = {
 }
 VLM_MODEL_TO_API_KEY: dict[str, str] = {
     "gpt": "OPENAI_API_KEY",
-    "gemini": "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY",
+    "gemini": "GEMINI_API_KEY",
 }
 
 

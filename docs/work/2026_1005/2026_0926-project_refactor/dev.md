@@ -1,6 +1,6 @@
-# Implementation Log
+# Development Log
 
-> 對應規劃文件：[plan.md](./plan.md)
+> 對應規劃文件：[plan.md](./plan.md)；後續調整（plan 2）見 [2026_0927-project_refactor_plan2/](../2026_0927-project_refactor_plan2/plan.md)
 
 分支 `dev-tech-debt-refactor`（= `dev-tech-debt` + plan commit `6120df2`），每個 phase 一個 commit：
 

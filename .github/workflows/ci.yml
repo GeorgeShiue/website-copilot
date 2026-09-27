@@ -26,15 +26,11 @@ jobs:
       - name: Install project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run lint
-        run: |
-          uv run ruff check .
-
-      - name: Run type check
-        run: uv run pyright .
+      - name: Run lint and type check
+        run: ./scripts/lint.sh
 
       - name: Check widget.js in sync
-        run: cmp src/website_copilot/server/static/widget.js extension/widget.js
+        run: ./scripts/check-widget.sh
   unit-test:
     needs: quality-check
     runs-on: ubuntu-latest
@@ -62,8 +58,7 @@ jobs:
       - name: Set up environment variables
         run:  |
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-          echo "GEMINI_RAG_QUERY_ENGINE_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Run tests
         run: uv run pytest tests/integration/test_module.py

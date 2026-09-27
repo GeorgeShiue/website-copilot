@@ -1,8 +1,8 @@
-"""run_agent_build / run_agent_query / run_app 函數測試。
+"""run_agent_build / run_agent_query / run_server_build 函數測試。
 
 涵蓋：
-- run_agent_build：建立 run context + 呼叫 create_agent，回傳 None，
-  agent.close() 於 with 區塊結束後呼叫；create_agent 失敗時錯誤往外拋
+- run_agent_build：建立 run context + 呼叫 create_agent，回傳未關閉的 agent；
+  傳入 run_manager 時沿用其 context（不另建 RunManager）；create_agent 失敗時錯誤往外拋
 - run_agent_query：內部建立 run context（module="agent" / base_folder="runs"）、
   agent.ask() 以正確參數呼叫、落盤委派 run_manager.save_agent_results_as_json()、
   auto thread_id、回傳 None
@@ -10,9 +10,10 @@
   save_agent_results_as_json() 落盤
 - run_agent_query（Goal 4）：run_config= 觸發一次 run_config.toml 落盤、log 生命週期 init → complete
 - run_agent_query 的 finally 於成功與失敗路徑呼叫 agent.close()
-- run_app：回傳 (uvicorn.Server, ChatApp)、以注入的 run_manager 建立 ChatApp、
+- run_server_build：回傳持有 ChatApp 的 ChatServer、經 run_agent_build 沿用同一 run_manager 建構 agent、
+  以注入的 run_manager 建立 ChatApp、
   log 生命週期僅 init → complete、ChatApp.create 失敗時 agent.close() 且例外往外拋（R4）
-- ChatApp.close() 觸發 agent.close()
+- ChatApp.close() 觸發 agent.close()；ChatServer.serve 結束時（正常／中斷／例外）自動關閉 ChatApp
 
 所有外部依賴以 mock 替代，不觸發真實 LLM / RAG 資源。
 """
@@ -110,13 +111,13 @@ def _setup_mock_run_manager(mock_rm_cls: MagicMock) -> MagicMock:
 # ===========================================================================
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
-def test_run_agent_build_calls_create_agent_and_returns_none(
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_agent_build_calls_create_agent_and_returns_agent(
     mock_log_session,
     mock_save_logging,
     mock_rm_cls,
@@ -124,8 +125,8 @@ def test_run_agent_build_calls_create_agent_and_returns_none(
     mock_create_agent,
     mock_save_module_config,
 ):
-    """run_agent_build：建立 run context + 呼叫 create_agent，回傳 None，agent.close() 被呼叫。"""
-    from website_copilot.pipelines.agent import run_agent_build
+    """run_agent_build：建立 run context + 呼叫 create_agent，回傳 agent 且不關閉（由呼叫端負責）。"""
+    from website_copilot.pipelines.serve import run_agent_build
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -134,16 +135,16 @@ def test_run_agent_build_calls_create_agent_and_returns_none(
 
     result = run_agent_build(config_name="test")
 
-    assert result is None
+    assert result is fake_agent
     mock_create_agent.assert_called_once_with("test")
-    assert fake_agent.close_called
+    assert not fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_propagates_create_agent_error(
     mock_log_session,
     mock_save_logging,
@@ -152,7 +153,7 @@ def test_run_agent_build_propagates_create_agent_error(
     mock_create_agent,
 ):
     """create_agent 拋出例外時，錯誤往外拋且 agent.close() 不會被呼叫（agent 未建立）。"""
-    from website_copilot.pipelines.agent import run_agent_build
+    from website_copilot.pipelines.serve import run_agent_build
 
     _setup_mock_run_manager(mock_rm_cls)
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
@@ -162,13 +163,13 @@ def test_run_agent_build_propagates_create_agent_error(
         run_agent_build(config_name="test")
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.save_run_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.save_run_config_as_toml")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_writes_run_config_when_provided(
     mock_log_session,
     mock_save_logging,
@@ -178,8 +179,8 @@ def test_run_agent_build_writes_run_config_when_provided(
     mock_save_run_config,
     mock_save_module_config,
 ):
-    """run_config= 觸發一次 run_config.toml 落盤，且 agent.close() 被呼叫。"""
-    from website_copilot.pipelines.agent import run_agent_build
+    """run_config= 觸發一次 run_config.toml 落盤。"""
+    from website_copilot.pipelines.serve import run_agent_build
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -192,6 +193,65 @@ def test_run_agent_build_writes_run_config_when_provided(
     mock_save_run_config.assert_called_once_with(
         run_config, mock_rm.run_config_toml_path
     )
+
+
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
+@patch("website_copilot.storage.run_context.RunManager")
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_agent_build_reuses_given_run_manager(
+    mock_log_session,
+    mock_rm_cls,
+    mock_config_cls,
+    mock_create_agent,
+    mock_save_module_config,
+):
+    """傳入 run_manager 時沿用其 context：不另建 RunManager，module_config 寫入其路徑。"""
+    from website_copilot.pipelines.serve import run_agent_build
+
+    fake_agent = _FakeAgentStub()
+    mock_create_agent.return_value = fake_agent
+    config = MagicMock(llm_name="test_llm")
+    mock_config_cls.from_toml.return_value = config
+    run_manager = MagicMock()
+
+    result = run_agent_build(config_name="test", run_manager=run_manager)
+
+    assert result is fake_agent
+    mock_rm_cls.for_run_no_site.assert_not_called()
+    run_manager.log_run_paths.assert_not_called()
+    mock_save_module_config.assert_called_once_with(
+        config, run_manager.module_config_toml_path
+    )
+
+
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
+@patch("website_copilot.storage.run_context.RunManager")
+@patch("website_copilot.storage.run_context.save_logging_file")
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_agent_build_closes_agent_when_save_fails(
+    mock_log_session,
+    mock_save_logging,
+    mock_rm_cls,
+    mock_config_cls,
+    mock_create_agent,
+    mock_save_module_config,
+):
+    """agent 建立後落盤失敗：agent.close() 被呼叫且例外往外拋。"""
+    from website_copilot.pipelines.serve import run_agent_build
+
+    fake_agent = _FakeAgentStub()
+    mock_create_agent.return_value = fake_agent
+    _setup_mock_run_manager(mock_rm_cls)
+    mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
+    mock_save_module_config.side_effect = OSError("disk full")
+
+    with pytest.raises(OSError):
+        run_agent_build(config_name="test")
+
     assert fake_agent.close_called
 
 
@@ -200,12 +260,12 @@ def test_run_agent_build_writes_run_config_when_provided(
 # ===========================================================================
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_creates_run_manager_with_runs(
     mock_log_session,
     mock_save_logging,
@@ -215,7 +275,7 @@ def test_run_agent_query_creates_run_manager_with_runs(
     mock_save_module_config,
 ):
     """run_agent_query：RunManager 以 module="agent" / base_folder="runs" 建立。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     mock_create_agent.return_value = _FakeAgentStub()
     _setup_mock_run_manager(mock_rm_cls)
@@ -230,12 +290,12 @@ def test_run_agent_query_creates_run_manager_with_runs(
     )
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_calls_agent_ask(
     mock_log_session,
     mock_save_logging,
@@ -245,7 +305,7 @@ def test_run_agent_query_calls_agent_ask(
     mock_save_module_config,
 ):
     """run_agent_query：agent.ask() 以正確 query 和 thread_id 呼叫。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -259,12 +319,12 @@ def test_run_agent_query_calls_agent_ask(
     assert fake_agent.asked[0]["thread_id"] == "session-1"
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_delegates_save_to_run_manager(
     mock_log_session,
     mock_save_logging,
@@ -274,7 +334,7 @@ def test_run_agent_query_delegates_save_to_run_manager(
     mock_save_module_config,
 ):
     """run_agent_query：落盤委派 run_manager.save_agent_results_as_json()。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -290,17 +350,17 @@ def test_run_agent_query_delegates_save_to_run_manager(
     assert save_kwargs["results"][0]["response"] == "fake answer"
 
 
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_returns_none(mock_log_session):
     """run_agent_query 回傳 None。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     with (
-        patch("website_copilot.pipelines.agent.create_agent") as mock_create_agent,
-        patch("website_copilot.pipelines.agent.AgentConfig") as mock_config_cls,
+        patch("website_copilot.pipelines.exp.create_agent") as mock_create_agent,
+        patch("website_copilot.pipelines.exp.AgentConfig") as mock_config_cls,
         patch("website_copilot.storage.run_context.RunManager") as mock_rm_cls,
         patch("website_copilot.storage.run_context.save_logging_file"),
-        patch("website_copilot.pipelines.agent.save_module_config_as_toml"),
+        patch("website_copilot.pipelines.exp.save_module_config_as_toml"),
     ):
         mock_create_agent.return_value = _FakeAgentStub()
         _setup_mock_run_manager(mock_rm_cls)
@@ -309,12 +369,12 @@ def test_run_agent_query_returns_none(mock_log_session):
         assert run_agent_query(config_name="test", query="hello") is None
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_auto_generates_thread_id(
     mock_log_session,
     mock_save_logging,
@@ -324,7 +384,7 @@ def test_run_agent_query_auto_generates_thread_id(
     mock_save_module_config,
 ):
     """thread_id 為 None 時自動產生 auto-{uuid} 並用於落盤。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     mock_create_agent.return_value = _FakeAgentStub()
     mock_rm = _setup_mock_run_manager(mock_rm_cls)
@@ -337,12 +397,12 @@ def test_run_agent_query_auto_generates_thread_id(
     assert thread_id.startswith("auto-")
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_success(
     mock_log_session,
     mock_save_logging,
@@ -352,7 +412,7 @@ def test_run_agent_query_closes_agent_on_success(
     mock_save_module_config,
 ):
     """run_agent_query 在成功時以 finally 呼叫 agent.close()。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -364,11 +424,11 @@ def test_run_agent_query_closes_agent_on_success(
     assert fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_error(
     mock_log_session,
     mock_save_logging,
@@ -377,7 +437,7 @@ def test_run_agent_query_closes_agent_on_error(
     mock_create_agent,
 ):
     """run_agent_query 在 ask() 拋出例外時仍呼叫 agent.close()。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FailingAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -390,11 +450,11 @@ def test_run_agent_query_closes_agent_on_error(
     assert fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_stream_error(
     mock_log_session,
     mock_save_logging,
@@ -403,7 +463,7 @@ def test_run_agent_query_closes_agent_on_stream_error(
     mock_create_agent,
 ):
     """run_agent_query 在 stream 模式例外時仍呼叫 agent.close()。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FailingStreamAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -416,12 +476,12 @@ def test_run_agent_query_closes_agent_on_stream_error(
     assert fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_stream_persists_streamed_result(
     mock_log_session,
     mock_save_logging,
@@ -431,7 +491,7 @@ def test_run_agent_query_stream_persists_streamed_result(
     mock_save_module_config,
 ):
     """stream=True 的 happy path：astream_result 的串流結果經 save_agent_results_as_json 落盤。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -453,13 +513,13 @@ def test_run_agent_query_stream_persists_streamed_result(
     assert fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.agent.save_module_config_as_toml")
-@patch("website_copilot.pipelines.agent.save_run_config_as_toml")
-@patch("website_copilot.pipelines.agent.create_agent")
-@patch("website_copilot.pipelines.agent.AgentConfig")
+@patch("website_copilot.pipelines.exp.save_module_config_as_toml")
+@patch("website_copilot.pipelines.exp.save_run_config_as_toml")
+@patch("website_copilot.pipelines.exp.create_agent")
+@patch("website_copilot.pipelines.exp.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.pipelines.agent.log_session")
+@patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_writes_run_config_and_log_lifecycle(
     mock_log_session,
     mock_save_logging,
@@ -470,7 +530,7 @@ def test_run_agent_query_writes_run_config_and_log_lifecycle(
     mock_save_module_config,
 ):
     """Goal 4：run_config= 觸發恰好一次 run_config.toml 落盤，log 生命週期為 init → complete。"""
-    from website_copilot.pipelines.agent import run_agent_query
+    from website_copilot.pipelines.exp import run_agent_query
 
     mock_create_agent.return_value = _FakeAgentStub()
     mock_rm = _setup_mock_run_manager(mock_rm_cls)
@@ -489,18 +549,19 @@ def test_run_agent_query_writes_run_config_and_log_lifecycle(
 
 
 # ===========================================================================
-# run_app：回傳 tuple、log 生命週期、失敗守衛
+# run_server_build：回傳 tuple、log 生命週期、失敗守衛
 # ===========================================================================
 
 
-@patch("website_copilot.server.bootstrap.uvicorn")
-@patch("website_copilot.server.bootstrap.ChatApp")
-@patch("website_copilot.server.bootstrap.create_agent")
-@patch("website_copilot.server.bootstrap.AgentConfig")
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.uvicorn")
+@patch("website_copilot.pipelines.serve.ChatApp")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.server.bootstrap.log_session")
-def test_run_app_returns_server_and_chat_app(
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_server_build_returns_chat_server_holding_chat_app(
     mock_log_session,
     mock_save_logging,
     mock_rm_cls,
@@ -508,16 +569,18 @@ def test_run_app_returns_server_and_chat_app(
     mock_create_agent,
     mock_chat_app_cls,
     mock_uvicorn,
+    mock_save_module_config,
 ):
-    """run_app：回傳 (uvicorn.Server, ChatApp)，ChatApp 以注入的 run_manager 建立。"""
-    from website_copilot.server.bootstrap import run_app
+    """run_server_build：回傳持有 ChatApp 的 ChatServer，ChatApp 以注入的 run_manager 建立。"""
+    from website_copilot.pipelines.serve import run_server_build
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
     mock_rm = _setup_mock_run_manager(mock_rm_cls)
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    server, chat_app = run_app(config_name="test")
+    server = run_server_build(config_name="test")
+    chat_app = server.chat_app
 
     assert isinstance(server, ChatServer)
     assert server.config is mock_uvicorn.Config.return_value
@@ -533,18 +596,25 @@ def test_run_app_returns_server_and_chat_app(
         port=8000,
         log_level="info",
     )
-    # 建構成功：不關閉 agent（由呼叫端的 ChatApp.close() 負責）
+    # agent 經 run_agent_build 建構並沿用 server 的 run context
+    mock_create_agent.assert_called_once_with("test")
+    mock_save_module_config.assert_called_once_with(
+        mock_config_cls.from_toml.return_value, mock_rm.module_config_toml_path
+    )
+    mock_rm_cls.for_run_no_site.assert_called_once()
+    # 建構成功：不關閉 agent（由 ChatServer 結束時的 ChatApp.close() 負責）
     assert not fake_agent.close_called
 
 
-@patch("website_copilot.server.bootstrap.uvicorn")
-@patch("website_copilot.server.bootstrap.ChatApp")
-@patch("website_copilot.server.bootstrap.create_agent")
-@patch("website_copilot.server.bootstrap.AgentConfig")
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.uvicorn")
+@patch("website_copilot.pipelines.serve.ChatApp")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.server.bootstrap.log_session")
-def test_run_app_logs_init_then_complete_only(
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_server_build_logs_init_then_complete_only(
     mock_log_session,
     mock_save_logging,
     mock_rm_cls,
@@ -552,15 +622,16 @@ def test_run_app_logs_init_then_complete_only(
     mock_create_agent,
     mock_chat_app_cls,
     mock_uvicorn,
+    mock_save_module_config,
 ):
-    """run_app 的 log 生命週期僅 init → complete（不使用未定義的 "ready"）。"""
-    from website_copilot.server.bootstrap import run_app
+    """run_server_build 的 log 生命週期僅 init → complete（不使用未定義的 "ready"）。"""
+    from website_copilot.pipelines.serve import run_server_build
 
     mock_create_agent.return_value = _FakeAgentStub()
     mock_rm = _setup_mock_run_manager(mock_rm_cls)
     mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
 
-    run_app(config_name="test")
+    run_server_build(config_name="test")
 
     assert [call.args[0] for call in mock_rm.log_run_paths.call_args_list] == [
         "init",
@@ -568,14 +639,15 @@ def test_run_app_logs_init_then_complete_only(
     ]
 
 
-@patch("website_copilot.server.bootstrap.uvicorn")
-@patch("website_copilot.server.bootstrap.ChatApp")
-@patch("website_copilot.server.bootstrap.create_agent")
-@patch("website_copilot.server.bootstrap.AgentConfig")
+@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.uvicorn")
+@patch("website_copilot.pipelines.serve.ChatApp")
+@patch("website_copilot.pipelines.serve.create_agent")
+@patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
 @patch("website_copilot.storage.run_context.save_logging_file")
-@patch("website_copilot.server.bootstrap.log_session")
-def test_run_app_closes_agent_when_chat_app_creation_fails(
+@patch("website_copilot.pipelines.serve.log_session")
+def test_run_server_build_closes_agent_when_chat_app_creation_fails(
     mock_log_session,
     mock_save_logging,
     mock_rm_cls,
@@ -583,9 +655,10 @@ def test_run_app_closes_agent_when_chat_app_creation_fails(
     mock_create_agent,
     mock_chat_app_cls,
     mock_uvicorn,
+    mock_save_module_config,
 ):
-    """run_app：ChatApp.create 失敗時 agent.close() 被呼叫且例外往外拋（R4 守衛）。"""
-    from website_copilot.server.bootstrap import run_app
+    """run_server_build：ChatApp.create 失敗時 agent.close() 被呼叫且例外往外拋（R4 守衛）。"""
+    from website_copilot.pipelines.serve import run_server_build
 
     fake_agent = _FakeAgentStub()
     mock_create_agent.return_value = fake_agent
@@ -594,7 +667,7 @@ def test_run_app_closes_agent_when_chat_app_creation_fails(
     mock_chat_app_cls.create.side_effect = RuntimeError("chat app boom")
 
     with pytest.raises(RuntimeError):
-        run_app(config_name="test")
+        run_server_build(config_name="test")
 
     assert fake_agent.close_called
 
@@ -620,9 +693,34 @@ def test_chat_server_handle_exit_logs_before_delegating(mock_log_session):
     import uvicorn
 
     config = uvicorn.Config(app=MagicMock())
-    server = ChatServer(config)
+    server = ChatServer(config, chat_app=MagicMock())
 
     server.handle_exit(sig=2, frame=None)  # signal.SIGINT
 
     mock_log_session.assert_called_once_with("Server Stopping", style="yellow")
     assert server.should_exit is True
+
+
+@pytest.mark.parametrize(
+    "serve_error", [None, KeyboardInterrupt(), RuntimeError("boom")]
+)
+@patch("website_copilot.server.server.log_session")
+def test_chat_server_serve_closes_chat_app_on_exit(mock_log_session, serve_error):
+    """ChatServer.serve 結束時（正常、中斷、例外）皆關閉 ChatApp，且例外照常往外拋。"""
+    import asyncio
+
+    import uvicorn
+
+    chat_app = MagicMock()
+    server = ChatServer(uvicorn.Config(app=MagicMock()), chat_app=chat_app)
+
+    with patch.object(uvicorn.Server, "serve", side_effect=serve_error) as mock_serve:
+        if serve_error is None:
+            asyncio.run(server.serve())
+        else:
+            with pytest.raises(type(serve_error)):
+                asyncio.run(server.serve())
+
+    mock_serve.assert_awaited_once()
+    chat_app.close.assert_called_once()
+    mock_log_session.assert_called_with("Server Stopped", style="cyan")

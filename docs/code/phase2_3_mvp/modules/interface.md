@@ -25,7 +25,7 @@
 	- `extension/manifest.json`（**MV3**：content_scripts + background + `alarms` / `storage` 權限）
 	- `extension/background.js`（**代理串流**：`chrome.runtime.onConnect` → fetch SSE → 逐塊 postMessage；keepalive via `chrome.alarms`；`chrome.storage.session` 保存 thread_id）
 	- `extension/content.js`（**注入掛載 + 站點偵測**：`window.location.hostname` 偵測 + `page_url` 帶入 + proxyStreamChat 建立 port + ReadableStream 轉接）
-	- `extension/widget.js`（**複本**：由 `static/widget.js` 以 `make sync-widget` 同步，含 typing indicator；⚠️ Chrome 不載入 symlink 的 content script）
+	- `extension/widget.js`（**複本**：由 `static/widget.js` 以 `scripts/sync-widget.sh` 同步，含 typing indicator；⚠️ Chrome 不載入 symlink 的 content script）
 
 ## widget.js
 
@@ -77,10 +77,10 @@ chrome.alarms 定期喚醒 SW → 避免 Chrome ~30s 終止 Service Worker
 ⚠️ `extension/widget.js` 為 `src/website_copilot/server/static/widget.js` 的**實體複本**（Chrome 不載入 symlink 的 content script）。`static/widget.js` 為唯一來源，修改後執行：
 
 ```bash
-make sync-widget   # = cp src/website_copilot/server/static/widget.js extension/widget.js
+./scripts/sync-widget.sh   # = cp src/website_copilot/server/static/widget.js extension/widget.js
 ```
 
-`make check-widget`（含於 `make check`）與 CI 的 `cmp` 步驟會比對兩份是否一致。
+`scripts/check-widget.sh` 會比對兩份是否一致（含於 `scripts/check.sh`，CI 也執行同一支腳本）。
 
 ### 使用方式
 
@@ -95,7 +95,7 @@ make sync-widget   # = cp src/website_copilot/server/static/widget.js extension/
 ```
 
 ## 已知問題
-- [x] `extension/widget.js` 為複本，以 `make sync-widget` 同步、CI 比對（見上）
+- [x] `extension/widget.js` 為複本，以 `scripts/sync-widget.sh` 同步、CI 比對（見上）
 - [ ] Extension 為本機開發模式（load unpacked），未上架
 - [ ] bookmarklet（`javascript:` 書籤）受網站 CSP 限制，僅供 demo
 

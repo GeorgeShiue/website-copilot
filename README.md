@@ -48,7 +48,6 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ```text
 .
-├── Makefile                     # 常用指令（make check / sync-widget / serve …）
 ├── .env.example                 # 環境變數範本（cp .env.example .env）
 ├── prek.toml                    # ruff/prek 設定
 ├── pyproject.toml               # Python 專案設定、依賴與 `website-copilot` console script
@@ -79,12 +78,12 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── storage/                 # DataManager（publish_*）/ RunManager / run_persistence / run_context
 │   ├── server/
 │   │   ├── app.py               # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
-│   │   ├── bootstrap.py         # run_app / serve_forever（不 import 爬蟲）
+│   │   ├── server.py            # ChatServer（uvicorn.Server 子類，持有 ChatApp，結束時自動關閉）
 │   │   └── static/              # chat.html（iframe）/ widget.js（來源，含 typing indicator）/ demo.html
 │   ├── pipelines/
 │   │   ├── prepare.py           # run_website_crawler / run_webpage_image_summarizer / run_rag_build / run_prepare
-│   │   ├── agent.py             # run_agent_build / run_agent_query
-│   │   └── exp.py               # run_rag_query + 批次實驗（EXPERIMENTS）
+│   │   ├── serve.py             # run_agent_build / run_server_build / serve（不 import 爬蟲）
+│   │   └── exp.py               # run_rag_query / run_agent_query + 批次實驗（EXPERIMENTS）
 │   └── utils/                   # config_helper / log_helper
 ├── tests/
 │   ├── unit/                    # 單元測試（預設執行）
@@ -93,9 +92,14 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
 │   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）+ keepalive + thread_id 共享
 │   ├── content.js               # 注入 widget + 偵測 hostname 帶入 page_url
-│   └── widget.js                # 由 server/static/widget.js 同步（make sync-widget，CI 比對）
-├── scripts/
-│   └── multi_site.py            # 多站流程驗證腳本（一次性）
+│   └── widget.js                # 由 server/static/widget.js 同步（scripts/sync-widget.sh，CI 比對）
+├── scripts/                     # 開發常用指令
+│   ├── check.sh                 # 依序執行 lint.sh → test.sh → check-widget.sh
+│   ├── lint.sh                  # ruff check + ruff format 檢查 + pyright（--fix 自動修正）
+│   ├── test.sh                  # pytest（略過 slow，額外參數傳給 pytest）
+│   ├── check-widget.sh          # 確認 widget.js 兩份一致
+│   ├── clean-runs.sh            # 刪除 runs/ 中今天以前的 run（--dry-run / --yes）
+│   └── sync-widget.sh           # 同步 widget.js 到 extension/
 ├── configs/
 │   ├── agent/                   # Agent 設定（default / test）
 │   ├── rag/
@@ -157,9 +161,7 @@ cp .env.example .env        # 填入 API 金鑰
 | Variable | Used by | Purpose |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | `ingestion/indexing/index.py`、`retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | Embedding（`text-embedding-3-*`），以及 `gpt-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `retrieval/llama_index_helpers.py`、`agent/langchain_helper.py` | 回答生成 / Agent LLM（Gemini）。 |
-| `GEMINI_RAG_EVALUATOR_API_KEY` | `retrieval/llama_index_helpers.py` | 回答評估（Gemini）。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `ingestion/augmentation/image_summarizer.py` | 圖片摘要（Gemini）。 |
+| `GEMINI_API_KEY` | `retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | `gemini-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
 
 ## 使用方式
 
@@ -251,7 +253,7 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 
 ```bash
 # 快速路徑（不含真實爬蟲 / LLM / 建庫）
-make test                      # = uv run pytest -m "not slow"
+./scripts/test.sh              # = uv run pytest -m "not slow"
 
 # 完整測試（含端到端 slow 測試，需 API 金鑰）
 uv run pytest -m slow tests/integration
@@ -286,13 +288,17 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 - `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
 - `module_config.toml` / `run_config.toml` / `terminal.log` — 設定備份與日誌
 
-> 註：`run_app`（server 入口）不寫 `module_config.toml`；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
+> 註：`run_server_build`（server 入口）經 `run_agent_build` 在同一 run 目錄寫出 `module_config.toml`；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
 
 ## 開發
 
-- `make check`：ruff（lint + format 檢查）、pyright、`pytest -m "not slow"` 與 widget 同步檢查；`make help` 列出所有指令。
-- 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定（`make format` 自動修正）。
-- `widget.js` 以 `src/website_copilot/server/static/widget.js` 為來源，修改後執行 `make sync-widget` 同步到 `extension/`（CI 會比對兩份是否一致）。
+- `./scripts/check.sh`：依序執行三組檢查，任一組失敗即中止（可用於 `git bisect run`）；各組也可單獨執行：
+  - `./scripts/lint.sh`：`ruff check`、`ruff format --check`、`pyright`；加 `--fix` 改為自動修正 ruff 問題並格式化（`ruff check --fix`、`ruff format`）
+  - `./scripts/test.sh`：`pytest -m "not slow"`（額外參數會傳給 pytest，如 `./scripts/test.sh -x tests/unit`）
+  - `./scripts/check-widget.sh`：確認 `extension/widget.js` 與來源一致
+- 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定（`./scripts/lint.sh --fix` 自動修正）。
+- `widget.js` 以 `src/website_copilot/server/static/widget.js` 為來源，修改後執行 `./scripts/sync-widget.sh` 同步到 `extension/`（CI 會比對兩份是否一致）。
+- `./scripts/clean-runs.sh`：刪除 `runs/` 中今天以前的 run 資料夾（依 `YYYYMMDD_HHMMSS` 名稱判斷，其他項目保留）；刪除前會列出清單與合計大小並要求確認，`--dry-run` 只列出、`--yes` 略過確認。注意 agent 的 `results_<thread_id>.json` 會跨 run 累積對話歷史，清理後舊 thread 的歷史也會一併移除。
 - `tests/integration/test_main.py` 會使用測試設定檔執行完整流程（prepare 三階段 + agent 問答）。
 - `tests/integration/test_module.py` 會獨立執行爬蟲與摘要器。
 

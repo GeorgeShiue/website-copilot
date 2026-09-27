@@ -2,13 +2,13 @@ import asyncio
 
 import pytest
 
+from website_copilot.pipelines.exp import run_agent_query
 from website_copilot.pipelines.prepare import (
     run_rag_build,
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from website_copilot.pipelines.agent import run_agent_query
-from website_copilot.server.bootstrap import run_app
+from website_copilot.pipelines.serve import run_server_build
 from website_copilot.utils.log_helper import setup_logging
 
 setup_logging("debug")
@@ -37,7 +37,7 @@ def test_agent():
 
 def test_server():
     """config_name='test' 時，啟動後自動關閉。"""
-    server, chat_app = run_app(config_name="test", host="0.0.0.0", port=SERVER_PORT)
+    server = run_server_build(config_name="test", host="0.0.0.0", port=SERVER_PORT)
 
     async def _run_and_stop():
         serve_task = asyncio.create_task(server.serve())
@@ -45,7 +45,4 @@ def test_server():
         server.should_exit = True  # 觸發優雅關閉
         await serve_task
 
-    try:
-        asyncio.run(_run_and_stop())
-    finally:
-        chat_app.close()
+    asyncio.run(_run_and_stop())  # ChatServer.serve 結束時自動關閉 ChatApp

@@ -8,7 +8,7 @@
 - **多輪對話記憶** — `InMemorySaver` + `thread_id`，相同 session 記得上下文（M2）
 - **SSE 串流** — `astream_text` 共用核心，CLI 與 server 皆可逐 token 輸出
 - **對話落盤** — `runs/<ts>/agent/<config>/results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
-- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 由 `run_agent_query()` / `run_app()` 在各自的 run context 內以 `create_agent()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatApp.close()` 關閉
+- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 由 `run_agent_query()` / `run_server_build()` 在各自的 run context 內以 `create_agent()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉
 - **落盤責任在呼叫端** — `Agent` 不再持有 `RunManager`（agent 層不依賴 workflow 層）；落盤由 `run_agent_query()` 與 `_event_stream()` 呼叫 `RunManager.save_agent_results_as_json()`
 
 - **模組實作**
@@ -18,13 +18,13 @@
 	- `src/website_copilot/agent/tools/webpage_retriever.py`（**多站 Retriever Tool**：接受 `site_id` 參數路由至對應知識庫）
 	- `src/website_copilot/agent/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
 	- `src/website_copilot/config/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
-	- `src/website_copilot/pipelines/agent.py`（`run_agent_query`：`website-copilot run agent` 的執行邏輯；`run_agent_build`：agent 建構 + 落盤的程式化 API）
-	- `src/website_copilot/server/bootstrap.py`（`run_app` / `serve_forever`：`website-copilot serve` 的執行邏輯）
+	- `src/website_copilot/pipelines/exp.py`（`run_agent_query`：`website-copilot run agent` 的執行邏輯）
+	- `src/website_copilot/pipelines/serve.py`（`run_agent_build`：agent 建構 + 落盤的程式化 API；`run_server_build` / `serve`：`website-copilot serve` 的執行邏輯）
 
 - **模組設定**
 	- `./configs/agent/{name}.toml`（**Agent 設定檔**：`llm_name` / `system_prompt`，預設 `default`）
 	- `llm_name` 與 RAG 檢索 LLM（`RAGConfig.query_llm_name`）**解耦**，可獨立更換不影響檢索
-	- API key 依 model name 自動路由：含 `gemini` → `GEMINI_RAG_QUERY_ENGINE_API_KEY`；其他（`gpt*` 等，預設）→ `OPENAI_API_KEY`
+	- API key 依 model name 自動路由：含 `gemini` → `GEMINI_API_KEY`；其他（`gpt*` 等，預設）→ `OPENAI_API_KEY`
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用現代型別語法）
@@ -47,7 +47,7 @@
   2. `create_llm(config.llm_name)`（agent.langchain_helper）建立 ChatModel（依 model name 自動路由 Gemini / OpenAI）
   3. 建立 `InMemorySaver` checkpointer
   4. 以 LangGraph `create_agent` 組裝 `tool.tools`、`system_prompt` 與 checkpointer，並包裝為 `Agent`；任一步驟失敗時 `tool.close()` 後 re-raise
-- **`run_agent_build(config_name="default", run_config=None, **config_overrides) -> None`（pipelines/agent.py）** — agent 建構 + 落盤的程式化 API：建立 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期，內部呼叫 `create_agent(config_name, **config_overrides)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，最後 `agent.close()`。**`run_agent_query()` / `run_app()` 不經此函式**，而是在各自的 run context 內直接呼叫 `create_agent()`
+- **`run_agent_build(config_name="default", run_config=None, run_manager=None, **config_overrides) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：`run_manager` 為 None 時建立 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期，有傳入時沿用呼叫端的 run context；內部呼叫 `create_agent(config_name, **config_overrides)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`run_server_build()` 以 `run_manager=` 呼叫此函式；`run_agent_query()` 仍直接呼叫 `create_agent()`
 
 - **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 
@@ -65,7 +65,7 @@
 
 - **`extract_sources_from_messages(messages)`** — 以正則 `URL: (\S+)` 從 ToolMessage 解析來源 URL（依序去重）
 
-- **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_RAG_QUERY_ENGINE_API_KEY`）；其他（`gpt*` 等）→ `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `retrieval.llama_index_helpers.create_llm`（LlamaIndex 版）對稱
+- **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_API_KEY`）；其他（`gpt*` 等）→ `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `retrieval.llama_index_helpers.create_llm`（LlamaIndex 版）對稱
 
 - **`_message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
 
@@ -73,7 +73,7 @@
 
 ```
 使用者問題 + thread_id
-  → run_agent_query / run_app 建立 run context 與 create_agent（一次）→ graph.invoke / graph.astream（每輪）
+  → run_agent_query / run_server_build 建立 run context 與 create_agent（一次）→ graph.invoke / graph.astream（每輪）
   → LLM 決定呼叫 webpage_retriever → 檢索結果作為上下文
   → 回答（含引用 URL）→ 落盤 runs/（results_{thread_id}.json 讀取 → 合併 → 覆寫）
 相同 thread_id → InMemorySaver 保留歷史 → 續接多輪

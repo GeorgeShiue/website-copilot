@@ -16,15 +16,9 @@ from website_copilot.utils.log_helper import log_session, log_source_title
 
 logger = logging.getLogger(__name__)
 
-LLM_API_KEY_ENV_VARS: dict[str, dict[str, str]] = {
-    "gemini": {
-        "query_engine": "GEMINI_RAG_QUERY_ENGINE_API_KEY",
-        "evaluator": "GEMINI_RAG_EVALUATOR_API_KEY",
-    },
-    "gpt": {
-        "query_engine": "OPENAI_API_KEY",
-        "evaluator": "OPENAI_API_KEY",
-    },
+LLM_API_KEY_ENV_VARS: dict[str, str] = {
+    "gemini": "GEMINI_API_KEY",
+    "gpt": "OPENAI_API_KEY",
 }
 
 
@@ -41,10 +35,10 @@ def build_filters(filter_dict: dict[str, Any] | None) -> MetadataFilters | None:
     return MetadataFilters(filters=filter_list)
 
 
-def create_llm(llm_name: str, usage: str = "query_engine") -> GoogleGenAI | OpenAI:
-    for provider, env_vars in LLM_API_KEY_ENV_VARS.items():
+def create_llm(llm_name: str) -> GoogleGenAI | OpenAI:
+    for provider, env_var in LLM_API_KEY_ENV_VARS.items():
         if provider in llm_name:
-            api_key = os.getenv(env_vars[usage])
+            api_key = os.getenv(env_var)
             if provider == "gemini":
                 return GoogleGenAI(model=llm_name, api_key=api_key)
             elif provider == "gpt":

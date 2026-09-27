@@ -7,13 +7,15 @@
 
 - **SSE 事件協定** — `token`（逐字）/ `done`（response + thread_id）/ `error`（message）
 - **多輪 session** — thread_id 由 server 產生（`auto-{uuid}`）並於 done 回傳，前端帶回續接
-- **資源生命週期** — agent 與 run_manager 由呼叫端建立後注入 `ChatApp`（lifespan 僅綁定至 `app.state`，不重建）；`ChatApp.close()` 釋放 agent（run_manager 無需釋放），並由呼叫端負責呼叫（CLI 於 `finally` 執行）
+- **資源生命週期** — agent 與 run_manager 由呼叫端建立後注入 `ChatApp`（lifespan 僅綁定至 `app.state`，不重建）；`ChatApp.close()` 釋放 agent（run_manager 無需釋放），由持有它的 `ChatServer` 在 `serve()` 結束時（正常／中斷／例外）自動呼叫
 - **CORS 限縮** — 預設全開放；`allowed_origins` 可限定自有網站來源（M5-3）
 - **站點偵測**（M4）— `DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`；`ChatRequest` 支援 `page_url` 欄位
 - **嵌入表面 static** — `chat.html`（iframe）/ `widget.js`（script widget）/ `demo.html`（示範頁）
 
 - **模組實作**
 	- `src/website_copilot/server/app.py`（**FastAPI app**：`ChatApp`、`_build_fastapi_app`、`ChatRequest`、`_event_stream`、`_sse`）
+	- `src/website_copilot/server/server.py`（`ChatServer`：持有 `ChatApp` 的 `uvicorn.Server` 子類，收到退出訊號時先印 log，`serve()` 結束時自動關閉 `ChatApp`）
+	- `src/website_copilot/pipelines/serve.py`（`run_server_build` / `serve`：`website-copilot serve` 的執行邏輯）
 	- `src/website_copilot/server/__init__.py`（匯出 `ChatApp` / `ChatRequest`）
 	- `src/website_copilot/server/static/`（**嵌入表面前端檔**：chat.html / widget.js / demo.html，詳見 [interface.md](interface.md)）
 
@@ -44,7 +46,7 @@ data: {"type": "error", "message": "..."}       ← 失敗
 ### 核心函式
 
 - **`ChatApp.create(agent, run_manager, allowed_origins=None)`** — 工廠方法：`_build_fastapi_app()` 建立 FastAPI app 並綁定 agent 與 run_manager：
-  - **lifespan**：啟動時將注入的 `agent` 與 `run_manager` 綁定至 `app.state`（不在 lifespan 建立/關閉資源；資源由呼叫端透過 `ChatApp.close()` 或 context manager 管理）
+  - **lifespan**：啟動時將注入的 `agent` 與 `run_manager` 綁定至 `app.state`（不在 lifespan 建立/關閉資源；資源由 `ChatServer` 結束時呼叫 `ChatApp.close()`，或由呼叫端以 context manager 管理）
   - **CORS middleware**：`allow_origins=allowed_origins`（None → `["*"]` 全開放）
   - **static mount**：`/static` → `src/website_copilot/server/static/`（M4a）
   - `GET /` → redirect `/static/demo.html`（嵌入示範入口）
@@ -64,9 +66,9 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
-- **`run_app(...)`（server/bootstrap.py）** — 啟動入口（`serve_forever()`，即 `website-copilot serve` 使用）：
-  - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 直接呼叫 `create_agent(config_name, **config_overrides)` 建立 agent（**不經 `run_agent_build()`**）→ `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `uvicorn.Server`，回傳 `(server, chat_app)` **tuple（非阻塞）**；由呼叫端執行 `server.run()` 並以 `try/finally` 呼叫 `chat_app.close()`
-  - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出（**不寫 `module_config.toml`**）；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
+- **`run_server_build(...)`（pipelines/serve.py）** — 啟動入口（`serve()`，即 `website-copilot serve` 使用）：
+  - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ `run_agent_build(config_name, run_manager=run_manager, **config_overrides)` 在同一 run context 內建立 agent → `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `ChatServer(config, chat_app)`（`uvicorn.Server` 子類），回傳 **`ChatServer`（非阻塞）**；由呼叫端執行 `server.run()`（或 `await server.serve()`），`ChatServer.serve()` 結束時於 `finally` 自動呼叫 `chat_app.close()`；ChatApp 可經 `server.chat_app` 取得
+  - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出，`module_config.toml` 由 `run_agent_build` 寫出；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
 
 ### 啟動方式

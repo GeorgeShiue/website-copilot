@@ -6,13 +6,19 @@
 # 技術債
 
 ## 檔案結構
-- [ ] app 改名為 core
-- [ ] rag 從 engines 移動到 core
-- [ ] engines 改名為 prepare
-
-## 測試優化
-- [ ] 更新 test_main.py 測試流程
-- [ ] 整理 test/dev 中的測試
+- [ ] 專案結構重構
+  - [x] plan 1
+  - [x] plan 2
+    1. server 建置 agent 改為呼叫 run_agent_build()
+    2. ChatServer 退出自動清理 ChatApp
+    3. 捨棄 makefile 將常見指令整理在 scripts 底下的腳本
+    4. 統一所有 gemini api key 環境變數名稱為 GEMINI_API_KEY
+    5. pyproject.toml 更新 (dependency, ruff)
+- [ ] 測試優化
+  - [ ] 更新 test_main.py 測試流程
+  - [ ] 更新 -m slow 標記
+  - [ ] 整理 test/dev 中的測試
+- [ ] 測試新專案結構
 
 ## 模組配置
 - [ ] 優化 site_id 參數設定和讀取
@@ -20,7 +26,7 @@
 - [ ] yml 配置檔
 - [ ] configs 改用 pydantic 參數驗證
 - [ ] config class 引入巢狀 class 分類
-- [ ] cli module config 移除中介層
+- [ ] cli module config **移除中介層**
 
 ## 模組重構
 - [ ] 包裝 log_helper.py

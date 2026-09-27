@@ -1,6 +1,6 @@
 """共用 workflow helper 函式。
 
-提供 pipelines.prepare／pipelines.agent／pipelines.exp／server.bootstrap 各 run_* 工作流程共用的
+提供 pipelines.prepare／pipelines.serve／pipelines.exp 各 run_* 工作流程共用的
 初始化與 logging 樣板。僅依賴 RunManager / config / log 工具，不依賴各流程模組，
 避免循環匯入；也不 import 任何引擎，serve 階段可安全使用。
 """
