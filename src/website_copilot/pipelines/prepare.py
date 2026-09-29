@@ -7,18 +7,16 @@ import os
 import shutil
 import tempfile
 
+from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
 from website_copilot.config.pipeline_config import (
+    ImageSummarizerRunConfig,
     RAGBuildRunConfig,
-    WebpageImageSummarizerRunConfig,
     WebsiteCrawlerRunConfig,
 )
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.config.webpage_image_summarizer_config import (
-    WebpageImageSummarizerConfig,
-)
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.ingestion.augmentation.image_summarizer import (
-    WebpageImageSummarizer,
+    ImageSummarizer,
 )
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
@@ -152,33 +150,33 @@ def run_website_crawler(
     return crawl_results
 
 
-def run_webpage_image_summarizer(
+def run_image_summarizer(
     config_name: str = "default",
     run_name_use_config_name: bool = False,
     crawl_results: dict[str, dict] | None = None,
     save: bool = True,
     publish: bool = False,
-    run_config: WebpageImageSummarizerRunConfig | None = None,
+    run_config: ImageSummarizerRunConfig | None = None,
     **config_overrides,
 ) -> dict[str, dict] | None:
     """執行網頁圖片摘要工作流程。
 
     Args:
-        config_name: WebpageImageSummarizerConfig 名稱。
+        config_name: ImageSummarizerConfig 名稱（對應 configs/image_summarizer/{name}.toml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
         save: 是否將本次執行結果落盤到 runs/（預設 True）。
         publish: 是否將本次執行結果 publish 到 data/（預設 False）。
         run_config: RunConfig 實例（可選，用於落盤 run config toml）。
-        **config_overrides: WebpageImageSummarizerConfig 覆寫值（含 site_id）。
+        **config_overrides: ImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
         增強後的爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    config = WebpageImageSummarizerConfig.from_toml(config_name, **config_overrides)
+    config = ImageSummarizerConfig.from_toml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
-        module="webpage_image_summarizer",
+        module="image_summarizer",
         config_name=config_name,
         config=config,
         run_name_use_config_name=run_name_use_config_name,
@@ -189,7 +187,7 @@ def run_webpage_image_summarizer(
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
-        webpage_image_summarizer = WebpageImageSummarizer(
+        image_summarizer = ImageSummarizer(
             download_timeout=config.download_timeout,
             success_threshold=config.success_threshold,
             max_retries=config.max_retries,
@@ -207,7 +205,7 @@ def run_webpage_image_summarizer(
 
         # ---- 執行圖片摘要 -----
         log_session("Image Summarization", style="cyan")
-        enhanced_results = webpage_image_summarizer.summarize_crawl_results_images(
+        enhanced_results = image_summarizer.summarize_crawl_results_images(
             crawl_results,
             model=config.model,
             prompt=config.prompt,
@@ -361,8 +359,8 @@ def run_prepare(config_name: str = "default") -> None:
             if crawl_results is None:
                 return
 
-            # ----- Webpage Image Summarizer -----
-            enhanced_results = run_webpage_image_summarizer(
+            # ----- Image Summarizer -----
+            enhanced_results = run_image_summarizer(
                 config_name=config_name,
                 crawl_results=crawl_results,
                 save=False,

@@ -132,7 +132,7 @@ def test_run_agent_dispatches_run_agent_query() -> None:
         ("website-crawler", "website_copilot.pipelines.prepare.run_website_crawler"),
         (
             "image-summarizer",
-            "website_copilot.pipelines.prepare.run_webpage_image_summarizer",
+            "website_copilot.pipelines.prepare.run_image_summarizer",
         ),
     ],
 )
@@ -191,9 +191,7 @@ def test_run_prepare_chains_stages_with_publish() -> None:
 
     with (
         patch.object(prepare, "run_website_crawler", return_value={"p": {}}) as crawl,
-        patch.object(
-            prepare, "run_webpage_image_summarizer", return_value={"p": {}}
-        ) as image,
+        patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
         prepare.run_prepare("test")
@@ -209,7 +207,7 @@ def test_run_prepare_stops_when_crawler_returns_none() -> None:
 
     with (
         patch.object(prepare, "run_website_crawler", return_value=None),
-        patch.object(prepare, "run_webpage_image_summarizer") as image,
+        patch.object(prepare, "run_image_summarizer") as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
         prepare.run_prepare("test")

@@ -81,7 +81,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── server.py            # ChatServer（uvicorn.Server 子類，持有 ChatApp，結束時自動關閉）
 │   │   └── static/              # chat.html（iframe）/ widget.js（來源，含 typing indicator）/ demo.html
 │   ├── pipelines/
-│   │   ├── prepare.py           # run_website_crawler / run_webpage_image_summarizer / run_rag_build / run_prepare
+│   │   ├── prepare.py           # run_website_crawler / run_image_summarizer / run_rag_build / run_prepare
 │   │   ├── serve.py             # run_agent_build / run_server_build / serve（不 import 爬蟲）
 │   │   └── exp.py               # run_rag_query / run_agent_query + 批次實驗（EXPERIMENTS）
 │   └── utils/                   # config_helper / log_helper
@@ -104,10 +104,9 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── agent/                   # Agent 設定（default / test）
 │   ├── rag/
 │   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
-│   │   ├── milvus.toml          # Milvus + WeightedRanker
 │   │   ├── nculab.toml / ncucsie.toml  # 多站設定
 │   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
-│   ├── webpage_image_summarizer/
+│   ├── image_summarizer/
 │   └── website_crawler/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
 │   ├── raw_webpages/<site_id>/  # 爬蟲原始輸出（fit_markdown）
@@ -151,7 +150,7 @@ cp .env.example .env        # 填入 API 金鑰
 
 ### 圖片摘要設定
 
-- `configs/webpage_image_summarizer/*.toml`
+- `configs/image_summarizer/*.toml`
 - 控制圖片下載逾時、重試行為、快取、模型選擇、prompt 文本以及圖片來源模式。
 
 ### 環境變數

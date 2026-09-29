@@ -43,7 +43,6 @@ DEFAULT_PROMPT = """
 - 所有欄位均不使用括號，直接列出內容
 - 低資訊字只在內部過濾，不列入最終輸出
 """
-DEFAULT_INIT_CONFIG_FOLDER_PATH = "configs/webpage_image_summarizer"
 DEFAULT_CONFIG_NAME = "default"
 DEFAULT_INIT_CONFIG_SECTION = "init"
 DEFAULT_SUMMARIZE_CONFIG_SECTION = "summarize"
@@ -78,8 +77,8 @@ VLM_MODEL_TO_API_KEY: dict[str, str] = {
 
 
 @dataclass
-class WebpageImageSummarizerConfig(BaseModuleConfig):
-    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/webpage_image_summarizer"
+class ImageSummarizerConfig(BaseModuleConfig):
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/image_summarizer"
     sections_to_keys: ClassVar[dict[str, set[str]]] = {
         section: keys.copy() for section, keys in SECTIONS_TO_KEYS.items()
     }
@@ -107,7 +106,7 @@ class WebpageImageSummarizerConfig(BaseModuleConfig):
         config_name: str = DEFAULT_CONFIG_NAME,
         **overrides,
     ):
-        """從 TOML 設定檔建立 WebpageImageSummarizerConfig。"""
+        """從 TOML 設定檔建立 ImageSummarizerConfig。"""
         return super().from_toml(config_name, **overrides)
 
     def _post_process_run_name(self, run_name: str) -> str:

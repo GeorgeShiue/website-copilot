@@ -125,7 +125,7 @@ def _setup_mock_run_manager(mock_rm_cls: MagicMock) -> MagicMock:
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_calls_create_agent_and_returns_agent(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
@@ -154,7 +154,7 @@ def test_run_agent_build_calls_create_agent_and_returns_agent(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_propagates_create_agent_error(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
@@ -179,7 +179,7 @@ def test_run_agent_build_propagates_create_agent_error(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_writes_run_config_when_provided(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
@@ -210,7 +210,7 @@ def test_run_agent_build_writes_run_config_when_provided(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_agent_build_closes_agent_when_save_fails(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_config_cls,
     mock_create_agent,
@@ -242,7 +242,7 @@ def test_run_agent_build_closes_agent_when_save_fails(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_creates_run_manager_with_runs(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -267,7 +267,7 @@ def test_run_agent_query_creates_run_manager_with_runs(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_calls_agent_ask(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -291,7 +291,7 @@ def test_run_agent_query_calls_agent_ask(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_delegates_save_to_run_manager(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -333,7 +333,7 @@ def test_run_agent_query_returns_none(mock_log_session):
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_auto_generates_thread_id(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -356,7 +356,7 @@ def test_run_agent_query_auto_generates_thread_id(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_success(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -378,7 +378,7 @@ def test_run_agent_query_closes_agent_on_success(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_error(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -401,7 +401,7 @@ def test_run_agent_query_closes_agent_on_error(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_closes_agent_on_stream_error(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -424,7 +424,7 @@ def test_run_agent_query_closes_agent_on_stream_error(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_stream_persists_streamed_result(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
 ):
@@ -457,7 +457,7 @@ def test_run_agent_query_stream_persists_streamed_result(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_writes_run_config_and_log_lifecycle(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
     mock_save_run_config,
@@ -487,7 +487,7 @@ def test_run_agent_query_writes_run_config_and_log_lifecycle(
 @patch("website_copilot.pipelines.exp.log_session")
 def test_run_agent_query_builds_agent_via_run_agent_build(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_run_agent_build,
     mock_save_module_config,
@@ -518,7 +518,7 @@ def test_run_agent_query_builds_agent_via_run_agent_build(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_server_build_returns_chat_server_holding_chat_app(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_chat_app_cls,
     mock_uvicorn,
@@ -564,7 +564,7 @@ def test_run_server_build_returns_chat_server_holding_chat_app(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_server_build_logs_init_then_complete_only(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_chat_app_cls,
     mock_uvicorn,
@@ -589,7 +589,7 @@ def test_run_server_build_logs_init_then_complete_only(
 @patch("website_copilot.pipelines.serve.log_session")
 def test_run_server_build_does_not_close_injected_agent_on_failure(
     mock_log_session,
-    mock_save_logging,
+    _mock_save_logging,
     mock_rm_cls,
     mock_chat_app_cls,
     mock_uvicorn,

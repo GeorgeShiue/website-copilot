@@ -16,7 +16,7 @@ from litellm import acompletion, completion_cost
 from rich.table import Table
 from rich.text import Text
 
-from website_copilot.config.webpage_image_summarizer_config import (
+from website_copilot.config.image_summarizer_config import (
     DEFAULT_PROMPT,
     VLM_MODEL_TO_API_KEY,
 )
@@ -40,7 +40,7 @@ SUPPORTED_IMAGE_CONTENT_TYPES = frozenset(
 UNSUPPORTED_IMAGE_SUFFIXES = (".svg", ".avif", ".bmp", ".ico", ".tif", ".tiff")
 
 
-class WebpageImageSummarizer:
+class ImageSummarizer:
     def __init__(
         self,
         download_timeout: float = 10.0,
@@ -738,20 +738,3 @@ class WebpageImageSummarizer:
             caption_generation_log += f" (cost_usd={cost_usd_string} prompt_tokens={prompt_tokens} completion_tokens={completion_tokens} total_tokens={total_tokens})"
 
         logger.debug(caption_generation_log)
-
-    def override_init_config(self, **init_kwargs) -> None:
-        """覆寫建構子參數。"""
-        self.download_timeout = init_kwargs.get(
-            "download_timeout", self.download_timeout
-        )
-        self.success_threshold = init_kwargs.get(
-            "success_threshold", self.success_threshold
-        )
-        self.max_retries = init_kwargs.get("max_retries", self.max_retries)
-        self.cache_download_image = init_kwargs.get(
-            "cache_download_images",
-            init_kwargs.get("cache_download_image", self.cache_download_image),
-        )
-        self.cache_image_captions = init_kwargs.get(
-            "cache_image_captions", self.cache_image_captions
-        )

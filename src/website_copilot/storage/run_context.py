@@ -8,8 +8,8 @@
 from contextlib import ExitStack
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.config.webpage_image_summarizer_config import (
-    WebpageImageSummarizerConfig,
+from website_copilot.config.image_summarizer_config import (
+    ImageSummarizerConfig,
 )
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.storage.run_manager import RunManager
@@ -21,7 +21,7 @@ from website_copilot.utils.log_helper import (
 
 # create_run_context 需要 site_id 欄位，但 BaseModuleConfig 未宣告（由使用 site 的
 # 子類自行宣告），故以實際呼叫端的模組 config 聯集標註。
-SiteModuleConfig = RAGConfig | WebsiteCrawlerConfig | WebpageImageSummarizerConfig
+SiteModuleConfig = RAGConfig | WebsiteCrawlerConfig | ImageSummarizerConfig
 
 
 def create_run_context(

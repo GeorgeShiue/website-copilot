@@ -21,11 +21,11 @@ from crawl4ai.deep_crawling.filters import (
 from rich.table import Table
 
 from website_copilot.config.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
-from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
-from website_copilot.schemas import GenerationResult
 from website_copilot.ingestion.crawling.html_date_extractor import (
     extract_date_from_html,
 )
+from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
+from website_copilot.schemas import GenerationResult
 from website_copilot.utils.log_helper import log_session, print_log, record_cost
 
 logger = logging.getLogger(__name__)
@@ -332,13 +332,3 @@ class WebsiteCrawler:
             table.add_row(key, str(stats[key]))
 
         print_log(table)
-
-    def override_init_config(self, **init_kwargs) -> None:
-        """覆寫初始化參數。"""
-        self.max_depth = init_kwargs.get("max_depth", self.max_depth)
-        self.max_pages = init_kwargs.get("max_pages", self.max_pages)
-        self.content_threshold = init_kwargs.get(
-            "content_threshold", self.content_threshold
-        )
-        self.light_mode = init_kwargs.get("light_mode", self.light_mode)
-        self.wait_for_images = init_kwargs.get("wait_for_images", self.wait_for_images)

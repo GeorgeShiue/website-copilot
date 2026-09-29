@@ -21,14 +21,14 @@
 - [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
 - [src/website_copilot/ingestion/indexing/index.py](src/website_copilot/ingestion/indexing/index.py)：`IndexBuilder` 負責向量庫的 clean / nodes / vector store / index 建置與載入，回傳 `IndexHandle`（nodes 與向量庫分別由 `node_pipeline.py`、`vector_store.py` 建立）。
 - [src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)：`RAGBuilder` 在 `IndexHandle` 之上建立 retriever / query engine；`build_rag()`（建置）與 `load_rag()`（serve 載入，絕不建置）為兩個入口。
-- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
+- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
 - [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
 
 ## 二、Workflow 解析與執行流程
 
 1. workflow 的核心實作分散在 `pipelines/prepare.py`／`pipelines/serve.py`／`pipelines/exp.py`，共提供七個主要入口（另有 `run_prepare()` 串接 prepare 三階段、`serve()` 串接 `run_agent_build()` 與 `run_server_build()` 並管理生命週期）：
    - `run_website_crawler()`
-   - `run_webpage_image_summarizer()`
+   - `run_image_summarizer()`
    - `run_rag_build()`
    - `run_rag_query()`
    - `run_agent_build()` / `run_agent_query()`
@@ -49,12 +49,12 @@
   3. 套用 `override_init_config()` 與 `crawl_website()` 的執行參數。
   4. 若爬取成功，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
-### 2. `run_webpage_image_summarizer()`
+### 2. `run_image_summarizer()`
 
 - 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown。
 - 流程：
-  1. 建立 [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py) 的 `WebpageImageSummarizer`。
-  2. 透過 [src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py) 載入 `configs/webpage_image_summarizer/{config_name}.toml`。
+  1. 建立 [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py) 的 `ImageSummarizer`。
+  2. 透過 [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py) 載入 `configs/image_summarizer/{config_name}.toml`。
   3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results()` 自動載入最近一次 crawler 結果。
   4. 執行圖片摘要後，寫出 `module_config.toml`、`results.json` 與 `results/*.md`。
 
@@ -194,6 +194,6 @@ uv run website-copilot run rag-query --run.config-name test --run.force-rebuild
 - [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py)
 - [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)
 - [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)
-- [src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py)
+- [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)
 - [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)
 - [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)

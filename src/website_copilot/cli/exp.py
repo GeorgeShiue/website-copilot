@@ -8,8 +8,8 @@ import tyro
 # 與 pipelines.exp.EXPERIMENTS 的 key 保持一致（由測試比對）；
 # 在此列出而非 import，避免解析參數時就載入 RAG 相關依賴。
 ExperimentName = Literal[
-    "webpage_image_summarizer_model",
-    "webpage_image_summarizer_prompt",
+    "image_summarizer_model",
+    "image_summarizer_prompt",
     "rag_dense_model",
     "rag_hybrid_ranker",
     "rag_hybrid_ranker_weights",

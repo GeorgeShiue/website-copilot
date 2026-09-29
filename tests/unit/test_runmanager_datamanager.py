@@ -77,17 +77,13 @@ class TestRunManagerRefactor:
         # 建立測試資料結構
         run_timestamp = "20260819_100000"
         summarizer_dir = os.path.join(
-            self.runs_dir, run_timestamp, "webpage_image_summarizer", "results"
+            self.runs_dir, run_timestamp, "image_summarizer", "results"
         )
         os.makedirs(summarizer_dir)
 
-        latest_run_path = load_latest_run_path(
-            self.runs_dir, "webpage_image_summarizer"
-        )
+        latest_run_path = load_latest_run_path(self.runs_dir, "image_summarizer")
 
-        expected_path = os.path.join(
-            self.runs_dir, run_timestamp, "webpage_image_summarizer"
-        )
+        expected_path = os.path.join(self.runs_dir, run_timestamp, "image_summarizer")
         assert latest_run_path == expected_path
 
     def test_for_run_creates_three_layer_structure(self):

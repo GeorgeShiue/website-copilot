@@ -25,7 +25,7 @@ class WebsiteCrawlerRunConfig(BaseRunConfig):
 
 
 @dataclass
-class WebpageImageSummarizerRunConfig(BaseRunConfig):
+class ImageSummarizerRunConfig(BaseRunConfig):
     pass
 
 
@@ -77,7 +77,7 @@ class WebsiteCrawlerModuleConfig:
 
 
 @dataclass
-class WebpageImageSummarizerModuleConfig:
+class ImageSummarizerModuleConfig:
     model: str | None = None
 
 

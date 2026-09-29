@@ -6,7 +6,7 @@
 - `src/website_copilot/cli/__init__.py`：`main()` 以 `tyro` 解析子命令 `prepare | serve | run | exp` 並 dispatch 到對應子命令模組。各子命令模組只在頂層 import 參數 dataclass，執行邏輯在 `main()` 內延遲 import，避免例如 serve 間接載入爬蟲依賴。
 - `src/website_copilot/cli/run.py`：單模組執行 `run website-crawler | image-summarizer | rag-build | rag-query | agent`，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline（`run_config` 以參數傳入，`run_config.toml` 由 pipeline 函式寫出）。
 - `src/website_copilot/cli/{prepare,serve,exp}.py`：兩階段入口與批次實驗的參數定義，分別呼叫 `pipelines.prepare.run_prepare`、`pipelines.serve.serve`、`pipelines.exp.run_experiment`。
-- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`serve`；exp：`run_rag_query`、`run_agent_query` 與批次實驗），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
+- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`serve`；exp：`run_rag_query`、`run_agent_query` 與批次實驗），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
 - `src/website_copilot/pipelines/serve.py`：`run_agent_build`（建構 agent）、`run_server_build`（以注入的 agent 建立 ChatApp + ChatServer）與 `serve`（`run_agent_build` → `run_server_build` → `server.run()` → 關閉）。
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），以及 CLI 可覆寫的 module 欄位，供 `tyro` 與程式使用。
   - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
@@ -16,7 +16,7 @@
 ## 二、CLI 解析與 dispatch 流程
 
 1. `cli/__init__.py` 定義頂層子命令 union：`PrepareCLI | ServeCLI | RunCLI | ExpCLI`（以 `tyro.conf.subcommand` 命名為 `prepare` / `serve` / `run` / `exp`）。
-2. `RunCLI` 的 `command` 欄位為第二層子命令 union：`WebsiteCrawlerCLI | WebpageImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI`（`website-crawler` / `image-summarizer` / `rag-build` / `rag-query` / `agent`）。
+2. `RunCLI` 的 `command` 欄位為第二層子命令 union：`WebsiteCrawlerCLI | ImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI`（`website-crawler` / `image-summarizer` / `rag-build` / `rag-query` / `agent`）。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（module-specific overrides dataclass），命令列參數為 `--run.*` 與 `--module.*`。
    - `RAGBuildCLI.module` / `RAGQueryCLI.module`（`RAGModuleConfig`）支援以下 hybrid 相關覆寫：
      - `hybrid_ranker` — 切換 `"RRFRanker"` / `"WeightedRanker"`

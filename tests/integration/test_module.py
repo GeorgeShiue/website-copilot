@@ -4,8 +4,8 @@ import pytest
 
 from website_copilot.pipelines.exp import run_agent_query
 from website_copilot.pipelines.prepare import (
+    run_image_summarizer,
     run_rag_build,
-    run_webpage_image_summarizer,
     run_website_crawler,
 )
 from website_copilot.pipelines.serve import run_agent_build, run_server_build
@@ -23,8 +23,8 @@ def test_website_crawler():
     run_website_crawler(config_name="test")
 
 
-def test_webpage_image_summarizer():
-    run_webpage_image_summarizer(config_name="test")
+def test_image_summarizer():
+    run_image_summarizer(config_name="test")
 
 
 def test_rag():

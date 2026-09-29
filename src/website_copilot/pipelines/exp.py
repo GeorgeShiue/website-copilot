@@ -243,8 +243,8 @@ def run_agent_query(
 # ════════════════════════════════════════════════════════════════════
 
 
-def webpage_image_summarizer_model():
-    from website_copilot.pipelines.prepare import run_webpage_image_summarizer
+def image_summarizer_model():
+    from website_copilot.pipelines.prepare import run_image_summarizer
 
     # gemini_flash_lite_models = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
     # gemini_3_all_tier_models = [
@@ -255,20 +255,20 @@ def webpage_image_summarizer_model():
     models = ["gemini-3.1-flash-lite", "gemini-3-flash"]  # temp
 
     for model in models:
-        run_webpage_image_summarizer(
+        run_image_summarizer(
             config_name=model,
             run_name_use_config_name=True,
         )
 
 
-def webpage_image_summarizer_prompt():
-    from website_copilot.pipelines.prepare import run_webpage_image_summarizer
+def image_summarizer_prompt():
+    from website_copilot.pipelines.prepare import run_image_summarizer
 
     # all_prompts = ["prompt-v1", "prompt-v2", "prompt-v3"]
     prompts = ["prompt-v3"]  # temp
 
     for prompt in prompts:
-        run_webpage_image_summarizer(
+        run_image_summarizer(
             config_name=prompt,
             run_name_use_config_name=True,
         )
@@ -380,8 +380,8 @@ def rag_dense_vs_hybrid():
 
 
 EXPERIMENTS: dict[str, Callable[[], None]] = {
-    "webpage_image_summarizer_model": webpage_image_summarizer_model,
-    "webpage_image_summarizer_prompt": webpage_image_summarizer_prompt,
+    "image_summarizer_model": image_summarizer_model,
+    "image_summarizer_prompt": image_summarizer_prompt,
     "rag_dense_model": rag_dense_model,
     "rag_hybrid_ranker": rag_hybrid_ranker,
     "rag_hybrid_ranker_weights": rag_hybrid_ranker_weights,

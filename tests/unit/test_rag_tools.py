@@ -98,8 +98,6 @@ def _make_registry(
         config_name="default",
         max_cached=max_cached,
     )
-    # Attach tmp_dir for potential cleanup (not strictly needed for tests)
-    registry._test_tmp_dir = tmp_dir  # type: ignore[attr-defined]
     return registry
 
 

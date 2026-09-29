@@ -27,7 +27,6 @@ class RunManager:
         Args:
             module_name: 模組名稱（可選，之後由 for_run / for_run_no_site 設定）。
             base_folder: 執行結果的根資料夾（預設 runs/）。
-                聊天記錄等非實驗資料可傳入其他資料夾（如 chats/）。
         """
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.base_folder = base_folder
@@ -246,7 +245,7 @@ class RunManager:
         回傳時間戳最新（lexicographically last）的那一個完整路徑；找不到回傳 None。
 
         Args:
-            base_folder: runs/ 或 chats/ 根目錄。
+            base_folder: runs/ 根目錄。
             module_name: 模組名稱（如 "agent"）。
             history_filename: 要搜尋的檔名（如 "results_auto-87d6ce91.json"）。
         """

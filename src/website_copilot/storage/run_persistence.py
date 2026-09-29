@@ -41,7 +41,7 @@ def load_latest_results(
     """從 JSON 檔案讀取最新模組的爬取結果列表。
 
     Args:
-        base_folder: runs/ 根目錄（如 "runs" 或 "chats"）。
+        base_folder: runs/ 根目錄。
         module_name: 模組資料夾名稱（如 "website_crawler"）。
 
     Returns:
@@ -81,7 +81,7 @@ def load_latest_results(
 
 def load_latest_run_path(
     base_folder: str,
-    module_name: str = "webpage_image_summarizer",
+    module_name: str = "image_summarizer",
 ) -> str:
     """回傳最新指定模組的 run path（results 的上一層）。
 

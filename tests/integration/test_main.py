@@ -2,8 +2,8 @@ import pytest
 
 from website_copilot.pipelines.exp import run_agent_query
 from website_copilot.pipelines.prepare import (
+    run_image_summarizer,
     run_rag_build,
-    run_webpage_image_summarizer,
     run_website_crawler,
 )
 from website_copilot.utils.log_helper import setup_logging
@@ -18,7 +18,7 @@ def test_main():
     if crawl_results is None:
         return
 
-    enhanced_crawl_results = run_webpage_image_summarizer(
+    enhanced_crawl_results = run_image_summarizer(
         config_name="test",
         crawl_results=crawl_results,
     )

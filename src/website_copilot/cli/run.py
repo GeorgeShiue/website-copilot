@@ -8,11 +8,11 @@ import tyro
 from website_copilot.config.pipeline_config import (
     AgentModuleConfig,
     AgentRunConfig,
+    ImageSummarizerModuleConfig,
+    ImageSummarizerRunConfig,
     RAGBuildRunConfig,
     RAGModuleConfig,
     RAGQueryRunConfig,
-    WebpageImageSummarizerModuleConfig,
-    WebpageImageSummarizerRunConfig,
     WebsiteCrawlerModuleConfig,
     WebsiteCrawlerRunConfig,
 )
@@ -25,9 +25,9 @@ class WebsiteCrawlerCLI:
 
 
 @dataclass
-class WebpageImageSummarizerCLI:
-    run: WebpageImageSummarizerRunConfig
-    module: WebpageImageSummarizerModuleConfig
+class ImageSummarizerCLI:
+    run: ImageSummarizerRunConfig
+    module: ImageSummarizerModuleConfig
 
 
 @dataclass
@@ -50,7 +50,7 @@ class AgentCLI:
 
 ModuleCommand = (
     Annotated[WebsiteCrawlerCLI, tyro.conf.subcommand("website-crawler")]
-    | Annotated[WebpageImageSummarizerCLI, tyro.conf.subcommand("image-summarizer")]
+    | Annotated[ImageSummarizerCLI, tyro.conf.subcommand("image-summarizer")]
     | Annotated[RAGBuildCLI, tyro.conf.subcommand("rag-build")]
     | Annotated[RAGQueryCLI, tyro.conf.subcommand("rag-query")]
     | Annotated[AgentCLI, tyro.conf.subcommand("agent")]
@@ -93,10 +93,10 @@ def main(cli: RunCLI) -> None:
             publish=publish,
             run_config=command.run,
         )
-    elif isinstance(command, WebpageImageSummarizerCLI):
-        from website_copilot.pipelines.prepare import run_webpage_image_summarizer
+    elif isinstance(command, ImageSummarizerCLI):
+        from website_copilot.pipelines.prepare import run_image_summarizer
 
-        run_webpage_image_summarizer(
+        run_image_summarizer(
             **run_kwargs,
             **module_config_overrides,
             save=save,

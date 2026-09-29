@@ -2,7 +2,7 @@
 
 ## 待辦事項
 
-- [x] webpage_image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
+- [x] image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.toml
 - [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 None 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
 - [x] 保留建置 vector store 的 config 到 data/rag/results/（Milvus：`milvus.db`）
@@ -14,10 +14,10 @@
 
 `src/website_copilot/pipelines/*.py`、`src/website_copilot/cli/` 與 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 共同負責執行路徑與檔案留存。
 
-專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/webpage_image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 dataclass 在 `src/website_copilot/config/` 中載入與驗證。根據目前程式碼庫，四個主要 config 類分別位於：
+專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 dataclass 在 `src/website_copilot/config/` 中載入與驗證。根據目前程式碼庫，四個主要 config 類分別位於：
 
 - `src/website_copilot/config/website_crawler_config.py`
-- `src/website_copilot/config/webpage_image_summarizer_config.py`
+- `src/website_copilot/config/image_summarizer_config.py`
 - `src/website_copilot/config/rag_config.py`
 - `src/website_copilot/config/agent_config.py`
 
@@ -51,12 +51,12 @@
 - `clean`：`llm_model`、`sample_ratio`、`repeat`、`max_prompt_tokens`、`seed`。exclude_words 一律由 LLM 產生並經全站行覆蓋率驗證，不再提供人工清單與開關。\*\*
   \*\*
 
-### Webpage image summarizer
+### Image summarizer
 
-- Config dataclass: `src/website_copilot/config/webpage_image_summarizer_config.py`
-- TOML 範例與實作：`configs/webpage_image_summarizer/{config_name}.toml`
+- Config dataclass: `src/website_copilot/config/image_summarizer_config.py`
+- TOML 範例與實作：`configs/image_summarizer/{config_name}.toml`
 - 載入流程與注意：
-  1. `WebpageImageSummarizerConfig.from_toml(config_name, **overrides)` 會載入 `configs/webpage_image_summarizer/{config_name}.toml`，並套用 `sections_to_keys` 規則。
+  1. `ImageSummarizerConfig.from_toml(config_name, **overrides)` 會載入 `configs/image_summarizer/{config_name}.toml`，並套用 `sections_to_keys` 規則。
   2. `litellm_kwargs` 被設為 residual section（allowed keys 空集合），因此在覆寫時允許任意延伸鍵值並會保留在 config 物件中。
   3. 建構後執行 `_validate_config()` 做型別檢查（例如 `download_timeout > 0`，`vlm_max_workers > 0`，`image_source` 僅允許 `images` 或 `markdown`）。
 
@@ -158,7 +158,7 @@ module_config 與 run_config 的寫入機制：
 - 模組無關的 Markdown／發現函式位於 `src/website_copilot/storage/run_persistence.py`（無狀態函式，非 RunManager 方法）：`save_results_as_md()` 把每頁結果寫入 `results/*.md`、`save_query_results_as_md()` 寫 `results/query_{index}.md`、`load_latest_results()` / `load_latest_run_path()` 供跨 run 探索。
 - 目前主要 workflow 入口的行為：
   - `run_website_crawler()`：寫 `module_config.toml`、`results.json`、`results/*.md`
-  - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
+  - `run_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_rag_build()`：寫 `module_config.toml`（與 `run_config.toml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
   - `run_agent_query()`：經 `run_agent_build()` 建構 agent（`module_config.toml` 寫在 `agent_build/`）；本身只寫 `run_config.toml`，並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
@@ -203,7 +203,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 主要流程目前行為：
 
 - run_website_crawler()：寫 module_config.toml、results.json、results/\*.md
-- run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
+- run_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
 - run_rag_build()：寫 module_config.toml（與 run_config.toml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
 - run_agent_query()：寫 run_config.toml 與 `results_{thread_id}.json`（module_config.toml 由 run_agent_build 寫在 `agent_build/`）（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
@@ -216,7 +216,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 - `tests/integration/test_module.py` 的 smoke test 會透過程式 API 依序呼叫：
   - `run_website_crawler(config_name="test")`
-  - `run_webpage_image_summarizer(config_name="test")`
+  - `run_image_summarizer(config_name="test")`
   - `run_rag_build(config_name="test")`
 
 - `tests/integration/test_main.py` 會測試 crawler 與 summarizer 的串接流程（共用同一個 RunManager）。
@@ -230,7 +230,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 重點：
 
-- 四個主要模組（crawler、webpage_image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
+- 四個主要模組（crawler、image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
 - `BaseModuleConfig`（`src/website_copilot/config/base_config.py`）為共用基底，不綁定 `site_id`；需要 `site_id` 的子類（如 `RAGConfig`、`WebsiteCrawlerConfig`）自行宣告欄位。
 - `pipeline_config.py`（`src/website_copilot/config/pipeline_config.py`）定義 RunConfig 與 ModuleConfig dataclass，供 CLI（tyro）與程式端共用。
 - 驗證邏輯被放在各 config 類的 `_validate_config()` 中，以在建構時即捕捉錯誤。
@@ -242,7 +242,7 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - [src/website_copilot/config/base_config.py](src/website_copilot/config/base_config.py)
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)
 - [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)
-- [src/website_copilot/config/webpage_image_summarizer_config.py](src/website_copilot/config/webpage_image_summarizer_config.py)
+- [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)
 - [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)
 - [src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)
 - [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)
