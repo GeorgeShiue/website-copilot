@@ -297,7 +297,6 @@ def run_rag_build(
                 webpages_data_use_latest_results=webpages_data_use_latest_results,
                 run_manager=run_manager,
                 build_query_engine=False,
-                data_manager=data_manager,
             )
             rag.close()
 
@@ -335,16 +334,19 @@ def run_rag_build(
             shutil.rmtree(staging_dir, ignore_errors=True)
 
 
-def run_prepare(config_name: str = "default") -> None:
-    """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置，各階段結果 publish 到 data/。
+def run_prepare(config_name: str = "default", publish: bool = True) -> None:
+    """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置。
 
     與 serve 階段以 data/ 目錄為唯一介面：本階段負責寫入，serve 階段只讀取已 publish
     的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
 
     Args:
         config_name: 各階段共用的 config 名稱（對應 configs/{module}/{name}.toml）。
+        publish: True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
+            runs/，不寫入 data/，RAG 以 runs/ 中本次的圖片摘要結果建庫（供測試使用）。
     """
     reset_run_summary()
+    save = not publish
 
     with log_run_time(f"Prepare Workflow ({config_name})"):
         log_session(f"Prepare Workflow ({config_name})", style="purple")
@@ -353,8 +355,8 @@ def run_prepare(config_name: str = "default") -> None:
             # ----- Website Crawler -----
             crawl_results = run_website_crawler(
                 config_name=config_name,
-                save=False,
-                publish=True,
+                save=save,
+                publish=publish,
             )
             if crawl_results is None:
                 return
@@ -363,8 +365,8 @@ def run_prepare(config_name: str = "default") -> None:
             enhanced_results = run_image_summarizer(
                 config_name=config_name,
                 crawl_results=crawl_results,
-                save=False,
-                publish=True,
+                save=save,
+                publish=publish,
             )
             if enhanced_results is None:
                 return
@@ -372,8 +374,9 @@ def run_prepare(config_name: str = "default") -> None:
             # ----- RAG Build -----
             run_rag_build(
                 config_name=config_name,
-                save=False,
-                publish=True,
+                webpages_data_use_latest_results=not publish,
+                save=save,
+                publish=publish,
             )
 
             # ----- 輸出完成訊息 -----

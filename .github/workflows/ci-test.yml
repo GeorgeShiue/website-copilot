@@ -58,4 +58,4 @@ jobs:
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Run tests
-        run: uv run pytest tests/integration/test_module.py
+        run: uv run pytest tests/integration

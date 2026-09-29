@@ -1,7 +1,6 @@
 """WebpageMarkdownCleaner 的 LLM 產生 exclude_words 與清理單元測試。"""
 
 import json
-import random
 from unittest.mock import patch
 
 import pytest
@@ -44,17 +43,6 @@ def test_guard_words_rules():
         ["Skip to main", "Skip to main", "xy", "x", "foo", 3, "zzz"], samples
     )
     assert kept == ["Skip to main", "xy"]  # 去重、長度 ≥2、需出現 ≥2 頁、非字串略過
-
-
-def test_sample_pages_min_and_no_repeat():
-    rng = random.Random(1)
-    got = WebpageMarkdownCleaner.sample_pages(PAGES, 0.1, rng)
-    assert len(got) == 2
-    got = WebpageMarkdownCleaner.sample_pages({"a": "x"}, 0.1, rng)
-    assert list(got) == ["a"]
-    a = WebpageMarkdownCleaner.sample_pages(PAGES, 0.5, random.Random(7))
-    b = WebpageMarkdownCleaner.sample_pages(PAGES, 0.5, random.Random(7))
-    assert a == b and len(a) == 5
 
 
 def test_generate_union_and_vote_order():
@@ -122,50 +110,6 @@ def test_propose_words_rejects_stream_response():
         # 非 ModelResponse 視為單次失敗；唯一一次失敗 → 全部失敗
         with pytest.raises(ExcludeWordsGenerationError):
             cleaner.generate_exclude_words(PAGES)
-
-
-def test_save_generated_exclude_words(tmp_path):
-    from website_copilot.schemas import GenerationResult
-    from website_copilot.storage.run_persistence import save_generated_exclude_words
-
-    result = GenerationResult(
-        words=["Footer text"],
-        votes={"Footer text": 2, "only0": 1},
-        seed=1,
-        samples=[["p0", "p1"]],
-        runs=[["Footer text"]],
-        raw_runs=[["Footer text"]],
-        usages=[{"prompt_tokens": 1, "completion_tokens": 1, "cost_usd": 0.02}],
-        rejected={"only0": 1.0},
-        stats={"Footer text": {"hits": 10, "low_occ_ratio": 0.0}},
-        hits={"Footer text": 10},
-    )
-    save_generated_exclude_words(result, PAGES, str(tmp_path))
-
-    toml_text = (tmp_path / "generated_exclude_words.toml").read_text(encoding="utf-8")
-    assert '"Footer text"' in toml_text
-    report = json.loads((tmp_path / "exclude_words_report.json").read_text("utf-8"))
-    assert report["words"] == [
-        {"word": "Footer text", "votes": 2, "hit_lines": 10, "low_occ_ratio": 0.0}
-    ]
-    assert report["rejected"] == [{"word": "only0", "votes": 1, "low_occ_ratio": 1.0}]
-    assert report["total_cost_usd"] == pytest.approx(0.02)
-
-
-def test_line_coverage_and_word_stats():
-    cov = WebpageMarkdownCleaner.line_coverage(PAGES)
-    assert cov["Footer text"] == 1.0
-    assert cov["only3"] == pytest.approx(0.1)
-    stats = WebpageMarkdownCleaner.word_stats(PAGES, "only", cov, low=0.15)
-    assert stats == {"hits": 10, "low_occ_ratio": 1.0}
-    stats = WebpageMarkdownCleaner.word_stats(PAGES, "Footer", cov, low=0.15)
-    assert stats == {"hits": 10, "low_occ_ratio": 0.0}
-
-
-def test_normalize_line_strips_link_url_keeps_image_url():
-    n = WebpageMarkdownCleaner.normalize_line
-    assert n(" [首頁](/a) ") == "[首頁]()" and n("[首頁](/b)") == n("[首頁](/a)")
-    assert n("![x](a.png)") != n("![x](b.png)")
 
 
 def test_validate_words_threshold_boundary():

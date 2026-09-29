@@ -214,12 +214,11 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 
 倉庫中的測試與實驗（現況）：
 
-- `tests/integration/test_module.py` 的 smoke test 會透過程式 API 依序呼叫：
-  - `run_website_crawler(config_name="test")`
-  - `run_image_summarizer(config_name="test")`
-  - `run_rag_build(config_name="test")`
+- `tests/integration/test_module.py` 會透過程式 API 逐一呼叫各 run function（皆使用 `config_name="test"`）：
+  - `run_website_crawler`、`run_image_summarizer`、`run_rag_build`
+  - `run_agent_build`、`run_agent_query`
 
-- `tests/integration/test_main.py` 會測試 crawler 與 summarizer 的串接流程（共用同一個 RunManager）。
+- `tests/integration/test_pipeline.py` 會執行 `run_prepare(config_name="test", publish=False)`（只存到 `runs/`，RAG 以 `runs/` 中本次的圖片摘要結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
 - `website-copilot exp <name>`（實驗定義於 `pipelines/exp.py` 的 `EXPERIMENTS`）為手動實驗入口，方便針對不同 `config_name` 或模型版本做比較。
 
 ## 六、結論
@@ -248,4 +247,4 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)
 - [src/website_copilot/cli/](src/website_copilot/cli/)
 - [tests/integration/test_module.py](tests/integration/test_module.py)
-- [tests/integration/test_main.py](tests/integration/test_main.py)
+- [tests/integration/test_pipeline.py](tests/integration/test_pipeline.py)

@@ -1,7 +1,10 @@
-"""run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}/）。
+"""pipelines/prepare.py 測試。
 
-build_rag 以 fake 替代：依 config.milvus_uri／run_manager 決定位置寫出假向量庫，
-不呼叫 embedding；runs/、data/ 與系統暫存資料夾皆在 tmp。
+- run_prepare：三階段以 save=False / publish=True 串接；publish=False 時改存 runs/
+  並以 runs/ 最新的圖片摘要結果建庫；crawler 無產出時提前結束。
+- run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}/）：
+  build_rag 以 fake 替代：依 config.milvus_uri／run_manager 決定位置寫出假向量庫，
+  不呼叫 embedding；runs/、data/ 與系統暫存資料夾皆在 tmp。
 """
 
 import os
@@ -12,9 +15,9 @@ from unittest.mock import patch
 import pytest
 
 from website_copilot.config.rag_config import RAGConfig
+from website_copilot.pipelines.prepare import run_rag_build
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.run_manager import RunManager
-from website_copilot.pipelines.prepare import run_rag_build
 
 
 class _FakeRAG:
@@ -207,3 +210,64 @@ def test_swap_failure_restores_old_store(tmp_path):
 
     assert (rag_dir / "milvus.db" / "vec.bin").read_text() == "old"
     assert os.listdir(rag_dir) == ["milvus.db"]
+
+
+# ===========================================================================
+# run_prepare：階段串接與提前結束
+# ===========================================================================
+
+
+def test_run_prepare_chains_stages_with_publish() -> None:
+    from website_copilot.pipelines import prepare
+
+    with (
+        patch.object(prepare, "run_website_crawler", return_value={"p": {}}) as crawl,
+        patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
+        patch.object(prepare, "run_rag_build") as rag,
+    ):
+        prepare.run_prepare("test")
+    crawl.assert_called_once_with(config_name="test", save=False, publish=True)
+    image.assert_called_once_with(
+        config_name="test", crawl_results={"p": {}}, save=False, publish=True
+    )
+    rag.assert_called_once_with(
+        config_name="test",
+        webpages_data_use_latest_results=False,
+        save=False,
+        publish=True,
+    )
+
+
+def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> None:
+    """publish=False：各階段只存 runs/，RAG 以 runs/ 最新的圖片摘要結果建庫。"""
+    from website_copilot.pipelines import prepare
+
+    with (
+        patch.object(prepare, "run_website_crawler", return_value={"p": {}}) as crawl,
+        patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
+        patch.object(prepare, "run_rag_build") as rag,
+    ):
+        prepare.run_prepare("test", publish=False)
+    crawl.assert_called_once_with(config_name="test", save=True, publish=False)
+    image.assert_called_once_with(
+        config_name="test", crawl_results={"p": {}}, save=True, publish=False
+    )
+    rag.assert_called_once_with(
+        config_name="test",
+        webpages_data_use_latest_results=True,
+        save=True,
+        publish=False,
+    )
+
+
+def test_run_prepare_stops_when_crawler_returns_none() -> None:
+    from website_copilot.pipelines import prepare
+
+    with (
+        patch.object(prepare, "run_website_crawler", return_value=None),
+        patch.object(prepare, "run_image_summarizer") as image,
+        patch.object(prepare, "run_rag_build") as rag,
+    ):
+        prepare.run_prepare("test")
+    image.assert_not_called()
+    rag.assert_not_called()

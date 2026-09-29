@@ -87,7 +87,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   └── utils/                   # config_helper / log_helper
 ├── tests/
 │   ├── unit/                    # 單元測試（預設執行）
-│   └── integration/             # 端到端測試（slow 標記：真實爬蟲 / LLM / 建庫）
+│   └── integration/             # 整合測試（cost 標記：會呼叫 LLM API）
 ├── extension/                   # Chrome Extension（M4）
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
 │   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）+ keepalive + thread_id 共享
@@ -96,7 +96,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── scripts/                     # 開發常用指令
 │   ├── check.sh                 # 依序執行 lint.sh → test.sh → check-widget.sh
 │   ├── lint.sh                  # ruff check + ruff format 檢查 + pyright（--fix 自動修正）
-│   ├── test.sh                  # pytest（略過 slow，額外參數傳給 pytest）
+│   ├── test.sh                  # pytest tests/unit（額外參數傳給 pytest）
 │   ├── check-widget.sh          # 確認 widget.js 兩份一致
 │   ├── clean-runs.sh            # 刪除 runs/ 中今天以前的 run（--dry-run / --yes）
 │   └── sync-widget.sh           # 同步 widget.js 到 extension/
@@ -251,11 +251,12 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 ### 執行測試
 
 ```bash
-# 快速路徑（不含真實爬蟲 / LLM / 建庫）
-./scripts/test.sh              # = uv run pytest -m "not slow"
+# 單元測試（全部 mock，不需 API 金鑰）
+./scripts/test.sh              # = uv run pytest tests/unit
 
-# 完整測試（含端到端 slow 測試，需 API 金鑰）
-uv run pytest -m slow tests/integration
+# 整合測試（需 API 金鑰；cost 標記的測試會產生 API 費用）
+uv run pytest tests/integration
+uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測試
 ```
 
 ## 輸出
@@ -293,13 +294,13 @@ Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot ser
 
 - `./scripts/check.sh`：依序執行三組檢查，任一組失敗即中止（可用於 `git bisect run`）；各組也可單獨執行：
   - `./scripts/lint.sh`：`ruff check`、`ruff format --check`、`pyright`；加 `--fix` 改為自動修正 ruff 問題並格式化（`ruff check --fix`、`ruff format`）
-  - `./scripts/test.sh`：`pytest -m "not slow"`（額外參數會傳給 pytest，如 `./scripts/test.sh -x tests/unit`）
+  - `./scripts/test.sh`：`pytest tests/unit`（額外參數會傳給 pytest，如 `./scripts/test.sh -x`）
   - `./scripts/check-widget.sh`：確認 `extension/widget.js` 與來源一致
 - 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定（`./scripts/lint.sh --fix` 自動修正）。
 - `widget.js` 以 `src/website_copilot/server/static/widget.js` 為來源，修改後執行 `./scripts/sync-widget.sh` 同步到 `extension/`（CI 會比對兩份是否一致）。
 - `./scripts/clean-runs.sh`：刪除 `runs/` 中今天以前的 run 資料夾（依 `YYYYMMDD_HHMMSS` 名稱判斷，其他項目保留）；刪除前會列出清單與合計大小並要求確認，`--dry-run` 只列出、`--yes` 略過確認。注意 agent 的 `results_<thread_id>.json` 會跨 run 累積對話歷史，清理後舊 thread 的歷史也會一併移除。
-- `tests/integration/test_main.py` 會使用測試設定檔執行完整流程（prepare 三階段 + agent 問答）。
-- `tests/integration/test_module.py` 會獨立執行爬蟲與摘要器。
+- `tests/integration/test_module.py` 以測試設定檔逐一執行各 run function（爬蟲、摘要器、RAG 建置、agent 建構與問答）。
+- `tests/integration/test_pipeline.py` 以測試設定檔執行 prepare 完整流程（`publish=False`：只存到 `runs/`，不覆寫 `data/`），並啟動後自動關閉 server。
 
 ## 文件
 

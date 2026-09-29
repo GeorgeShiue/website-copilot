@@ -82,12 +82,14 @@ def load_latest_results(
 def load_latest_run_path(
     base_folder: str,
     module_name: str = "image_summarizer",
+    site_id: str | None = None,
 ) -> str:
     """回傳最新指定模組的 run path（results 的上一層）。
 
     Args:
         base_folder: runs/ 根目錄。
         module_name: 模組資料夾名稱。
+        site_id: 只搜尋該 site 的 run（runs/<ts>/<module>/<site_id>/）；None 時不限。
 
     Returns:
         最新一份包含 results/ 的 run path。
@@ -98,6 +100,8 @@ def load_latest_run_path(
     latest_run_path = ""
     for folder_name in sorted(run_folder_names, reverse=True):
         module_folder_path = os.path.join(base_folder, folder_name, module_name)
+        if site_id is not None:
+            module_folder_path = os.path.join(module_folder_path, site_id)
         if not os.path.isdir(module_folder_path):
             continue
 

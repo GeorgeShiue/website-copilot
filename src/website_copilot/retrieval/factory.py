@@ -14,8 +14,8 @@ from website_copilot.config.rag_config import RAGConfig
 from website_copilot.ingestion.indexing.index import IndexBuilder, IndexHandle
 from website_copilot.retrieval.llama_index_helpers import build_filters, create_llm
 from website_copilot.retrieval.rag import RAG
-from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.run_manager import RunManager
+from website_copilot.storage.run_persistence import load_latest_run_path
 from website_copilot.utils.log_helper import log_session
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,6 @@ def build_rag(
     webpages_data_use_latest_results: bool = False,
     run_manager: RunManager | None = None,
     build_query_engine: bool = True,
-    data_manager: DataManager | None = None,
     config: RAGConfig | None = None,
     **config_overrides,
 ) -> RAG:
@@ -96,12 +95,13 @@ def build_rag(
         config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。config 為
             None 時才會用它從 toml 解析。
         force_rebuild: 是否強制重建向量庫。
-        webpages_data_use_latest_results: 是否使用最新的 webpage 資料。
+        webpages_data_use_latest_results: 是否改用 runs/ 中該 site 最新一次
+            image summarizer 的結果建庫（需該次以 save=True 執行）；False 時
+            使用 config.webpages_data_folder_path（預設 data/webpages/{site_id}）。
         run_manager: 呼叫端已建立的 RunManager（可選）。傳入時向量庫會建到
             該 run 的 results/ 目錄下；None 時使用 config 的預設持久化路徑。
         build_query_engine: 是否建到 retriever／query engine 層級；
             False 時僅建到 vector store／index 層級（不含 retriever）。
-        data_manager: DataManager 實例（可選，用於解決 webpages 資料路徑）。
         config: 呼叫端已建立的 RAGConfig（可選）。傳入時直接沿用，不再重新
             解析 toml；此時 config_name／**config_overrides 會被忽略。
         **config_overrides: RAGConfig 覆寫值（含 site_id），僅在 config 為
@@ -113,15 +113,14 @@ def build_rag(
     if config is None:
         config = RAGConfig.from_toml(config_name, **config_overrides)
 
-    # ----- 解決 webpages 資料路徑（如有需要可覆蓋 config 預設值）-----
+    # ----- 解決 webpages 資料路徑（改用 runs/ 中最新的 image summarizer 結果）-----
     if webpages_data_use_latest_results:
-        if data_manager is None:
-            raise ValueError(
-                "data_manager is required when webpages_data_use_latest_results=True"
-            )
         log_session("Finding Latest Webpages Data", style="cyan")
-        webpages_data_folder_path = data_manager.get_webpages_path(config.site_id)
-        config.webpages_data_folder_path = webpages_data_folder_path
+        config.webpages_data_folder_path = load_latest_run_path(
+            run_manager.base_folder if run_manager is not None else "runs",
+            "image_summarizer",
+            site_id=config.site_id,
+        )
 
     # ----- 解決向量庫存放位置（預設位置 vs 呼叫端 run 的 results/）-----
     if run_manager is not None:

@@ -81,5 +81,5 @@ strictSetInference = true
 testpaths = ["tests"]
 addopts = "-s -v"
 markers = [
-    "slow: 端到端測試（真實爬蟲 / LLM / 建庫），預設略過。執行完整測試用 -m slow",
+    "cost: 會呼叫 LLM / VLM / embedding API 而產生費用的測試，可用 -m \"not cost\" 略過",
 ]

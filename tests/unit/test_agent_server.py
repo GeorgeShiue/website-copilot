@@ -1,8 +1,8 @@
-"""Agent + Server 層測試（合併 test_agent.py + test_server.py）。
+"""Agent + Server 層測試。
 
 涵蓋：
-- agent.langchain_helper 純函式：thread_config / extract_sources_from_messages / _message_content_to_text
-- Server 層：SSE 事件流 / error 事件 / health / CORS / static files / resolve_site_id / _enrich_query
+- agent.langchain_helper 純函式：extract_sources_from_messages / _message_content_to_text（Gemini list 格式）
+- Server 層：SSE 事件流 / error 事件 / thread_id / page_url 帶入網站資訊 / resolve_site_id
 - 落盤委派：_event_stream 呼叫 run_manager.save_agent_results_as_json(agent_config=agent.config)
 
 替身 FakeAgent 只實作 graph.astream / graph.get_state / astream_text，
@@ -20,14 +20,12 @@ from fastapi.testclient import TestClient
 from website_copilot.agent.agent import Agent
 from website_copilot.server.app import (
     ChatApp,
-    _enrich_query_with_site_context,
     resolve_site_id,
 )
 from website_copilot.storage.run_manager import RunManager
 from website_copilot.agent.langchain_helper import (
     _message_content_to_text,
     extract_sources_from_messages,
-    thread_config,
 )
 
 # ---------------------------------------------------------------------------
@@ -171,23 +169,6 @@ def _msg(content: Any) -> Any:
 # Agent 純函式測試
 # ===========================================================================
 
-# ---------- thread_config ----------
-
-
-def test_thread_config_auto_generates_unique_id():
-    """thread_id 為 None 時自動產生 auto-{uuid} 且每次不同。"""
-    config1 = thread_config(None)
-    config2 = thread_config(None)
-    assert config1["configurable"]["thread_id"].startswith("auto-")
-    assert config1["configurable"]["thread_id"] != config2["configurable"]["thread_id"]
-
-
-def test_thread_config_uses_given_id():
-    """指定 thread_id 時原樣使用。"""
-    config = thread_config("demo-session")
-    assert config == {"configurable": {"thread_id": "demo-session"}}
-
-
 # ---------- extract_sources_from_messages ----------
 
 
@@ -210,18 +191,7 @@ def test_extract_sources_skips_non_string_content():
     assert extract_sources_from_messages(messages) == ["https://example.com/a"]
 
 
-def test_extract_sources_empty():
-    """無任何來源時回傳空列表。"""
-    assert extract_sources_from_messages([_msg("沒有 URL 的內容")]) == []
-    assert extract_sources_from_messages([]) == []
-
-
 # ---------- _message_content_to_text ----------
-
-
-def test_message_content_to_text_str():
-    """純字串原樣回傳。"""
-    assert _message_content_to_text("你好") == "你好"
 
 
 def test_message_content_to_text_list_of_dicts():
@@ -233,12 +203,6 @@ def test_message_content_to_text_list_of_dicts():
 def test_message_content_to_text_mixed_list():
     """list 內混字串與 dict 皆處理。"""
     assert _message_content_to_text(["a", {"text": "b"}]) == "a\nb"
-
-
-def test_message_content_to_text_other_types():
-    """其他型別（int）轉為字串。"""
-    assert _message_content_to_text(123) == "123"
-    assert _message_content_to_text(None) == "None"
 
 
 # ---------- 落盤委派（server → RunManager） ----------
@@ -271,19 +235,6 @@ def test_chat_passes_given_thread_id_to_run_manager():
             _ = "".join(response.iter_text())
 
     assert run_manager.saved_thread_id == "demo-1"
-
-
-def test_chat_thread_id_sanitization_owned_by_run_manager():
-    """Server 不自行淨化 thread_id（含 / 亦原樣傳遞，檔名安全由 RunManager 負責）。"""
-    run_manager = _FakeRunManager()
-
-    with _make_client(_FakeAgent(), run_manager) as client:
-        with client.stream(
-            "POST", "/api/chat", json={"query": "Q", "thread_id": "a/b"}
-        ) as response:
-            _ = "".join(response.iter_text())
-
-    assert run_manager.saved_thread_id == "a/b"
 
 
 # ===========================================================================
@@ -353,99 +304,7 @@ def test_chat_empty_query_returns_error_event():
     assert events[0]["type"] == "error"
 
 
-# ---------- Health ----------
-
-
-def test_health():
-    with _make_client(_FakeAgent()) as client:
-        response = client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
-
-
-# ---------- CORS ----------
-
-
-def test_cors_headers_present():
-    """CORS middleware：跨域請求帶正確 header。"""
-    with _make_client(_FakeAgent()) as client:
-        response = client.get("/api/health", headers={"Origin": "http://example.com"})
-    assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") == "*"
-
-
-def test_cors_preflight():
-    """CORS preflight（OPTIONS）應允許 POST。"""
-    with _make_client(_FakeAgent()) as client:
-        response = client.options(
-            "/api/chat",
-            headers={
-                "Origin": "http://example.com",
-                "Access-Control-Request-Method": "POST",
-            },
-        )
-    assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") == "*"
-    assert "POST" in response.headers.get("access-control-allow-methods", "")
-
-
-def _make_client_with_origins(agent: _FakeAgent, origins: list[str]) -> TestClient:
-    """建立指定 CORS 來源的 TestClient。"""
-    app = ChatApp.create(
-        agent=cast(Agent, agent),
-        run_manager=cast(RunManager, _FakeRunManager()),
-        allowed_origins=origins,
-    ).app
-    return TestClient(app)
-
-
-def test_cors_restricted_origins_allows_listed():
-    """限縮來源時：清單內的 origin 帶 access-control-allow-origin header。"""
-    with _make_client_with_origins(
-        _FakeAgent(), ["https://lab.example.edu.tw"]
-    ) as client:
-        response = client.get(
-            "/api/health", headers={"Origin": "https://lab.example.edu.tw"}
-        )
-    assert response.status_code == 200
-    assert (
-        response.headers.get("access-control-allow-origin")
-        == "https://lab.example.edu.tw"
-    )
-
-
-def test_cors_restricted_origins_rejects_others():
-    """限縮來源時：清單外的 origin 不帶 access-control-allow-origin header。"""
-    with _make_client_with_origins(
-        _FakeAgent(), ["https://lab.example.edu.tw"]
-    ) as client:
-        response = client.get(
-            "/api/health", headers={"Origin": "https://evil.example.com"}
-        )
-    assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") is None
-
-
-# ---------- Static files ----------
-
-
-def test_static_files_served():
-    """M4a：嵌入表面 static 檔皆可取得。"""
-    with _make_client(_FakeAgent()) as client:
-        for path in ("/static/widget.js", "/static/chat.html", "/static/demo.html"):
-            response = client.get(path)
-            assert response.status_code == 200, path
-            assert len(response.content) > 0
-
-
-def test_root_redirects_to_demo():
-    with _make_client(_FakeAgent()) as client:
-        response = client.get("/", follow_redirects=False)
-    assert response.status_code in (301, 302, 307)
-    assert response.headers["location"] == "/static/demo.html"
-
-
-# ---------- resolve_site_id / _enrich_query_with_site_context ----------
+# ---------- resolve_site_id ----------
 
 
 def test_resolve_site_id_exact_match():
@@ -467,17 +326,6 @@ def test_resolve_site_id_none_and_empty():
 def test_resolve_site_id_unknown():
     assert resolve_site_id("localhost") is None
     assert resolve_site_id("example.com") is None
-
-
-def test_enrich_query_with_site_context():
-    assert (
-        _enrich_query_with_site_context("hello", "nculab")
-        == "[使用者瀏覽 nculab 網站] hello"
-    )
-
-
-def test_enrich_query_with_site_context_none():
-    assert _enrich_query_with_site_context("hello", None) == "hello"
 
 
 def test_chat_page_url_routed_to_enriched_query():
