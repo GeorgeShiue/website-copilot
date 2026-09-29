@@ -22,7 +22,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 - 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy 載入 + LRU 快取；只讀取已 publish 的向量庫，不建置）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
 - SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
-- 對話落盤 `runs/<ts>/agent/<config>/results_<thread_id>.json`（讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
+- 對話落盤 `runs/<ts>/server/<config>/results_<thread_id>.json`（CLI `run agent` 為 `runs/<ts>/agent/<config>/`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
 
 ### Phase 3：嵌入式互動介面
 
@@ -283,12 +283,12 @@ uv run pytest -m slow tests/integration
 
 ### 聊天記錄（`runs/`）
 
-Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
+Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot serve`）或 `runs/<timestamp>/agent/<config>/`（`website-copilot run agent`）：
 
-- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
-- `module_config.toml` / `run_config.toml` / `terminal.log` — 設定備份與日誌
+- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；跨 run 查找歷史只在同一 module（`server` 或 `agent`）內進行
+- `run_config.toml` / `terminal.log` — 設定備份與日誌（不含 `module_config.toml`）
 
-> 註：`run_server_build`（server 入口）經 `run_agent_build` 在同一 run 目錄寫出 `module_config.toml`；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
+> 註：`website-copilot serve` 與 `website-copilot run agent` 另會產生 `runs/<timestamp>/agent_build/<config>/`（`run_agent_build` 寫出 `module_config.toml` 與建構日誌），與對話的 run 目錄分開；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
 
 ## 開發
 

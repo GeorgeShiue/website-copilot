@@ -67,8 +67,9 @@ data: {"type": "error", "message": "..."}       ← 失敗
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
 - **`run_server_build(...)`（pipelines/serve.py）** — 啟動入口（`serve()`，即 `website-copilot serve` 使用）：
-  - 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ `run_agent_build(config_name, run_manager=run_manager, **config_overrides)` 在同一 run context 內建立 agent → `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `ChatServer(config, chat_app)`（`uvicorn.Server` 子類），回傳 **`ChatServer`（非阻塞）**；由呼叫端執行 `server.run()`（或 `await server.serve()`），`ChatServer.serve()` 結束時於 `finally` 自動呼叫 `chat_app.close()`；ChatApp 可經 `server.chat_app` 取得
-  - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出，`module_config.toml` 由 `run_agent_build` 寫出；建立 `ChatApp`／server 失敗時 `agent.close()` 後 re-raise（不洩漏 RAG 資源）
+  - `run_server_build(agent, run_config=None, allowed_origins=None, host="127.0.0.1", port=8000)`：接收由 `serve()` 經 `run_agent_build()` 建構的 agent；建立自己的 run context（`create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")`，路徑 `runs/<ts>/server/<config>/`）→ `ChatApp.create(agent, run_manager, allowed_origins)` → `uvicorn.Config(app, host, port)` → `ChatServer(config, chat_app)`（`uvicorn.Server` 子類），回傳 **`ChatServer`（非阻塞）**；由呼叫端執行 `server.run()`（或 `await server.serve()`），`ChatServer.serve()` 結束時於 `finally` 自動呼叫 `chat_app.close()`；ChatApp 可經 `server.chat_app` 取得
+  - `run_config.toml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出；server 目錄**不寫** `module_config.toml`（agent 設定只寫在 `run_agent_build` 的 `runs/<ts>/agent_build/<config>/`）
+  - 建立 `ChatApp`／server 失敗時 re-raise，**不關閉**注入的 agent；由建立 agent 的 `serve()` 負責 `agent.close()`（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
 
 ### 啟動方式

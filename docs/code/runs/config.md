@@ -161,8 +161,9 @@ module_config 與 run_config 的寫入機制：
   - `run_webpage_image_summarizer()`：寫 `module_config.toml`、`results.json`、`results/*.md`
   - `run_rag_build()`：寫 `module_config.toml`（與 `run_config.toml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.toml`；重建（rebuild）時另存一份 `module_config.toml` 到向量庫路徑。
-  - `run_agent_query()`：寫 `module_config.toml`（與 `run_config.toml`），並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
-  - `run_server_build()`：寫 `run_config.toml`，並經 `run_agent_build()` 寫 `module_config.toml`；對話結果同樣由 server 的 `_event_stream()` 以 `save_agent_results_as_json()` 落盤至 `runs/<ts>/agent/<config>/results_{thread_id}.json`。
+  - `run_agent_query()`：經 `run_agent_build()` 建構 agent（`module_config.toml` 寫在 `agent_build/`）；本身只寫 `run_config.toml`，並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
+  - `run_agent_build()`：寫 `module_config.toml`（與 `run_config.toml`，若有傳入）至 `runs/<ts>/agent_build/<config>/`。
+  - `run_server_build()`：只寫 `run_config.toml`（不寫 `module_config.toml`）；對話結果由 server 的 `_event_stream()` 以 `save_agent_results_as_json()` 落盤至 `runs/<ts>/server/<config>/results_{thread_id}.json`。
 - module_config.toml
 - run_config.toml
 - terminal.log
@@ -205,8 +206,9 @@ save_run_config_as_toml() 會把 run dataclass 扁平化成 TOML（只寫非 Non
 - run_webpage_image_summarizer()：寫 module_config.toml、results.json、results/\*.md
 - run_rag_build()：寫 module_config.toml（與 run_config.toml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.toml；重建時另存一份到向量庫路徑
-- run_agent_query()：寫 module_config.toml（與 run_config.toml）與 `results_{thread_id}.json`（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
-- run_server_build()：寫 run_config.toml 與 module_config.toml（經 run_agent_build）；對話結果由 server 的 `_event_stream()` 落盤至 `runs/<ts>/agent/<config>/results_{thread_id}.json`
+- run_agent_query()：寫 run_config.toml 與 `results_{thread_id}.json`（module_config.toml 由 run_agent_build 寫在 `agent_build/`）（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
+- run_agent_build()：寫 module_config.toml（與 run_config.toml）至 `runs/<ts>/agent_build/<config>/`
+- run_server_build()：只寫 run_config.toml；對話結果由 server 的 `_event_stream()` 落盤至 `runs/<ts>/server/<config>/results_{thread_id}.json`
 
 ## 五、測試與實驗如何使用 config
 

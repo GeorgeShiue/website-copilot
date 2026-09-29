@@ -5,10 +5,9 @@ import time
 import uuid
 from collections.abc import Callable
 
-from website_copilot.agent.agent import create_agent
-from website_copilot.config.agent_config import AgentConfig
 from website_copilot.config.pipeline_config import AgentRunConfig, RAGQueryRunConfig
 from website_copilot.config.rag_config import RAGConfig
+from website_copilot.pipelines.serve import run_agent_build
 from website_copilot.retrieval.evaluation import (
     build_evaluators,
     evaluate_response,
@@ -167,10 +166,11 @@ def run_agent_query(
     run_config: AgentRunConfig | None = None,
     **config_overrides,
 ) -> None:
-    """執行 Agent 問答工作流程（建立 run context → 建構 agent → 問答 → 落盤 → 關閉）。
+    """執行 Agent 問答工作流程（建構 agent → 建立 run context → 問答 → 落盤 → 關閉）。
 
-    流程：問答 → 顯示回答與來源 → 落盤 runs/ → 寫 run_config.toml → 關閉 agent。
-    agent 的建立與 Tool 生命週期皆在本函式內完成（呼叫端不需持有 agent）。
+    流程：run_agent_build() 建構 agent（module_config.toml 寫在 runs/<ts>/agent_build/）
+    → 問答 → 顯示回答與來源 → 落盤 runs/<ts>/agent/ → 寫 run_config.toml → 關閉 agent。
+    agent 的 Tool 生命週期在本函式內結束（呼叫端不需持有 agent）。
 
     Args:
         config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
@@ -181,62 +181,61 @@ def run_agent_query(
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
     """
 
-    run_manager, run_title = create_run_no_site_context(
-        module="agent",
-        config_name=config_name,
-        base_folder="runs",
-    )
+    # ---- 建構 Agent（獨立的 agent_build run context）-----
+    agent = run_agent_build(config_name, **config_overrides)
 
-    with run_workflow_context(run_title, run_manager=run_manager):
-        # ---- 初始化 Agent -----
-        config = AgentConfig.from_toml(config_name, **config_overrides)
-        log_config(f"{config.__class__.__name__} Loaded from toml", config)
-        agent = create_agent(config_name, **config_overrides)
+    try:
+        run_manager, run_title = create_run_no_site_context(
+            module="agent",
+            config_name=config_name,
+            base_folder="runs",
+        )
 
-        try:
-            # ---- Agent 問答 -----
-            log_session("Agent Query and Response", style="cyan")
-            print_log(f"Query: {query}")
-            if stream:
-                result = asyncio.run(
-                    agent.astream_result(
-                        query,
-                        thread_id,
-                        on_token=lambda token: print(token, end="", flush=True),
+        with run_workflow_context(run_title, run_manager=run_manager):
+            try:
+                # ---- Agent 問答 -----
+                log_session("Agent Query and Response", style="cyan")
+                print_log(f"Query: {query}")
+                if stream:
+                    result = asyncio.run(
+                        agent.astream_result(
+                            query,
+                            thread_id,
+                            on_token=lambda token: print(token, end="", flush=True),
+                        )
                     )
+                    print()  # 串流 token 結束後換行
+                else:
+                    result = agent.ask(query, thread_id)
+                print_log(f"Response: {result['response']}")
+
+                log_session("Sources", style="cyan")
+                for i, url in enumerate(result["sources"], 1):
+                    print_log(f"{i}. {url}")
+
+                # ---- 輸出完成訊息 -----
+                log_session("Agent Query Completed", style="cyan")
+
+                # ---- 儲存設定（module_config.toml 已由 run_agent_build 寫入）-----
+                if run_config is not None:
+                    save_run_config_as_toml(
+                        run_config, run_manager.run_config_toml_path
+                    )
+
+                # ---- 儲存結果 -----
+                if thread_id is None:
+                    thread_id = f"auto-{uuid.uuid4().hex[:8]}"
+                run_manager.save_agent_results_as_json(
+                    thread_id=thread_id,
+                    results=[result],
+                    agent_config=agent.config,
                 )
-                print()  # 串流 token 結束後換行
-            else:
-                result = agent.ask(query, thread_id)
-            print_log(f"Response: {result['response']}")
-
-            log_session("Sources", style="cyan")
-            for i, url in enumerate(result["sources"], 1):
-                print_log(f"{i}. {url}")
-
-            # ---- 輸出完成訊息 -----
-            log_session("Agent Query Completed", style="cyan")
-
-            # ---- 儲存設定 -----
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
-            if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
-
-            # ---- 儲存結果 -----
-            if thread_id is None:
-                thread_id = f"auto-{uuid.uuid4().hex[:8]}"
-            run_manager.save_agent_results_as_json(
-                thread_id=thread_id,
-                results=[result],
-                agent_config=agent.config,
-            )
-        except Exception as e:
-            log_session("Agent Query Failed", style="red")
-            print_log(f"Error: {e}")
-            agent.close()
-            raise
-        finally:
-            agent.close()
+            except Exception as e:
+                log_session("Agent Query Failed", style="red")
+                print_log(f"Error: {e}")
+                raise
+    finally:
+        agent.close()
 
 
 # ════════════════════════════════════════════════════════════════════

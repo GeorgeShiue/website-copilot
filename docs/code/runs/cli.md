@@ -6,8 +6,8 @@
 - `src/website_copilot/cli/__init__.py`：`main()` 以 `tyro` 解析子命令 `prepare | serve | run | exp` 並 dispatch 到對應子命令模組。各子命令模組只在頂層 import 參數 dataclass，執行邏輯在 `main()` 內延遲 import，避免例如 serve 間接載入爬蟲依賴。
 - `src/website_copilot/cli/run.py`：單模組執行 `run website-crawler | image-summarizer | rag-build | rag-query | agent`，收集 `run` 與 `module` 參數並 dispatch 到對應 pipeline（`run_config` 以參數傳入，`run_config.toml` 由 pipeline 函式寫出）。
 - `src/website_copilot/cli/{prepare,serve,exp}.py`：兩階段入口與批次實驗的參數定義，分別呼叫 `pipelines.prepare.run_prepare`、`pipelines.serve.serve`、`pipelines.exp.run_experiment`。
-- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`serve`；exp：`run_rag_query`、`run_agent_query` 與批次實驗），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、agent 與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`run_server_build` 透過它建構 agent；`run_agent_query` 不經過它）。
-- `src/website_copilot/pipelines/serve.py`：`run_server_build`（建立 agent + ChatApp + ChatServer）與 `serve`（`run_server_build` → `server.run()` → 關閉）。
+- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_webpage_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`serve`；exp：`run_rag_query`、`run_agent_query` 與批次實驗），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
+- `src/website_copilot/pipelines/serve.py`：`run_agent_build`（建構 agent）、`run_server_build`（以注入的 agent 建立 ChatApp + ChatServer）與 `serve`（`run_agent_build` → `run_server_build` → `server.run()` → 關閉）。
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），以及 CLI 可覆寫的 module 欄位，供 `tyro` 與程式使用。
   - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
 - [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)：管理 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
@@ -39,7 +39,7 @@
 ### Agent 問答（`run agent`）
 
 - `AgentCLI.run`（`AgentRunConfig`）：`query`（必填）、`config_name`（預設 `default`）、`thread_id`（多輪 session）、`stream`（逐 token 串流）。
-- 由 `pipelines.exp.run_agent_query` 執行（單一入口負責 agent 生命週期）：建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 直接呼叫 `create_agent()` 建立 agent（`Tool` + LLM + 編譯圖，**不經 `run_agent_build()`**）→ 問答（`stream` 決定串流/非串流）→ 顯示回答與來源 → `run_manager.save_agent_results_as_json(thread_id, [result], agent_config=agent.config)` 落盤 `runs/<ts>/agent/<config>/results_{thread_id}.json` → 寫出 `module_config.toml`（與 `run_config.toml`）→ `finally` 呼叫 `agent.close()` 釋放資源。
+- 由 `pipelines.exp.run_agent_query` 執行（單一入口負責 agent 生命週期）：`run_agent_build()` 建構 agent（`Tool` + LLM + 編譯圖；獨立的 `runs/<ts>/agent_build/<config>/`，寫出 `module_config.toml`）→ 建立 run context（`create_run_no_site_context(module="agent", base_folder="runs")`）→ 問答（`stream` 決定串流/非串流）→ 顯示回答與來源 → `run_manager.save_agent_results_as_json(thread_id, [result], agent_config=agent.config)` 落盤 `runs/<ts>/agent/<config>/results_{thread_id}.json` → 寫出 `run_config.toml`（不寫 `module_config.toml`）→ `finally` 呼叫一次 `agent.close()` 釋放資源。
 - 對話結果與實驗共用 `runs/`（module=`agent`）；`thread_id` 未提供時自動產生 `auto-{uuid}`（每次執行獨立）；`run_config.toml` 與 `log_run_paths`（`init` → `complete`）皆於 `run_agent_query` 內寫出。
 
 ```bash
@@ -50,7 +50,7 @@ uv run website-copilot run agent --run.query "..." --run.thread-id demo --run.st
 ### 聊天伺服器（`serve`）
 
 - `ServeCLI.run`（`ServeRunConfig`）：`config_name`（預設 `default`）、`host`、`port`、`allowed_origins`（CORS 限縮，預設 None 全開放）。
-- 由 `pipelines.serve.serve` 啟動：呼叫 `run_server_build`（函式內建立 run context，並以 `run_agent_build(run_manager=...)` 在同一 context 內建構 agent → 建立 `ChatApp.create(agent, run_manager, allowed_origins)` + `uvicorn.Config` → 回傳持有 `chat_app` 的非阻塞 `ChatServer`）→ `server.run()` 阻塞 → `ChatServer.serve()` 結束時於 `finally` 呼叫 `chat_app.close()` 關閉 agent。`run_config.toml` 由 `run_server_build` 寫出、`module_config.toml` 由 `run_agent_build` 寫出（傳 app 物件而非 import string，避免 reloader sys.path 問題）。
+- 由 `pipelines.serve.serve` 啟動：先呼叫 `run_agent_build`（自己的 run context `runs/<ts>/agent_build/<config>/`，寫出 `module_config.toml`）建構 agent → 注入 `run_server_build(agent, ...)`（自己的 run context `runs/<ts>/server/<config>/`，建立 `ChatApp.create(agent, run_manager, allowed_origins)` + `uvicorn.Config` → 回傳持有 `chat_app` 的非阻塞 `ChatServer`；失敗時由 `serve` 關閉 agent）→ `server.run()` 阻塞 → `ChatServer.serve()` 結束時於 `finally` 呼叫 `chat_app.close()` 關閉 agent。`run_config.toml` 由 `run_server_build` 寫出（server 目錄不寫 `module_config.toml`；傳 app 物件而非 import string，避免 reloader sys.path 問題）。
 - agent 於啟動前建立一次後注入 app（lifespan 僅綁定，不重建；不可 per-request 建立）。
 - 啟動後瀏覽器開啟 `http://localhost:8000/`（redirect 至 `/static/demo.html` 嵌入示範）。
 

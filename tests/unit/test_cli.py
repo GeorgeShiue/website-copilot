@@ -175,9 +175,12 @@ def test_serve_runs_server_and_swallows_interrupt() -> None:
 
     server = MagicMock()
     server.run.side_effect = KeyboardInterrupt
-    with patch(
-        "website_copilot.pipelines.serve.run_server_build", return_value=server
-    ) as mock_run_server_build:
+    with (
+        patch("website_copilot.pipelines.serve.run_agent_build"),
+        patch(
+            "website_copilot.pipelines.serve.run_server_build", return_value=server
+        ) as mock_run_server_build,
+    ):
         serve(ServeRunConfig(port=9000))
     assert mock_run_server_build.call_args.kwargs["port"] == 9000
     server.run.assert_called_once()

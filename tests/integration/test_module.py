@@ -8,7 +8,7 @@ from website_copilot.pipelines.prepare import (
     run_webpage_image_summarizer,
     run_website_crawler,
 )
-from website_copilot.pipelines.serve import run_server_build
+from website_copilot.pipelines.serve import run_agent_build, run_server_build
 from website_copilot.utils.log_helper import setup_logging
 
 setup_logging("debug")
@@ -37,7 +37,8 @@ def test_agent():
 
 def test_server():
     """config_name='test' 時，啟動後自動關閉。"""
-    server = run_server_build(config_name="test", host="0.0.0.0", port=SERVER_PORT)
+    agent = run_agent_build(config_name="test")
+    server = run_server_build(agent, host="0.0.0.0", port=SERVER_PORT)
 
     async def _run_and_stop():
         serve_task = asyncio.create_task(server.serve())

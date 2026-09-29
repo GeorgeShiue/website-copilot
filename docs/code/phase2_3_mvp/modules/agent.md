@@ -7,8 +7,8 @@
 
 - **多輪對話記憶** — `InMemorySaver` + `thread_id`，相同 session 記得上下文（M2）
 - **SSE 串流** — `astream_text` 共用核心，CLI 與 server 皆可逐 token 輸出
-- **對話落盤** — `runs/<ts>/agent/<config>/results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
-- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 由 `run_agent_query()` / `run_server_build()` 在各自的 run context 內以 `create_agent()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉
+- **對話落盤** — `runs/<ts>/agent/<config>/results_{thread_id}.json`（CLI `run agent`）／`runs/<ts>/server/<config>/results_{thread_id}.json`（server）（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
+- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 一律經 `run_agent_build()` 建立，呼叫端為 `run_agent_query()` 或 `serve()`：前者於 `finally` 關閉；後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉，server build 失敗時由 `serve()` 關閉
 - **落盤責任在呼叫端** — `Agent` 不再持有 `RunManager`（agent 層不依賴 workflow 層）；落盤由 `run_agent_query()` 與 `_event_stream()` 呼叫 `RunManager.save_agent_results_as_json()`
 
 - **模組實作**
@@ -42,12 +42,12 @@
   - `close()`：委派 `Tool.close()` 釋放資源（try/finally 保證）
   - **不持有 `RunManager`**：agent 層與 workflow 層無依賴（落盤責任已上移至呼叫端）
 
-- **`create_agent(config_name="default", **config_overrides)`** — 內部自行建立 `AgentConfig.from_toml(config_name, **config_overrides)` 與 `Tool(config_name)`，再組裝 LLM + 編譯圖並包裝為 `Agent`：
-  1. `AgentConfig.from_toml()` 建立設定、`Tool(config_name)` 建立工具（含 `RAGRegistry` 工具）；無工具時拋 `ValueError`
+- **`create_agent(config: AgentConfig)`** — 接收呼叫端已載入（已套用覆寫值）的 config，不再讀取 toml；建立 `Tool(config.config_name)`，再組裝 LLM + 編譯圖並包裝為 `Agent`：
+  1. `Tool(config.config_name)` 建立工具（含 `RAGRegistry` 工具）；無工具時拋 `ValueError`
   2. `create_llm(config.llm_name)`（agent.langchain_helper）建立 ChatModel（依 model name 自動路由 Gemini / OpenAI）
   3. 建立 `InMemorySaver` checkpointer
   4. 以 LangGraph `create_agent` 組裝 `tool.tools`、`system_prompt` 與 checkpointer，並包裝為 `Agent`；任一步驟失敗時 `tool.close()` 後 re-raise
-- **`run_agent_build(config_name="default", run_config=None, run_manager=None, **config_overrides) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：`run_manager` 為 None 時建立 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期，有傳入時沿用呼叫端的 run context；內部呼叫 `create_agent(config_name, **config_overrides)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`run_server_build()` 以 `run_manager=` 呼叫此函式；`run_agent_query()` 仍直接呼叫 `create_agent()`
+- **`run_agent_build(config_name="default", run_config=None, **config_overrides) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：一律建立自己的 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期；載入 `AgentConfig.from_toml(config_name, **config_overrides)` 後呼叫 `create_agent(config)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`serve()` 呼叫此函式後把 agent 注入 `run_server_build()`；`run_agent_query()` 也經由此函式建構 agent
 
 - **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 
@@ -73,7 +73,7 @@
 
 ```
 使用者問題 + thread_id
-  → run_agent_query / run_server_build 建立 run context 與 create_agent（一次）→ graph.invoke / graph.astream（每輪）
+  → run_agent_query / serve（經 run_agent_build）建立 run context 與 create_agent（一次）→ graph.invoke / graph.astream（每輪）
   → LLM 決定呼叫 webpage_retriever → 檢索結果作為上下文
   → 回答（含引用 URL）→ 落盤 runs/（results_{thread_id}.json 讀取 → 合併 → 覆寫）
 相同 thread_id → InMemorySaver 保留歷史 → 續接多輪

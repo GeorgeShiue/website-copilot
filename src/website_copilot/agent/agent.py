@@ -9,7 +9,7 @@ M1 提供：
 - create_agent()：建立 Agent（Tool 資源由 Agent 管理生命週期）
 
 資源生命週期：Agent 擁有 Tool 實例，close() 時釋放 Tool 內部資源。
-落盤責任不在 Agent：由呼叫端（run_agent_query / run_server_build / server）自行負責，
+落盤責任不在 Agent：由呼叫端（run_agent_build / run_agent_query / server）自行負責，
 agent 層因此不需知道 workflow 層。
 """
 
@@ -131,29 +131,23 @@ class Agent:
         }
 
 
-def create_agent(
-    config_name: str = "default",
-    **config_overrides,
-) -> Agent:
+def create_agent(config: AgentConfig) -> Agent:
     """組裝 Agent（Tool 資源由 Agent 管理生命週期）。
 
-    內部建立 AgentConfig 和 Tool，方便 workflow 層直接呼叫。
+    config 由呼叫端載入（已套用覆寫值），本函式不再讀取 toml。
 
     流程：
-    1. 以 AgentConfig.from_toml() 建立設定
-    2. 以 Tool() 建立工具實例
-    3. 以 AgentConfig.llm_name 建立 ChatModel
-    4. 組裝 Agent（LangGraph CompiledStateGraph）
+    1. 以 Tool(config.config_name) 建立工具實例
+    2. 以 AgentConfig.llm_name 建立 ChatModel
+    3. 組裝 Agent（LangGraph CompiledStateGraph）
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
+        config: 已載入的 AgentConfig。
 
     Returns:
         Agent：包裝 Tool 與 config。
     """
-    config = AgentConfig.from_toml(config_name, **config_overrides)
-    tool = Tool(config_name)
+    tool = Tool(config.config_name)
     try:
         if not tool.tools:
             raise ValueError("create_agent requires at least one tool")

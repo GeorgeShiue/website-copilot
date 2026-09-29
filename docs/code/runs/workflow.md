@@ -12,7 +12,7 @@
 - [src/website_copilot/storage/run_context.py](src/website_copilot/storage/run_context.py)：模組無關的共用 helper（`create_run_context()` / `create_run_no_site_context()` 的 run context 建立、`run_workflow_context()` 的 ExitStack logging 生命週期管理）。
 - [src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)：管理 `data/` 目錄的持久化資料，提供 `publish_*` 方法將 run 產物發布到 `data/webpages/<site_id>/` 等路徑。
 - `website-copilot prepare`（`cli/prepare.py` → `run_prepare()`）：Prepare 階段入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段並 publish 到 `data/`。
-- `website-copilot serve`（`cli/serve.py` → `serve()`）：Serve 階段入口，以 `run_server_build()` 啟動 Chat 伺服器並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`（不需要 `data/webpages/`），缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `load_rag()` 載入，不建置）。
+- `website-copilot serve`（`cli/serve.py` → `serve()`）：Serve 階段入口，依序以 `run_agent_build()` 建構 agent、`run_server_build(agent)` 建立 Chat 伺服器，啟動並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`（不需要 `data/webpages/`），缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `load_rag()` 載入，不建置）。
 - `src/website_copilot/agent/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫檢索。
 - `src/website_copilot/retrieval/registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
 - `src/website_copilot/agent/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
@@ -26,7 +26,7 @@
 
 ## 二、Workflow 解析與執行流程
 
-1. workflow 的核心實作分散在 `pipelines/prepare.py`／`pipelines/serve.py`／`pipelines/exp.py`，共提供七個主要入口（另有 `run_prepare()` 串接 prepare 三階段、`serve()` 包裝 `run_server_build()` 的生命週期）：
+1. workflow 的核心實作分散在 `pipelines/prepare.py`／`pipelines/serve.py`／`pipelines/exp.py`，共提供七個主要入口（另有 `run_prepare()` 串接 prepare 三階段、`serve()` 串接 `run_agent_build()` 與 `run_server_build()` 並管理生命週期）：
    - `run_website_crawler()`
    - `run_webpage_image_summarizer()`
    - `run_rag_build()`
@@ -35,7 +35,7 @@
    - `run_server_build()`
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
 3. 每個 workflow 都會建立或接收 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
-4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫，`run_server_build` 經 `run_agent_build` 寫入 server 的 run 目錄），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
+4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫；`run_server_build` 不寫，server 的 run 目錄只有 `run_config.toml`），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
 5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
 
 ## 三、主要 Workflow 入口
@@ -90,27 +90,28 @@
 
 ### 5. `run_agent_build()` / `run_agent_query()`
 
-- 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，執行 Agent 問答（`website-copilot run agent`；`run_agent_build()` 定義於 `pipelines/serve.py`、`run_agent_query()` 定義於 `pipelines/exp.py`）。舊版 `run_agent()` 已移除；`run_agent_query()` 與 `run_server_build()` 為完整入口（各自建立 run context、agent、落盤與關閉）；`run_agent_build()` 為 agent 建構 + 落盤的程式化 API，`run_server_build()` 透過它建構 agent（`run_agent_query()` 仍直接呼叫 `create_agent()`）。
-- `run_agent_build(config_name="default", run_config=None, run_manager=None, **config_overrides) -> Agent`：
-  1. `run_manager` 為 None 時以 `create_run_no_site_context(module="agent_build", config_name=...)` 建立 `RunManager`（`runs/<ts>/agent_build/<config>/`），並以 `with run_workflow_context(...)` 包住 logging 生命週期；有傳入時沿用呼叫端的 run context（不另建目錄與 log）。
-  2. 載入 `AgentConfig.from_toml(config_name, **config_overrides)` 後呼叫 `create_agent(config_name, **config_overrides)`（內部建立 `Tool(config_name)`、LLM 與編譯圖；失敗時 `tool.close()` 後 re-raise）。
+- 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，執行 Agent 問答（`website-copilot run agent`；`run_agent_build()` 定義於 `pipelines/serve.py`、`run_agent_query()` 定義於 `pipelines/exp.py`）。舊版 `run_agent()` 已移除；`run_agent_query()` 與 `run_server_build()` 為完整入口（各自建立 run context、agent、落盤與關閉）；`run_agent_build()` 為 agent 建構 + 落盤的程式化 API，`serve()` 透過它建構 agent 後注入 `run_server_build()`，`run_agent_query()` 也透過它建構 agent。
+- `run_agent_build(config_name="default", run_config=None, **config_overrides) -> Agent`：
+  1. 一律以 `create_run_no_site_context(module="agent_build", config_name=...)` 建立自己的 `RunManager`（`runs/<ts>/agent_build/<config>/`），並以 `with run_workflow_context(...)` 包住 logging 生命週期。
+  2. 載入 `AgentConfig.from_toml(config_name, **config_overrides)` 後呼叫 `create_agent(config)`（內部建立 `Tool(config.config_name)`、LLM 與編譯圖；失敗時 `tool.close()` 後 re-raise）。
   3. 寫出 `module_config.toml`；`run_config` 非 None 時寫出 `run_config.toml`（落盤失敗時 `agent.close()` 後 re-raise）；回傳**未關閉**的 agent，由呼叫端負責 `close()`。
 - `run_agent_query(config_name="default", query=None, thread_id=None, stream=False, run_config=None, **config_overrides) -> None`：
-  1. 以 `create_run_no_site_context(module="agent", config_name=..., base_folder="runs")` 建立 `RunManager` 與落盤路徑（`runs/<ts>/agent/<config>/`），並以 `save_logging_file` / `log_run_paths("init")` 起頭。
-  2. 直接呼叫 `create_agent(config_name, **config_overrides)` 建立 `Agent`（**不經 `run_agent_build()`**），依 `stream` 選擇 `agent.astream_result()`（逐 token）或 `agent.ask()` 問答；`thread_id` 相同保留多輪記憶。
+  1. 以 `run_agent_build(config_name, **config_overrides)` 建構 `Agent`（獨立的 `runs/<ts>/agent_build/<config>/`，寫出 `module_config.toml`）。
+  2. 以 `create_run_no_site_context(module="agent", config_name=..., base_folder="runs")` 建立 `RunManager` 與落盤路徑（`runs/<ts>/agent/<config>/`），並以 `run_workflow_context` 起頭；依 `stream` 選擇 `agent.astream_result()`（逐 token）或 `agent.ask()` 問答；`thread_id` 相同保留多輪記憶。
   3. `thread_id` 未提供時自動產生 `auto-{uuid}`（每次執行獨立）。
   4. 顯示回答與來源 URL，並以 `RunManager.save_agent_results_as_json(thread_id=..., results=[result], agent_config=agent.config)` 落盤 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫）且印出實際輸出路徑。
-  5. 寫出 `module_config.toml`；`run_config` 非 None 時寫出 `run_config.toml`，最後 `log_run_paths("complete")`；例外路徑與 `finally` 皆呼叫 `agent.close()` 釋放 RAG 資源。
+  5. `run_config` 非 None 時寫出 `run_config.toml`（不寫 `module_config.toml`），最後 `log_run_paths("complete")`；例外路徑只記錄 log 後 re-raise，由 `finally` 呼叫一次 `agent.close()` 釋放 RAG 資源。
 
 ### 6. `run_server_build()`
 
-- 目的：以 `ChatApp.create()` 建立 FastAPI app，並回傳持有 `chat_app` 的 `ChatServer`（**非阻塞**的 `uvicorn.Server` 子類；由 `serve()` 使用）。
+- 目的：以注入的 agent 透過 `ChatApp.create()` 建立 FastAPI app，並回傳持有 `chat_app` 的 `ChatServer`（**非阻塞**的 `uvicorn.Server` 子類；由 `serve()` 使用）。
 - 流程：
-  1. `run_server_build(config_name="default", run_config=None, allowed_origins=None, host="127.0.0.1", port=8000, **config_overrides) -> ChatServer` 自行建立 run context（`RunManager`），並以 `run_agent_build(config_name, run_manager=run_manager, **config_overrides)` 在同一 run context 內建立 agent（寫出 `module_config.toml`）。
+  1. `run_server_build(agent, run_config=None, allowed_origins=None, host="127.0.0.1", port=8000) -> ChatServer` 以 `create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")` 建立自己的 `RunManager`（`runs/<ts>/server/<config>/`，與 `run_agent_build` 的 run 目錄分開、時間戳可能不同）；不寫 `module_config.toml`。
   2. `ChatApp.create(agent=agent, run_manager=run_manager, allowed_origins=allowed_origins)` 組裝 app，再以 `uvicorn.Config(chat_app.app, host=..., port=...)` 建立 `uvicorn.Server`。
   3. `run_config` 非 None 時寫出 `run_config.toml`（路徑為 `run_manager.run_config_toml_path`），最後 `log_run_paths("complete")`。
-  4. 建立 app / server 過程失敗時 `agent.close()` 後 re-raise（資源守衛）。
-  5. 呼叫端只需 `server.run()` 阻塞（或 `await server.serve()`）；`ChatServer.serve()` 結束時（正常／中斷／例外）於 `finally` 自動呼叫 `chat_app.close()` 釋放 agent。`serve(run_config)` 封裝了建立與阻塞執行，並吞下 `KeyboardInterrupt`。
+  4. 建立 app / server 過程失敗時 re-raise，**不關閉**注入的 agent（由建立 agent 的呼叫端負責）。
+  5. 呼叫端只需 `server.run()` 阻塞（或 `await server.serve()`）；`ChatServer.serve()` 結束時（正常／中斷／例外）於 `finally` 自動呼叫 `chat_app.close()` 釋放 agent。
+- `serve(run_config)`：`run_agent_build(config_name=run_config.config_name)` → `run_server_build(agent, ...)`（失敗時 `agent.close()` 後 re-raise）→ `server.run()`，並吞下 `KeyboardInterrupt`。
 
 ## 四、Workflow 與 RunManager
 

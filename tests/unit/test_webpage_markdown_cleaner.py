@@ -70,6 +70,7 @@ def test_generate_union_and_vote_order():
         patch(f"{MOD}.token_counter", return_value=100),
     ):
         result = cleaner.generate_exclude_words(PAGES)
+    assert result is not None
     assert result.words == ["Skip to main content", "Footer text"]
     assert result.votes == {"Skip to main content": 3, "Footer text": 2}
     assert result.cost_usd == pytest.approx(0.03)
@@ -85,7 +86,9 @@ def test_single_run_failure_is_skipped_all_fail_raises():
         patch(f"{MOD}.completion_cost", return_value=0.0),
         patch(f"{MOD}.token_counter", return_value=100),
     ):
-        assert cleaner.generate_exclude_words(PAGES).words == ["Footer text"]
+        result = cleaner.generate_exclude_words(PAGES)
+        assert result is not None
+        assert result.words == ["Footer text"]
     with (
         patch(f"{MOD}.completion", side_effect=RuntimeError("x")),
         patch(f"{MOD}.token_counter", return_value=100),
@@ -135,6 +138,7 @@ def test_save_generated_exclude_words(tmp_path):
         usages=[{"prompt_tokens": 1, "completion_tokens": 1, "cost_usd": 0.02}],
         rejected={"only0": 1.0},
         stats={"Footer text": {"hits": 10, "low_occ_ratio": 0.0}},
+        hits={"Footer text": 10},
     )
     save_generated_exclude_words(result, PAGES, str(tmp_path))
 
