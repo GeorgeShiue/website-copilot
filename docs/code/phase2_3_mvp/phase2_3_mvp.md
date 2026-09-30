@@ -11,8 +11,8 @@
     - [x] **引用來源**（回答內含檢索來源 URL，由 system prompt 要求）
 - [x] **多輪對話記憶**（`InMemorySaver` + `thread_id`）
 - [x] **SSE 串流**（`astream_text` 共用核心，CLI 與 server 皆可用）
-- [x] **對話落盤**（`runs/<ts>/agent/<config>/results_{thread_id}.json`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）
-- [x] **資源生命週期**（`Agent.close()` 釋放；agent 由 `run_agent_query()` / `run_app()` 建立並持有：前者於 `finally` 關閉、後者由 `ChatApp.close()` 關閉）
+- [x] **對話落盤**（`runs/<ts>/server/<config>/results_{thread_id}.json`，CLI `run agent` 為 `runs/<ts>/agent/<config>/`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）
+- [x] **資源生命週期**（`Agent.close()` 釋放；agent 由 `run_agent_query()` / `serve()`（經 `run_agent_build()`）建立：前者於 `finally` 關閉、後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉）
 - [x] **多站 RAG 路由**（M3：`RAGRegistry` + `webpage_retriever(site_id)` + `list_knowledge_bases`）
     - [x] `RAGRegistry` — lazy + LRU 快取管理多站 RAG 實例
     - [x] `webpage_retriever` — 接受 `site_id` 參數路由至對應知識庫
@@ -38,7 +38,7 @@
     - [x] **錯誤處理**（error 事件；空白 query 拒絕）
 - [x] **健康檢查**（`GET /api/health`）
 - [x] **CORS**（預設全開放；`allowed_origins` 可限縮）
-- [x] **啟動方式**（`uv run python src/cli.py server-cli --run.port 8000`，2026-09 起改為 `uv run python src/serve.py --run.port 8000`；`run_app()` 回傳非阻塞 `uvicorn.Server` + `ChatApp`，由呼叫端控制生命週期）
+- [x] **啟動方式**（`uv run python src/cli.py server-cli --run.port 8000`，2026-09 起改為 `uv run python src/serve.py --run.port 8000`，專案重構後為 `uv run website-copilot serve --run.port 8000`；`run_server_build()` 回傳非阻塞 `uvicorn.Server` + `ChatApp`，由呼叫端控制生命週期）
 - [x] **站點偵測**（M4：`DOMAIN_SITE_MAP` + `resolve_site_id()` + `_enrich_query_with_site_context()`）
     - [x] `ChatRequest` 新增 `page_url` 欄位
     - [x] 從 `page_url` 解析 hostname → 查 `DOMAIN_SITE_MAP` → 得到 `site_id`
@@ -71,7 +71,7 @@
     - [x] **跨頁面 session 共享**（`chrome.storage.session` 保存 `thread_id`，換頁面保留對話記憶）
 
 ## 已知問題
-- [ ] `extension/widget.js` 為 `static/widget.js` 的複本（Chrome 不載入 symlink），需手動同步
+- [x] `extension/widget.js` 為 `static/widget.js` 的複本（Chrome 不載入 symlink），以 `scripts/sync-widget.sh` 同步、CI 比對
 - [ ] Extension 的 widget 輸入框無 id/name（可及性 warning，已補 name 消除）
 
 ## 未來規劃

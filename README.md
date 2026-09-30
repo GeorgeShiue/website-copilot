@@ -22,7 +22,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 - 多站 RAG 路由 — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy 載入 + LRU 快取；只讀取已 publish 的向量庫，不建置）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫。
 - 多輪對話記憶（`InMemorySaver` + `thread_id`）。
 - SSE 逐 token 串流（CLI 與 server 共用 `agent.astream_text()` 核心）。
-- 對話落盤 `runs/<ts>/agent/<config>/results_<thread_id>.json`（讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
+- 對話落盤 `runs/<ts>/server/<config>/results_<thread_id>.json`（CLI `run agent` 為 `runs/<ts>/agent/<config>/`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）。
 
 ### Phase 3：嵌入式互動介面
 
@@ -48,105 +48,76 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 
 ```text
 .
+├── .env.example                 # 環境變數範本（cp .env.example .env）
 ├── prek.toml                    # ruff/prek 設定
-├── pyproject.toml               # Python 專案設定與依賴
+├── pyproject.toml               # Python 專案設定、依賴與 `website-copilot` console script
 ├── README.md
 ├── uv.lock
-├── src/
-│   ├── cli.py                   # CLI 入口（tyro 整合）
-│   ├── prepare.py               # Prepare 階段入口：爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
-│   ├── serve.py                 # Serve 階段入口：啟動聊天伺服器（唯讀 data/ 已 publish 的向量庫）
-│   ├── app/
-│   │   ├── agent/
-│   │   │   └── agent.py         # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / close）
-│   │   ├── configs/
-│   │   │   ├── agent_config.py          # AgentConfig（無 site_id，多站由 RAGRegistry 管理）
-│   │   │   ├── base_config.py           # BaseModuleConfig（無 site_id，子類自行宣告）
-│   │   │   ├── rag_config.py            # RAGConfig（有 site_id）
-│   │   │   ├── webpage_image_summarizer_config.py
-│   │   │   ├── website_crawler_config.py
-│   │   │   └── workflow_config.py       # RunConfig / ModuleConfig dataclasses
-│   │   ├── engines/
-│   │   │   ├── rag/
-│   │   │   │   ├── __init__.py  # 匯出 RAG / RAGBuilder / prompts
-│   │   │   │   ├── rag.py
-│   │   │   │   ├── rag_factory.py   # RAG 建構（RAGBuilder / NodePipelineBuilder / VectorStoreBuilder）
-│   │   │   │   └── rag_eval_prompts.py
-│   │   │   ├── webpage_image_summarizer.py
-│   │   │   ├── webpage_markdown_cleaner.py  # Markdown 清洗 + LLM 產生 exclude_words
-│   │   │   └── website_crawler.py
-│   │   ├── server/
-│   │   │   ├── app.py           # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
-│   │   │   └── static/
-│   │   │       ├── chat.html    # iframe 版聊天頁
-│   │   │       ├── widget.js    # 浮動 widget（mount factory + typing indicator）
-│   │   │       └── demo.html    # 嵌入示範
-│   │   ├── tools/
-│   │   │   ├── rag_registry.py      # RAGRegistry（多站 RAG 實例管理）
-│   │   │   ├── site_discovery.py    # list_knowledge_bases 工具
-│   │   │   └── webpage_retriever.py # 多站路由 retriever → LangChain StructuredTool
-│   │   └── workflow/
-│   │       ├── data_manager.py      # DataManager（publish_* 方法）
-│   │       ├── run_manager.py       # RunManager（for_run / for_run_no_site 路徑建立）
-│   │       ├── run_persistence.py   # 結果持久化與發現（無狀態函式）
-│   │       ├── workflow_helper.py   # 共用 run context / logging 生命週期 helper
-│   │       ├── prepare_workflow.py  # Prepare 階段：run_website_crawler / run_webpage_image_summarizer / run_rag_build
-│   │       ├── serve_workflow.py    # Serve 階段：run_agent_build / run_agent_query / run_app（不 import 爬蟲）
-│   │       └── eval_workflow.py     # RAG 查詢評估：run_rag_query
-│   ├── test/
-│   │   ├── test_main.py         # 端到端（prepare 三階段 + agent 問答）
-│   │   ├── test_module.py       # 模組端到端（slow 標記）
-│   │   └── dev/                 # 開發期單元／整合測試
-│   └── utils/
-│       ├── config_helper.py
-│       ├── html_date_extractor.py   # HTML 日期擷取（JSON-LD → OG → <time> → Generic → Dublin Core → HTTP Last-Modified）
-│       ├── langchain_helper.py      # LangChain 輔助（create_llm / thread_config / extract_sources）
-│       ├── log_helper.py
-│       └── rag_helper.py
+├── src/website_copilot/
+│   ├── schemas.py               # 跨層共用資料型別（GenerationResult）
+│   ├── cli/                     # `website-copilot <subcommand>`（tyro 子命令）
+│   │   ├── __init__.py          # main()：prepare / serve / run / exp 分派
+│   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
+│   │   ├── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
+│   │   └── exp.py               # exp <name>：批次實驗
+│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig / ModuleConfig）
+│   ├── ingestion/
+│   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
+│   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
+│   │   └── indexing/            # source / transforms / node_pipeline / vector_store / index（IndexBuilder → IndexHandle）
+│   ├── retrieval/
+│   │   ├── rag.py               # RAG（index_handle + retriever + query engine）
+│   │   ├── factory.py           # RAGBuilder + build_rag（建置）+ load_rag（serve 載入，絕不建置）
+│   │   ├── evaluation.py        # evaluator 建立 / 評估 / prompts / 結果序列化
+│   │   ├── registry.py          # RAGRegistry（多站 RAG 實例管理，lazy + LRU）
+│   │   └── llama_index_helpers.py
+│   ├── agent/
+│   │   ├── agent.py             # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / close）
+│   │   ├── langchain_helper.py  # LangChain 輔助（create_llm / thread_config / extract_sources）
+│   │   └── tools/               # webpage_retriever（多站路由）/ site_discovery（list_knowledge_bases）
+│   ├── storage/                 # DataManager（publish_*）/ RunManager / run_persistence / run_context
+│   ├── server/
+│   │   ├── app.py               # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
+│   │   ├── server.py            # ChatServer（uvicorn.Server 子類，持有 ChatApp，結束時自動關閉）
+│   │   └── static/              # chat.html（iframe）/ widget.js（來源，含 typing indicator）/ demo.html
+│   ├── pipelines/
+│   │   ├── prepare.py           # run_website_crawler / run_image_summarizer / run_rag_build / run_prepare
+│   │   ├── serve.py             # run_agent_build / run_server_build / serve（不 import 爬蟲）
+│   │   └── exp.py               # run_rag_query / run_agent_query + 批次實驗（EXPERIMENTS）
+│   └── utils/                   # config_helper / log_helper
+├── tests/
+│   ├── unit/                    # 單元測試（預設執行）
+│   └── integration/             # 整合測試（cost 標記：會呼叫 LLM API）
 ├── extension/                   # Chrome Extension（M4）
 │   ├── manifest.json            # MV3：content_scripts + background + alarms/storage 權限
 │   ├── background.js            # 代理 fetch SSE（繞過 CSP/CORS）+ keepalive + thread_id 共享
 │   ├── content.js               # 注入 widget + 偵測 hostname 帶入 page_url
-│   └── widget.js                # 複本（含 typing indicator，與 static/widget.js 同步）
-├── scripts/
-│   └── multi_site.py            # 多站流程腳本
+│   └── widget.js                # 由 server/static/widget.js 同步（scripts/sync-widget.sh，CI 比對）
+├── scripts/                     # 開發常用指令
+│   ├── check.sh                 # 依序執行 lint.sh → test.sh → check-widget.sh
+│   ├── lint.sh                  # ruff check + ruff format 檢查 + pyright（--fix 自動修正）
+│   ├── test.sh                  # pytest tests/unit（額外參數傳給 pytest）
+│   ├── check-widget.sh          # 確認 widget.js 兩份一致
+│   ├── clean-runs.sh            # 刪除 runs/ 中今天以前的 run（--dry-run / --yes）
+│   └── sync-widget.sh           # 同步 widget.js 到 extension/
 ├── configs/
 │   ├── agent/                   # Agent 設定（default / test）
 │   ├── rag/
 │   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
-│   │   ├── milvus.toml          # Milvus + WeightedRanker
 │   │   ├── nculab.toml / ncucsie.toml  # 多站設定
 │   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
-│   ├── webpage_image_summarizer/
+│   ├── image_summarizer/
 │   └── website_crawler/
-├── data/
-│   ├── rag/
-│   │   └── results/             # 向量資料庫（milvus.db）
-│   ├── raw_webpages/             # 爬蟲原始輸出（fit_markdown，跟 webpages/ 完全分開）
-│   │   ├── results/
-│   │   ├── results.json
-│   │   └── module_config.toml
-│   └── webpages/
-│       ├── results/             # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
-│       ├── results.json         # 結果索引（含 enhanced_markdown）
-│       └── module_config.toml   # 模組設定備份
-├── runs/                         # 執行結果與聊天記錄（<ts>/agent/<config>/ 等）
-├── dev/
+├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
+│   ├── raw_webpages/<site_id>/  # 爬蟲原始輸出（fit_markdown）
+│   ├── webpages/<site_id>/      # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
+│   └── rag/<site_id>/           # 向量資料庫（milvus.db）與建庫設定備份
 ├── docs/
 │   ├── project.md               # 專案總覽與路線圖
-│   ├── code/
-│   │   ├── phase1/
-│   │   │   ├── phase1.md        # Phase 1 實作概覽
-│   │   │   ├── modules/         # 各模組文件
-│   │   │   └── survey/
-│   │   ├── phase2_3_mvp/
-│   │   │   ├── phase2_3_mvp.md  # Phase 2/3 實作概覽
-│   │   │   └── survey/
-│   │   │       └── sse_vs_websocket.md
-│   │   └── runs/                # CLI / config / workflow 說明（跨階段共用）
-│   ├── work/                    # 工作紀錄（2026_0810-phase2_3_mvp.md 等）
-│   └── progress_report/         # 進度報告
-└── runs/                        # 實驗輸出（以時間戳資料夾儲存）
+│   ├── code/                    # 各階段實作說明（phase1 / phase2_3_mvp / runs）
+│   ├── work/                    # 工作紀錄
+│   └── progress_report/         # 進度報告（依日期分資料夾，marp 投影片與 PDF）
+└── runs/                        # 執行結果與聊天記錄（以時間戳資料夾儲存，不進版控）
 ```
 
 ## 需求
@@ -161,13 +132,12 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ## 安裝
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-playwright install
+uv sync                     # 建立 .venv 並以 editable 模式安裝專案（含 website-copilot 指令）
+uv run playwright install   # 爬蟲所需的瀏覽器
+cp .env.example .env        # 填入 API 金鑰
 ```
 
-如果你使用不同的環境管理方式，請從 `pyproject.toml` 安裝依賴，並確保在執行爬蟲前已安裝 Playwright 瀏覽器。
+如果你使用不同的環境管理方式，請從 `pyproject.toml` 安裝依賴（`pip install -e .`），並確保在執行爬蟲前已安裝 Playwright 瀏覽器。
 
 ## 設定
 
@@ -180,76 +150,87 @@ playwright install
 
 ### 圖片摘要設定
 
-- `configs/webpage_image_summarizer/*.toml`
+- `configs/image_summarizer/*.toml`
 - 控制圖片下載逾時、重試行為、快取、模型選擇、prompt 文本以及圖片來源模式。
 
 ### 環境變數
 
+範本見 `.env.example`。各模組依設定檔中的模型名稱（`gpt-*` / `gemini-*`）選用對應金鑰：
+
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_RAG_EMBEDDING_API_KEY` | `app/engines/rag/rag_factory.py` | 向量索引的嵌入模型金鑰。 |
-| `GEMINI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py`、`utils/langchain_helper.py` | 回答生成 / Agent LLM（Gemini）金鑰。 |
-| `OPENAI_RAG_QUERY_ENGINE_API_KEY` | `utils/rag_helper.py` | 用於回答生成的 GPT 金鑰。 |
-| `GEMINI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（Gemini）。 |
-| `OPENAI_RAG_EVALUATOR_API_KEY` | `utils/rag_helper.py` | 回答評估（GPT）。 |
-| `OPENAI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/engines/webpage_image_summarizer.py` | GPT 圖片摘要金鑰。 |
-| `GEMINI_WEBPAGE_IMAGE_SUMMARIZER_VLM_API_KEY` | `app/engines/webpage_image_summarizer.py` | Gemini 圖片摘要金鑰。 |
+| `OPENAI_API_KEY` | `ingestion/indexing/index.py`、`retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | Embedding（`text-embedding-3-*`），以及 `gpt-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
+| `GEMINI_API_KEY` | `retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | `gemini-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
 
 ## 使用方式
 
 ### 系統分為兩個階段
 
+所有功能都透過 `website-copilot` 指令執行（`uv run website-copilot --help` 查看子命令）：
+
 | 階段 | 入口 | 職責 |
 |---|---|---|
-| Prepare | `src/prepare.py` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
-| Serve | `src/serve.py` | 啟動 Chat 伺服器，只讀取 `data/rag/<site_id>/milvus.db`，不做任何建置 |
+| Prepare | `website-copilot prepare` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
+| Serve | `website-copilot serve` | 啟動 Chat 伺服器，只讀取 `data/rag/<site_id>/milvus.db`，不做任何建置（不需要 `data/webpages/`） |
 
 兩階段唯一的介面是 `data/` 目錄：站點只有在 prepare 成功 publish 向量庫後，才會出現在 server 的可用知識庫中。
 
 ### Prepare：爬取、圖片摘要與 RAG 建置
 
 ```bash
-uv run python src/prepare.py --run.config-name nculab
+uv run website-copilot prepare --run.config-name nculab
 ```
 
 `--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
+
+各階段也可以單獨執行（`website-copilot run <module>`）：
+
+```bash
+uv run website-copilot run website-crawler --run.config-name nculab --module.max-pages 10
+uv run website-copilot run image-summarizer --run.config-name nculab
+uv run website-copilot run rag-build --run.config-name nculab --run.publish
+```
 
 ### 執行 RAG 查詢
 
 ```bash
 # 使用 Milvus + WeightedRanker 執行混合檢索
-uv run python src/cli.py rag-query-cli --run.config-name milvus
+uv run website-copilot run rag-query --run.config-name milvus
 
-# 自訂 top-k 與過濾條件（透過 CLI 覆寫）
-uv run python src/cli.py rag-query-cli --run.config-name milvus --module.similarity_top_k 10 --module.hybrid_top_k 20
+# 自訂 top-k（透過 CLI 覆寫）
+uv run website-copilot run rag-query --run.config-name milvus --module.similarity-top-k 10 --module.hybrid-top-k 20
 ```
 
-也可以透過 `src/exp.py` 執行批次實驗，例如比較 Dense 與 Hybrid 在多個查詢上的表現。
+也可以透過 `website-copilot exp <name>` 執行批次實驗（定義於 `pipelines/exp.py` 的 `EXPERIMENTS`），例如比較 Dense 與 Hybrid 在多個查詢上的表現：
 
-> **注意**：`src/exp.py` 內各實驗函式以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `src/exp.py` 中的 `config_name` 清單。
+```bash
+uv run website-copilot exp rag_dense_vs_hybrid
+```
+
+> **注意**：各實驗以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `pipelines/exp.py` 中的 `config_name` 清單。
 
 ### 執行 Agent 問答（CLI）
 
 ```bash
 # 單輪問答（自動檢索 + 附引用來源 + 落盤 runs/）
-uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？"
+uv run website-copilot run agent --run.query "實驗室的成員有哪些人？"
 
 # 多輪對話（相同 thread-id 記得上下文）
-uv run python src/cli.py agent-cli --run.query "實驗室的成員有哪些人？" --run.thread-id demo
-uv run python src/cli.py agent-cli --run.query "這些人中，有誰是研究生？" --run.thread-id demo
+uv run website-copilot run agent --run.query "實驗室的成員有哪些人？" --run.thread-id demo
+uv run website-copilot run agent --run.query "這些人中，有誰是研究生？" --run.thread-id demo
 
 # 串流顯示（逐 token 輸出）
-uv run python src/cli.py agent-cli --run.query "實驗室的研究方向？" --run.stream
+uv run website-copilot run agent --run.query "實驗室的研究方向？" --run.stream
 ```
 
 ### 啟動聊天伺服器（SSE）
 
 ```bash
 # 啟動 serve 階段（阻塞至中斷）
-uv run python src/serve.py --run.port 8000
+uv run website-copilot serve --run.port 8000
 
 # 限縮 CORS 來源（預設全開放）
-uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
+uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 ```
 
 啟動後瀏覽器開啟 **http://localhost:8000/**（自動轉至嵌入示範頁），即可用 iframe 與 widget 兩種方式對話。
@@ -260,21 +241,22 @@ uv run python src/serve.py --run.allowed-origins https://lab.example.edu.tw
 <!-- ① iframe：網頁任意位置 -->
 <iframe src="http://localhost:8000/static/chat.html" width="360" height="520"></iframe>
 
-<!-- ② script widget：<\/body> 前加一行（右下角浮動 💬） -->
+<!-- ② script widget：<\/body> 前加一行（右下角浮動 🤖） -->
 <script src="http://localhost:8000/static/widget.js" data-endpoint="http://localhost:8000"><\/script>
 
 <!-- ③ Chrome Extension：chrome://extensions → 載入未封裝項目 → 選 extension/ 資料夾 -->
 <!--    在任何網站右下角浮出 widget（background 代理繞過 CSP/CORS） -->
 ```
 
-### 執行 smoke tests
+### 執行測試
 
 ```bash
-# 快速路徑（不含真實爬蟲 / LLM / 建庫）
-uv run pytest -m "not slow"
+# 單元測試（全部 mock，不需 API 金鑰）
+./scripts/test.sh              # = uv run pytest tests/unit
 
-# 完整測試（含端到端 slow 測試）
-uv run pytest
+# 整合測試（需 API 金鑰；cost 標記的測試會產生 API 費用）
+uv run pytest tests/integration
+uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測試
 ```
 
 ## 輸出
@@ -284,7 +266,7 @@ uv run pytest
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — run-level 參數（透過 `cli.py` / `serve.py` 執行時寫出；`prepare.py` 目前不傳入 `run_config`，故不寫出）
+- `run_config.toml` — run-level 參數（含 `save` / `publish`；透過 `website-copilot run` / `serve` 執行時寫出；`website-copilot prepare` 目前不傳入 `run_config`，故不寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/<site_id>/`：
@@ -301,18 +283,24 @@ uv run pytest
 
 ### 聊天記錄（`runs/`）
 
-Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
+Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot serve`）或 `runs/<timestamp>/agent/<config>/`（`website-copilot run agent`）：
 
-- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
-- `module_config.toml` / `run_config.toml` / `terminal.log` — 設定備份與日誌
+- `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；跨 run 查找歷史只在同一 module（`server` 或 `agent`）內進行
+- `run_config.toml` / `terminal.log` — 設定備份與日誌（不含 `module_config.toml`）
 
-> 註：`run_app`（server 入口）不寫 `module_config.toml`；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
+> 註：`website-copilot serve` 與 `website-copilot run agent` 另會產生 `runs/<timestamp>/agent_build/<config>/`（`run_agent_build` 寫出 `module_config.toml` 與建構日誌），與對話的 run 目錄分開；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
 
 ## 開發
 
-- 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定。
-- `src/test/test_main.py` 會使用測試設定檔執行完整流程（prepare 三階段 + agent 問答）。
-- `src/test/test_module.py` 會獨立執行爬蟲與摘要器。
+- `./scripts/check.sh`：依序執行三組檢查，任一組失敗即中止（可用於 `git bisect run`）；各組也可單獨執行：
+  - `./scripts/lint.sh`：`ruff check`、`ruff format --check`、`pyright`；加 `--fix` 改為自動修正 ruff 問題並格式化（`ruff check --fix`、`ruff format`）
+  - `./scripts/test.sh`：`pytest tests/unit`（額外參數會傳給 pytest，如 `./scripts/test.sh -x`）
+  - `./scripts/check-widget.sh`：確認 `extension/widget.js` 與來源一致
+- 格式化與 lint 透過 `ruff` 與 `prek.toml` 設定（`./scripts/lint.sh --fix` 自動修正）。
+- `widget.js` 以 `src/website_copilot/server/static/widget.js` 為來源，修改後執行 `./scripts/sync-widget.sh` 同步到 `extension/`（CI 會比對兩份是否一致）。
+- `./scripts/clean-runs.sh`：刪除 `runs/` 中今天以前的 run 資料夾（依 `YYYYMMDD_HHMMSS` 名稱判斷，其他項目保留）；刪除前會列出清單與合計大小並要求確認，`--dry-run` 只列出、`--yes` 略過確認。注意 agent 的 `results_<thread_id>.json` 會跨 run 累積對話歷史，清理後舊 thread 的歷史也會一併移除。
+- `tests/integration/test_module.py` 以測試設定檔逐一執行各 run function（爬蟲、摘要器、RAG 建置、agent 建構與問答）。
+- `tests/integration/test_pipeline.py` 以測試設定檔執行 prepare 完整流程（`publish=False`：只存到 `runs/`，不覆寫 `data/`），並啟動後自動關閉 server。
 
 ## 文件
 
@@ -348,7 +336,7 @@ Agent 對話落盤於 `runs/<timestamp>/agent/<config>/`：
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
 - Query 結果落盤（`results.json` + `results/query_{index}.md`）；RAG 建庫位置依 `save`／`publish` 決定，publish 以原子替換更新 `data/rag/`
-- Prepare／Serve 兩階段分離（`src/prepare.py`／`src/serve.py`，以 `data/` 為唯一介面）
+- Prepare／Serve 兩階段分離（`website-copilot prepare`／`website-copilot serve`，以 `data/` 為唯一介面）
 - Chrome Extension 站點偵測（`hostname` → `page_url` → `resolve_site_id`）
 - Service Worker Keepalive + Typing Indicator + 跨頁面 session 共享
 

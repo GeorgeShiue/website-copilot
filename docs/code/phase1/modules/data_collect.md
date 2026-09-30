@@ -4,13 +4,13 @@
 此模組以**非同步方式**爬取網站頁面，依設定限制**爬取深度**與**頁數**，並將每頁內容整理成乾淨且格式化的**Markdown**。爬取後的資料會再經過**清理**、**標題整理**、**圖片連結擷取**與**去重**，最後以**頁面標題**作為識別，回傳整理後的頁面資訊並記錄**成功**、**錯誤**與**重複頁面**的統計。
 
 - **模組實作**
-	- `src/app/engines/website_crawler.py`（**主爬蟲實作**，包含**爬取**、**過濾**、**Markdown 清洗**與**輸出邏輯**）
-	- `src/app/configs/website_crawler_config.py`（**模組內部常數**與**預設設定**，例如**內容門檻**）
-	- `src/utils/log_helper.py`（**日誌**與**統計輸出輔助**）
+	- `src/website_copilot/ingestion/crawling/website_crawler.py`（**主爬蟲實作**，包含**爬取**、**過濾**、**Markdown 清洗**與**輸出邏輯**）
+	- `src/website_copilot/config/website_crawler_config.py`（**模組內部常數**與**預設設定**，例如**內容門檻**）
+	- `src/website_copilot/utils/log_helper.py`（**日誌**與**統計輸出輔助**）
 
 - **模組設定**
-	- `./configs/website_crawler/{name}.toml`（**爬蟲執行設定**，透過 `src/app/configs/website_crawler_config.py` 載入）
-	- 可在 `src/app/engines/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
+	- `./configs/website_crawler/{name}.toml`（**爬蟲執行設定**，透過 `src/website_copilot/config/website_crawler_config.py` 載入）
+	- 可在 `src/website_copilot/ingestion/crawling/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用**現代型別語法**如 `int | None`）
@@ -40,7 +40,7 @@
 ### 1. 讀取設定來源
 - 從 `./configs/website_crawler/{name}.toml` 載入**爬蟲設定**。
 - 支援不同任務切換**不同設定檔**。
-- 由 `src/app/configs/website_crawler_config.py` 統一管理。
+- 由 `src/website_copilot/config/website_crawler_config.py` 統一管理。
 
 ### 2. 檢查可用設定
 - 驗證**爬取深度**、**頁數上限**與**內容門檻**。
@@ -48,8 +48,8 @@
 - 避免**設定格式不正確**而影響爬取。
 
 ### 3. 套用與轉換參數
-- `exclude_words` 已不再是設定參數：由 LLM 產生並驗證（見 `[clean]` 與 `webpage_markdown_cleaner.py`）。
-- 可搭配 `app/engines/website_crawler.py` 調整**瀏覽**與**爬取行為**。
+- `exclude_words` 已不再是設定參數：由 LLM 產生並驗證（見 `[clean]` 與 `ingestion/crawling/markdown_cleaner.py`）。
+- 可搭配 `ingestion/crawling/website_crawler.py` 調整**瀏覽**與**爬取行為**。
 - 讓設定內容直接對應**實際執行需求**。
 
 ## 補充說明

@@ -1,4 +1,4 @@
-# Implementation Log
+# Development Log
 
 > 對應規劃文件：[plan.md](./plan.md)
 

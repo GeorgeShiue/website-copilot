@@ -16,17 +16,15 @@ hooks = [
     { id = "check-toml" },
 ]
 
+# ruff 以 local hook 經 uv 執行：版本由 uv.lock 決定，與 scripts/lint.sh、CI 一致
 [[repos]]
-repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.0"
+repo = "local"
 hooks = [
-    { id = "ruff-check", args = [
-        "--fix",
-    ], types_or = [
+    { id = "ruff-check", name = "ruff check", entry = "uv run ruff check --force-exclude --fix", language = "system", types_or = [
         "python",
         "pyi",
     ] },
-    { id = "ruff-format", types_or = [
+    { id = "ruff-format", name = "ruff format", entry = "uv run ruff format --force-exclude", language = "system", types_or = [
         "python",
         "pyi",
     ] },

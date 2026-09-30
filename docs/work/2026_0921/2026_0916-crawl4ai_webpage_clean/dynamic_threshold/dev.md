@@ -1,4 +1,4 @@
-# Implementation Log (by Implementor)
+# Development Log (by Implementor)
 
 ---
 
