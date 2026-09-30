@@ -80,8 +80,8 @@ def setup_mock_run_manager(mock_rm_cls: MagicMock) -> MagicMock:
     """設定 mock RunManager 的常用欄位，並回傳該 mock 實例。"""
     mock_rm = MagicMock()
     mock_rm.log_path = "fake.log"
-    mock_rm.run_config_toml_path = "fake_run_config.toml"
-    mock_rm.module_config_toml_path = "fake_module_config.toml"
+    mock_rm.run_config_path = "fake_run_config.yml"
+    mock_rm.module_config_path = "fake_module_config.yml"
     mock_rm.run_name = "test"
     mock_rm_cls.for_run_no_site.return_value = mock_rm
     return mock_rm

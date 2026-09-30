@@ -22,8 +22,8 @@ from website_copilot.storage.run_context import (
 from website_copilot.storage.run_persistence import save_query_results_as_md
 from website_copilot.utils.config_helper import (
     log_config,
-    save_module_config_as_toml,
-    save_run_config_as_toml,
+    save_module_config,
+    save_run_config,
 )
 from website_copilot.utils.log_helper import log_session, print_log
 
@@ -39,15 +39,15 @@ def run_rag_query(
     """執行 RAG 查詢工作流程。
 
     Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。
+        config_name: RAGConfig 名稱（對應 configs/rag/{name}.yml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         force_rebuild: 是否強制重建向量庫。
         query_times: 查詢次數。
-        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
+        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
         **config_overrides: RAGConfig 覆寫值（含 site_id）。
     """
     # ----- 初始化設定和路徑 -----
-    config = RAGConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_yaml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
         module="rag_query",
         config_name=config_name,
@@ -59,7 +59,7 @@ def run_rag_query(
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化 RAG 和 評估器 -----
         log_session("Building RAG and Evaluators", style="cyan")
-        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         rag = build_rag(
             config=config,
             force_rebuild=force_rebuild,
@@ -146,9 +146,9 @@ def run_rag_query(
             )
 
             # ---- 儲存設定 -----
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            save_module_config(config, run_manager.module_config_path)
             if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+                save_run_config(run_config, run_manager.run_config_path)
         except Exception as e:
             log_session("RAG Query Failed", style="red")
             print_log(f"Error: {e}")
@@ -168,16 +168,16 @@ def run_agent_query(
 ) -> None:
     """執行 Agent 問答工作流程（建構 agent → 建立 run context → 問答 → 落盤 → 關閉）。
 
-    流程：run_agent_build() 建構 agent（module_config.toml 寫在 runs/<ts>/agent_build/）
-    → 問答 → 顯示回答與來源 → 落盤 runs/<ts>/agent/ → 寫 run_config.toml → 關閉 agent。
+    流程：run_agent_build() 建構 agent（module_config.yml 寫在 runs/<ts>/agent_build/）
+    → 問答 → 顯示回答與來源 → 落盤 runs/<ts>/agent/ → 寫 run_config.yml → 關閉 agent。
     agent 的 Tool 生命週期在本函式內結束（呼叫端不需持有 agent）。
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.yml）。
         query: 使用者問題。
         thread_id: session 識別；None 時自動產生 auto-{uuid}。
         stream: 是否逐 token 串流輸出。
-        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
+        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
     """
 
@@ -216,11 +216,9 @@ def run_agent_query(
                 # ---- 輸出完成訊息 -----
                 log_session("Agent Query Completed", style="cyan")
 
-                # ---- 儲存設定（module_config.toml 已由 run_agent_build 寫入）-----
+                # ---- 儲存設定（module_config.yml 已由 run_agent_build 寫入）-----
                 if run_config is not None:
-                    save_run_config_as_toml(
-                        run_config, run_manager.run_config_toml_path
-                    )
+                    save_run_config(run_config, run_manager.run_config_path)
 
                 # ---- 儲存結果 -----
                 if thread_id is None:
@@ -239,7 +237,7 @@ def run_agent_query(
 
 
 # ════════════════════════════════════════════════════════════════════
-#  批次實驗（各實驗以 config_name 對應 configs/{module}/{name}.toml）
+#  批次實驗（各實驗以 config_name 對應 configs/{module}/{name}.yml）
 # ════════════════════════════════════════════════════════════════════
 
 

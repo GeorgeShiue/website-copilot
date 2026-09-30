@@ -66,7 +66,7 @@ def _make_mock_rag(site_id: str = "test") -> MagicMock:
 
 
 def _config_for_site(config_name: str, **overrides: Any) -> MagicMock:
-    """RAGConfig.from_toml 替身：回傳帶有對應 site_id 的 config。"""
+    """RAGConfig.from_yaml 替身：回傳帶有對應 site_id 的 config。"""
     cfg = MagicMock()
     cfg.site_id = overrides.get("site_id", "x")
     return cfg
@@ -171,14 +171,14 @@ class TestGetCacheMiss:
 
         fake_config = MagicMock()
         fake_config.site_id = "nculab"
-        mock_config_cls.from_toml.return_value = fake_config
+        mock_config_cls.from_yaml.return_value = fake_config
 
         fake_rag = _make_mock_rag("nculab")
         mock_load_rag.return_value = fake_rag
 
         result = registry.get("nculab")
 
-        mock_config_cls.from_toml.assert_called_once_with("default", site_id="nculab")
+        mock_config_cls.from_yaml.assert_called_once_with("default", site_id="nculab")
         mock_load_rag.assert_called_once_with(fake_config)
         assert result is fake_rag
 
@@ -201,7 +201,7 @@ class TestGetCacheHit:
 
         fake_config = MagicMock()
         fake_config.site_id = "nculab"
-        mock_config_cls.from_toml.return_value = fake_config
+        mock_config_cls.from_yaml.return_value = fake_config
         fake_rag = _make_mock_rag("nculab")
         mock_load_rag.return_value = fake_rag
 
@@ -229,7 +229,7 @@ class TestLRUEviction:
     ) -> None:
         registry = make_registry(existing_sites=["a", "b", "c"], max_cached=2)
 
-        mock_config_cls.from_toml.side_effect = _config_for_site
+        mock_config_cls.from_yaml.side_effect = _config_for_site
 
         rags = _track_loaded_rags(mock_load_rag)
 
@@ -258,7 +258,7 @@ class TestClose:
     ) -> None:
         registry = make_registry(existing_sites=["a", "b"])
 
-        mock_config_cls.from_toml.side_effect = _config_for_site
+        mock_config_cls.from_yaml.side_effect = _config_for_site
 
         rags = _track_loaded_rags(mock_load_rag)
 
@@ -277,8 +277,8 @@ class TestClose:
 
 
 def _make_builder() -> IndexBuilder:
-    """建立以 configs/rag/test.toml 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
-    return IndexBuilder(RAGConfig.from_toml("test"))
+    """建立以 configs/rag/test.yml 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
+    return IndexBuilder(RAGConfig.from_yaml("test"))
 
 
 class TestShouldRebuildMilvus:

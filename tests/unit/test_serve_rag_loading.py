@@ -35,7 +35,7 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """在 tmp 目錄建立 configs/ 與已 publish 的 data/，並切換工作目錄。"""
     config_dir = tmp_path / "configs" / "rag"
     config_dir.mkdir(parents=True)
-    shutil.copy(REPO_ROOT / "configs" / "rag" / "default.toml", config_dir)
+    shutil.copy(REPO_ROOT / "configs" / "rag" / "default.yml", config_dir)
 
     rag_dir = tmp_path / "data" / "rag" / SITE_ID
     rag_dir.mkdir(parents=True)
@@ -97,7 +97,7 @@ def test_load_raises_when_vector_store_missing(
     workspace: Path, fake_backends: dict[str, MagicMock]
 ) -> None:
     (workspace / "data" / "rag" / SITE_ID / "milvus.db").unlink()
-    config = RAGConfig.from_toml("default", site_id=SITE_ID)
+    config = RAGConfig.from_yaml("default", site_id=SITE_ID)
 
     with pytest.raises(FileNotFoundError) as exc_info:
         load_rag(config)

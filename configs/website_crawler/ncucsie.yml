@@ -1,0 +1,10 @@
+extends: default
+run_name_fields: [init.max_depth]
+
+site_id: ncucsie
+
+crawl:
+  url: https://www.csie.ncu.edu.tw/
+  url_patterns: ["*csie.ncu.edu.tw*"]
+  allowed_domains: [www.csie.ncu.edu.tw]
+  path_prefix: /

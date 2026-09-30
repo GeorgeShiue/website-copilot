@@ -153,17 +153,7 @@ def save_results_as_md(
 def save_generated_exclude_words(
     result: GenerationResult, raw_pages: dict[str, str], run_path: str
 ) -> None:
-    """落盤 LLM 產生的 exclude_words（可貼回 [clean]）與報告。"""
-    toml_text = (
-        "exclude_words = [\n"
-        + "".join(f"    {json.dumps(w, ensure_ascii=False)},\n" for w in result.words)
-        + "]\n"
-    )
-    with open(
-        os.path.join(run_path, "generated_exclude_words.toml"), "w", encoding="utf-8"
-    ) as f:
-        f.write(toml_text)
-
+    """落盤 LLM 產生的 exclude_words 報告（exclude_words_report.json）。"""
     report = {
         "seed": result.seed,
         "words": [

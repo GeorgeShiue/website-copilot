@@ -18,8 +18,8 @@ from website_copilot.storage.run_context import (
 )
 from website_copilot.utils.config_helper import (
     log_config,
-    save_module_config_as_toml,
-    save_run_config_as_toml,
+    save_module_config,
+    save_run_config,
 )
 from website_copilot.utils.log_helper import log_session, print_log
 
@@ -34,11 +34,11 @@ def run_agent_build(
     一律建立自己的 run context：runs/<ts>/agent_build/<config>/。
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.toml）。
-        run_config: AgentRunConfig 實例（可選，用於落盤 run config toml）。
+        config_name: AgentConfig 名稱（對應 configs/agent/{name}.yml）。
+        run_config: AgentRunConfig 實例（可選，用於落盤 run config yml）。
         **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
     """
-    config = AgentConfig.from_toml(config_name, **config_overrides)
+    config = AgentConfig.from_yaml(config_name, **config_overrides)
 
     run_manager, run_title = create_run_no_site_context(
         module="agent_build",
@@ -47,7 +47,7 @@ def run_agent_build(
 
     with run_workflow_context(run_title, run_manager=run_manager):
         # ---- 初始化 Agent -----
-        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         agent = create_agent(config)
 
         try:
@@ -55,9 +55,9 @@ def run_agent_build(
             log_session("Agent Build Completed", style="cyan")
 
             # ---- 儲存設定 -----
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            save_module_config(config, run_manager.module_config_path)
             if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+                save_run_config(run_config, run_manager.run_config_path)
         except Exception:
             agent.close()
             raise
@@ -81,7 +81,7 @@ def run_server_build(
 
     Args:
         agent: 已建構的 Agent（通常來自 run_agent_build()）。
-        run_config: ServeRunConfig 實例（可選，用於落盤 run config toml）。
+        run_config: ServeRunConfig 實例（可選，用於落盤 run config yml）。
         allowed_origins: CORS 允許來源（None 時全開放）。
         host: 監聽位址，預設 "127.0.0.1"。
         port: 監聽連接埠，預設 8000。
@@ -116,7 +116,7 @@ def run_server_build(
 
             # ---- 儲存設定 -----
             if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+                save_run_config(run_config, run_manager.run_config_path)
         except Exception as e:
             log_session("Server Initialization Failed", style="red")
             print_log(f"Error: {e}")

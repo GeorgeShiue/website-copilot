@@ -60,7 +60,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
 │   │   ├── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
 │   │   └── exp.py               # exp <name>：批次實驗
-│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig / ModuleConfig）
+│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig / ModuleConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
 │   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
@@ -102,10 +102,11 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   └── sync-widget.sh           # 同步 widget.js 到 extension/
 ├── configs/
 │   ├── agent/                   # Agent 設定（default / test）
+│   ├── README.md                # 設定檔撰寫說明（extends、run_name_fields、YAML 注意事項）
 │   ├── rag/
-│   │   ├── default.toml         # 預設設定（Milvus + WeightedRanker hybrid）
-│   │   ├── nculab.toml / ncucsie.toml  # 多站設定
-│   │   └── test.toml            # 測試用（同 default，Milvus hybrid）
+│   │   ├── default.yml          # 預設設定（Milvus + WeightedRanker hybrid）
+│   │   ├── nculab.yml / ncucsie.yml / claudecode.yml  # 多站設定（extends: default）
+│   │   └── test.yml             # 測試用（extends: test_nculab）
 │   ├── image_summarizer/
 │   └── website_crawler/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
@@ -141,16 +142,16 @@ cp .env.example .env        # 填入 API 金鑰
 
 ## 設定
 
-本專案使用 `configs/` 底下的 TOML 檔案，以及從 `.env` 讀取環境變數。
+本專案使用 `configs/` 底下的 YAML 設定檔（`.yml`，可用 `extends` 繼承同資料夾的設定，撰寫方式見 [configs/README.md](configs/README.md)），以及從 `.env` 讀取環境變數。
 
 ### 爬蟲設定
 
-- `configs/website_crawler/*.toml`
+- `configs/website_crawler/*.yml`
 - 控制爬取深度、頁面數量限制、內容過濾、URL 模式與允許網域。
 
 ### 圖片摘要設定
 
-- `configs/image_summarizer/*.toml`
+- `configs/image_summarizer/*.yml`
 - 控制圖片下載逾時、重試行為、快取、模型選擇、prompt 文本以及圖片來源模式。
 
 ### 環境變數
@@ -207,7 +208,7 @@ uv run website-copilot run rag-query --run.config-name milvus --module.similarit
 uv run website-copilot exp rag_dense_vs_hybrid
 ```
 
-> **注意**：各實驗以 `config_name` 對應 `configs/rag/{name}.toml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `pipelines/exp.py` 中的 `config_name` 清單。
+> **注意**：各實驗以 `config_name` 對應 `configs/rag/{name}.yml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `pipelines/exp.py` 中的 `config_name` 清單。
 
 ### 執行 Agent 問答（CLI）
 
@@ -265,8 +266,8 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
-- `module_config.toml` — 本次執行的模組參數備份
-- `run_config.toml` — run-level 參數（含 `save` / `publish`；透過 `website-copilot run` / `serve` 執行時寫出；`website-copilot prepare` 目前不傳入 `run_config`，故不寫出）
+- `module_config.yml` — 本次執行的模組參數備份
+- `run_config.yml` — run-level 參數（含 `save` / `publish`；透過 `website-copilot run` / `serve` 執行時寫出；`website-copilot prepare` 目前不傳入 `run_config`，故不寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/<site_id>/`：
@@ -286,9 +287,9 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot serve`）或 `runs/<timestamp>/agent/<config>/`（`website-copilot run agent`）：
 
 - `results_<thread_id>.json` — 依 thread_id 分檔的對話歷史（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；跨 run 查找歷史只在同一 module（`server` 或 `agent`）內進行
-- `run_config.toml` / `terminal.log` — 設定備份與日誌（不含 `module_config.toml`）
+- `run_config.yml` / `terminal.log` — 設定備份與日誌（不含 `module_config.yml`）
 
-> 註：`website-copilot serve` 與 `website-copilot run agent` 另會產生 `runs/<timestamp>/agent_build/<config>/`（`run_agent_build` 寫出 `module_config.toml` 與建構日誌），與對話的 run 目錄分開；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
+> 註：`website-copilot serve` 與 `website-copilot run agent` 另會產生 `runs/<timestamp>/agent_build/<config>/`（`run_agent_build` 寫出 `module_config.yml` 與建構日誌），與對話的 run 目錄分開；`results.json` 僅用於爬蟲／摘要／`run_rag_query` 等模組，agent 不寫。
 
 ## 開發
 

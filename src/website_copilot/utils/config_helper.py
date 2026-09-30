@@ -1,12 +1,15 @@
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rich.table import Table
+import yaml
 from pydantic import BaseModel
-from tomlkit import document, dump, inline_table, table
+from rich.table import Table
 
 from website_copilot.utils.log_helper import log_session, print_log
+
+if TYPE_CHECKING:
+    from website_copilot.config.base_config import BaseModuleConfig
 
 logger = logging.getLogger(__name__)
 
@@ -19,107 +22,52 @@ class EnvironmentVariableError(ValueError):
     """環境變數相關錯誤。"""
 
 
-def _drop_none(value: Any) -> Any:
-    """遞迴移除 dict 中值為 None 的 key（TOML 無 null）。"""
-    if isinstance(value, dict):
-        return {k: _drop_none(v) for k, v in value.items() if v is not None}
-    if isinstance(value, list):
-        return [_drop_none(v) for v in value]
-    return value
+class _ConfigDumper(yaml.SafeDumper):
+    """多行字串輸出為 `|` block scalar 的 SafeDumper。"""
 
 
-def save_module_config_as_toml(
-    config: BaseModel,
-    toml_file_path: str,
+def _represent_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
+    style = None
+    if "\n" in data:
+        # 只有換行、沒有其他內容的字串（如 paragraph_separator）以雙引號寫成 "\n\n"
+        style = "|" if data.strip() else '"'
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_ConfigDumper.add_representer(str, _represent_str)
+
+
+def dump_yaml(
+    data: dict[str, Any], path: str | Path, header: list[str] | None = None
 ) -> None:
-    """將 module config 以 model_dump() 寫成 TOML：頂層欄位在前，巢狀 section 為 [table]。"""
-    config_dict = _drop_none(config.model_dump())
-    toml_doc = document()
-
-    # TOML 規定頂層 key 必須在所有 [table] 之前
-    for key, value in config_dict.items():
-        if not isinstance(value, dict):
-            toml_doc[key] = value
-    for key, value in config_dict.items():
-        if isinstance(value, dict):
-            section_table = table()
-            for section_key, section_value in value.items():
-                if isinstance(section_value, dict):
-                    nested = inline_table()
-                    nested.update(section_value)
-                    section_value = nested
-                section_table[section_key] = section_value
-            toml_doc[key] = section_table
-
-    with Path(toml_file_path).open("w") as file:
-        dump(toml_doc, file)
+    """以自訂 dumper 寫出 YAML：多行字串為 `|` block scalar、保留中文、保持 key 順序、
+    `None` 為 `null`；header 每行寫成檔頭的 `# ` 註解。"""
+    text = yaml.dump(
+        data,
+        Dumper=_ConfigDumper,
+        allow_unicode=True,
+        sort_keys=False,
+        default_flow_style=False,
+    )
+    comments = "".join(f"# {line}\n" for line in header or [])
+    Path(path).write_text(comments + text, encoding="utf-8")
 
 
-def save_run_config_as_toml(
-    config: object,
-    toml_file_path: str,
-) -> None:
-    """Persist all config values into a flat run config TOML document."""
-    config_dict = vars(config)
-    toml_doc = document()
+def save_module_config(config: "BaseModuleConfig", file_path: str) -> None:
+    """將 extends 展開後的完整 config（model_dump）寫成 module_config.yml。
 
-    for key, value in config_dict.items():
-        if value is not None:
-            toml_doc[key] = value
-
-    with Path(toml_file_path).open("w") as file:
-        dump(toml_doc, file)
-
-
-def filter_commented_configs(config_path: str, comment_keyword: str) -> list[str]:
-    """找出 TOML 中以註解（如 `# run name`）標記的欄位，回傳 dotted path（如 init.max_depth）。
-
-    頂層欄位（在任何 [section] 之前）回傳欄位名本身。
+    config_name／run_name_fields 不是設定內容，只寫在檔頭註解（來源與 run name 欄位）。
     """
-    text = Path(config_path).read_text(encoding="utf-8")
-    result: list[str] = []
-    section = ""
+    header = []
+    if config.source:
+        header.append(f"source: {config.source}")
+    header.append(f"run_name_fields: [{', '.join(config.run_name_fields)}]")
+    dump_yaml(config.model_dump(), file_path, header=header)
 
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
 
-        if line.startswith("[") and not line.startswith("[["):
-            section = line[1 : line.index("]")].strip()
-            continue
-
-        in_single = False
-        in_double = False
-        comment_index = -1
-        for idx, ch in enumerate(raw_line):
-            if ch == '"' and not in_single:
-                in_double = not in_double
-            elif ch == "'" and not in_double:
-                in_single = not in_single
-            elif ch == "#" and not in_single and not in_double:
-                comment_index = idx
-                break
-
-        if comment_index < 0:
-            continue
-
-        comment = raw_line[comment_index + 1 :].strip()
-        if comment_keyword not in comment:
-            continue
-
-        code_part = raw_line[:comment_index].strip()
-        if "=" not in code_part:
-            continue
-
-        key_part, _ = code_part.split("=", 1)
-        key = key_part.strip()
-        if not key:
-            continue
-
-        result.append(f"{section}.{key}" if section else key)
-
-    return result
+def save_run_config(config: object, file_path: str) -> None:
+    """將 run dataclass 的所有欄位寫成 run_config.yml（None 為 null）。"""
+    dump_yaml(dict(vars(config)), file_path)
 
 
 CONFIG_VALUE_MAX_CHARS = 100

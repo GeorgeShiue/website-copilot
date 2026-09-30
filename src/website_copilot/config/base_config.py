@@ -2,23 +2,21 @@
 
 - ConfigModel：所有 config（含巢狀 section）的共用基底，設定 strict／extra="forbid"／
   validate_assignment。
-- BaseModuleConfig：模組 config 的基底，提供 from_toml() 與 run_name；
-  config_name 與 run name 欄位由 loader 設為 PrivateAttr，不參與驗證與 model_dump。
+- BaseModuleConfig：模組 config 的基底，提供 from_yaml() 與 run_name；
+  config_name、run_name_fields 與來源描述由 loader 設為 PrivateAttr，不參與驗證與 model_dump。
 
-子類必須設定 ClassVar `_CONFIG_FOLDER_PATH`（TOML 設定檔所在目錄）。
-巢狀 section 以 ConfigModel 子類宣告，與 TOML 的 [section] 一一對應。
+子類必須設定 ClassVar `_CONFIG_FOLDER_PATH`（YAML 設定檔所在目錄）。
+巢狀 section 以 ConfigModel 子類宣告，與 YAML 的巢狀 key 一一對應。
 """
 
-import tomllib
-from pathlib import Path
 from typing import Annotated, Any, ClassVar, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, PrivateAttr, ValidationError
 
-from website_copilot.utils.config_helper import (
-    ConfigValidationError,
-    filter_commented_configs,
-)
+from website_copilot.config.yaml_helper import load_config_dict
+from website_copilot.utils.config_helper import ConfigValidationError
+
+RUN_NAME_FIELDS_KEY = "run_name_fields"
 
 
 def _check_not_blank(value: str) -> str:
@@ -58,6 +56,7 @@ class BaseModuleConfig(ConfigModel):
 
     _config_name: str = PrivateAttr(default="")
     _run_name_fields: list[str] = PrivateAttr(default_factory=list)
+    _source: str = PrivateAttr(default="")
 
     @property
     def config_name(self) -> str:
@@ -67,29 +66,50 @@ class BaseModuleConfig(ConfigModel):
     def run_name_fields(self) -> list[str]:
         return self._run_name_fields
 
-    @classmethod
-    def config_path(cls, config_name: str) -> Path:
-        return Path(cls._CONFIG_FOLDER_PATH) / f"{config_name}.toml"
+    @property
+    def source(self) -> str:
+        """載入來源描述，如 `configs/rag/test.yml (extends: default)`；未經 loader 建立時為空字串。"""
+        return self._source
 
     @classmethod
-    def from_toml(cls, config_name: str = "default", **overrides: Any) -> Self:
-        """從 TOML 設定檔建立 config，overrides 為扁平欄位名稱（如 similarity_top_k）。"""
-        config_path = cls.config_path(config_name)
-        if not config_path.is_file():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-        with config_path.open("rb") as file:
-            data = tomllib.load(file)
-        cls._apply_flat_overrides(data, overrides, source=str(config_path))
+    def from_yaml(cls, config_name: str = "default", **overrides: Any) -> Self:
+        """從 YAML 設定檔（展開 extends）建立 config，overrides 為扁平欄位名稱（如 similarity_top_k）。
+
+        最上層保留 key `run_name_fields`（dotted path 的 list）取出後不參與驗證；
+        extends 由 loader 處理。所有層合併、套用 overrides 後只驗證一次。
+        """
+        loaded = load_config_dict(cls._CONFIG_FOLDER_PATH, config_name)
+        data = loaded.data
+        run_name_fields = cls._pop_run_name_fields(data, loaded.source)
+        cls._apply_flat_overrides(data, overrides, source=loaded.source)
 
         try:
             config = cls.model_validate(data)
         except ValidationError as e:
             raise ConfigValidationError(
-                format_validation_error(str(config_path), e)
+                format_validation_error(loaded.source, e)
             ) from e
         config._config_name = config_name
-        config._run_name_fields = filter_commented_configs(str(config_path), "run name")
+        config._run_name_fields = run_name_fields
+        config._source = loaded.source
         return config
+
+    @classmethod
+    def _pop_run_name_fields(cls, data: dict[str, Any], source: str) -> list[str]:
+        """取出並檢查 run_name_fields：必須是 list，且每個 dotted path 都指向模型欄位。"""
+        fields = data.pop(RUN_NAME_FIELDS_KEY, None)
+        if fields is None:
+            return []
+        if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
+            raise ConfigValidationError(
+                f"{source}: {RUN_NAME_FIELDS_KEY} 必須是 dotted path 字串的 list"
+            )
+        for field_path in fields:
+            if not _has_field_path(cls, field_path):
+                raise ConfigValidationError(
+                    f"{source}: {RUN_NAME_FIELDS_KEY}: 找不到欄位 {field_path}"
+                )
+        return fields
 
     @classmethod
     def _apply_flat_overrides(
@@ -146,6 +166,20 @@ def _section_model(cls: type[BaseModel], name: str) -> type[ConfigModel]:
 
 
 def _is_section(cls: type[BaseModel], name: str) -> bool:
-    """欄位型別為 ConfigModel 子類即為 section（對應 TOML 的 [section]）。"""
+    """欄位型別為 ConfigModel 子類即為 section（對應 YAML 的巢狀 mapping）。"""
     annotation = cls.model_fields[name].annotation
     return isinstance(annotation, type) and issubclass(annotation, ConfigModel)
+
+
+def _has_field_path(cls: type[BaseModel], dotted_path: str) -> bool:
+    """dotted path 的每一段都是模型欄位（中間段必須是 section）。"""
+    parts = dotted_path.split(".")
+    model: type[BaseModel] = cls
+    for i, part in enumerate(parts):
+        if part not in model.model_fields:
+            return False
+        if i < len(parts) - 1:
+            if not _is_section(model, part):
+                return False
+            model = _section_model(model, part)
+    return True

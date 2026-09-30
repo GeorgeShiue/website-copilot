@@ -77,7 +77,7 @@ def main(cli: RunCLI) -> None:
                 module_config_overrides[key] = value
 
     # 從 RunConfig 提前取出 publish／save，避免洩漏進 **config_overrides；
-    # 複製一份再 pop，保留 command.run 本身的欄位，讓 run_config.toml 完整記錄
+    # 複製一份再 pop，保留 command.run 本身的欄位，讓 run_config.yml 完整記錄
     run_kwargs = dict(vars(command.run))
     save = run_kwargs.pop("save", True)
     publish = run_kwargs.pop("publish", False)

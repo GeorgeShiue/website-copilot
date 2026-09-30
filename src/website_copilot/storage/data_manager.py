@@ -12,13 +12,12 @@ import shutil
 import tempfile
 from typing import Any
 
-from pydantic import BaseModel
-
+from website_copilot.config.base_config import BaseModuleConfig
 from website_copilot.schemas import GenerationResult
 from website_copilot.storage.run_persistence import save_generated_exclude_words
 from website_copilot.utils.config_helper import (
-    save_module_config_as_toml,
-    save_run_config_as_toml,
+    save_module_config,
+    save_run_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -227,11 +226,11 @@ class DataManager:
         self,
         site_id: str,
         category: str,
-        config: BaseModel,
+        config: BaseModuleConfig,
         run_config: object | None = None,
         log_path: str | None = None,
     ) -> str:
-        """一次發布 module_config.toml／run_config.toml／terminal.log 到 data/{category}/{site_id}/。
+        """一次發布 module_config.yml／run_config.yml／terminal.log 到 data/{category}/{site_id}/。
 
         module_config／run_config 直接從物件序列化（不依賴 runs/ 已寫好的檔案）；
         log_path 仍是複製既有實體檔案（log 是執行期間寫入的，沒有記憶體物件可序列化）。
@@ -239,8 +238,8 @@ class DataManager:
         Args:
             site_id: 站點識別碼。
             category: 目標子目錄（"webpages" 或 "rag"）。
-            config: 模組設定物件（用於序列化 module_config.toml）。
-            run_config: Run 設定物件（可選，用於序列化 run_config.toml）。
+            config: 模組設定物件（用於序列化 module_config.yml）。
+            run_config: Run 設定物件（可選，用於序列化 run_config.yml）。
             log_path: 原始 terminal.log 路徑（可選）。
 
         Returns:
@@ -249,13 +248,9 @@ class DataManager:
         dest_folder = os.path.join(self.base_folder, category, site_id)
         os.makedirs(dest_folder, exist_ok=True)
 
-        save_module_config_as_toml(
-            config, os.path.join(dest_folder, "module_config.toml")
-        )
+        save_module_config(config, os.path.join(dest_folder, "module_config.yml"))
         if run_config is not None:
-            save_run_config_as_toml(
-                run_config, os.path.join(dest_folder, "run_config.toml")
-            )
+            save_run_config(run_config, os.path.join(dest_folder, "run_config.yml"))
         self._copy_single_file(log_path, dest_folder, "terminal.log")
         return dest_folder
 

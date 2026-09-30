@@ -33,8 +33,8 @@ from website_copilot.storage.run_persistence import (
 )
 from website_copilot.utils.config_helper import (
     log_config,
-    save_module_config_as_toml,
-    save_run_config_as_toml,
+    save_module_config,
+    save_run_config,
 )
 from website_copilot.utils.log_helper import (
     log_run_summary,
@@ -55,18 +55,18 @@ def run_website_crawler(
     """執行網站爬蟲工作流程。
 
     Args:
-        config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.toml）。
+        config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.yml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         save: 是否將本次執行結果落盤到 runs/（預設 True）。
         publish: 是否將本次執行結果 publish 到 data/（預設 False）。
-        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
+        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
         **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
 
     Returns:
         爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    config = WebsiteCrawlerConfig.from_toml(config_name, **config_overrides)
+    config = WebsiteCrawlerConfig.from_yaml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
         module="website_crawler",
         config_name=config_name,
@@ -79,7 +79,7 @@ def run_website_crawler(
     crawl_results = None
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
-        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         website_crawler = WebsiteCrawler(
             max_depth=config.init.max_depth,
             max_pages=config.init.max_pages,
@@ -123,9 +123,9 @@ def run_website_crawler(
             save_results_as_md(
                 crawl_results, run_manager.results_folder_path, "fit_markdown"
             )
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            save_module_config(config, run_manager.module_config_path)
             if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+                save_run_config(run_config, run_manager.run_config_path)
 
         # ----- Publish（publish 到 data/） -----
         if publish:
@@ -162,19 +162,19 @@ def run_image_summarizer(
     """執行網頁圖片摘要工作流程。
 
     Args:
-        config_name: ImageSummarizerConfig 名稱（對應 configs/image_summarizer/{name}.toml）。
+        config_name: ImageSummarizerConfig 名稱（對應 configs/image_summarizer/{name}.yml）。
         run_name_use_config_name: 是否使用 config_name 作為 run_name。
         crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
         save: 是否將本次執行結果落盤到 runs/（預設 True）。
         publish: 是否將本次執行結果 publish 到 data/（預設 False）。
-        run_config: RunConfig 實例（可選，用於落盤 run config toml）。
+        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
         **config_overrides: ImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
         增強後的爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    config = ImageSummarizerConfig.from_toml(config_name, **config_overrides)
+    config = ImageSummarizerConfig.from_yaml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
         module="image_summarizer",
         config_name=config_name,
@@ -186,7 +186,7 @@ def run_image_summarizer(
 
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化物件 -----
-        log_config(f"{config.__class__.__name__} Loaded from toml", config)
+        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         image_summarizer = ImageSummarizer(
             download_timeout=config.init.download_timeout,
             success_threshold=config.init.success_threshold,
@@ -227,9 +227,9 @@ def run_image_summarizer(
             save_results_as_md(
                 enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
             )
-            save_module_config_as_toml(config, run_manager.module_config_toml_path)
+            save_module_config(config, run_manager.module_config_path)
             if run_config is not None:
-                save_run_config_as_toml(run_config, run_manager.run_config_toml_path)
+                save_run_config(run_config, run_manager.run_config_path)
 
         # ----- Publish（publish 到 data/） -----
         if publish:
@@ -267,7 +267,7 @@ def run_rag_build(
       以 rename 移入正式位置，staging 一律刪除。
     - save=False, publish=False：建在系統暫存資料夾，結束時刪除（不留任何檔案）。
     """
-    config = RAGConfig.from_toml(config_name, **config_overrides)
+    config = RAGConfig.from_yaml(config_name, **config_overrides)
     run_manager, run_title = create_run_context(
         module="rag_build",
         config_name=config_name,
@@ -290,7 +290,7 @@ def run_rag_build(
     try:
         with run_workflow_context(run_title, run_manager=run_manager):
             # ---- 建置 RAG -----
-            log_config(f"{config.__class__.__name__} Loaded from toml", config)
+            log_config(f"{config.__class__.__name__} Loaded from yaml", config)
             rag = build_rag(
                 config=config,
                 force_rebuild=True,
@@ -306,11 +306,9 @@ def run_rag_build(
             # ----- Save（存到 runs/；向量庫已由上面 build_rag 決定位置） -----
             if save:
                 assert run_manager is not None
-                save_module_config_as_toml(config, run_manager.module_config_toml_path)
+                save_module_config(config, run_manager.module_config_path)
                 if run_config is not None:
-                    save_run_config_as_toml(
-                        run_config, run_manager.run_config_toml_path
-                    )
+                    save_run_config(run_config, run_manager.run_config_path)
 
             # ----- Publish（原子替換到 data/） -----
             if publish:
@@ -341,7 +339,7 @@ def run_prepare(config_name: str = "default", publish: bool = True) -> None:
     的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
 
     Args:
-        config_name: 各階段共用的 config 名稱（對應 configs/{module}/{name}.toml）。
+        config_name: 各階段共用的 config 名稱（對應 configs/{module}/{name}.yml）。
         publish: True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
             runs/，不寫入 data/，RAG 以 runs/ 中本次的圖片摘要結果建庫（供測試使用）。
     """

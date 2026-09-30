@@ -1,0 +1,13 @@
+extends: default
+run_name_fields: [init.max_depth]
+
+site_id: claudecode
+
+crawl:
+  url: https://code.claude.com/docs/zh-TW/overview
+  url_patterns: ["*code.claude.com/docs/zh-TW/*"]
+  allowed_domains: [code.claude.com]
+  path_prefix: /docs/zh-TW
+
+clean:
+  max_prompt_tokens: 500000

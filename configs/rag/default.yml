@@ -1,0 +1,32 @@
+# RAG 預設設定（nculab）；其他設定以 extends: default 繼承
+run_name_fields: [vector_store.vector_store_type]
+
+site_id: nculab
+webpages_data_folder_path: null # 未設定時為 data/webpages/{site_id}
+
+nodes:
+  chunk_size: 800
+  chunk_overlap: 100
+  paragraph_separator: "\n\n"
+
+vector_store:
+  vector_store_type: milvus
+  milvus_uri: null # 未設定時為 data/rag/{site_id}/milvus.db
+  hybrid_ranker: WeightedRanker
+  # WeightedRanker 用 weights；改用 RRFRanker 時寫 {weights: null, k: 60}
+  hybrid_ranker_params: {weights: [1.0, 0.5]}
+
+index:
+  embedding_name: text-embedding-3-small
+
+retriever:
+  query_mode: hybrid
+  similarity_top_k: 10
+  hybrid_top_k: 10
+  alpha: 0.5
+
+query_engine:
+  query_llm_name: gpt-5.6-luna
+  evaluator_llm_name: gpt-5.6-terra
+  cutoff: 0.0 # 僅在 query_mode 非 hybrid 時生效
+  query: 實驗室的成員有哪些人？

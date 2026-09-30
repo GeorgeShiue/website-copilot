@@ -212,7 +212,7 @@ Phase B 期間仍保留站點組合檔（Phase D 才刪除），改用 extends �
 - 多行 prompt 使用 `|` block scalar。注意：目前 `configs/agent/*.toml` 的 system prompt 寫成 `"\\n"`，TOML 解析後是字面上的反斜線加 n，而非換行。改用 YAML block scalar 後會變成真正的換行，送給 LLM 的 prompt 內容會改變（應屬修正）。
 - **轉換（B6）**：一次性腳本以 `tomllib` 讀取、自訂 dumper 輸出；再手動改用 extends、補回自動轉換遺失的註解（如 `# KEEP_IMAGE_CONTENT_THRESHOLD`、litellm 註解掉的參數說明），並把 `# run name` 註解改為 `run_name_fields`。
 - **輸出路徑**：runs/ 與 data/ 的 `module_config.toml`／`run_config.toml` 改為 `.yml`；`RunManager` 路徑欄位改名（`module_config_toml_path` → `module_config_path`）。
-- 既有 `data/{rag,webpages}/*/` 的舊 `.toml` 記錄檔：不轉換。新檔名（`.yml`）與舊檔不同，publish 不會自然覆蓋，因此 `publish_run_metadata` 寫入時一併刪除同資料夾中舊的 `module_config.toml`／`run_config.toml`；下次 prepare 後資料夾只剩新格式。
+- 既有 `data/{rag,webpages}/*/` 的舊 `.toml` 記錄檔：~~不轉換，`publish_run_metadata` 寫入時刪除舊檔~~ → 實作時改為一次性轉換為 `.yml`，不加清理邏輯（見 Q4、dev.md）。
 - **刪除（B5）**：`save_generated_exclude_words` 不再輸出 `generated_exclude_words.toml`，只保留 `exclude_words_report.json`。
 - **相依套件**：加入 `pyyaml`，移除 `tomlkit`；測試中讀取 `module_config.toml` 的地方改讀 yml。
 - **文件**：README 與 `docs/code/runs/config.md` 同步更新。
@@ -427,7 +427,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 | Q1 | Phase 是否合併 | 不合併；每個 Phase 一個 commit |
 | Q2 | YAML 轉 config 的套件 | PyYAML + pydantic `BaseModel.model_validate` |
 | Q3 | 未知 key 的處理 | 改為報錯（`extra="forbid"`） |
-| Q4 | `data/` 下已 publish 的舊 `.toml` 記錄檔 | 不轉換；`publish_run_metadata` 寫入新 `.yml` 時刪除同資料夾的舊 `.toml`（見 Phase B） |
+| Q4 | `data/` 下已 publish 的舊 `.toml` 記錄檔 | ~~不轉換；`publish_run_metadata` 寫入新 `.yml` 時刪除同資料夾的舊 `.toml`~~ → Phase B 審核時改為：一次性轉換為 `.yml` 並刪除原檔，publish 不做清理（理由見 dev.md） |
 | Q5 | `exp.py` 引用不存在的 config | 8 個實驗全部刪除，連同 `exp` 子命令（Phase C） |
 | Q6 | 執行順序 | A → B → C（CLI）→ D（站點分層），理由見「執行順序說明」 |
 
@@ -467,7 +467,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 - extends 單元測試：多層繼承、循環偵測、找不到父檔、list 整個取代、`null` 清除、`{}` 不清空 dict、`run_name_fields` 繼承與取代、非頂層保留 key 被拒。
 - run_name：快照中每份設定的 `run_name` 與 baseline 相同（驗證 `run_name_fields` 取代註解後行為不變）。
 - 往返測試：config → `module_config.yml` → 讀回驗證，`model_dump` 與原 config 相等（確保 runs/ 與 data/ 的紀錄可重現；`config_name`／`run_name_fields` 為附加資訊，不在比對範圍）。
-- `publish_run_metadata` 寫入後，同資料夾不再有舊的 `module_config.toml`／`run_config.toml`。
+- data/ 舊記錄檔轉換後與原 `.toml` 內容相同，且 module_config 可被現行模型讀回（取代原「publish 後不再有舊檔」的檢查）。
 - `grep -rn toml src tests scripts` 確認無遺漏（僅允許刻意保留者）。
 
 **Phase C**

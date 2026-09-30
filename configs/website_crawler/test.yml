@@ -1,0 +1,2 @@
+# 測試用設定：等同 test_nculab
+extends: test_nculab

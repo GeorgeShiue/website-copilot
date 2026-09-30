@@ -3,16 +3,17 @@
 - configs/ 下所有設定檔皆能載入並通過驗證。
 - strict 型別、未知 key、跨欄位規則、validate_assignment。
 - ConfigValidationError 的訊息包含設定檔路徑與欄位路徑。
-- run name 註解解析（dotted path）與 run_name 組成；扁平 overrides 放入所屬 section。
-- save_module_config_as_toml 往返：寫出後讀回驗證，model_dump 不變。
+- run_name_fields 與 run_name 組成；扁平 overrides 放入所屬 section。
+- save_module_config 往返：寫出後讀回驗證，model_dump 不變；檔頭註解記錄來源。
+
+extends 的合併規則見 test_config_extends.py。
 """
 
-import tomllib
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomlkit
+import yaml
 from pydantic import ValidationError
 
 from website_copilot.config.agent_config import AgentConfig
@@ -20,10 +21,11 @@ from website_copilot.config.base_config import BaseModuleConfig
 from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
+from website_copilot.config.yaml_helper import load_config_dict
 from website_copilot.utils.config_helper import (
     ConfigValidationError,
-    filter_commented_configs,
-    save_module_config_as_toml,
+    dump_yaml,
+    save_module_config,
 )
 
 MODULE_CONFIGS: dict[str, type[BaseModuleConfig]] = {
@@ -33,12 +35,14 @@ MODULE_CONFIGS: dict[str, type[BaseModuleConfig]] = {
     "agent": AgentConfig,
 }
 
-CONFIG_FILES = sorted(Path("configs").glob("*/*.toml"))
+CONFIG_FILES = sorted(Path("configs").glob("*/*.yml"))
 
 
 def _load_dict(module: str, name: str = "test") -> dict[str, Any]:
-    with open(f"configs/{module}/{name}.toml", "rb") as f:
-        return tomllib.load(f)
+    """extends 展開後、移除 run_name_fields 的設定內容（可直接 model_validate）。"""
+    data = load_config_dict(f"configs/{module}", name).data
+    data.pop("run_name_fields", None)
+    return data
 
 
 # ---------- configs/ 下所有設定檔 ----------
@@ -49,7 +53,7 @@ def _load_dict(module: str, name: str = "test") -> dict[str, Any]:
 )
 def test_all_config_files_load(path: Path) -> None:
     config_cls = MODULE_CONFIGS[path.parent.name]
-    config = config_cls.from_toml(path.stem)
+    config = config_cls.from_yaml(path.stem)
 
     assert config.config_name == path.stem
     assert config.run_name
@@ -57,6 +61,7 @@ def test_all_config_files_load(path: Path) -> None:
 
 def test_config_files_found() -> None:
     assert {p.parent.name for p in CONFIG_FILES} == set(MODULE_CONFIGS)
+    assert not list(Path("configs").glob("**/*.toml"))
 
 
 # ---------- strict 型別與未知 key ----------
@@ -191,7 +196,7 @@ def test_weights_length_must_be_two() -> None:
 
 
 def test_assignment_is_validated() -> None:
-    config = RAGConfig.from_toml("test")
+    config = RAGConfig.from_yaml("test")
 
     with pytest.raises(ValidationError, match="similarity_top_k"):
         config.retriever.similarity_top_k = 0
@@ -203,13 +208,13 @@ def test_assignment_is_validated() -> None:
 
 
 def test_rag_default_paths_follow_site_id() -> None:
-    config = RAGConfig.from_toml("test", site_id="ncucsie")
+    config = RAGConfig.from_yaml("test", site_id="ncucsie")
 
     assert config.webpages_data_folder_path == "data/webpages/ncucsie"
     assert config.vector_store.milvus_uri == "data/rag/ncucsie/milvus.db"
 
 
-# ---------- from_toml：錯誤訊息與 overrides ----------
+# ---------- from_yaml：錯誤訊息與 overrides ----------
 
 
 @pytest.fixture
@@ -221,14 +226,32 @@ def tmp_rag_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_validation_error_includes_config_path(tmp_rag_folder: Path) -> None:
     data = _load_dict("rag")
     data["retriever"]["similarity_top_k"] = 0
-    (tmp_rag_folder / "bad.toml").write_text(tomlkit.dumps(data))
+    dump_yaml(data, tmp_rag_folder / "bad.yml")
 
     with pytest.raises(ConfigValidationError) as exc_info:
-        RAGConfig.from_toml("bad")
+        RAGConfig.from_yaml("bad")
 
     assert str(exc_info.value) == (
-        f"{tmp_rag_folder / 'bad.toml'}: retriever.similarity_top_k: "
+        f"{tmp_rag_folder / 'bad.yml'}: retriever.similarity_top_k: "
         "Input should be greater than 0"
+    )
+
+
+def test_validation_error_includes_extends_chain(tmp_rag_folder: Path) -> None:
+    """錯誤值可能來自鏈上任一檔，訊息列出實際載入的檔案與繼承鏈。"""
+    dump_yaml(_load_dict("rag"), tmp_rag_folder / "base.yml")
+    dump_yaml({"extends": "base"}, tmp_rag_folder / "mid.yml")
+    dump_yaml(
+        {"extends": "mid", "retriever": {"similarity_top_k": 0}},
+        tmp_rag_folder / "child.yml",
+    )
+
+    with pytest.raises(ConfigValidationError) as exc_info:
+        RAGConfig.from_yaml("child")
+
+    assert str(exc_info.value) == (
+        f"{tmp_rag_folder / 'child.yml'} (extends: mid → base): "
+        "retriever.similarity_top_k: Input should be greater than 0"
     )
 
 
@@ -236,23 +259,45 @@ def test_custom_validator_error_message(tmp_rag_folder: Path) -> None:
     """自訂 validator 的訊息不帶 pydantic 的 "Value error, " 前綴。"""
     data = _load_dict("rag")
     data["nodes"]["chunk_overlap"] = 900
-    (tmp_rag_folder / "bad.toml").write_text(tomlkit.dumps(data))
+    dump_yaml(data, tmp_rag_folder / "bad.yml")
 
     with pytest.raises(ConfigValidationError) as exc_info:
-        RAGConfig.from_toml("bad")
+        RAGConfig.from_yaml("bad")
 
     assert str(exc_info.value) == (
-        f"{tmp_rag_folder / 'bad.toml'}: nodes: chunk_overlap 必須小於 chunk_size"
+        f"{tmp_rag_folder / 'bad.yml'}: nodes: chunk_overlap 必須小於 chunk_size"
     )
 
 
+@pytest.mark.parametrize(
+    ("text", "field"),
+    [
+        ("alpha: 1e-3", "retriever.alpha"),  # YAML 1.1：1e-3 為字串
+        ("alpha: yes", "retriever.alpha"),  # YAML 1.1：yes 為 bool
+        ("query: 2026-09-30", "query_engine.query"),  # 日期
+    ],
+)
+def test_yaml_11_pitfalls_rejected_by_strict(
+    tmp_rag_folder: Path, text: str, field: str
+) -> None:
+    """PyYAML（YAML 1.1）的型別陷阱由 strict 模式攔截，而非靜默轉型。"""
+    dump_yaml(_load_dict("rag"), tmp_rag_folder / "base.yml")
+    section = field.split(".")[0]
+    (tmp_rag_folder / "bad.yml").write_text(
+        f"extends: base\n{section}:\n  {text}\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ConfigValidationError, match=field):
+        RAGConfig.from_yaml("bad")
+
+
 def test_missing_config_file(tmp_rag_folder: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="missing.toml"):
-        RAGConfig.from_toml("missing")
+    with pytest.raises(FileNotFoundError, match="missing.yml"):
+        RAGConfig.from_yaml("missing")
 
 
 def test_flat_overrides_go_to_their_section() -> None:
-    config = RAGConfig.from_toml(
+    config = RAGConfig.from_yaml(
         "test",
         similarity_top_k=20,
         cutoff=0.3,
@@ -267,33 +312,15 @@ def test_flat_overrides_go_to_their_section() -> None:
 
 def test_unknown_override_rejected() -> None:
     with pytest.raises(ConfigValidationError, match="unknown_key"):
-        RAGConfig.from_toml("test", unknown_key=1)
+        RAGConfig.from_yaml("test", unknown_key=1)
 
 
 def test_invalid_override_rejected() -> None:
     with pytest.raises(ConfigValidationError, match="retriever.alpha"):
-        RAGConfig.from_toml("test", alpha=2.0)
+        RAGConfig.from_yaml("test", alpha=2.0)
 
 
 # ---------- run name ----------
-
-
-def test_filter_commented_configs_returns_dotted_path(tmp_path: Path) -> None:
-    path = tmp_path / "c.toml"
-    path.write_text(
-        'site_id = "a" # run name\n'
-        "[init]\n"
-        "max_depth = 2 # run name\n"
-        'url = "http://x#y" # other\n'
-        "[clean]\n"
-        "seed = 1 # run name\n"
-    )
-
-    assert filter_commented_configs(str(path), "run name") == [
-        "site_id",
-        "init.max_depth",
-        "clean.seed",
-    ]
 
 
 @pytest.mark.parametrize(
@@ -308,18 +335,12 @@ def test_filter_commented_configs_returns_dotted_path(tmp_path: Path) -> None:
     ],
 )
 def test_run_name(module: str, name: str, expected: str) -> None:
-    assert MODULE_CONFIGS[module].from_toml(name).run_name == expected
+    assert MODULE_CONFIGS[module].from_yaml(name).run_name == expected
 
 
-def test_run_name_skips_none_value(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(WebsiteCrawlerConfig, "_CONFIG_FOLDER_PATH", str(tmp_path))
-    text = Path("configs/website_crawler/test.toml").read_text()
-    (tmp_path / "c.toml").write_text(
-        text.replace("max_depth = 2", "max_depth = 2 # run name")
-    )
-    config = WebsiteCrawlerConfig.from_toml("c")
+def test_run_name_skips_none_value() -> None:
+    config = WebsiteCrawlerConfig.from_yaml("test")
+    config._run_name_fields = ["init.max_depth", "init.max_pages"]
     assert config.run_name == "max_depth-2_max_pages-40"
 
     config.init.max_pages = None
@@ -327,41 +348,85 @@ def test_run_name_skips_none_value(
     assert config.run_name == "max_depth-2"
 
 
+@pytest.mark.parametrize(
+    ("fields", "match"),
+    [
+        ("init.max_pages", "必須是 dotted path 字串的 list"),
+        ("[init.unknown]", "找不到欄位 init.unknown"),
+        ("[init.max_pages.x]", "找不到欄位 init.max_pages.x"),
+        ("[max_pages]", "找不到欄位 max_pages"),
+    ],
+)
+def test_invalid_run_name_fields_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fields: str, match: str
+) -> None:
+    monkeypatch.setattr(WebsiteCrawlerConfig, "_CONFIG_FOLDER_PATH", str(tmp_path))
+    dump_yaml(_load_dict("website_crawler"), tmp_path / "base.yml")
+    (tmp_path / "c.yml").write_text(f"extends: base\nrun_name_fields: {fields}\n")
+
+    with pytest.raises(ConfigValidationError, match=match):
+        WebsiteCrawlerConfig.from_yaml("c")
+
+
 def test_private_attrs_not_dumped() -> None:
-    config = RAGConfig.from_toml("test")
+    config = RAGConfig.from_yaml("test")
 
     assert "config_name" not in config.model_dump()
     assert "run_name_fields" not in config.model_dump()
     assert config.run_name_fields == ["vector_store.vector_store_type"]
 
 
-# ---------- save_module_config_as_toml 往返 ----------
+# ---------- save_module_config 往返 ----------
 
 
 @pytest.mark.parametrize("module", list(MODULE_CONFIGS))
 def test_save_module_config_round_trip(module: str, tmp_path: Path) -> None:
     config_cls = MODULE_CONFIGS[module]
-    config = config_cls.from_toml("test")
-    path = tmp_path / "module_config.toml"
+    config = config_cls.from_yaml("test")
+    path = tmp_path / "module_config.yml"
 
-    save_module_config_as_toml(config, str(path))
-    with open(path, "rb") as f:
-        saved = tomllib.load(f)
+    save_module_config(config, str(path))
+    with open(path, encoding="utf-8") as f:
+        saved = yaml.safe_load(f)
 
     assert config_cls.model_validate(saved).model_dump() == config.model_dump()
 
 
+def test_saved_module_config_header(tmp_path: Path) -> None:
+    """附加資訊只寫在檔頭註解，不含 extends 與 run_name_fields key。"""
+    path = tmp_path / "module_config.yml"
+    save_module_config(RAGConfig.from_yaml("test"), str(path))
+    text = path.read_text(encoding="utf-8")
+
+    assert text.startswith(
+        "# source: configs/rag/test.yml (extends: test_nculab → nculab → default)\n"
+        "# run_name_fields: [vector_store.vector_store_type]\n"
+    )
+    saved = yaml.safe_load(text)
+    assert "extends" not in saved and "run_name_fields" not in saved
+    # None 輸出為 null；只有換行的字串以雙引號輸出
+    assert "    k: null\n" in text
+    assert '  paragraph_separator: "\\n\\n"\n' in text
+
+
+def test_saved_multiline_prompt_is_block_scalar(tmp_path: Path) -> None:
+    path = tmp_path / "module_config.yml"
+    config = ImageSummarizerConfig.from_yaml("test")
+    save_module_config(config, str(path))
+
+    assert "  prompt: |\n" in path.read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("module", list(MODULE_CONFIGS))
 def test_saved_module_config_sections(module: str, tmp_path: Path) -> None:
-    """存檔的 section 與設定檔相同；RAG 另含由 site_id 推導出的路徑欄位。"""
-    path = tmp_path / "module_config.toml"
-    save_module_config_as_toml(MODULE_CONFIGS[module].from_toml("test"), str(path))
-    with open(path, "rb") as f:
-        saved = tomllib.load(f)
+    """存檔的 key 與設定檔（extends 展開後）相同。"""
+    path = tmp_path / "module_config.yml"
+    save_module_config(MODULE_CONFIGS[module].from_yaml("test"), str(path))
+    with open(path, encoding="utf-8") as f:
+        saved = yaml.safe_load(f)
     source = _load_dict(module)
 
-    derived = {"webpages_data_folder_path"} if module == "rag" else set()
-    assert set(saved) == set(source) | derived
+    assert set(saved) == set(source)
     for key, value in source.items():
         if isinstance(value, dict):
             assert set(value) <= set(saved[key])

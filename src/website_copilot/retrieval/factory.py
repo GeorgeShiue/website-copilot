@@ -94,8 +94,8 @@ def build_rag(
     """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟。
 
     Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.toml）。config 為
-            None 時才會用它從 toml 解析。
+        config_name: RAGConfig 名稱（對應 configs/rag/{name}.yml）。config 為
+            None 時才會用它從 yml 解析。
         force_rebuild: 是否強制重建向量庫。
         webpages_data_use_latest_results: 是否改用 runs/ 中該 site 最新一次
             image summarizer 的結果建庫（需該次以 save=True 執行）；False 時
@@ -105,7 +105,7 @@ def build_rag(
         build_query_engine: 是否建到 retriever／query engine 層級；
             False 時僅建到 vector store／index 層級（不含 retriever）。
         config: 呼叫端已建立的 RAGConfig（可選）。傳入時直接沿用，不再重新
-            解析 toml；此時 config_name／**config_overrides 會被忽略。
+            解析 yml；此時 config_name／**config_overrides 會被忽略。
         **config_overrides: RAGConfig 覆寫值（含 site_id），僅在 config 為
             None 時生效。
 
@@ -113,7 +113,7 @@ def build_rag(
         已建構的 RAG 實例（呼叫端負責 close）。
     """
     if config is None:
-        config = RAGConfig.from_toml(config_name, **config_overrides)
+        config = RAGConfig.from_yaml(config_name, **config_overrides)
 
     # ----- 解決 webpages 資料路徑（改用 runs/ 中最新的 image summarizer 結果）-----
     if webpages_data_use_latest_results:

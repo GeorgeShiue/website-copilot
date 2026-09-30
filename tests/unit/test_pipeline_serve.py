@@ -29,7 +29,7 @@ from website_copilot.server.server import ChatServer
 # ===========================================================================
 
 
-@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.save_module_config")
 @patch("website_copilot.pipelines.serve.create_agent")
 @patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
@@ -49,19 +49,19 @@ def test_run_agent_build_calls_create_agent_and_returns_agent(
     fake_agent = FakeAgentStub()
     mock_create_agent.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
-    mock_config_cls.from_toml.return_value = AgentConfig(
+    mock_config_cls.from_yaml.return_value = AgentConfig(
         llm_name="test_llm", system_prompt="prompt"
     )
 
     result = run_agent_build(config_name="test")
 
     assert result is fake_agent
-    mock_create_agent.assert_called_once_with(mock_config_cls.from_toml.return_value)
+    mock_create_agent.assert_called_once_with(mock_config_cls.from_yaml.return_value)
     assert mock_rm_cls.for_run_no_site.call_args.kwargs["module"] == "agent_build"
     assert not fake_agent.close_called
 
 
-@patch("website_copilot.pipelines.serve.save_module_config_as_toml")
+@patch("website_copilot.pipelines.serve.save_module_config")
 @patch("website_copilot.pipelines.serve.create_agent")
 @patch("website_copilot.pipelines.serve.AgentConfig")
 @patch("website_copilot.storage.run_context.RunManager")
@@ -81,7 +81,7 @@ def test_run_agent_build_closes_agent_when_save_fails(
     fake_agent = FakeAgentStub()
     mock_create_agent.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
-    mock_config_cls.from_toml.return_value = AgentConfig(
+    mock_config_cls.from_yaml.return_value = AgentConfig(
         llm_name="test_llm", system_prompt="prompt"
     )
     mock_save_module_config.side_effect = OSError("disk full")

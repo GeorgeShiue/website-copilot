@@ -1,0 +1,4 @@
+extends: claudecode
+
+query_engine:
+  query: 如何設定 hooks 與 MCP 伺服器？

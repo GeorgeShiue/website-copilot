@@ -9,10 +9,10 @@
 
 import os
 import tempfile
-import tomllib
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.pipelines.prepare import run_rag_build
@@ -35,7 +35,7 @@ class _Env:
         self.runs = tmp_path / "runs"
         self.data = tmp_path / "data"
         self.systmp = tmp_path / "systmp"
-        self.site_id = RAGConfig.from_toml("test").site_id
+        self.site_id = RAGConfig.from_yaml("test").site_id
         self.rag_dir = self.data / "rag" / self.site_id
         self.rags: list[_FakeRAG] = []
         # 設為 False 時 fake build_rag 不寫出向量庫（模擬建庫無產出）
@@ -108,8 +108,8 @@ def env(tmp_path, monkeypatch):
 
 
 def _published_milvus_uri(e: _Env) -> str:
-    with open(e.rag_dir / "module_config.toml", "rb") as f:
-        return tomllib.load(f)["vector_store"]["milvus_uri"]
+    with open(e.rag_dir / "module_config.yml", encoding="utf-8") as f:
+        return yaml.safe_load(f)["vector_store"]["milvus_uri"]
 
 
 # ---------- save × publish 四種組合 ----------
@@ -121,7 +121,7 @@ def test_save_and_publish_keeps_runs_copy_and_publishes(env):
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
     # runs/ 保留一份（publish 為複製而非移動）
     assert os.path.isdir(env.rags[0].milvus_uri)
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.toml", "terminal.log"}
+    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml", "terminal.log"}
     assert _published_milvus_uri(env) == str(env.rag_dir / "milvus.db")
     assert env.rags[0].closed
 
@@ -139,7 +139,7 @@ def test_publish_only_moves_staging_into_place(env):
 
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
     # 不留 staging／.tmp／.old，也不寫 runs/
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.toml"}
+    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml"}
     assert not env.runs.exists()
     assert _published_milvus_uri(env) == str(env.rag_dir / "milvus.db")
 
@@ -162,7 +162,7 @@ def test_publish_replaces_existing_store(env):
 
     assert os.listdir(env.rag_dir / "milvus.db") == ["vec.bin"]
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.toml"}
+    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml"}
 
 
 def test_build_failure_keeps_old_store_and_cleans_staging(env):
@@ -181,7 +181,7 @@ def test_missing_vector_store_skips_vector_publish_but_publishes_metadata(env):
     run_rag_build(config_name="test", save=True, publish=True)
 
     assert not (env.rag_dir / "milvus.db").exists()
-    assert (env.rag_dir / "module_config.toml").is_file()
+    assert (env.rag_dir / "module_config.yml").is_file()
 
 
 def test_swap_failure_restores_old_store(tmp_path):

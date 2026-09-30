@@ -78,7 +78,7 @@ class RAGRegistry:
 
         logger.info("RAG cache miss, loading: site_id=%s", site_id)
 
-        config = RAGConfig.from_toml(self.config_name, site_id=site_id)
+        config = RAGConfig.from_yaml(self.config_name, site_id=site_id)
         # serve 階段唯讀：只載入 prepare 已 publish 的向量庫，不在 request 中建庫
         rag = load_rag(config)
 

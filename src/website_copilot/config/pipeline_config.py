@@ -1,7 +1,7 @@
 """Run config 與 module config（CLI override 欄位）統一定義。
 
 Run config 控制 workflow 執行參數（config_name、publish 等）。
-Module config 定義 CLI 可覆寫的模組設定欄位（從 TOML 載入後可被 CLI 覆蓋）。
+Module config 定義 CLI 可覆寫的模組設定欄位（從 YAML 載入後可被 CLI 覆蓋）。
 """
 
 from dataclasses import dataclass
@@ -58,7 +58,7 @@ class PrepareRunConfig:
 
 @dataclass
 class ServeRunConfig:
-    """Serve 階段（website-copilot serve）的執行參數；config_name 對應 configs/agent/{name}.toml。"""
+    """Serve 階段（website-copilot serve）的執行參數；config_name 對應 configs/agent/{name}.yml。"""
 
     config_name: str = "default"
     host: str = "127.0.0.1"

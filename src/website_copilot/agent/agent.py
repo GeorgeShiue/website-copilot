@@ -134,7 +134,7 @@ class Agent:
 def create_agent(config: AgentConfig) -> Agent:
     """組裝 Agent（Tool 資源由 Agent 管理生命週期）。
 
-    config 由呼叫端載入（已套用覆寫值），本函式不再讀取 toml。
+    config 由呼叫端載入（已套用覆寫值），本函式不再讀取設定檔。
 
     流程：
     1. 以 Tool(config.config_name) 建立工具實例

@@ -1,0 +1,6 @@
+extends: default
+
+site_id: claudecode
+
+query_engine:
+  query: 如何安裝 Claude Code？
