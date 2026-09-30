@@ -1,5 +1,6 @@
-[init]
 site_id = "ncucsie"
+
+[init]
 download_timeout = 10.0
 success_threshold = 0.8
 max_retries = 6

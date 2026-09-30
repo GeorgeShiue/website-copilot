@@ -20,6 +20,7 @@ import pytest
 from agent_stubs import FakeAgentStub, setup_mock_run_manager
 
 from website_copilot.agent.agent import Agent
+from website_copilot.config.agent_config import AgentConfig
 from website_copilot.server.server import ChatServer
 
 
@@ -48,7 +49,9 @@ def test_run_agent_build_calls_create_agent_and_returns_agent(
     fake_agent = FakeAgentStub()
     mock_create_agent.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
-    mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
+    mock_config_cls.from_toml.return_value = AgentConfig(
+        llm_name="test_llm", system_prompt="prompt"
+    )
 
     result = run_agent_build(config_name="test")
 
@@ -78,7 +81,9 @@ def test_run_agent_build_closes_agent_when_save_fails(
     fake_agent = FakeAgentStub()
     mock_create_agent.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
-    mock_config_cls.from_toml.return_value = MagicMock(llm_name="test_llm")
+    mock_config_cls.from_toml.return_value = AgentConfig(
+        llm_name="test_llm", system_prompt="prompt"
+    )
     mock_save_module_config.side_effect = OSError("disk full")
 
     with pytest.raises(OSError):

@@ -75,13 +75,13 @@ def run_rag_query(
             for i in range(query_times):
                 # ----- 查詢與回應 -----
                 log_session(f"Query & Response {i + 1}", style="cyan")
-                response = rag.query(config.query, log_sources=True)
+                response = rag.query(config.query_engine.query, log_sources=True)
 
                 # ----- 回應評估 -----
                 # * 可改用 regas 或 deepeval 評估
                 log_session("Evaluation", style="cyan")
                 faithfulness_result, relevancy_result = evaluate_response(
-                    evaluators, query=config.query, response=response
+                    evaluators, query=config.query_engine.query, response=response
                 )
                 if faithfulness_result.passing:
                     faithfulness_pass += 1
@@ -90,7 +90,7 @@ def run_rag_query(
 
                 query_results.append(
                     response_to_dict(
-                        query=config.query,
+                        query=config.query_engine.query,
                         response=response,
                         faithfulness_result=faithfulness_result,
                         relevancy_result=relevancy_result,
@@ -119,16 +119,16 @@ def run_rag_query(
                 "config": {
                     "config_name": config.config_name,
                     "run_name": run_manager.run_name,
-                    "query": config.query,
-                    "query_llm_name": config.query_llm_name,
-                    "evaluator_llm_name": config.evaluator_llm_name,
-                    "vector_store_type": config.vector_store_type,
+                    "query": config.query_engine.query,
+                    "query_llm_name": config.query_engine.query_llm_name,
+                    "evaluator_llm_name": config.query_engine.evaluator_llm_name,
+                    "vector_store_type": config.vector_store.vector_store_type,
                     "collection_name": config.site_id,
-                    "query_mode": config.query_mode,
-                    "similarity_top_k": config.similarity_top_k,
-                    "hybrid_top_k": config.hybrid_top_k,
-                    "alpha": config.alpha,
-                    "cutoff": config.cutoff,
+                    "query_mode": config.retriever.query_mode,
+                    "similarity_top_k": config.retriever.similarity_top_k,
+                    "hybrid_top_k": config.retriever.hybrid_top_k,
+                    "alpha": config.retriever.alpha,
+                    "cutoff": config.query_engine.cutoff,
                     "query_times": query_times,
                 },
                 "summary": {

@@ -95,7 +95,7 @@ class IndexBuilder:
         vector_store = self.build_vector_store()
         try:
             # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
-            if self.config.vector_store_type == "milvus":
+            if self.config.vector_store.vector_store_type == "milvus":
                 vector_store.client.load_collection(vector_store.collection_name)
             index = self.load_index(vector_store)
         except BaseException:
@@ -107,9 +107,11 @@ class IndexBuilder:
     def _handle(
         self, vector_store: MilvusVectorStore, index: VectorStoreIndex
     ) -> IndexHandle:
-        assert self.config.milvus_uri is not None
+        assert self.config.vector_store.milvus_uri is not None
         return IndexHandle(
-            vector_store=vector_store, index=index, milvus_uri=self.config.milvus_uri
+            vector_store=vector_store,
+            index=index,
+            milvus_uri=self.config.vector_store.milvus_uri,
         )
 
     def _log_build_stats(self) -> None:
@@ -128,12 +130,12 @@ class IndexBuilder:
         """
         if force_rebuild:
             return True
-        assert self.config.milvus_uri is not None
-        return not os.path.exists(self.config.milvus_uri)
+        assert self.config.vector_store.milvus_uri is not None
+        return not os.path.exists(self.config.vector_store.milvus_uri)
 
     def clean(self) -> None:
         """整檔刪除既有向量庫（重建前呼叫）。"""
-        milvus_uri = self.config.milvus_uri
+        milvus_uri = self.config.vector_store.milvus_uri
         if milvus_uri and os.path.exists(milvus_uri):
             if os.path.isdir(milvus_uri):
                 shutil.rmtree(milvus_uri)
@@ -143,9 +145,9 @@ class IndexBuilder:
 
     def build_nodes(self, source: Source) -> list[BaseNode]:
         builder = NodePipelineBuilder(
-            chunk_size=self.config.chunk_size,
-            chunk_overlap=self.config.chunk_overlap,
-            paragraph_separator=self.config.paragraph_separator,
+            chunk_size=self.config.nodes.chunk_size,
+            chunk_overlap=self.config.nodes.chunk_overlap,
+            paragraph_separator=self.config.nodes.paragraph_separator,
         )
         nodes = builder.build(
             md_folder_path=source.md_folder_path,
@@ -157,17 +159,21 @@ class IndexBuilder:
         return nodes
 
     def build_vector_store(self) -> MilvusVectorStore:
-        assert self.config.milvus_uri is not None
+        vector_store_config = self.config.vector_store
+        assert vector_store_config.milvus_uri is not None
+        params = vector_store_config.hybrid_ranker_params
         logger.info(
             "Building Milvus vector store (sparse embedding: BGE-M3, hybrid_ranker=%s)",
-            self.config.hybrid_ranker,
+            vector_store_config.hybrid_ranker,
         )
         return VectorStoreBuilder.build(
             collection_name=self.config.site_id,
-            embedding_name=self.config.embedding_name,
-            milvus_uri=self.config.milvus_uri,
-            hybrid_ranker=self.config.hybrid_ranker,
-            hybrid_ranker_params=self.config.hybrid_ranker_params,
+            embedding_name=self.config.index.embedding_name,
+            milvus_uri=vector_store_config.milvus_uri,
+            hybrid_ranker=vector_store_config.hybrid_ranker,
+            hybrid_ranker_params=(
+                params.model_dump(exclude_none=True) if params is not None else None
+            ),
         )
 
     def _create_embed_model(self, embedding_name: str) -> OpenAIEmbedding:
@@ -181,10 +187,10 @@ class IndexBuilder:
     ) -> VectorStoreIndex:
         logger.info(
             "Building index (dense embedding: %s, nodes=%d)",
-            self.config.embedding_name,
+            self.config.index.embedding_name,
             len(nodes),
         )
-        embed_model = self._create_embed_model(self.config.embedding_name)
+        embed_model = self._create_embed_model(self.config.index.embedding_name)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         index = VectorStoreIndex(
             nodes,
@@ -196,7 +202,7 @@ class IndexBuilder:
         return index
 
     def load_index(self, vector_store: MilvusVectorStore) -> VectorStoreIndex:
-        embed_model = self._create_embed_model(self.config.embedding_name)
+        embed_model = self._create_embed_model(self.config.index.embedding_name)
         index = VectorStoreIndex.from_vector_store(
             vector_store, embed_model, show_progress=True
         )

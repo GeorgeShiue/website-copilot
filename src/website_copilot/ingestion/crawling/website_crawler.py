@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from typing import Any, Pattern
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 from crawl4ai import (
@@ -63,8 +63,8 @@ class WebsiteCrawler:
 
         # ===== crawl args =====
         self.url: str
-        self.url_patterns: str | Pattern | list[str | Pattern] | None = None
-        self.allowed_domains: str | list[str] | None = None
+        self.url_patterns: list[str] | None = None
+        self.allowed_domains: list[str] | None = None
         self.path_prefix: str = "/"
 
         # ===== internal state =====
@@ -75,8 +75,8 @@ class WebsiteCrawler:
     def crawl_website(
         self,
         url: str,
-        url_patterns: str | Pattern | list[str | Pattern] | None = None,
-        allowed_domains: str | list[str] | None = None,
+        url_patterns: list[str] | None = None,
+        allowed_domains: list[str] | None = None,
         path_prefix: str | None = None,
     ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
@@ -132,7 +132,9 @@ class WebsiteCrawler:
 
         filters: list[URLFilter] = []
         if self.url_patterns is not None:
-            filters.append(URLPatternFilter(patterns=self.url_patterns))
+            # URLPatternFilter 的參數型別為 list[str | Pattern]（list 不變性，需轉型）
+            patterns: list[str | re.Pattern] = list(self.url_patterns)
+            filters.append(URLPatternFilter(patterns=patterns))
         if self.allowed_domains is not None:
             filters.append(DomainFilter(allowed_domains=self.allowed_domains))
         filter_chain = FilterChain(filters)

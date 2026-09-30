@@ -16,10 +16,7 @@ from litellm import acompletion, completion_cost
 from rich.table import Table
 from rich.text import Text
 
-from website_copilot.config.image_summarizer_config import (
-    DEFAULT_PROMPT,
-    VLM_MODEL_TO_API_KEY,
-)
+from website_copilot.config.image_summarizer_config import VLM_MODEL_TO_API_KEY
 from website_copilot.utils.config_helper import EnvironmentVariableError
 from website_copilot.utils.log_helper import (
     TaskCountProgress,
@@ -81,8 +78,8 @@ class ImageSummarizer:
     def summarize_crawl_results_images(
         self,
         crawl_results: dict[str, dict[str, Any]],
-        model: str = "gemini-3-flash-preview",
-        prompt: str = DEFAULT_PROMPT,
+        model: str,
+        prompt: str,
         vlm_max_workers: int = 10,
         image_source: Literal["images", "markdown"] = "markdown",
         **litellm_kwargs: Any,

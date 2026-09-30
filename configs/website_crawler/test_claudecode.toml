@@ -1,5 +1,6 @@
-[init]
 site_id = "claudecode"
+
+[init]
 max_depth = 2
 max_pages = 40           # run name
 content_threshold = 0.25 # KEEP_IMAGE_CONTENT_THRESHOLD

@@ -21,7 +21,7 @@
 - [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
 - [src/website_copilot/ingestion/indexing/index.py](src/website_copilot/ingestion/indexing/index.py)：`IndexBuilder` 負責向量庫的 clean / nodes / vector store / index 建置與載入，回傳 `IndexHandle`（nodes 與向量庫分別由 `node_pipeline.py`、`vector_store.py` 建立）。
 - [src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)：`RAGBuilder` 在 `IndexHandle` 之上建立 retriever / query engine；`build_rag()`（建置）與 `load_rag()`（serve 載入，絕不建置）為兩個入口。
-- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 dataclass，負責從 `configs/` 載入與驗證。
+- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 pydantic model，負責從 `configs/` 載入與驗證。
 - [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)：共用設定工具，提供 TOML 載入、覆寫、寫回與 config 顯示等功能。
 
 ## 二、Workflow 解析與執行流程
@@ -33,7 +33,7 @@
    - `run_rag_query()`
    - `run_agent_build()` / `run_agent_query()`
    - `run_server_build()`
-2. 這些函式都會先建立對應的 module 物件，再從對應的 config dataclass 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
+2. 這些函式都會先建立對應的 module 物件，再從對應的 config model 讀取 TOML 設定，最後將設定套用到 module 的 init 與執行參數。
 3. 每個 workflow 都會建立或接收 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config_as_toml()` 寫出 `module_config.toml`（agent 的 `run_agent_build` / `run_agent_query` 會寫；`run_server_build` 不寫，server 的 run 目錄只有 `run_config.toml`），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
 5. `run_config.toml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config_as_toml()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
@@ -144,10 +144,10 @@ Workflow 內部常見行為：
 
 ## 五、Workflow 與 Config 的互動
 
-Workflow 不直接手寫 TOML，而是依賴各 module 的 config dataclass 與共用 helper：
+Workflow 不直接手寫 TOML，而是依賴各 module 的 config model 與共用 helper：
 
-1. `src/website_copilot/config/*_config.py` 會從 `configs/<module>/<config_name>.toml` 載入設定。
-2. `utils.config_helper.load_config_from_toml()` 與 `override_config()` 負責讀入、過濾與覆寫。
+1. `src/website_copilot/config/*_config.py` 的 pydantic model 以 `from_toml()` 從 `configs/<module>/<config_name>.toml` 載入設定。
+2. `from_toml()` 套用 overrides 後以 `model_validate()` 驗證，失敗時拋出含設定檔路徑的 `ConfigValidationError`。
 3. `save_module_config_as_toml()` 會把實際使用到的設定寫回 `module_config.toml`，方便追蹤本次執行。
 4. `save_run_config_as_toml()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`website-copilot run` 會傳入；`website-copilot prepare` 目前不寫出）。
 
@@ -177,7 +177,7 @@ uv run website-copilot run rag-query --run.config-name test --run.force-rebuild
 
 - 若要修改 workflow 的執行行為，優先檢查對應階段的 `src/website_copilot/pipelines/*.py`與對應的 `src/website_copilot/config/*_config.py`，不要把設定邏輯分散到 module 本體。
 - 若要調整輸出目錄與 artifacts 命名，優先修改 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)。
-- 若要新增 workflow，建議先在 `src/website_copilot/pipelines/` 定義入口（serve 路徑不可 import 爬蟲／VLM 模組），再補上對應的 config dataclass、RunManager 輸出行為與 `cli/` 子命令。
+- 若要新增 workflow，建議先在 `src/website_copilot/pipelines/` 定義入口（serve 路徑不可 import 爬蟲／VLM 模組），再補上對應的 config model、RunManager 輸出行為與 `cli/` 子命令。
 
 ## 八、參考與證據
 

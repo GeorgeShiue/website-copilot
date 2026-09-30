@@ -26,6 +26,7 @@ dependencies = [
     "mdformat-gfm>=1.0.0",
     "milvus-lite==3.2.0",
     "playwright>=1.58.0",
+    "pydantic>=2.12.5",
     "python-dotenv>=1.0.0",
     "rich>=14.3.2",
     "tomlkit>=0.14.0",

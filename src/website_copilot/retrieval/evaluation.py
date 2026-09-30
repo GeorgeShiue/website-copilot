@@ -180,7 +180,7 @@ Evaluators = tuple[FaithfulnessEvaluator, RelevancyEvaluator]
 
 def build_evaluators(config: RAGConfig) -> Evaluators:
     """建立 Faithfulness / Relevancy evaluator。"""
-    llm = create_llm(config.evaluator_llm_name)
+    llm = create_llm(config.query_engine.evaluator_llm_name)
     faithfulness_evaluator = FaithfulnessEvaluator(
         llm=llm,
         eval_template=FAITHFULNESS_EVAL_TEMPLATE,
@@ -193,7 +193,7 @@ def build_evaluators(config: RAGConfig) -> Evaluators:
     )
     logger.info(
         "Successfully built evaluators (llm=%s)",
-        config.evaluator_llm_name,
+        config.query_engine.evaluator_llm_name,
     )
     return faithfulness_evaluator, relevancy_evaluator
 

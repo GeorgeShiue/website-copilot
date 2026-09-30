@@ -81,27 +81,27 @@ def run_website_crawler(
         # ----- 初始化物件 -----
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         website_crawler = WebsiteCrawler(
-            max_depth=config.max_depth,
-            max_pages=config.max_pages,
-            content_threshold=config.content_threshold,
-            light_mode=config.light_mode,
-            wait_for_images=config.wait_for_images,
+            max_depth=config.init.max_depth,
+            max_pages=config.init.max_pages,
+            content_threshold=config.init.content_threshold,
+            light_mode=config.init.light_mode,
+            wait_for_images=config.init.wait_for_images,
             cleaner=WebpageMarkdownCleaner(
-                model=config.llm_model,
-                sample_ratio=config.sample_ratio,
-                repeat=config.repeat,
-                max_prompt_tokens=config.max_prompt_tokens,
-                seed=config.seed,
+                model=config.clean.llm_model,
+                sample_ratio=config.clean.sample_ratio,
+                repeat=config.clean.repeat,
+                max_prompt_tokens=config.clean.max_prompt_tokens,
+                seed=config.clean.seed,
             ),
         )
 
         # ---- 執行網站爬蟲 -----
         log_session("Website Crawling", style="cyan")
         crawl_results = website_crawler.crawl_website(
-            url=config.url,
-            url_patterns=config.url_patterns,
-            allowed_domains=config.allowed_domains,
-            path_prefix=config.path_prefix,
+            url=config.crawl.url,
+            url_patterns=config.crawl.url_patterns,
+            allowed_domains=config.crawl.allowed_domains,
+            path_prefix=config.crawl.path_prefix,
         )
 
         # ----- 輸出完成訊息 -----
@@ -188,11 +188,11 @@ def run_image_summarizer(
         # ----- 初始化物件 -----
         log_config(f"{config.__class__.__name__} Loaded from toml", config)
         image_summarizer = ImageSummarizer(
-            download_timeout=config.download_timeout,
-            success_threshold=config.success_threshold,
-            max_retries=config.max_retries,
-            cache_download_images=config.cache_download_images,
-            cache_image_captions=config.cache_image_captions,
+            download_timeout=config.init.download_timeout,
+            success_threshold=config.init.success_threshold,
+            max_retries=config.init.max_retries,
+            cache_download_images=config.init.cache_download_images,
+            cache_image_captions=config.init.cache_image_captions,
         )
 
         # ----- 獲取最近一次結果 -----
@@ -207,10 +207,10 @@ def run_image_summarizer(
         log_session("Image Summarization", style="cyan")
         enhanced_results = image_summarizer.summarize_crawl_results_images(
             crawl_results,
-            model=config.model,
-            prompt=config.prompt,
-            vlm_max_workers=config.vlm_max_workers,
-            image_source=config.image_source,
+            model=config.summarize.model,
+            prompt=config.summarize.prompt,
+            vlm_max_workers=config.summarize.vlm_max_workers,
+            image_source=config.summarize.image_source,
             **config.litellm_kwargs,
         )
 
@@ -285,7 +285,7 @@ def run_rag_build(
             if publish
             else tempfile.mkdtemp(prefix="rag_build_")
         )
-        config.milvus_uri = os.path.join(staging_dir, "milvus.db")
+        config.vector_store.milvus_uri = os.path.join(staging_dir, "milvus.db")
 
     try:
         with run_workflow_context(run_title, run_manager=run_manager):
@@ -321,7 +321,7 @@ def run_rag_build(
                         move=staging_dir is not None,
                     )
                     # 發布的 module_config 記錄正式路徑，而非 runs/ 或 staging
-                    config.milvus_uri = os.path.join(rag_path, "milvus.db")
+                    config.vector_store.milvus_uri = os.path.join(rag_path, "milvus.db")
                 data_manager.publish_run_metadata(
                     site_id=config.site_id,
                     category="rag",

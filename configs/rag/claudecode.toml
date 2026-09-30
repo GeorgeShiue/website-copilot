@@ -1,4 +1,3 @@
-[init]
 site_id = "claudecode"
 
 [nodes]
@@ -18,8 +17,10 @@ embedding_name = "text-embedding-3-small"
 query_mode = "hybrid"
 similarity_top_k = 10
 hybrid_top_k = 10
+alpha = 0.5
 
 [query_engine]
 query_llm_name = "gpt-5.6-luna"
 evaluator_llm_name = "gpt-5.6-terra"
+cutoff = 0.0
 query = "如何安裝 Claude Code？"

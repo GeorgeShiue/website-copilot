@@ -1,22 +1,15 @@
 import logging
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Annotated, ClassVar, Literal, Self
 
-from website_copilot.config.base_config import BaseModuleConfig
-from website_copilot.utils.config_helper import (
-    ConfigValidationError,
-    _normalize_toml_types,
+from pydantic import Field, PositiveInt, model_validator
+
+from website_copilot.config.base_config import (
+    BaseModuleConfig,
+    ConfigModel,
+    NonEmptyStr,
 )
 
 logger = logging.getLogger(__name__)
-
-
-DEFAULT_INIT_CONFIG_SECTION = "init"
-DEFAULT_VECTOR_STORE_CONFIG_SECTION = "vector_store"
-DEFAULT_NODES_CONFIG_SECTION = "nodes"
-DEFAULT_INDEX_CONFIG_SECTION = "index"
-DEFAULT_RETRIEVER_CONFIG_SECTION = "retriever"
-DEFAULT_QUERY_ENGINE_CONFIG_SECTION = "query_engine"
 
 
 def _default_webpages_path(site_id: str) -> str:
@@ -27,232 +20,96 @@ def _default_milvus_uri(site_id: str) -> str:
     return f"data/rag/{site_id}/milvus.db"
 
 
-INIT_KEYS = {
-    "site_id",
-    "webpages_data_folder_path",
-}
-VECTOR_STORE_KEYS = {
-    "vector_store_type",
-    "milvus_uri",
-    "hybrid_ranker",
-    "hybrid_ranker_params",
-}
-NODES_KEYS = {
-    "chunk_size",
-    "chunk_overlap",
-    "paragraph_separator",
-}
-INDEX_KEYS = {
-    "embedding_name",
-}
-RETRIEVER_KEYS = {
-    "similarity_top_k",
-    "query_mode",
-    "hybrid_top_k",
-    "alpha",
-}
-QUERY_ENGINE_KEYS = {
-    "query_llm_name",
-    "evaluator_llm_name",
-    "cutoff",
-    "query",
-}
-SECTIONS_TO_KEYS = {
-    DEFAULT_INIT_CONFIG_SECTION: INIT_KEYS,
-    DEFAULT_VECTOR_STORE_CONFIG_SECTION: VECTOR_STORE_KEYS,
-    DEFAULT_NODES_CONFIG_SECTION: NODES_KEYS,
-    DEFAULT_INDEX_CONFIG_SECTION: INDEX_KEYS,
-    DEFAULT_RETRIEVER_CONFIG_SECTION: RETRIEVER_KEYS,
-    DEFAULT_QUERY_ENGINE_CONFIG_SECTION: QUERY_ENGINE_KEYS,
-}
+class NodesConfig(ConfigModel):
+    chunk_size: PositiveInt
+    chunk_overlap: PositiveInt
+    paragraph_separator: str
+
+    @model_validator(mode="after")
+    def _check_overlap(self) -> Self:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap 必須小於 chunk_size")
+        return self
 
 
-@dataclass
+class HybridRankerParams(ConfigModel):
+    weights: Annotated[list[float], Field(min_length=2, max_length=2)] | None = Field(
+        default=None, description="WeightedRanker 的 [dense, sparse] 權重"
+    )
+    k: PositiveInt | None = Field(default=None, description="RRFRanker 的 k 值")
+
+
+class VectorStoreConfig(ConfigModel):
+    vector_store_type: Literal["milvus"]
+    milvus_uri: NonEmptyStr | None = Field(
+        default=None, description="未設定時為 data/rag/{site_id}/milvus.db"
+    )
+    hybrid_ranker: Literal["RRFRanker", "WeightedRanker"]
+    hybrid_ranker_params: HybridRankerParams | None = Field(
+        default=None, description="未設定時依 hybrid_ranker 使用預設參數"
+    )
+
+    @model_validator(mode="after")
+    def _check_ranker_params(self) -> Self:
+        params = self.hybrid_ranker_params
+        if params is None:
+            return self
+        if self.hybrid_ranker == "WeightedRanker":
+            if params.weights is None or params.k is not None:
+                raise ValueError(
+                    "WeightedRanker 的 hybrid_ranker_params 必須有 weights 且不可有 k"
+                )
+        elif params.k is None or params.weights is not None:
+            raise ValueError(
+                "RRFRanker 的 hybrid_ranker_params 必須有 k 且不可有 weights"
+            )
+        return self
+
+
+class IndexConfig(ConfigModel):
+    embedding_name: NonEmptyStr
+
+
+class RetrieverConfig(ConfigModel):
+    query_mode: Literal["hybrid", "default"]
+    similarity_top_k: PositiveInt = Field(description="dense 檢索回傳的節點數")
+    hybrid_top_k: PositiveInt = Field(description="hybrid 檢索最終回傳的節點數")
+    alpha: float = Field(ge=0, le=1, description="hybrid 檢索的 dense 權重")
+
+
+class QueryEngineConfig(ConfigModel):
+    query_llm_name: NonEmptyStr
+    evaluator_llm_name: NonEmptyStr
+    cutoff: float = Field(
+        ge=0, le=1, description="相似度門檻，僅在 query_mode 非 hybrid 時生效"
+    )
+    query: NonEmptyStr
+
+
 class RAGConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/rag"
-    sections_to_keys: ClassVar[dict[str, set[str]]] = SECTIONS_TO_KEYS
-    # ----- init config -----
-    site_id: str
-    webpages_data_folder_path: str | None = None
-    # ----- vector store config -----
-    vector_store_type: str = "milvus"
-    milvus_uri: str | None = None
-    hybrid_ranker: str = "WeightedRanker"
-    hybrid_ranker_params: dict[str, Any] | None = None
-    # ----- nodes config -----
-    chunk_size: int = 800
-    chunk_overlap: int = 100
-    paragraph_separator: str = "\n\n"
-    # ----- index config -----
-    embedding_name: str = "text-embedding-3-small"
-    # ----- retriever config -----
-    query_mode: str = "hybrid"
-    similarity_top_k: int = 10
-    hybrid_top_k: int = 10
-    alpha: float = 0.5
-    # ----- query engine config -----
-    query_llm_name: str = "gpt-5.6-luna"
-    evaluator_llm_name: str = "gpt-5.6-terra"
-    cutoff: float = 0.0
-    query: str = "實驗室發表過的論文"
 
-    def __post_init__(self) -> None:
-        _validate_config(vars(self))
-        # 未指定路徑時，由 site_id 動態產生預設路徑
+    site_id: NonEmptyStr  # Phase D 移除，改由 SiteConfig 提供
+    webpages_data_folder_path: NonEmptyStr | None = Field(
+        default=None, description="建庫資料來源，未設定時為 data/webpages/{site_id}"
+    )
+    nodes: NodesConfig
+    vector_store: VectorStoreConfig
+    index: IndexConfig
+    retriever: RetrieverConfig
+    query_engine: QueryEngineConfig
+
+    @model_validator(mode="after")
+    def _fill_default_paths(self) -> Self:
+        """未指定路徑時，由 site_id 動態產生預設路徑。"""
         if self.webpages_data_folder_path is None:
             self.webpages_data_folder_path = _default_webpages_path(self.site_id)
-        if self.milvus_uri is None:
-            self.milvus_uri = _default_milvus_uri(self.site_id)
-
-    @classmethod
-    def from_toml(
-        cls,
-        config_name: str = "default",
-        **overrides,
-    ):
-        """從 TOML 設定檔建立 RAGConfig。"""
-        return super().from_toml(config_name, **overrides)
+        if self.vector_store.milvus_uri is None:
+            self.vector_store.milvus_uri = _default_milvus_uri(self.site_id)
+        return self
 
     def _post_process_run_name(self, run_name: str) -> str:
         run_name = run_name.replace("/", "-")
         if run_name.find("-gemini") > 1:
             run_name = run_name.replace("-gemini", "", 1)
         return run_name
-
-
-def _validate_config(config: dict[str, Any]) -> None:
-    # ----- init config -----
-    site_id = config.get("site_id", "")
-    if not isinstance(site_id, str) or not site_id.strip():
-        raise ConfigValidationError("site_id 必須是非空字串")
-
-    webpages_data_folder_path = config.get("webpages_data_folder_path")
-
-    if webpages_data_folder_path is not None:
-        if not isinstance(webpages_data_folder_path, str):
-            raise ConfigValidationError("webpages_data_folder_path 必須是字串")
-        if not webpages_data_folder_path.strip():
-            raise ConfigValidationError("webpages_data_folder_path 不可為空字串")
-
-    # ----- vector store config -----
-    vector_store_type = config.get("vector_store_type")
-
-    if vector_store_type is not None and vector_store_type != "milvus":
-        raise ConfigValidationError("vector_store_type 必須是 'milvus'")
-
-    hybrid_ranker = config.get("hybrid_ranker")
-
-    if hybrid_ranker is not None:
-        if hybrid_ranker not in ("RRFRanker", "WeightedRanker"):
-            raise ConfigValidationError(
-                "hybrid_ranker 必須是 'RRFRanker' 或 'WeightedRanker'"
-            )
-
-    hybrid_ranker_params = config.get("hybrid_ranker_params")
-
-    if hybrid_ranker_params is not None:
-        if not isinstance(hybrid_ranker_params, dict):
-            raise ConfigValidationError("hybrid_ranker_params 必須是 dict")
-
-        if "weights" in hybrid_ranker_params:
-            weights = hybrid_ranker_params["weights"]
-            if not isinstance(weights, list) or len(weights) != 2:
-                raise ConfigValidationError("weights 必須是長度 2 的列表")
-            for w in weights:
-                if not isinstance(w, (int, float)):
-                    raise ConfigValidationError("weights 元素必須為數值")
-
-        if "k" in hybrid_ranker_params:
-            k = hybrid_ranker_params["k"]
-            if not isinstance(k, int):
-                raise ConfigValidationError("hybrid_ranker_params.k 必須是整數")
-            if k <= 0:
-                raise ConfigValidationError("hybrid_ranker_params.k 必須大於 0")
-
-        # 驗證通過後將 tomlkit 型別轉換為原生 Python 型別
-        config["hybrid_ranker_params"] = _normalize_toml_types(hybrid_ranker_params)
-
-    # ----- nodes config -----
-    chunk_size = config.get("chunk_size")
-    chunk_overlap = config.get("chunk_overlap")
-    paragraph_separator = config.get("paragraph_separator")
-
-    for value, field_name in (
-        (chunk_size, "chunk_size"),
-        (chunk_overlap, "chunk_overlap"),
-    ):
-        if value is not None:
-            if not isinstance(value, int):
-                raise ConfigValidationError(f"{field_name} 必須是整數")
-            if value <= 0:
-                raise ConfigValidationError(f"{field_name} 必須大於 0")
-
-    if paragraph_separator is not None and not isinstance(paragraph_separator, str):
-        raise ConfigValidationError("paragraph_separator 必須是字串")
-
-    # ----- index config -----
-    embedding_name = config.get("embedding_name")
-
-    if embedding_name is not None:
-        if not isinstance(embedding_name, str):
-            raise ConfigValidationError("embedding_name 必須是字串")
-        if not embedding_name.strip():
-            raise ConfigValidationError("embedding_name 不可為空字串")
-
-    # ----- retriever config -----
-    similarity_top_k = config.get("similarity_top_k")
-    query_mode = config.get("query_mode")
-    hybrid_top_k = config.get("hybrid_top_k")
-    alpha = config.get("alpha")
-
-    if similarity_top_k is not None:
-        if not isinstance(similarity_top_k, int):
-            raise ConfigValidationError("similarity_top_k 必須是整數")
-        if similarity_top_k <= 0:
-            raise ConfigValidationError("similarity_top_k 必須大於 0")
-
-    if query_mode is not None:
-        if query_mode not in ("hybrid", "default"):
-            raise ConfigValidationError("query_mode 必須是 'hybrid' 或 'default'")
-
-    if hybrid_top_k is not None:
-        if not isinstance(hybrid_top_k, int):
-            raise ConfigValidationError("hybrid_top_k 必須是整數")
-        if hybrid_top_k <= 0:
-            raise ConfigValidationError("hybrid_top_k 必須大於 0")
-
-    if alpha is not None:
-        if not isinstance(alpha, (int, float)):
-            raise ConfigValidationError("alpha 必須是數值")
-        if not 0.0 <= float(alpha) <= 1.0:
-            raise ConfigValidationError("alpha 必須介於 0.0 到 1.0")
-
-    # ----- query engine config -----
-    query_llm_name = config.get("query_llm_name")
-    evaluator_llm_name = config.get("evaluator_llm_name")
-    cutoff = config.get("cutoff")
-    query = config.get("query")
-
-    if query_llm_name is not None:
-        if not isinstance(query_llm_name, str):
-            raise ConfigValidationError("query_llm_name 必須是字串")
-        if not query_llm_name.strip():
-            raise ConfigValidationError("query_llm_name 不可為空字串")
-
-    if evaluator_llm_name is not None:
-        if not isinstance(evaluator_llm_name, str):
-            raise ConfigValidationError("evaluator_llm_name 必須是字串")
-        if not evaluator_llm_name.strip():
-            raise ConfigValidationError("evaluator_llm_name 不可為空字串")
-
-    if cutoff is not None:
-        if not isinstance(cutoff, (int, float)):
-            raise ConfigValidationError("cutoff 必須是數字")
-        if not 0 <= float(cutoff) <= 1:
-            raise ConfigValidationError("cutoff 必須介於 0 到 1")
-
-    if query is not None:
-        if not isinstance(query, str):
-            raise ConfigValidationError("query 必須是字串")
-        if not query.strip():
-            raise ConfigValidationError("query 不可為空字串")

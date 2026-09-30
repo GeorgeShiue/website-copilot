@@ -3,7 +3,7 @@
 - run_prepare：三階段以 save=False / publish=True 串接；publish=False 時改存 runs/
   並以 runs/ 最新的圖片摘要結果建庫；crawler 無產出時提前結束。
 - run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}/）：
-  build_rag 以 fake 替代：依 config.milvus_uri／run_manager 決定位置寫出假向量庫，
+  build_rag 以 fake 替代：依 config.vector_store.milvus_uri／run_manager 決定位置寫出假向量庫，
   不呼叫 embedding；runs/、data/ 與系統暫存資料夾皆在 tmp。
 """
 
@@ -44,16 +44,18 @@ class _Env:
 
     def fake_build_rag(self, config, run_manager=None, **_kwargs) -> _FakeRAG:
         if run_manager is not None:
-            config.milvus_uri = os.path.join(
+            config.vector_store.milvus_uri = os.path.join(
                 run_manager.results_folder_path, "milvus.db"
             )
         if self.build_error is not None:
             raise self.build_error
         if self.write_store:
-            os.makedirs(config.milvus_uri)
-            with open(os.path.join(config.milvus_uri, "vec.bin"), "w") as f:
+            os.makedirs(config.vector_store.milvus_uri)
+            with open(
+                os.path.join(config.vector_store.milvus_uri, "vec.bin"), "w"
+            ) as f:
                 f.write("new")
-        rag = _FakeRAG(config.milvus_uri)
+        rag = _FakeRAG(config.vector_store.milvus_uri)
         self.rags.append(rag)
         return rag
 

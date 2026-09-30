@@ -49,28 +49,30 @@ class RAGBuilder:
 
         vector_store_query_mode = (
             VectorStoreQueryMode.HYBRID
-            if self.config.query_mode == "hybrid"
+            if self.config.retriever.query_mode == "hybrid"
             else VectorStoreQueryMode.DEFAULT
         )
         return VectorIndexRetriever(
             index=index,
-            similarity_top_k=self.config.similarity_top_k,
+            similarity_top_k=self.config.retriever.similarity_top_k,
             filters=filters,
             vector_store_query_mode=vector_store_query_mode,
-            hybrid_top_k=self.config.hybrid_top_k,
-            alpha=self.config.alpha,
+            hybrid_top_k=self.config.retriever.hybrid_top_k,
+            alpha=self.config.retriever.alpha,
         )
 
     def build_query_engine(
         self, retriever: VectorIndexRetriever
     ) -> RetrieverQueryEngine:
-        llm = create_llm(self.config.query_llm_name)
+        llm = create_llm(self.config.query_engine.query_llm_name)
         response_synthesizer = get_response_synthesizer(llm)
 
         node_postprocessors = []
-        if self.config.query_mode != "hybrid":
+        if self.config.retriever.query_mode != "hybrid":
             node_postprocessors.append(
-                SimilarityPostprocessor(similarity_cutoff=self.config.cutoff)
+                SimilarityPostprocessor(
+                    similarity_cutoff=self.config.query_engine.cutoff
+                )
             )
 
         return RetrieverQueryEngine(
@@ -124,7 +126,9 @@ def build_rag(
 
     # ----- 解決向量庫存放位置（預設位置 vs 呼叫端 run 的 results/）-----
     if run_manager is not None:
-        config.milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
+        config.vector_store.milvus_uri = os.path.join(
+            run_manager.results_folder_path, "milvus.db"
+        )
 
     if build_query_engine:
         log_session("Building RAG to Query Engine", style="cyan")
@@ -144,10 +148,10 @@ def load_rag(config: RAGConfig) -> RAG:
     Raises:
         FileNotFoundError: 向量庫不存在時（應先執行 prepare 階段 publish）。
     """
-    assert config.milvus_uri is not None
-    if not os.path.exists(config.milvus_uri):
+    assert config.vector_store.milvus_uri is not None
+    if not os.path.exists(config.vector_store.milvus_uri):
         raise FileNotFoundError(
-            f"Vector store not found: {config.milvus_uri}"
+            f"Vector store not found: {config.vector_store.milvus_uri}"
             "（請先執行 prepare 階段建置並 publish 向量庫）"
         )
     index_handle: IndexHandle = IndexBuilder(config).load()

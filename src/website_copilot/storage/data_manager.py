@@ -12,6 +12,8 @@ import shutil
 import tempfile
 from typing import Any
 
+from pydantic import BaseModel
+
 from website_copilot.schemas import GenerationResult
 from website_copilot.storage.run_persistence import save_generated_exclude_words
 from website_copilot.utils.config_helper import (
@@ -225,7 +227,7 @@ class DataManager:
         self,
         site_id: str,
         category: str,
-        config: object,
+        config: BaseModel,
         run_config: object | None = None,
         log_path: str | None = None,
     ) -> str:

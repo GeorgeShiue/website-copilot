@@ -15,7 +15,6 @@ from __future__ import annotations
 import os
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -25,6 +24,7 @@ import pytest
 from website_copilot.agent.tools.webpage_retriever import (
     create_webpage_retriever_tool,
 )
+from website_copilot.config.rag_config import RAGConfig
 from website_copilot.ingestion.indexing.index import IndexBuilder
 from website_copilot.retrieval.registry import RAGRegistry
 
@@ -276,22 +276,9 @@ class TestClose:
 # ===========================================================================
 
 
-@dataclass
-class _FakeRAGConfig:
-    """最小化的 RAGConfig 替身，僅含 IndexBuilder 所需欄位。
-
-    IndexBuilder.__init__ 僅儲存 config；
-    _should_rebuild 只讀取 vector_store_type 與 milvus_uri。
-    """
-
-    vector_store_type: str = "milvus"
-    milvus_uri: str | None = "data/rag/test/milvus.db"
-
-
-def _make_builder(vector_store_type: str, **overrides: Any) -> IndexBuilder:
-    """建立帶有指定 vector_store_type 的 IndexBuilder（使用 fake config）。"""
-    config = _FakeRAGConfig(vector_store_type=vector_store_type, **overrides)
-    return IndexBuilder(config)  # type: ignore[arg-type]
+def _make_builder() -> IndexBuilder:
+    """建立以 configs/rag/test.toml 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
+    return IndexBuilder(RAGConfig.from_toml("test"))
 
 
 class TestShouldRebuildMilvus:
@@ -299,25 +286,25 @@ class TestShouldRebuildMilvus:
 
     def test_returns_false_when_milvus_db_exists(self) -> None:
         """milvus.db 已存在 + force_rebuild=False → 不重建。"""
-        builder = _make_builder("milvus")
+        builder = _make_builder()
         with patch("os.path.exists", return_value=True):
             assert builder._should_rebuild(force_rebuild=False) is False
 
     def test_returns_true_when_milvus_db_missing(self) -> None:
         """milvus.db 不存在 → 重建。"""
-        builder = _make_builder("milvus")
+        builder = _make_builder()
         with patch("os.path.exists", return_value=False):
             assert builder._should_rebuild(force_rebuild=False) is True
 
     def test_returns_true_when_force_rebuild(self) -> None:
         """milvus.db 已存在 + force_rebuild=True → 強制重建。"""
-        builder = _make_builder("milvus")
+        builder = _make_builder()
         with patch("os.path.exists", return_value=True):
             assert builder._should_rebuild(force_rebuild=True) is True
 
     def test_returns_true_when_force_rebuild_and_db_missing(self) -> None:
         """milvus.db 不存在 + force_rebuild=True → 重建。"""
-        builder = _make_builder("milvus")
+        builder = _make_builder()
         with patch("os.path.exists", return_value=False):
             assert builder._should_rebuild(force_rebuild=True) is True
 
