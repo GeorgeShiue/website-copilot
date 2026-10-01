@@ -15,6 +15,7 @@ from website_copilot.ingestion.indexing.transforms import (
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
 )
+from website_copilot.utils.text_helper import clean_description
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class NodePipelineBuilder:
             "page_url": page_info.get("url", ""),
             "page_type": page_metadata.get("page_type", "general"),
             "published_date": page_metadata.get("published_date", ""),
-            "description": page_metadata.get("description", ""),
+            "description": clean_description(page_metadata.get("description")),
             "site_id": site_id,
         }
 

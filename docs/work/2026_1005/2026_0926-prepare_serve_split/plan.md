@@ -34,7 +34,7 @@
 
 ### 設計
 
-- `src/main.py` 改名為 `src/prepare.py`；`MainCLI`／`MainRunConfig` → `PrepareCLI`／`PrepareRunConfig`；log 標題改為 "Prepare Workflow"；`log_main_workflow_run_summary` → `log_prepare_workflow_run_summary`；刪除被註解掉的 server 程式碼。
+- `src/main.py` 改名為 `src/prepare.py`；`MainCLI`／`MainRunConfig` → `PrepareCLI`／`PrepareRunConfig`；log 標題改為 "Prepare Pipeline"；`log_main_workflow_run_summary` → `log_prepare_workflow_run_summary`；刪除被註解掉的 server 程式碼。
 - 新增 `src/serve.py`：搬移 `cli.py` 的 server 分支，吃 `ServeRunConfig`，處理 `KeyboardInterrupt` 並記錄 "Server Stopped"。
 - `cli.py` 移除 `ServerCLI`，讓 server 只有一個入口。
 

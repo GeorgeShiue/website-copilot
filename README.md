@@ -267,6 +267,8 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 - `collections/chunks/…` — Milvus Lite 向量儲存（`indexes/` 為載入時產生的可重建索引，已被 `.gitignore` 忽略）
 - `meta/` — 建庫的 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`，與向量庫同一次原子替換
 
+發布到 `data/` 的爬蟲與圖片摘要結果（`data/raw_webpages/<site_id>/`、`data/aug_webpages/<site_id>/`）同樣附有 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`。即使 publish 模式不寫 `runs/`（`prepare` 預設），日誌也會保留。
+
 `run_rag_build` 絕不直接寫入 `data/vector_db/<site_id>.db`，只透過 publish 原子替換（先放 `<site_id>.db.tmp`、寫入 `meta/`，再 rename 取代舊版），因此執行中的 server 不會讀到建到一半的向量庫，建庫失敗時舊版也完整保留。建庫位置依 `save`／`publish` 而定：
 
 | save | publish | 建庫位置 | 結束後留下的檔案 |

@@ -1,6 +1,6 @@
 {
   "active_wal_number": 2,
-  "current_seq": 723,
+  "current_seq": 1211,
   "index_specs": {
     "embedding": {
       "build_params": {},
@@ -21,7 +21,7 @@
   "partitions": {
     "_default": {
       "data_files": [
-        "data/data_000001_000723.parquet"
+        "data/data_000001_001211.parquet"
       ],
       "delta_files": []
     }

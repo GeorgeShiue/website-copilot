@@ -189,9 +189,7 @@ def save_generated_exclude_words(
         "usages": result.usages,
         "total_cost_usd": result.cost_usd,
     }
-    with open(
-        os.path.join(run_path, "exclude_words_report.json"), "w", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(run_path, "exclude_words.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
 

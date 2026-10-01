@@ -106,7 +106,7 @@ class IndexBuilder:
     def build(self, source: Source) -> IndexHandle:
         """重建：clean（整檔刪除）→ nodes → vector store → index。"""
         self._build_stats = {}
-        # record=False：細部步驟只印耗時，不進入 prepare workflow 的階段摘要
+        # record=False：細部步驟只印耗時，不進入 Prepare Pipeline 的階段摘要
         with log_run_time("Clean vector store", record=False):
             self.clean()
         with log_run_time("Build nodes", record=False):

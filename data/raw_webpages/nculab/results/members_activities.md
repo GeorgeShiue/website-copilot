@@ -1,0 +1,51 @@
+## Activities
+
+[Album](https://www.google.com/url?q=https%3A%2F%2Fwww.flickr.com%2Fgp%2F187371809%40N06%2F91adf8&sa=D&sntz=1&usg=AOvVaw0wj30FvANaxN2VY2Bw6aSp)
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vI0nBpqBaU_Ej1luHA2Ou7jPLxFoykeV_hYzKruER24dVw8OKNhp9l19XOLzq9Qr4jXe4u0xIpCqgYnsyBjpcKn_-PGZnZwyOzZJ3b3MD6Ug5VRel3RK8Hjt2WyC9aZLnvdapKsgUnlysoXLcN9-KrLMea5Atq3FhM03a0LYJCMJeK_2X9EGeiebEh7NLJgEU0fjKsHkBtgcqmIz82rB821GE_F_zJH2ROztGG=w1280)
+### 2025/1/16
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72sHarUW3qHo10YRyjmVsMvvXemQkU84w6xkUKJLOlXVuZ6d2FHUOfwcebhrwZzUJWZ8Pl_51PMTxElJtQ68J5gLl3KMWtXAGFm7Y4xmBgKjGRiSi5yERXfYkuwJxe75rZInnfElmXZRh8mUQ7TeeUVkKMKTvKd-jrT3gBNrX4JpM9e-Fb-0QPxjZrCaGL1GlKXG8I3c5gnvzKgcWkC7SXRQlazZp7LfhLtxOREn_mw=w1280)
+### 2025/1/16
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72t70gy-VqajA6vwyf8fuohr0AWAtTlFOeDVnrkOoN_mlaOsWNtZyyr-f11cWlVO6RW4J0YylHXDSH46Fh8B9DPt_74XmQAhmDVIO1ke9O2wh752f3pT8s3puCNoyBaz8idv0bOdSWF2oQEE6CAa8axSmcoUdZAMJ2noiCI4f8_ufpNvKwMAg2jB4cu2xiY_lGYJwzMm42VOcUCiQpi9k05Sac__bPmtY8pYpdNd=w1280)
+### 2025/1/16
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vD4Ejs8TSidfrllbUTZvnZAOopqIATk1H9dZvOX9bzrEvX_KHAlJPQL7EGPSNs1tIT_anKQLjD00IgSNq-fbJ_JMXrYsQwCdblFJFHqrqO7KyqtR6IKlXQ9AWPKjjm_8dD9SkWs7lsHJ3cgbiixnjs9yaJRIh_choz1j1B1UOOHHbipkK71rLOaBh_2UUsOuy-Jf4UIykoIPelGYGL3r3B-wpHmIkLK3rd4d9tJ4Q=w1280)
+### 2025/1/16
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72sqqzMPesC-jwBsS1OBWmiP6e9RC3rcfsTglvceQPiMOc-9K96z0hDKj9EsIUBfvF0Tlj8n1VuRLWic-eIc77HdPxbRpqoObAf_aQci2ZkXlwFb69JyFYoQkbLM_8MqqZtZnaMPdbzr1C4gw1f5MDUpX0No9fY7xOy2J5lgk2otH5j7AD8DeQsgoYN6TM32OljUJ4zxWYqYrRVxGltIo5b0Wd_CoBcZ1uuljoBZ=w1280)
+### 2023/6/2
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72unSr1Z3MOee-tLeFcO9oMXta5l_LK1P27XxAJMBnWVCsfuvekWVlkbIdQjCBCbtSp8Jc4nUvk8NJwET_lOX4EAK7BJxhr0aIgxHZd6meE4QO9jlpHLanI1blIa0qvtjRvf7-P2Rd6ba1LIzyKIChLsm1dp-gt8epIQuPmm613T4MPjJryTVtROsqZkKBvEYHkAVEpWa2HieCEvWGXAkKOGCAwwqXT-hHcuSQ=w1280)
+### 2022/8/18
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72uDiHm85CNeAh9rcFtMBbqRO2U9f3gGNtvmmSbiP1xBw7uK18kL6a_q-z5tjop035pdYjE-Cs56RTZorJiveOpy31z1MxwBOu3WDOin-oShGPrSp1EdeOpS_Ns0g5RyylyDwHM4YD3gtbDFvXlblYM1l7soPCgEoyOe8lbdgjxJq6AIjQJF6fPkAbX9ns-_aTkwrvxqwM_Z-Uez4BzaEaG7_jC1hEETw22jVm4p=w1280)
+### 2022/3/31
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72u4chv6E_IkTrhtXs1RXG44WqXiQLuXK2_0T3H4YHZ0AJFW1513gH8UPKJXYSM7uHJ3ISycrE_gy3x5ZBWmgUNCXEl_SegvluNXaqKpTFAXxi_oLTHMsxyIozCM3MpEJfN-AYeTqjGEHWdqKYzXxRFFxcSKDaFSPZWA4413VtOQw5OoP8JdjJwvCugmvoQA4WvQ8Rz4_8yaYpGwB72aSr_o11e5nPr3NT1wIoosAeU=w1280)
+### 2022/1/14
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vEVvaWUdJH1dFytrcd9AG8e1b-1F84heZOAIOGMl7GmRf2Syt-Bs4Tf2XlDNi8ZZ5dQwc3ErT8tH1vPLyYRyGxd9za59oENqlSWtqGjXspBUJZD51ZfHKKAf6TxY37Eyga_7jbp13GkEk4uGfoVi0Njs9U3bgXlfPLgTGAOfzSWAXEHzzTJM3HSc6qiNPu_V2tymHI8eQbfYwIjgc=w1280)
+### 2020/9/28
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vbuZVwrcYbNvSHnuyEvCh5lUJc4HrEyYc1WNXOnmJblI120FdMfatzGWBxoZ5Q8fjaxQQxnEPQXk4F4BTc66AbBIiTlEY9gKVMUdmN1N9rZYPEPfjs8xCoXb-MVV4576pp5_ahVRhPE181Ton33Vt6UhDBrPOP9j6pwYOF7uWKHVzh_xiIYPu-tY8hPSEe6qmDuNzBRt6Ldtzsvx0=w1280)
+2020/7/18
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vgyPUgpc_QoJekSsWLODbgW_v8xHaf8viIGNy615hv17IHHvf2A5ZSw48Hm0NGYK7RuIqLvitUGXbYDZ4lcFzqWAQt9w0-_6yE7tTv2LXudzJCsbhOqvkj_3SL5gT6YAJVETYzNk_0M0l0t8c8bWHwXFO4GVTHXYBosfLk8tF5ZjnloY2dgxQI7jzSmBDurTZVKxJiQiJwfz69=w1280)
+2019/11/20
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72t0mS2hw2LQXlt-VOsakJy6EQVRt9Gb4EUVCG2_Jhp0PrOrVvJqLifzteOfGg_KkzAQiB_8VfJx_worttQt73yBb1R8OF6MBimUfvU4B-1IV6FM0Xwfb_QxvSOf5XUZmzDzR3CpLAZY_raBsgWtAnmdQdF871FKIZs56YN3gkyX4vt8SMaKo8goRjvLCDqoSygC9shwSKTV=w1280)
+2017/7/14
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72stdCUaeEz-imz_FekCWlSJlg1wu90PMicU_POJ1bhPXw2XKL3b_mEJW8aFZVotXMkDVd27EPL8RtdjoQDpgmHTmM65Z5J6SIFqpavpzOQMlBDt9ra-jGw55VNxFoD7GFHTYipxqrLDaIZtw_prSdy5gFr_N5_I-B4H6VTjcr7Z-0l7_vnQIrR1zFr8yqbMQCrcdWqtYv23=w1280)
+2017/4/4
+
+![2014/9/26](https://sites.google.com/sitesv-images-rt/AMxu72tZrh16toNubH0yCRYQHMfvImiNlK-qDW6MJpQ64K0C243LoP5pKWoBrbC_-9b6ip90Fod0yoB21bSnOuuDZP6-wxfhciXtaDFxAatlXUkj-uvCio_OxLMmG07sOK61h9eqCTf0s7HA7OCMn05An45nez2JvXjouQmhoapGKNO1XfcSeY8bjfe3RQwt1SQ-dmmGjAP7Kg4p=w1280)
+2014/9/26
+
+![2014年9月23日 ](https://sites.google.com/sitesv-images-rt/AMxu72tpZ1sE2-C4EVw88i83NnyqACSCDAHYthrVl_1Qk16_G571SIgeHkDPpq09-021IGz7ijrKOz7wLMXxfXPu3EAn6Pq4chkG6XGXBewhRIFSO_86J6DTlkbWsJvzZ-BlvhmAa3CfEEfmcwOzFb8wXa3hVmIRCEXqP3QPwXD2LOQWSfKzZtyB-eGhr01qZzn8GI7jQpdadt_l=w1280)
+2014/9/23
+
+![2014年4月22日 ](https://sites.google.com/sitesv-images-rt/AMxu72uork1ABDsc7NaWdvTBEJtaLGDgdhoJjOpsqnzW8YSHH23wk0zur8lzVEekj75nlj8NkJ4judlEwIRBl5MY_gMKydWxPK-TWa5o6i74AhWOxRrAzFI3VfP_fV0IDcyExCQxz-9FOjVWWhCA25uhzNPV3Pq-etUC7DIBoR6ReizIIYotCtATT6WPsd8fF9pRBdfUlZXHK5Nn=w1280)
+2014/4/2

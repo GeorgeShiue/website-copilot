@@ -10,46 +10,7 @@ Finding activities to attend has been the prelude in our leisure time. Meanwhile
 
 ## Demo
 
-[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72vxgYA_fNCMtBgSKI-YmZSychtJVnlt0NsqWwj7GqNV-do1zsZXH_XklhrYUhAsCZO5swceDb801Bz07HoOQCwYtaKAyx0EKMYz37LOyr16qyyLTQ-gykq7JyWvPYdtU1jhfUC1_C-GjbsGORHEQ3ri_Bg2fUkKOWgEg3jV1Nnr-mMazjHtZlIpRc9ol1Z4PbPKmd6YGZ6t=w1280)
-> # Image-1
->
-> **圖片摘要：**
-> EventGO! 應用程式商店頁面展示活動地圖、活動清單與定位導航功能。
->
-> **主要元素：**
-> 1. 實體: WIDM lab, 活動地圖介面, 活動清單, GPS定位, 手機行事曆
-> 2. OCR文字:
-> EventGO!
-> WIDM lab　旅遊與地方資訊
-> 3+
-> 這個應用程式與您的所有裝置都相容。
-> 13
-> 加入願望清單
-> 安裝
-> WIDM
-> 活動名稱/地點/描述…
-> 抽獎
-> 小溪包胭-淡水中正店【官方LINE網址】
-> 4月30日(2017年4/30)～
-> 淡水中正店
-> 距離: 11.69公里
-> [模糊]
-> 2017/4/30 09:30 ~ 2017/4/30 13:00
-> [模糊]
-> 距離: 4.92公里
-> [模糊]
-> 2017/4/30 13:00 ~ 2017/4/30 14:00
-> [模糊]
-> 距離: 4.5公里
-> 您只要開啟GPS定位功能，即可透過活動或地名關鍵字，查詢近期舉辦的相關活動
-> 一旦您中意某一項活動，EventGO!能連結手機行事曆，幫助您輕松地將活動資訊儲存下來
-> 同時，EventGO!也結合導航功能，讓您即使在人生地不熟的外地，也能安心抵達活動地點
-> 只要透過EventGO!，就能將所有活動一手掌握！
->
-> 3. 主題標籤: 旅遊與地方資訊, 活動搜尋, GPS定位, 行事曆, 導航功能
->
-> **頁面關聯：**
-> EventGO! 應用程式介紹頁，所屬 WIDM lab，錨點為旅遊與地方資訊
+[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72tkpqE4NESV8Sawi6iUGYmlnEL34qD4SEGBLm3NE6SaDh9OxlTIxQ5Dnl4Wtg1V3Pf6BmRszYA5lOCVMt8flOE0is4yjIIRiWR7nlWVW5Th2U3mS-QMnlJdreVkmPNCUkMB3f9E3USqqBfRk5OjzCtPB_wuGT9A0fMKqEBt1oWrsBA51PpsCr0_07-1B8zLfZjwj2Of8ris=w1280)
 ](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW)
 
 ## Publication

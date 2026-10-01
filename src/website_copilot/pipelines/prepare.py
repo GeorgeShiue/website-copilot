@@ -27,6 +27,7 @@ from website_copilot.retrieval.factory import build_rag, build_target
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.run_context import (
     create_run_context,
+    publish_log_file,
     run_workflow_context,
 )
 from website_copilot.storage.run_persistence import (
@@ -78,76 +79,82 @@ def run_website_crawler(
     data_manager = DataManager()
 
     crawl_results = None
-    with run_workflow_context(run_title, run_manager=run_manager):
-        # ----- 初始化物件 -----
-        log_config("SiteConfig Loaded from yaml", site)
-        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
-        website_crawler = WebsiteCrawler(
-            max_depth=config.init.max_depth,
-            max_pages=config.init.max_pages,
-            content_threshold=config.init.content_threshold,
-            light_mode=config.init.light_mode,
-            wait_for_images=config.init.wait_for_images,
-            cleaner=WebpageMarkdownCleaner(
-                model=config.clean.llm_model,
-                sample_ratio=config.clean.sample_ratio,
-                repeat=config.clean.repeat,
-                max_prompt_tokens=config.clean.max_prompt_tokens,
-                seed=config.clean.seed,
-            ),
-        )
+    with publish_log_file(run_manager, publish) as log_path:
+        with run_workflow_context(
+            run_title, run_manager=run_manager, log_path=log_path
+        ):
+            # ----- 初始化物件 -----
+            log_config("SiteConfig Loaded from yaml", site)
+            log_config(f"{config.__class__.__name__} Loaded from yaml", config)
+            website_crawler = WebsiteCrawler(
+                max_depth=config.init.max_depth,
+                max_pages=config.init.max_pages,
+                content_threshold=config.init.content_threshold,
+                light_mode=config.init.light_mode,
+                wait_for_images=config.init.wait_for_images,
+                cleaner=WebpageMarkdownCleaner(
+                    model=config.clean.llm_model,
+                    sample_ratio=config.clean.sample_ratio,
+                    repeat=config.clean.repeat,
+                    max_prompt_tokens=config.clean.max_prompt_tokens,
+                    seed=config.clean.seed,
+                ),
+            )
 
-        # ---- 執行網站爬蟲 -----
-        log_session("Website Crawling", style="cyan")
-        crawl_results = website_crawler.crawl_website(
-            url=site.crawl.url,
-            url_patterns=site.crawl.url_patterns,
-            allowed_domains=site.crawl.allowed_domains,
-            path_prefix=site.crawl.path_prefix,
-        )
+            # ---- 執行網站爬蟲 -----
+            log_session("Website Crawling", style="cyan")
+            crawl_results = website_crawler.crawl_website(
+                url=site.crawl.url,
+                url_patterns=site.crawl.url_patterns,
+                allowed_domains=site.crawl.allowed_domains,
+                path_prefix=site.crawl.path_prefix,
+            )
 
-        # ----- 輸出完成訊息 -----
-        if crawl_results is None:
-            log_session("Website Crawling Failed", style="red")
-            return None
-        log_session("Website Crawling Completed", style="cyan")
+            # ----- 輸出完成訊息 -----
+            if crawl_results is None:
+                log_session("Website Crawling Failed", style="red")
+                return None
+            log_session("Website Crawling Completed", style="cyan")
 
-        # ----- Save（存到 runs/） -----
-        if save:
-            assert run_manager is not None
-            if website_crawler.generation_result is not None:
-                save_generated_exclude_words(
-                    website_crawler.generation_result,
-                    website_crawler.raw_pages,
-                    run_manager.run_path,
+            # ----- Save（存到 runs/） -----
+            if save:
+                assert run_manager is not None
+                if website_crawler.generation_result is not None:
+                    save_generated_exclude_words(
+                        website_crawler.generation_result,
+                        website_crawler.raw_pages,
+                        run_manager.run_path,
+                    )
+                run_manager.save_results_as_json(crawl_results)
+                save_results_as_md(
+                    crawl_results, run_manager.results_folder_path, "fit_markdown"
                 )
-            run_manager.save_results_as_json(crawl_results)
-            save_results_as_md(
-                crawl_results, run_manager.results_folder_path, "fit_markdown"
-            )
-            save_module_config(config, run_manager.module_config_path)
-            save_site_config(site, run_manager.site_config_path)
-            save_run_config(run_config, run_manager.run_config_path)
+                save_module_config(config, run_manager.module_config_path)
+                save_site_config(site, run_manager.site_config_path)
+                save_run_config(run_config, run_manager.run_config_path)
 
-        # ----- Publish（publish 到 data/） -----
-        if publish:
-            data_manager.publish_crawl_results(
-                site_id=site.site_id,
-                results=crawl_results,
-            )
-            if website_crawler.generation_result is not None:
-                data_manager.publish_generated_exclude_words(
+            # ----- Publish（publish 到 data/） -----
+            if publish:
+                data_manager.publish_crawl_results(
                     site_id=site.site_id,
-                    generation_result=website_crawler.generation_result,
-                    raw_pages=website_crawler.raw_pages,
+                    results=crawl_results,
                 )
+                if website_crawler.generation_result is not None:
+                    data_manager.publish_generated_exclude_words(
+                        site_id=site.site_id,
+                        generation_result=website_crawler.generation_result,
+                        raw_pages=website_crawler.raw_pages,
+                    )
+
+        # ----- Publish run metadata：log 要在 workflow context 結束後才完整 -----
+        if publish:
             data_manager.publish_run_metadata(
                 site_id=site.site_id,
                 category="raw_webpages",
                 config=config,
                 site=site,
                 run_config=run_config,
-                log_path=run_manager.log_path if run_manager is not None else None,
+                log_path=log_path,
             )
 
     return crawl_results
@@ -183,67 +190,75 @@ def run_image_summarizer(
     )
     data_manager = DataManager()
 
-    with run_workflow_context(run_title, run_manager=run_manager):
-        # ----- 初始化物件 -----
-        log_config(f"{config.__class__.__name__} Loaded from yaml", config)
-        image_summarizer = ImageSummarizer(
-            download_timeout=config.init.download_timeout,
-            success_threshold=config.init.success_threshold,
-            max_retries=config.init.max_retries,
-            cache_download_images=config.init.cache_download_images,
-            cache_image_captions=config.init.cache_image_captions,
-        )
-
-        # ----- 獲取最近一次結果 -----
-        if crawl_results is None:
-            log_session("Loading Latest Results", style="cyan")
-            crawl_results = load_latest_results(
-                run_manager.base_folder if run_manager is not None else "runs",
-                "website_crawler",
-                site_id=site.site_id,
+    with publish_log_file(run_manager, publish) as log_path:
+        with run_workflow_context(
+            run_title, run_manager=run_manager, log_path=log_path
+        ):
+            # ----- 初始化物件 -----
+            log_config(f"{config.__class__.__name__} Loaded from yaml", config)
+            image_summarizer = ImageSummarizer(
+                download_timeout=config.init.download_timeout,
+                success_threshold=config.init.success_threshold,
+                max_retries=config.init.max_retries,
+                cache_download_images=config.init.cache_download_images,
+                cache_image_captions=config.init.cache_image_captions,
             )
 
-        # ---- 執行圖片摘要 -----
-        log_session("Image Summarization", style="cyan")
-        enhanced_results = image_summarizer.summarize_crawl_results_images(
-            crawl_results,
-            model=config.summarize.model,
-            prompt=config.summarize.prompt,
-            vlm_max_workers=config.summarize.vlm_max_workers,
-            image_source=config.summarize.image_source,
-            **config.litellm_kwargs,
-        )
+            # ----- 獲取最近一次結果 -----
+            if crawl_results is None:
+                log_session("Loading Latest Results", style="cyan")
+                crawl_results = load_latest_results(
+                    run_manager.base_folder if run_manager is not None else "runs",
+                    "website_crawler",
+                    site_id=site.site_id,
+                )
 
-        # ----- 輸出完成訊息 -----
-        if enhanced_results is None:
-            log_session("Image Summarization Failed", style="red")
-            return None
-        log_session("Image Summarization Completed", style="cyan")
-
-        # ----- Save（存到 runs/） -----
-        if save:
-            assert run_manager is not None
-            run_manager.save_results_as_json(enhanced_results)
-            save_results_as_md(
-                enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
+            # ---- 執行圖片摘要 -----
+            log_session("Image Summarization", style="cyan")
+            enhanced_results = image_summarizer.summarize_crawl_results_images(
+                crawl_results,
+                model=config.summarize.model,
+                prompt=config.summarize.prompt,
+                vlm_max_workers=config.summarize.vlm_max_workers,
+                image_source=config.summarize.image_source,
+                **config.litellm_kwargs,
             )
-            save_module_config(config, run_manager.module_config_path)
-            save_site_config(site, run_manager.site_config_path)
-            save_run_config(run_config, run_manager.run_config_path)
 
-        # ----- Publish（publish 到 data/） -----
+            # ----- 輸出完成訊息 -----
+            if enhanced_results is None:
+                log_session("Image Summarization Failed", style="red")
+                return None
+            log_session("Image Summarization Completed", style="cyan")
+
+            # ----- Save（存到 runs/） -----
+            if save:
+                assert run_manager is not None
+                run_manager.save_results_as_json(enhanced_results)
+                save_results_as_md(
+                    enhanced_results,
+                    run_manager.results_folder_path,
+                    "enhanced_markdown",
+                )
+                save_module_config(config, run_manager.module_config_path)
+                save_site_config(site, run_manager.site_config_path)
+                save_run_config(run_config, run_manager.run_config_path)
+
+            # ----- Publish（publish 到 data/） -----
+            if publish:
+                data_manager.publish_markdown(
+                    site_id=site.site_id,
+                    enhanced_results=enhanced_results,
+                )
+
+        # ----- Publish run metadata：log 要在 workflow context 結束後才完整 -----
         if publish:
-            data_manager.publish_markdown(
-                site_id=site.site_id,
-                enhanced_results=enhanced_results,
-            )
             data_manager.publish_run_metadata(
                 site_id=site.site_id,
                 category="aug_webpages",
                 config=config,
                 site=site,
                 run_config=run_config,
-                log_path=run_manager.log_path if run_manager is not None else None,
+                log_path=log_path,
             )
 
     return enhanced_results
@@ -294,38 +309,41 @@ def run_rag_build(
         milvus_uri = os.path.join(staging_dir, f"{site.site_id}.db")
 
     try:
-        with run_workflow_context(run_title, run_manager=run_manager):
-            # ---- 建置 RAG -----
-            log_config("SiteConfig Loaded from yaml", site)
-            log_config(f"{config.__class__.__name__} Loaded from yaml", config)
-            target = build_target(
-                site.site_id,
-                milvus_uri,
-                aug_webpages_data_use_latest_results=run_config.aug_webpages_data_use_latest_results,
-                runs_folder=run_manager.base_folder
-                if run_manager is not None
-                else "runs",
-                data_folder=data_manager.base_folder,
-            )
-            rag = build_rag(
-                config, target, force_rebuild=True, build_query_engine=False
-            )
-            rag.close()
+        with publish_log_file(run_manager, publish) as log_path:
+            with run_workflow_context(
+                run_title, run_manager=run_manager, log_path=log_path
+            ):
+                # ---- 建置 RAG -----
+                log_config("SiteConfig Loaded from yaml", site)
+                log_config(f"{config.__class__.__name__} Loaded from yaml", config)
+                target = build_target(
+                    site.site_id,
+                    milvus_uri,
+                    aug_webpages_data_use_latest_results=run_config.aug_webpages_data_use_latest_results,
+                    runs_folder=run_manager.base_folder
+                    if run_manager is not None
+                    else "runs",
+                    data_folder=data_manager.base_folder,
+                )
+                rag = build_rag(
+                    config, target, force_rebuild=True, build_query_engine=False
+                )
+                rag.close()
 
-            # ----- 輸出完成訊息 -----
-            log_session("RAG Build Completed", style="cyan")
+                # ----- 輸出完成訊息 -----
+                log_session("RAG Build Completed", style="cyan")
 
-            # ----- Save（存到 runs/；向量庫已建在本次 run 的 results/） -----
-            if save:
-                assert run_manager is not None
-                save_module_config(config, run_manager.module_config_path)
-                save_site_config(site, run_manager.site_config_path)
-                save_run_config(run_config, run_manager.run_config_path)
+                # ----- Save（存到 runs/；向量庫已建在本次 run 的 results/） -----
+                if save:
+                    assert run_manager is not None
+                    save_module_config(config, run_manager.module_config_path)
+                    save_site_config(site, run_manager.site_config_path)
+                    save_run_config(run_config, run_manager.run_config_path)
 
-            # ----- Publish（原子替換到 data/） -----
+            # ----- Publish（原子替換到 data/）：log 要在 workflow context 結束後才完整，
+            # 並隨 meta/ 一起替換 -----
             if publish:
                 if os.path.exists(target.milvus_uri):
-                    log_path = run_manager.log_path if run_manager is not None else None
                     data_manager.publish_vector_store(
                         site_id=site.site_id,
                         source_path=target.milvus_uri,
@@ -359,8 +377,8 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
     publish = run_config.publish
     save = not publish
 
-    with log_run_time(f"Prepare Workflow ({site}, {config_name})"):
-        log_session(f"Prepare Workflow ({site}, {config_name})", style="purple")
+    with log_run_time(f"Prepare Pipeline ({site}, {config_name})"):
+        log_session(f"Prepare Pipeline ({site}, {config_name})", style="purple")
 
         try:
             # ----- Website Crawler -----
@@ -394,6 +412,6 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
             )
 
             # ----- 輸出完成訊息 -----
-            log_session("Prepare Workflow Completed", style="cyan")
+            log_session("Prepare Pipeline Completed", style="cyan")
         finally:
             log_run_summary()

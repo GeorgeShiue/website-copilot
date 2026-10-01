@@ -2,18 +2,17 @@
 
 Post date: Jul 27, 2016 4:06:25 AM 歡迎WIDM新同學加入! 為幫助新同學熟悉Web Mining相關的資料分析工具， 實驗室成員於2016年暑期安排了一連串Tutorial， 我們的初衷是讓同學們在資料處理上更上手， 能夠更加專注於問題的探究與應用服務的設計。 Agenda
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72t4eyzJRwGwNoohow_8D5lcSwAaGCQZxrPDq-4_5yXaH5fx2dxrsBkHGFmW7cMQI5Ashh7YDRQYpgLrHJ8Dt--OVR5jZrMsCWnYBzx3yaP_aualBHkvADNyinFu2J_O0MkGM3_FslNNJkWq9DFgVz6q1F9-OG2sSKK9jcM4cqqygzXfm6nWsfykkYnOybyAKcQVCWh83bsG=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vhCyYlH-ra91o-xfdBfz5P2XcVqMQ7X4PRcgF2wVGSEAmkt33vvXrLpXtcRuOv2UdPX44bC6ieRCMf8xw8T9QIqOxYk_iSv2ftMdybEoZLptCUhXuXeaJqApo4LTkq84E_j4AZgrHqAkB3AP4z5Iqeu8KNzOMnU4DO8z_6SZdU9yknQPV33lZSoFTfPbigCJoFatXbV8_R=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> WIDM Tutorial 2016 課程表列出資料探勘、程式開發與碩士論文發表主題及日期。
+> WIDM Tutorial 2016 課程表列出資料探勘、程式設計與論文簡報場次及日期。
 >
 > **主要元素：**
-> 1. 實體: WIDM 教學活動,資料探勘課程,程式設計課程,碩士論文發表,課程日期
-> 2. OCR文字:
-> WIDM Tutorial 2016
+> 1. 實體: 資料探勘工具, 分類演算法套件, 數據處理環境, Python 開發, Solr 搜尋工具
+> 2. OCR文字: WIDM Tutorial 2016
 > 1　Ovi　Weka for Data Mining　7月19日
-> 2　瞻翰　Classification by libSVM　7月19日
+> 2　暠翰　Classification by libSVM　7月19日
 > 3　鐵謙　Data Processing by Matlab　7月19日
 > 4　佳峰　Introduction to Python　7月20日
 > 5　昱瑾　Introduction to R; Pivot Table & PowerView of Excel　7月20日
@@ -22,9 +21,9 @@ Post date: Jul 27, 2016 4:06:25 AM 歡迎WIDM新同學加入! 為幫助新同學
 > 8　心和　Introduction to iOS app Development & Swift Programming　7月21日
 > 9　圓皓　Master Thesis Presentation | Hadoop by Java　8月　日
 > 10　杰甫　Master Thesis Presentation | IR Toolkit - Solr　8月　日
-> 11　弘瑋　Master Thesis Presentation | CRF++ / CRF sharp　8月　日
-> 3. 主題標籤: WIDM,資料探勘,分類,資料處理,論文發表
+> 11　弘璋　Master Thesis Presentation | CRF++ / CRF sharp　8月　日
+> 3. 主題標籤: WIDM Tutorial 2016, 資料探勘, 程式設計, 文字處理, 論文簡報
 >
 > **頁面關聯：**
-> WIDM Tutorial 2016 課程與論文發表安排
+> WIDM Tutorial 2016 課程與論文簡報日程表
 Download Lectures & Watch Videos

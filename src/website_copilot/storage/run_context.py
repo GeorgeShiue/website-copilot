@@ -5,7 +5,11 @@
 避免循環匯入；也不 import 任何引擎，serve 階段可安全使用。
 """
 
-from contextlib import ExitStack
+import os
+import shutil
+import tempfile
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 
 from website_copilot.config.base_config import BaseModuleConfig
 from website_copilot.storage.run_manager import RunManager
@@ -78,20 +82,47 @@ class _WorkflowContext:
             self._stack.__exit__(exc_type, exc_val, exc_tb)
 
 
+@contextmanager
+def publish_log_file(run_manager: RunManager | None, publish: bool) -> Iterator[str]:
+    """回傳發布時要複製的 terminal.log 路徑；publish-only 模式用暫存檔，離開時刪除。
+
+    - run_manager 存在（save=True）：回傳 run 的 terminal.log，不建立暫存檔。
+    - run_manager 為 None 且 publish=True：在系統暫存資料夾建立 terminal.log 路徑，
+      離開 with 時整個暫存資料夾刪除（log 內容已隨發布複製到 data/）。
+    - 兩者皆否（不存 runs/ 也不發布）：回傳空字串，表示不記錄 log 檔。
+
+    呼叫端須在 run_workflow_context 結束之後才複製（log 已關檔並壓縮進度列）。
+    """
+    if run_manager is not None:
+        yield run_manager.log_path
+        return
+    if not publish:
+        yield ""
+        return
+    folder = tempfile.mkdtemp(prefix="terminal_log_")
+    try:
+        yield os.path.join(folder, "terminal.log")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def run_workflow_context(
     run_title: str,
     run_manager: RunManager | None,
+    log_path: str = "",
 ) -> _WorkflowContext:
     """共用 logging preamble context manager。
 
     取代 run_* 函式中重複的 logging pattern：
     save_logging_file + log_run_time + log_session + run_paths。
     log_config 已移至各呼叫端，不再由本函式處理。
-    run_manager 為 None（save=False）時跳過所有 runs/ 相關的 log 檔操作。
+    run_manager 為 None（save=False）時跳過 runs/ 相關操作；此時若指定 log_path
+    （publish-only 的暫存 log，見 publish_log_file）仍會把輸出寫進該檔案。
     """
     stack = ExitStack()
-    if run_manager is not None:
-        stack.enter_context(save_logging_file(run_manager.log_path))
+    effective_log_path = run_manager.log_path if run_manager is not None else log_path
+    if effective_log_path:
+        stack.enter_context(save_logging_file(effective_log_path))
     stack.enter_context(log_run_time(run_title))
     log_session(run_title, style="purple")
 

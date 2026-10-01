@@ -25,6 +25,7 @@ from website_copilot.ingestion.crawling.html_date_extractor import (
 )
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.schemas import GenerationResult
+from website_copilot.utils.text_helper import clean_description
 from website_copilot.utils.log_helper import log_session, print_log, record_cost
 
 logger = logging.getLogger(__name__)
@@ -277,8 +278,9 @@ class WebsiteCrawler:
         path = urlparse(url).path
 
         metadata: dict[str, Any] = {
-            "description": raw_metadata.get("description")
-            or raw_metadata.get("og:description"),
+            "description": clean_description(
+                raw_metadata.get("description") or raw_metadata.get("og:description")
+            ),
             "page_type": "general",
         }
 

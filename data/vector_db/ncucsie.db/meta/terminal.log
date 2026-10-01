@@ -1,0 +1,114 @@
+───────────────────────── Rag Build (ncucsie, default) ─────────────────────────
+───────────────────────── SiteConfig Loaded from yaml ──────────────────────────
+           SiteConfig
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ Config       ┃ Value          ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ site_id      │ ncucsie        │
+│ sample_query │ 介紹資工系課程 │
+└──────────────┴────────────────┘
+                      crawl
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                        ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ url             │ https://www.csie.ncu.edu.tw/ │
+│ url_patterns    │ ['*csie.ncu.edu.tw*']        │
+│ allowed_domains │ ['www.csie.ncu.edu.tw']      │
+│ path_prefix     │ /                            │
+└─────────────────┴──────────────────────────────┘
+────────────────────────── RAGConfig Loaded from yaml ──────────────────────────
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_size          │ 800   │
+│ chunk_overlap       │ 100   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config               ┃ Value                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ vector_store_type    │ milvus                  │
+│ hybrid_ranker        │ WeightedRanker          │
+│ hybrid_ranker_params │ {'weights': [1.0, 0.5]} │
+└──────────────────────┴─────────────────────────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+│ hybrid_top_k     │ 10     │
+│ alpha            │ 0.5    │
+└──────────────────┴────────┘
+             query_engine
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config             ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ query_llm_name     │ gpt-5.6-luna  │
+│ evaluator_llm_name │ gpt-5.6-terra │
+│ cutoff             │ 0.0           │
+└────────────────────┴───────────────┘
+────────────────────────────────── RAG Target ──────────────────────────────────
+site_id: ncucsie
+aug_webpages_dir: data/aug_webpages/ncucsie
+milvus_uri:
+/home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.db
+───────────────────────── Building RAG to Vector Store ─────────────────────────
+INFO     Clean vector store Completed in 0.000 seconds
+
+Loading files:   0%|          | 0/147 [00:00<?, ?it/s]
+Loading files: 100%|##########| 147/147 [00:00<00:00, 16795.50it/s]
+INFO     Loading 147 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:01<00:00,  2.37it/s]
+Applying transformations: 100%|##########| 5/5 [00:01<00:00,  3.76it/s]
+INFO     Pipeline produced 1211 nodes
+INFO     Build nodes Completed in 1.346 seconds
+INFO     Building Milvus vector store (sparse embedding: BGE-M3,
+         hybrid_ranker=WeightedRanker)
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     Loading faiss with AVX512 support.
+INFO     Could not load library with AVX512 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
+INFO     Loading faiss with AVX2 support.
+INFO     Could not load library with AVX2 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
+INFO     Loading faiss.
+INFO     Successfully loaded faiss.
+INFO     MilvusLite server started for
+         /home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.d
+         b on port 37617
+INFO     Build vector store Completed in 7.921 seconds
+INFO     Building index (dense embedding: text-embedding-3-small, nodes=1211)
+
+Generating embeddings:   0%|          | 0/1211 [00:00<?, ?it/s]
+Generating embeddings:  21%|##1       | 256/1211 [00:01<00:06, 148.04it/s]
+Generating embeddings:  42%|####2     | 512/1211 [00:02<00:03, 231.73it/s]
+Generating embeddings:  63%|######3   | 768/1211 [00:05<00:03, 138.56it/s]
+Generating embeddings:  85%|########4 | 1024/1211 [00:05<00:01, 184.81it/s]
+Generating embeddings: 100%|##########| 1211/1211 [00:06<00:00, 216.96it/s]
+Generating embeddings: 100%|##########| 1211/1211 [00:06<00:00, 192.14it/s]
+INFO     Build index Completed in 68.276 seconds
+─────────────────────────────── RAG Build Stats ────────────────────────────────
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Metric           ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ Documents loaded │ 147   │
+│ Nodes produced   │ 1211  │
+│ Index nodes      │ 1211  │
+└──────────────────┴───────┘
+INFO     bg: built 2 segment indexes in 0.01s
+INFO     MilvusLite server stopped for
+         /home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.d
+         b (port 37617)
+───────────────────────────── RAG Build Completed ──────────────────────────────
+INFO     Rag Build (ncucsie, default) Completed in 78.456 seconds

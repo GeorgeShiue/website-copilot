@@ -175,11 +175,17 @@ def test_publish_only_moves_staging_into_place(env):
     assert (env.store / "vec.bin").read_text() == "new"
     # 不留 staging／.tmp／.old，也不寫 runs/
     assert env.rag_dir_entries() == {f"{env.site_id}.db"}
+    # publish-only 也保留 terminal.log（暫存於系統暫存資料夾，發布後刪除）
     assert set(os.listdir(env.store / "meta")) == {
         "module_config.yml",
         "site_config.yml",
         "run_config.yml",
+        "terminal.log",
     }
+    assert "RAG Build Completed" in (env.store / "meta" / "terminal.log").read_text(
+        encoding="utf-8"
+    )
+    assert os.listdir(env.systmp) == []
     assert not env.runs.exists()
     # 建在 data/vector_db/.staging-*/{site_id}.db（已刪除），不直接寫入正式位置
     staging = os.path.dirname(env.targets[0].milvus_uri)

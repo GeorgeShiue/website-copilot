@@ -1,25 +1,25 @@
 # Advisor
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tbxXFKSf497kI6rb2-iIwbSByoQvsA01qTJsebEs5FJMSj30KCiW5aSaC_DE8yQliJSRfdElfD_rgB4VJDNfQxgfZDKFPjwpJa72CyloY8S0GX_GYcq0lEC5GGKW9WGf_sR7hLdikqNxD6q4hngwq5onfB2awhcrFAGCeb_jMpAF7Gxcv7xkdJyIPznvOvMFvctDa-lQxJKf8kp-WQ4stBV2eU-rSMHD-nu7q5gy0=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vbgHrLKWOFLPT3e-DBtk2fXHIbmD_C02Evb2KQ1JgMsE5Sl73uJmXaPUUnVoLcrSrtmhislH0FBwL6D5ab4eqCx-_sL7h5_uriahSgbotKL5TN18CalwlHAmt8Pkcv-mPzLRD5mMs5lMbbCzqi2URKHKC6BP660VAMT-OCq0wNLAAmSn2MHYINcu1IL4pxIiXcA_zm6hZ0BnudoOuKiMm5LC1H7goqDl9wrwvHprA=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> 女性人物佩戴眼鏡與藍色掛繩，背著背包站在山谷梯田前。
+> 女性站在戶外農田景觀前，佩戴眼鏡並背著背包。
 >
 > **主要元素：**
-> 1. 實體: 女性人物,眼鏡,背包,藍色掛繩,山谷梯田
+> 1. 實體: 女性, 眼鏡, 背包, 農田景觀
 > 2. OCR文字: 無
-> 3. 主題標籤: 人物肖像,戶外場景,山谷梯田
+> 3. 主題標籤: 人物照片, 戶外景觀
 >
 > **頁面關聯：**
-> 人物肖像與戶外場景，無可命名錨點
+> 人物肖像照片；無可辨識專有名詞或頁面錨點
 [0000-0002-1101-6337](https://www.google.com/url?q=https%3A%2F%2Forcid.org%2F0000-0002-1101-6337&sa=D&sntz=1&usg=AOvVaw3wPdd5E5dDAlO-souovXb2) chiahui@g.ncu.edu.tw
 
 +886-3-422-7151 #35302 Engineering Building 5, B302 Jhongda Road, Jhongli Dist. Taoyuan, Taiwan [個人首頁 / Personal Website](https://sites.google.com/site/jahuichang/)
 
 ## Chia-Hui Chang (張嘉惠) Professor
 
-Dr. Chia-Hui Chang is a Professor in the Department of Computer Science and Information Engineering at National Central University, Taiwan. Her research focuses on web intelligence, natural language processing, agentic AI, and physical intelligence, with applications spanning conversational systems, educational AI, and human-computer interaction. She has been recognized in Stanford's Top 2% Scientists (Career Impact) rankings since 2021. Dr. Chang has served in leadership roles at major AI and NLP conferences, including General Chair for ROCLING 2021 and TAAI 2020, and Area Co-Chair for ACL 2017 and NAACL 2018. She served as President of the Taiwan Association for Artificial Intelligence (2020-2022) and the Association for Computational Linguistics and Chinese Language Processing (2019-2021). She has served as the Convener of the Intelligent Computing Discipline at Taiwan's National Science and Technology Council since 2024 and as Vice Convener of the Taiwan AI Center of Excellence since 2025. 張嘉惠博士是國立中央大學資訊工程系教授。她的研究方向包括Web智慧、自然語言處理、智慧代理 和實體機器人，應用領域涵蓋對話系統、教育人工智慧、法學和人機互動。自2021年以來，她一直位列史丹佛大學「頂尖2%科學家（職業影響力）」榜單。張博士曾在多個重要的人工智慧和自然語言處理會議上擔任領導職務，包括2021年ROCLING會議和2020年TAAI會議的總主席，以及2017年ACL會議和2018年NAACL會議的領域聯合主席。她曾任中華民國人工智慧學會會長（2020-2022年）和中華民國計算語言學與中文語言處理學會會長（2019-2021年）。自 2024 年起，她擔任台灣國家科學技術委員會智慧計算學科召集人；自 2025 年起，她擔任台灣人工智慧卓越中心副總召。
+Dr. Chia-Hui Chang is a Professor in the Department of Computer Science and Information Engineering at National Central University, Taiwan. Her early research focuses on web intelligence, data mining, machine learning, information extraction, with applications spanning conversational systems, educational AI, and human-computer interaction. In recent years, her research has shifted toward agentic AI and physical intelligence (robotics). She has been recognized in Stanford's Top 2% Scientists (Career Impact) rankings since 2021. Dr. Chang has served in leadership roles at major AI and NLP conferences, including General Chair for ROCLING 2021 and TAAI 2020, and Area Co-Chair for ACL 2017 and NAACL 2018. She served as President of the Taiwan Association for Artificial Intelligence (2020-2022) and the Association for Computational Linguistics and Chinese Language Processing (2019-2021). She has served as the Convener of the Intelligent Computing Discipline at Taiwan's National Science and Technology Council since 2024 and as Vice Convener of the Taiwan AI Center of Excellence since 2025. She also leads the Ministry of Education's Agentic AI and Physical AI talent development program (SIGAgent and SIGRobot series), and directs an NSTC-funded embodied dexterous-hand robotics project (2026-2027). 張嘉惠博士是國立中央大學資訊工程系教授。她的研究方向包括Web智慧、資料探勘、機器學習、資訊擷取，應用領域涵蓋對話系統、教育人工智慧、法學和人機互動。近年來，她的研究也擴展之自然語言處理、智慧代理 和實體機器人。自2021年以來，她一直位列史丹佛大學「頂尖2%科學家（職業影響力）」榜單。張博士曾在多個重要的人工智慧和自然語言處理會議上擔任領導職務，包括2021年ROCLING會議和2020年TAAI會議的總主席，以及2017年ACL會議和2018年NAACL會議的領域聯合主席。她曾任中華民國人工智慧學會會長（2020-2022年）和中華民國計算語言學與中文語言處理學會會長（2019-2021年）。自 2024 年起，她擔任台灣國家科學技術委員會智慧計算學科召集人；自 2025 年起，她擔任台灣人工智慧卓越中心副總召。她亦主持教育部前瞻AI人才培育計畫（Agentic AI 與 Physical AI，含 SIGAgent、SIGRobot 系列活動），並主持國科會具身智動靈巧手機器人研發計畫（2026-2027）。
 
 ## SUSTAINABLE DEVELOPMENT GOALS
 

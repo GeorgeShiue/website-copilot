@@ -6,8 +6,6 @@
 
 # 技術債
 
-- [ ] 重跑完整流程
-
 ## 模組重構
 
 - [ ] Webpage Markdown Cleaner 獨立成一個模組

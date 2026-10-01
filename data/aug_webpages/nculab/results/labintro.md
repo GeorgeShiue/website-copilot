@@ -48,78 +48,77 @@ The Web Intelligence and Data Mining Laboratory at National Central University i
 
 賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72uHUC1mo5YKF2v2akPxm43fhTZHU02zaTUBc7dTjJTjVUYb4pJIZF9NEyxcrMA0kPwvJR8lvRYd50AdrVQbStjTMlttoupi4RvB8j1Ljq_LoIUyuqSCB8qgKRRs5rIM5AFuul41RDuTyaKCrtfbxn7L8I4ZYra8bsQijdoWjeGNoOCGZoXiezcoCm3Y3vM=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72v4m7g6l_ubZaoamzHmPgZU8KfTcss6q_vKa_rJ0Io5VGqMsIXB4kuUhyjAWwjBPjXvAlfQLVf07oJh5Cb1KOcD9Y9FfckIq1H1BcetBHIfWxYTOeixLaBX7JUP2UGvO4dw8GG1QYp9HpG-wlABfdTQ589liefDH61_bVuEB-1NrNf7LyBEq54ehdXKijo=w1280)
 > # Image-1
 >
 > **圖片摘要：**
-> AI機器人圖示，藍色機器人頭部與身體置中，頭頂有三個紅色元件
+> 機器人頭部與上半身，胸前印有 AI，頭頂有三個紅色元件。
 >
 > **主要元素：**
-> 1. 實體: AI, 機器人
+> 1. 實體: 機器人
 > 2. OCR文字: AI
-> 3. 主題標籤: AI, 人工智慧
+> 3. 主題標籤: 人工智慧,機器人
 >
 > **頁面關聯：**
-> AI頁面圖示，檢索錨點：AI
+> AI機器人圖示，檢索錨點：AI
 [EduACT](https://eduact.csie.ncu.edu.tw)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tkbIihh-OTQbPWzTmvBwHVtoZk846JgfOG_fv2J9yWefGCXcof7Ji3JBD3xHkZ9qG4rTXVobF2U1YLj67rY_YQQRJOsU4Y880-iiXq_9uEf3hNK57DO5G44oIivJ9nOEONDpfqMzI64VVMzv7osTO-En1IhXGPMnBBmUgXpm6b2dmd-Jd2IgFO63m0gaA=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72tc59ac8M-ynvLgx2Z2Rb5_tiWsRAhqqHqiuceWfvEISyoDXXDcfF2BGpT4bWN8Ze0LREgLohF-GwUKAkoCO3NxkYAhPwB1oLSz_feHiN9SewdEOGx_aonk_bokkFwnKAyBgksewtD7LBFfFSnjBl6sr6lm0NF4vK8fFoUyyxXhtBO-Eg8L0Z8Bnh22Mx8=w1280)
 > # Image-2
 >
 > **圖片摘要：**
-> 法律文件置於書本前方，含 LAW、盾牌與條列線，書本下方有書籤。
+> LAW文字文件置於紅色書本前，頁面含文字線、書籤與盾牌圖形。
 >
 > **主要元素：**
-> 1. 實體: 法律文件, 書本, 橙色書籤, 盾牌圖示
+> 1. 實體: 法律文件, 紅色書本, 書籤, 盾牌圖形, 文字線
 > 2. OCR文字: LAW
-> 3. 主題標籤: 法律,文件,法規
+> 3. 主題標籤: 法律, 法律文件
 >
 > **頁面關聯：**
-> 法律主題頁面；檢索錨點：LAW
+> 法律主題頁面，檢索錨點：LAW
 ### Legal AI
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72te4yLvaRvmBulK79-pcO0gBHTZtdr28l-U6iyKdeK6xrAseFLfDH8mQtGSQnT-lKbSZIrbotRlQHapui7FeWkJZ-irODKCVQpr4BL3kGQDE4ZQ_yBKpCRGHlA4bpI4MJggt6Eg0ciEHLcyOVWY1PudZD7eBAGnTNQIaD19MFJuIsHWPkj_P7tEAxgfrC13XHqOXpoXU57HdHWq_qA=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72v95y6mKBxtKFEn1adz467EV1IzsqvgHvJS87x-e9TdhfiOfG-leSsfZyA8HlHHPp2nEx19N3m9cJDTflBbeONzNlwfaG2Wo6mp3-D7D-TReZBdDSGZroL4odEaeA1f9xSRIdHzemHeEUtw_hEhmm57rLYU7Il04CA7dlr9NvqWRixFSw0zcrRHDq3TGSQ_2gEfSfgS77v7sBtOTVI=w1280)
 > # Image-3
 >
 > **圖片摘要：**
-> 藍色日曆圖示中央顯示數字1，頂部有兩個灰色環扣。
+> 日曆圖示中央顯示數字1。
 >
 > **主要元素：**
-> 1. 實體: 日曆圖示, 灰色環扣, 綠色圓形背景
-> 2. OCR文字:
-> 1
-> 3. 主題標籤: 日曆, 日期
+> 1. 實體: 日曆、數字1
+> 2. OCR文字: 1
+> 3. 主題標籤: 日期、日曆
 >
 > **頁面關聯：**
-> 日曆圖示頁面，檢索錨點：日期
+> 日期頁面圖示，檢索錨點：1
 [EventGo!](https://eventgo.widm.csie.ncu.edu.tw)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72t_nDBk6D4Vsr1IRVIMh2RuuCFOeFBqnB48igBm0UJD75OWslb2Pa7YMP0e7uvwHQQvPqH_ybd0DUWqcXS4yT4OSDDJiODSdmKNsXApd_ea12G5U8sLABihWlVrWHu1DroQQVFkKbidIG1LHyWHqu7cZ_vGF287xtz-bktz053OfLqmvfZUmbjhqe3f4MlIjAzAB2iwBJID8-smw8iLef-PPlVRp7tJbk7nEHNLtkg=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72s4micr5_PCf1IAO3eu51fWBhXO6YiAlhKG8vbID8JYUUwgdrdVDGqg6NwqG6En72kz391l5y5bDK5G-NBA5KkEHUtTxs9a12Aj4_0bGVyaLNjOtBTcbgXh2MF5mwkGjGWMN7LBHnIoK3uC5WciGScyCzeZ-jX9eoXOKpF6c64hST4kRquPmQ48mBdxdeAChQYqZJLoZWVBRoY22tcU0hubOEe_nhl7Be8_M7R6pss=w1280)
 > # Image-4
 >
 > **圖片摘要：**
-> 雲端圖示連接紅藍雙向箭頭，右下齒輪內有 API 字樣。
+> API文字位於黃色圓形齒輪內，齒輪與雲朵及雙向箭頭圖示相連。
 >
 > **主要元素：**
-> 1. 實體: 雲端圖示, 雙向箭頭, 齒輪圖示
+> 1. 實體: 雲朵圖示, 齒輪圖示, 雙向箭頭
 > 2. OCR文字: API
-> 3. 主題標籤: API,雲端運算
+> 3. 主題標籤: API, 雲端服務
 >
 > **頁面關聯：**
-> API主題頁面圖示，檢索錨點：API
+> API圖示，頁面錨點：API
 [Data API Creator](http://140.115.54.44:8001/)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tYuqzGjN-7UnN5cYqFvhXJq66hohDjXXBcg-V3KpFZFg0vkICRG1XNLqBZtVbK5Z0UfmY0F3kvtn_HbpX_k5BbicbWGl7fupWE0nxfV4reYk1aT6_1FLn2PzRLCi46rCn4UQTT0XjR801_ftrMGJJEf-kxhauOH8VTMoUEIeIIoYpF6vr312b4GU02nGLbOlO_qGCkRUFH1qrJFTN8ZtzJ_gKD21Cs3FoI-gXji1w=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sVrQnnQ8_jHrcxRLGmpm2i147vXNP8_kWjk3HIkeB_rLkMAcREkhMQdO774wSi79Vh8ZD-0T5N0-_zacaKTXQNh3zZW4p-txOR8UG7YrhTZeY-fsfoluRURzcKAMTi1Shw3RtB7hAedo57e9Ewdv2VaytveYPGt4faSpwzcVFqyY3cc4_cS72WdWHU7l9kDuCzb9mvvyqnZwNi-eP5F3Xdp0qBfTnPA6OPBY1JhsA=w1280)
 > # Image-5
 >
 > **圖片摘要：**
-> 文件面板含圖表區塊，左側排列四個圓形標記，右側延伸彎曲色塊。
+> 智慧型手機螢幕顯示含文字線條、色塊與圖表的文件版面
 >
 > **主要元素：**
-> 1. 實體: 文件面板, 圖表區塊, 圓形標記, 彎曲色塊
+> 1. 實體: 智慧型手機, 文件版面, 文字線條, 色塊, 圖表
 > 2. OCR文字: 無
-> 3. 主題標籤: 文件介面, 資訊圖表
+> 3. 主題標籤: 行動介面, 文件版面, 資訊圖表
 >
 > **頁面關聯：**
-> 文件介面圖示；無可辨識頁面標題或專有名詞
+> 頁面插圖；無可辨識頁面標題或專有名詞
 [Mobile Web Creator](http://140.115.54.44:8000/)

@@ -130,6 +130,12 @@
 
 `DataManager` 則負責將 run 產物發布到 `data/` 持久化路徑（如 `data/aug_webpages/<site_id>/`）。
 
+**publish 時的 `terminal.log`**：發布到 `data/` 時，各階段的執行日誌一併保留（crawler → `data/raw_webpages/<site_id>/terminal.log`、summarizer → `data/aug_webpages/<site_id>/terminal.log`、rag_build → `data/vector_db/<site_id>.db/meta/terminal.log`），並隨 git 追蹤。
+- `save=True`：複製 run 的 `terminal.log`。
+- `save=False, publish=True`（`prepare` 預設）：沒有 `runs/`，改由 `storage.run_context.publish_log_file()` 在系統暫存資料夾建立 `terminal.log`，`run_workflow_context(log_path=...)` 把輸出寫進去，發布後整個暫存資料夾刪除。
+- 發布一律在 `run_workflow_context` **結束之後**才進行（crawler／summarizer 的 `publish_run_metadata`、rag_build 的 `publish_vector_store` 皆然），確保 log 已關檔並壓縮進度列、內容完整；因此 log 不含發布動作本身的訊息。
+- `save=False, publish=False`：不記錄 log 檔。
+
 > 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 在 `save=True` 時把向量庫寫入 `results/milvus.db`，只有 publish 才會原子替換到 `data/vector_db/<site_id>.db`。
 >
 > 註：agent 對話結果由 `run_manager.save_agent_results_as_json()` 寫入 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；未提供 `thread_id` 時自動 `auto-{uuid}`，CLI 與 server 行為一致）；agent 路徑無 `site_id` 層，也**不寫 `results.json`**。

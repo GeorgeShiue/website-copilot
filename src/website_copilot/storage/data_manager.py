@@ -116,7 +116,14 @@ class DataManager:
         results: dict[str, dict],
         markdown_key: str,
     ) -> None:
-        """把 results 逐頁寫成 {page_title}.md（publish_crawl_results／publish_markdown 共用）。"""
+        """把 results 逐頁寫成 {page_title}.md（publish_crawl_results／publish_markdown 共用）。
+
+        寫入前先清掉 dest_folder 內既有的 .md，讓資料夾內容與 results.json 一致，
+        避免前一次爬取留下的頁面殘檔被 RAG 建庫讀進去。
+        """
+        for name in os.listdir(dest_folder):
+            if name.endswith(".md"):
+                os.remove(os.path.join(dest_folder, name))
         for page_title, result in results.items():
             markdown = result.get(markdown_key, "")
             md_file_path = os.path.join(dest_folder, f"{page_title}.md")

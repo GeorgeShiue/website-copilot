@@ -1,0 +1,111 @@
+───────────────────────── Rag Build (nculab, default) ──────────────────────────
+───────────────────────── SiteConfig Loaded from yaml ──────────────────────────
+               SiteConfig
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config       ┃ Value                  ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ site_id      │ nculab                 │
+│ sample_query │ 實驗室的成員有哪些人？ │
+└──────────────┴────────────────────────┘
+                               crawl
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                         ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ url             │ https://sites.google.com/site/nculab/labintro │
+│ url_patterns    │ ['*nculab*']                                  │
+│ allowed_domains │ ['sites.google.com']                          │
+│ path_prefix     │ /site/nculab                                  │
+└─────────────────┴───────────────────────────────────────────────┘
+────────────────────────── RAGConfig Loaded from yaml ──────────────────────────
+             nodes
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config              ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ chunk_size          │ 800   │
+│ chunk_overlap       │ 100   │
+│ paragraph_separator │ \n\n  │
+└─────────────────────┴───────┘
+                   vector_store
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config               ┃ Value                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ vector_store_type    │ milvus                  │
+│ hybrid_ranker        │ WeightedRanker          │
+│ hybrid_ranker_params │ {'weights': [1.0, 0.5]} │
+└──────────────────────┴─────────────────────────┘
+                   index
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ embedding_name │ text-embedding-3-small │
+└────────────────┴────────────────────────┘
+          retriever
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Config           ┃ Value  ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ query_mode       │ hybrid │
+│ similarity_top_k │ 10     │
+│ hybrid_top_k     │ 10     │
+│ alpha            │ 0.5    │
+└──────────────────┴────────┘
+             query_engine
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Config             ┃ Value         ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ query_llm_name     │ gpt-5.6-luna  │
+│ evaluator_llm_name │ gpt-5.6-terra │
+│ cutoff             │ 0.0           │
+└────────────────────┴───────────────┘
+────────────────────────────────── RAG Target ──────────────────────────────────
+site_id: nculab
+aug_webpages_dir: data/aug_webpages/nculab
+milvus_uri:
+/home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
+───────────────────────── Building RAG to Vector Store ─────────────────────────
+INFO     Clean vector store Completed in 0.000 seconds
+
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
+Loading files: 100%|##########| 47/47 [00:00<00:00, 12881.10it/s]
+INFO     Loading 47 Markdown Documents
+
+Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
+Applying transformations:  60%|######    | 3/5 [00:01<00:00,  2.06it/s]
+Applying transformations: 100%|##########| 5/5 [00:01<00:00,  3.39it/s]
+INFO     Pipeline produced 276 nodes
+INFO     Build nodes Completed in 1.482 seconds
+INFO     Building Milvus vector store (sparse embedding: BGE-M3,
+         hybrid_ranker=WeightedRanker)
+INFO     loading existing colbert_linear and sparse_linear---------
+INFO     Loading faiss with AVX512 support.
+INFO     Could not load library with AVX512 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
+INFO     Loading faiss with AVX2 support.
+INFO     Could not load library with AVX2 support due to:
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
+INFO     Loading faiss.
+INFO     Successfully loaded faiss.
+INFO     MilvusLite server started for
+         /home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
+         on port 35561
+INFO     Build vector store Completed in 9.957 seconds
+INFO     Building index (dense embedding: text-embedding-3-small, nodes=276)
+
+Generating embeddings:   0%|          | 0/276 [00:00<?, ?it/s]
+Generating embeddings:  93%|#########2| 256/276 [00:03<00:00, 70.07it/s]
+Generating embeddings: 100%|##########| 276/276 [00:04<00:00, 66.92it/s]
+Generating embeddings: 100%|##########| 276/276 [00:04<00:00, 67.77it/s]
+INFO     Build index Completed in 24.032 seconds
+─────────────────────────────── RAG Build Stats ────────────────────────────────
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Metric           ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ Documents loaded │ 47    │
+│ Nodes produced   │ 276   │
+│ Index nodes      │ 276   │
+└──────────────────┴───────┘
+INFO     bg: built 2 segment indexes in 0.00s
+INFO     MilvusLite server stopped for
+         /home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
+         (port 35561)
+───────────────────────────── RAG Build Completed ──────────────────────────────
+INFO     Rag Build (nculab, default) Completed in 36.015 seconds
