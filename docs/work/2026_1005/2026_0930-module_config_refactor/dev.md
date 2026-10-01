@@ -265,4 +265,14 @@ git 追蹤的 9 份舊記錄檔（data/ 下沒有其他 `.toml`）以一次性�
 - `scripts/check.sh`：exit 0（ruff、pyright 0 errors、338 passed、widget 同步）。
 - `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected。
 - CLI：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`prepare --run.config test`（缺站點）由 tyro 報錯；`run rag-query unknown_site` 報 `Site config not found: configs/sites/unknown_site.yml（可用的站點：claudecode, ncucsie, nculab）`。
-- **付費整合測試**（E2）：尚未執行，待確認後執行。
+- **付費整合測試**（E2，2026-10-01 執行，使用者已確認）：
+  - `prepare nculab --run.config test --run.no-publish`：exit 0，約 3 分鐘；crawler $0.0211、image summarizer $0.0612、rag build 無費用，合計 $0.0823。
+  - `uv run pytest tests/integration`（含 cost）：7 passed，386 秒。
+  - `run rag-query nculab --run.config test --module.retriever.similarity-top-k 7 --module.query-engine.query-llm-name gpt-5.6-terra`：exit 0；`module_config.yml` 檔頭為 `# source: configs/rag/test.yml + overrides`，`retriever.similarity_top_k: 7`、`query_engine.query_llm_name: gpt-5.6-terra`；run 目錄含 `site_config.yml`、`run_config.yml`，query 取自 `sample_query`。
+  - 測試後 `data/rag/nculab/milvus.db/.../indexes/` 出現未追蹤檔案（整合測試載入已 publish 向量庫產生），未納入 commit。
+
+### 收尾（Phase D 後的遺漏檢查）
+
+- `docs/work/todo.md`「模組配置」五項標記完成。
+- `docs/code/phase1/modules/{data_collect,data_preprocess,data_retrieve}.md`、`docs/code/phase2_3_mvp/modules/{agent,server}.md` 仍描述 TOML／`from_toml`／`_validate_config`／舊簽名，已更新為 YAML、`from_yaml`、`SiteConfig`、`RAGTarget`、`run_agent_build(run_config, overrides)`、`run_server_build(agent, run_config)`（plan 的文件清單未列這些檔案）。`grep -rn toml docs/code`（`docs/work`、`docs/progress_report` 為歷史紀錄不改）已無殘留。
+- `DEFAULT_CONFIG_NAME`：Phase A 刪除後，C2 的 K3（`default` 無檔案等於 class 預設）重新需要這個常數，故保留於 `base_config.py`，僅用於該判斷。

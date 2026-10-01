@@ -17,12 +17,12 @@
 	- `src/website_copilot/agent/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`，回傳可用站點列表）
 	- `src/website_copilot/agent/tools/webpage_retriever.py`（**多站 Retriever Tool**：接受 `site_id` 參數路由至對應知識庫）
 	- `src/website_copilot/agent/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
-	- `src/website_copilot/config/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_toml` / `_validate_config` / `run_name`）
+	- `src/website_copilot/config/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_yaml` / pydantic 驗證 / `run_name`）
 	- `src/website_copilot/pipelines/exp.py`（`run_agent_query`：`website-copilot run agent` 的執行邏輯）
 	- `src/website_copilot/pipelines/serve.py`（`run_agent_build`：agent 建構 + 落盤的程式化 API；`run_server_build` / `serve`：`website-copilot serve` 的執行邏輯）
 
 - **模組設定**
-	- `./configs/agent/{name}.toml`（**Agent 設定檔**：`llm_name` / `system_prompt`，預設 `default`）
+	- `./configs/agent/{name}.yml`（**Agent 設定檔**：`llm_name` / `system_prompt`，只寫與 class 預設值不同的部分；`default` 無檔案時等於 class 預設，system prompt 預設值在 `config/prompts.py`）
 	- `llm_name` 與 RAG 檢索 LLM（`RAGConfig.query_llm_name`）**解耦**，可獨立更換不影響檢索
 	- API key 依 model name 自動路由：含 `gemini` → `GEMINI_API_KEY`；其他（`gpt*` 等，預設）→ `OPENAI_API_KEY`
 
@@ -42,12 +42,12 @@
   - `close()`：委派 `Tool.close()` 釋放資源（try/finally 保證）
   - **不持有 `RunManager`**：agent 層與 workflow 層無依賴（落盤責任已上移至呼叫端）
 
-- **`create_agent(config: AgentConfig)`** — 接收呼叫端已載入（已套用覆寫值）的 config，不再讀取 toml；建立 `Tool(config.config_name)`，再組裝 LLM + 編譯圖並包裝為 `Agent`：
+- **`create_agent(config: AgentConfig)`** — 接收呼叫端已載入（已套用覆寫值）的 config，不再讀取設定檔；建立 `Tool(config.config_name)`，再組裝 LLM + 編譯圖並包裝為 `Agent`：
   1. `Tool(config.config_name)` 建立工具（含 `RAGRegistry` 工具）；無工具時拋 `ValueError`
   2. `create_llm(config.llm_name)`（agent.langchain_helper）建立 ChatModel（依 model name 自動路由 Gemini / OpenAI）
   3. 建立 `InMemorySaver` checkpointer
   4. 以 LangGraph `create_agent` 組裝 `tool.tools`、`system_prompt` 與 checkpointer，並包裝為 `Agent`；任一步驟失敗時 `tool.close()` 後 re-raise
-- **`run_agent_build(config_name="default", run_config=None, **config_overrides) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：一律建立自己的 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期；載入 `AgentConfig.from_toml(config_name, **config_overrides)` 後呼叫 `create_agent(config)`，寫出 `module_config.toml` 與（`run_config` 非 None 時）`run_config.toml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`serve()` 呼叫此函式後把 agent 注入 `run_server_build()`；`run_agent_query()` 也經由此函式建構 agent
+- **`run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides=None) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：一律建立自己的 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期；載入 `AgentConfig.from_yaml(run_config.config_name, overrides)` 後呼叫 `create_agent(config)`，寫出 `module_config.yml` 與 `run_config.yml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`serve()` 呼叫此函式後把 agent 注入 `run_server_build()`；`run_agent_query()` 也經由此函式建構 agent
 
 - **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 

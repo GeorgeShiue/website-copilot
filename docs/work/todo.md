@@ -7,22 +7,15 @@
 
 # 技術債
 
-## 模組配置
+## 資料儲存
 
-- [ ] 優化 site_id 參數設定和讀取
-- [ ] yml 配置檔
-- [ ] configs 改用 pydantic 參數驗證
-- [ ] config class 引入巢狀 class 分類
-- [ ] cli module config移除中介層
-
-## 資料安全
-
+- [ ] 優化 data/rag 儲存路徑
 - [ ] `run rag-query` 加 `force_rebuild` 時會直接建庫到 `data/rag/{site_id}/milvus.db`，違反「建庫不直接寫入 data/」原則
 
 ## 模組重構
 
-- [ ] 包裝 log_helper.py
 - [ ] Webpage Markdown Cleaner 獨立成一個模組
+- [ ] 包裝 log_helper.py
 - [ ] 客製化模組 RunManager
 
 ## 效能優化

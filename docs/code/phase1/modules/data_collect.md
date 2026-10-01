@@ -9,7 +9,8 @@
 	- `src/website_copilot/utils/log_helper.py`（**日誌**與**統計輸出輔助**）
 
 - **模組設定**
-	- `./configs/website_crawler/{name}.toml`（**爬蟲執行設定**，透過 `src/website_copilot/config/website_crawler_config.py` 載入）
+	- `./configs/website_crawler/{name}.yml`（**爬蟲模組參數**，只寫與 class 預設值不同的部分，透過 `src/website_copilot/config/website_crawler_config.py` 載入）
+	- `./configs/sites/{site}.yml`（**站點設定**：`site_id`、`sample_query` 與 `crawl` 的 `url`／`url_patterns`／`allowed_domains`／`path_prefix`，透過 `config/site_config.py` 的 `SiteConfig` 載入）
 	- 可在 `src/website_copilot/ingestion/crawling/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
 - **模組環境**
@@ -38,7 +39,7 @@
 ## website_crawler_config.py
 
 ### 1. 讀取設定來源
-- 從 `./configs/website_crawler/{name}.toml` 載入**爬蟲設定**。
+- 從 `./configs/website_crawler/{name}.yml` 載入**爬蟲模組參數**（支援 `extends`，缺少的欄位使用 config class 預設值）；站點相關的網址與篩選條件由 `SiteConfig` 提供。
 - 支援不同任務切換**不同設定檔**。
 - 由 `src/website_copilot/config/website_crawler_config.py` 統一管理。
 
@@ -57,5 +58,5 @@
 - `_crawl_website_async()` 組合**瀏覽器設定**、**內容過濾**、**網址/網域篩選**與**深層爬取策略**，並將結果整理成清單。
 - `_extract_metadata()` 根據 URL sub-path 匹配 `PAGE_TYPE_PATTERNS` 規則（如 `/news` → `announcement`、`/publication` → `paper`），產出 `page_type` 與 `description` 供下游 metadata filter 使用。
 - `_extract_crawl_results_data()` 產出最終結構，每個頁面包含 `url`、`fit_markdown`、`images`、`metadata` 與 `crawl_info` 五個子字典。
-- `WebsiteCrawlerConfig.from_toml()` 從 `./configs/website_crawler/{name}.toml` 載入 `init` 與 `crawl` 設定，並在建立後立即驗證內容。
-- `run_name` 則依 TOML 註解標記的欄位組合而成。
+- `WebsiteCrawlerConfig.from_yaml(config_name, overrides=None)` 載入 `init` 與 `clean` 設定（extends 展開 → 疊上 CLI overrides → pydantic 驗證一次）；`default` 無檔案時等於 class 預設值。
+- `run_name` 依 YAML 的 `run_name_fields` 組成，未寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`（`init.max_depth`）。
