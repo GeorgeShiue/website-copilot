@@ -1,6 +1,6 @@
 """RAGRegistry：多站 RAG 實例管理器（lazy 載入 + LRU 快取，唯讀）。
 
-只載入 prepare 階段已 publish 的向量庫（data/rag/{site_id}/milvus.db），不做任何建置。
+只載入 prepare 階段已 publish 的向量庫（data/rag/{site_id}.db），不做任何建置。
 
 此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
 """
@@ -38,10 +38,8 @@ class RAGRegistry:
         self._max_cached = max_cached
 
     def _site_exists(self, site_id: str) -> bool:
-        """檢查指定 site_id 是否已 publish 向量庫（data/rag/{site_id}/milvus.db）。"""
-        return os.path.exists(
-            os.path.join(self.base_folder, "rag", site_id, "milvus.db")
-        )
+        """檢查指定 site_id 是否已 publish 向量庫（data/rag/{site_id}.db 資料夾）。"""
+        return os.path.isdir(os.path.join(self.base_folder, "rag", f"{site_id}.db"))
 
     def list_sites(self) -> list[str]:
         """回傳所有可查詢的 site_id 列表（掃描 data/rag/ 下已 publish 向量庫的站點）。
@@ -51,7 +49,14 @@ class RAGRegistry:
         rag_path = os.path.join(self.base_folder, "rag")
         if not os.path.isdir(rag_path):
             return []
-        return sorted(item for item in os.listdir(rag_path) if self._site_exists(item))
+        # 只認 {site_id}.db；.staging-*／.db.tmp／.db.old 等 publish 中間產物不是站點
+        return sorted(
+            item.removesuffix(".db")
+            for item in os.listdir(rag_path)
+            if item.endswith(".db")
+            and not item.startswith(".")
+            and self._site_exists(item.removesuffix(".db"))
+        )
 
     def get(self, site_id: str) -> RAG:
         """取得指定 site_id 的 RAG 實例（cache hit 直接回傳，miss 則載入已 publish 的向量庫）。

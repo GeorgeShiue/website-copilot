@@ -44,6 +44,7 @@ from website_copilot.utils.log_helper import (
     log_run_summary,
     log_run_time,
     log_session,
+    print_log,
     reset_run_summary,
 )
 
@@ -259,10 +260,11 @@ def run_rag_build(
     run_config.webpages_data_use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果。
 
     一律重建向量庫，不受既有向量庫是否存在影響；建庫絕不直接寫入
-    data/rag/{site_id}/milvus.db，只透過 publish 原子替換。建庫位置：
+    data/rag/{site_id}.db，只透過 publish 原子替換（設定紀錄放在其中的 meta/，一起替換）。
+    建庫位置：
 
-    - save=True：建在該次 run 的 results/（保留於 runs/）。
-    - save=False, publish=True：建在 data/rag/{site_id}/.staging-*，publish 時
+    - save=True：建在該次 run 的 results/milvus.db（保留於 runs/）。
+    - save=False, publish=True：建在 data/rag/.staging-*/{site_id}.db，publish 時
       以 rename 移入正式位置，staging 一律刪除。
     - save=False, publish=False：建在系統暫存資料夾，結束時刪除（不留任何檔案）。
     """
@@ -289,7 +291,7 @@ def run_rag_build(
             if publish
             else tempfile.mkdtemp(prefix="rag_build_")
         )
-        milvus_uri = os.path.join(staging_dir, "milvus.db")
+        milvus_uri = os.path.join(staging_dir, f"{site.site_id}.db")
 
     try:
         with run_workflow_context(run_title, run_manager=run_manager):
@@ -323,19 +325,17 @@ def run_rag_build(
             # ----- Publish（原子替換到 data/） -----
             if publish:
                 if os.path.exists(target.milvus_uri):
+                    log_path = run_manager.log_path if run_manager is not None else None
                     data_manager.publish_vector_store(
                         site_id=site.site_id,
                         source_path=target.milvus_uri,
                         move=staging_dir is not None,
+                        write_meta=lambda meta_dir: data_manager.write_run_metadata(
+                            meta_dir, config, site, run_config, log_path
+                        ),
                     )
-                data_manager.publish_run_metadata(
-                    site_id=site.site_id,
-                    category="rag",
-                    config=config,
-                    site=site,
-                    run_config=run_config,
-                    log_path=run_manager.log_path if run_manager is not None else None,
-                )
+                else:
+                    print_log("建庫無產出，略過 publish（設定紀錄隨向量庫發布）")
     finally:
         if staging_dir is not None:
             shutil.rmtree(staging_dir, ignore_errors=True)

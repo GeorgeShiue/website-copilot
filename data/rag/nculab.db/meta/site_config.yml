@@ -1,0 +1,10 @@
+# source: configs/sites/nculab.yml
+site_id: nculab
+sample_query: 實驗室的成員有哪些人？
+crawl:
+  url: https://sites.google.com/site/nculab/labintro
+  url_patterns:
+  - '*nculab*'
+  allowed_domains:
+  - sites.google.com
+  path_prefix: /site/nculab

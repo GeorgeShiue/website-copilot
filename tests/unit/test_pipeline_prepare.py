@@ -2,12 +2,13 @@
 
 - run_prepare：三階段以同一個站點與 save=False / publish=True 串接；publish=False 時改存 runs/
   並以 runs/ 最新的圖片摘要結果建庫；crawler 無產出時提前結束。
-- run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}/）：
+- run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}.db）：
   build_rag 以 fake 替代：在 RAGTarget.milvus_uri 寫出假向量庫，不呼叫 embedding；
   runs/、data/ 與系統暫存資料夾皆在 tmp。
 """
 
 import os
+from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
@@ -51,7 +52,8 @@ class _Env:
         self.data = tmp_path / "data"
         self.systmp = tmp_path / "systmp"
         self.site_id = SiteConfig.from_yaml(SITE).site_id
-        self.rag_dir = self.data / "rag" / self.site_id
+        self.rag_dir = self.data / "rag"
+        self.store = self.rag_dir / f"{self.site_id}.db"
         self.rags: list[_FakeRAG] = []
         self.targets: list[RAGTarget] = []
         self.configs: list[RAGConfig] = []
@@ -75,9 +77,10 @@ class _Env:
         return rag
 
     def seed_old_store(self) -> None:
-        store = self.rag_dir / "milvus.db"
-        store.mkdir(parents=True)
-        (store / "vec.bin").write_text("old")
+        self.store.mkdir(parents=True)
+        (self.store / "vec.bin").write_text("old")
+        (self.store / "meta").mkdir()
+        (self.store / "meta" / "module_config.yml").write_text("old: true\n")
 
     def rag_dir_entries(self) -> set[str]:
         return set(os.listdir(self.rag_dir)) if self.rag_dir.exists() else set()
@@ -123,7 +126,7 @@ def env(tmp_path, monkeypatch):
 
 
 def _published_module_config(e: _Env) -> dict:
-    with open(e.rag_dir / "module_config.yml", encoding="utf-8") as f:
+    with open(e.store / "meta" / "module_config.yml", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -133,11 +136,12 @@ def _published_module_config(e: _Env) -> dict:
 def test_save_and_publish_keeps_runs_copy_and_publishes(env):
     run_rag_build(_run_config(save=True, publish=True))
 
-    assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
+    assert (env.store / "vec.bin").read_text() == "new"
     # runs/ 保留一份（publish 為複製而非移動）
     assert os.path.isdir(env.rags[0].milvus_uri)
-    assert env.rag_dir_entries() == {
-        "milvus.db",
+    assert env.rag_dir_entries() == {f"{env.site_id}.db"}
+    # 設定紀錄在向量庫的 meta/ 內，與向量庫同一次替換
+    assert set(os.listdir(env.store / "meta")) == {
         "module_config.yml",
         "site_config.yml",
         "run_config.yml",
@@ -166,19 +170,20 @@ def test_save_only_writes_runs_not_data(env):
 def test_publish_only_moves_staging_into_place(env):
     run_rag_build(_run_config(save=False, publish=True))
 
-    assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
+    assert (env.store / "vec.bin").read_text() == "new"
     # 不留 staging／.tmp／.old，也不寫 runs/
-    assert env.rag_dir_entries() == {
-        "milvus.db",
+    assert env.rag_dir_entries() == {f"{env.site_id}.db"}
+    assert set(os.listdir(env.store / "meta")) == {
         "module_config.yml",
         "site_config.yml",
         "run_config.yml",
     }
     assert not env.runs.exists()
-    # 建在 data/rag/{site_id}/.staging-*（已刪除），不直接寫入 milvus.db
+    # 建在 data/rag/.staging-*/{site_id}.db（已刪除），不直接寫入正式位置
     staging = os.path.dirname(env.targets[0].milvus_uri)
     assert os.path.basename(staging).startswith(".staging-")
     assert os.path.dirname(staging) == str(env.rag_dir)
+    assert env.targets[0].milvus_uri.endswith(f"{env.site_id}.db")
 
 
 def test_no_save_no_publish_leaves_no_files(env):
@@ -198,14 +203,11 @@ def test_publish_replaces_existing_store(env):
     env.seed_old_store()
     run_rag_build(_run_config(save=False, publish=True))
 
-    assert os.listdir(env.rag_dir / "milvus.db") == ["vec.bin"]
-    assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
-    assert env.rag_dir_entries() == {
-        "milvus.db",
-        "module_config.yml",
-        "site_config.yml",
-        "run_config.yml",
-    }
+    assert set(os.listdir(env.store)) == {"vec.bin", "meta"}
+    assert (env.store / "vec.bin").read_text() == "new"
+    # meta 與向量庫同版：舊的 module_config.yml 被新版取代
+    assert "old" not in (env.store / "meta" / "module_config.yml").read_text()
+    assert env.rag_dir_entries() == {f"{env.site_id}.db"}
 
 
 def test_build_failure_keeps_old_store_and_cleans_staging(env):
@@ -215,8 +217,9 @@ def test_build_failure_keeps_old_store_and_cleans_staging(env):
     with pytest.raises(RuntimeError, match="embedding failed"):
         run_rag_build(_run_config(save=False, publish=True))
 
-    assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "old"
-    assert env.rag_dir_entries() == {"milvus.db"}
+    assert (env.store / "vec.bin").read_text() == "old"
+    assert (env.store / "meta" / "module_config.yml").read_text() == "old: true\n"
+    assert env.rag_dir_entries() == {f"{env.site_id}.db"}
 
 
 def test_published_records_have_no_runtime_paths(env):
@@ -226,7 +229,7 @@ def test_published_records_have_no_runtime_paths(env):
     module_config = _published_module_config(env)
     assert "milvus_uri" not in module_config["vector_store"]
     assert "site_id" not in module_config
-    with open(env.rag_dir / "site_config.yml", encoding="utf-8") as f:
+    with open(env.store / "meta" / "site_config.yml", encoding="utf-8") as f:
         assert yaml.safe_load(f)["site_id"] == env.site_id
 
 
@@ -254,20 +257,20 @@ def test_webpages_data_use_latest_results(env):
     assert env.targets[0].webpages_dir == str(latest)
 
 
-def test_missing_vector_store_skips_vector_publish_but_publishes_metadata(env):
+def test_missing_vector_store_skips_publish(env):
+    """建庫無產出：設定紀錄隨向量庫發布，沒有向量庫時整個略過，不留半成品。"""
     env.write_store = False
     run_rag_build(_run_config(save=True, publish=True))
 
-    assert not (env.rag_dir / "milvus.db").exists()
-    assert (env.rag_dir / "module_config.yml").is_file()
+    assert not env.rag_dir.exists() or env.rag_dir_entries() == set()
 
 
 def test_swap_failure_restores_old_store(tmp_path):
-    """tmp → milvus.db 的 rename 失敗時，舊向量庫還原且不留 .tmp／.old。"""
+    """tmp → {site}.db 的 rename 失敗時，舊向量庫還原且不留 .tmp／.old。"""
     data_manager = DataManager(base_folder=str(tmp_path / "data"))
-    rag_dir = tmp_path / "data" / "rag" / "site"
-    (rag_dir / "milvus.db").mkdir(parents=True)
-    (rag_dir / "milvus.db" / "vec.bin").write_text("old")
+    rag_dir = tmp_path / "data" / "rag"
+    (rag_dir / "site.db").mkdir(parents=True)
+    (rag_dir / "site.db" / "vec.bin").write_text("old")
     source = tmp_path / "new.db"
     source.mkdir()
     (source / "vec.bin").write_text("new")
@@ -288,8 +291,73 @@ def test_swap_failure_restores_old_store(tmp_path):
     ):
         data_manager.publish_vector_store(site_id="site", source_path=str(source))
 
-    assert (rag_dir / "milvus.db" / "vec.bin").read_text() == "old"
-    assert os.listdir(rag_dir) == ["milvus.db"]
+    assert (rag_dir / "site.db" / "vec.bin").read_text() == "old"
+    assert os.listdir(rag_dir) == ["site.db"]
+
+
+def _seed_store(root, name: str, content: str) -> None:
+    store = root / name
+    store.mkdir(parents=True)
+    (store / "vec.bin").write_text(content)
+
+
+def test_write_meta_failure_keeps_old_store(tmp_path):
+    """meta 寫入失敗（替換前）：正式向量庫維持舊版，不留 .tmp／.old。"""
+    data_manager = DataManager(base_folder=str(tmp_path / "data"))
+    rag_dir = tmp_path / "data" / "rag"
+    _seed_store(rag_dir, "site.db", "old")
+    _seed_store(tmp_path, "new.db", "new")
+
+    def _boom(_meta_dir: str) -> None:
+        raise RuntimeError("meta failed")
+
+    with pytest.raises(RuntimeError, match="meta failed"):
+        data_manager.publish_vector_store(
+            "site", str(tmp_path / "new.db"), write_meta=_boom
+        )
+
+    assert (rag_dir / "site.db" / "vec.bin").read_text() == "old"
+    assert os.listdir(rag_dir) == ["site.db"]
+
+
+def test_publish_cleans_leftovers_and_keeps_meta_with_store(tmp_path):
+    """前次中斷殘留的 .tmp／.old 在下次 publish 時清掉；meta 與向量庫同一次替換。"""
+    data_manager = DataManager(base_folder=str(tmp_path / "data"))
+    rag_dir = tmp_path / "data" / "rag"
+    _seed_store(rag_dir, "site.db", "old")
+    _seed_store(rag_dir, "site.db.tmp", "stale-tmp")
+    _seed_store(rag_dir, "site.db.old", "stale-old")
+    _seed_store(tmp_path, "new.db", "new")
+
+    def _write_meta(meta_dir: str) -> None:
+        Path(meta_dir, "module_config.yml").write_text("v: 2\n")
+
+    dest = data_manager.publish_vector_store(
+        "site", str(tmp_path / "new.db"), write_meta=_write_meta
+    )
+
+    assert dest == str(rag_dir / "site.db")
+    assert (rag_dir / "site.db" / "vec.bin").read_text() == "new"
+    assert (rag_dir / "site.db" / "meta" / "module_config.yml").read_text() == "v: 2\n"
+    assert os.listdir(rag_dir) == ["site.db"]
+    # copy 模式保留來源
+    assert (tmp_path / "new.db" / "vec.bin").exists()
+
+
+def test_publish_rejects_non_directory_source(tmp_path):
+    data_manager = DataManager(base_folder=str(tmp_path / "data"))
+    source = tmp_path / "file.db"
+    source.write_text("x")
+    with pytest.raises(NotADirectoryError):
+        data_manager.publish_vector_store("site", str(source))
+    assert os.listdir(tmp_path / "data" / "rag") == []
+
+
+def test_vector_store_path(tmp_path):
+    data_manager = DataManager(base_folder=str(tmp_path / "data"))
+    assert data_manager.vector_store_path("nculab") == str(
+        tmp_path / "data" / "rag" / "nculab.db"
+    )
 
 
 # ===========================================================================

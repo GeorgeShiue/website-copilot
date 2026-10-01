@@ -91,14 +91,14 @@ class RAGBuilder:
 
 
 def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
-    """已 publish 的位置：資料來源 data/webpages/{site_id}、向量庫 data/rag/{site_id}/milvus.db。
+    """已 publish 的位置：資料來源 data/webpages/{site_id}、向量庫 data/rag/{site_id}.db。
 
     serve 載入與 rag-query 使用；rag-build 一律不直接寫入這裡（見 build_target）。
     """
     return RAGTarget(
         site_id=site_id,
         webpages_dir=os.path.join(data_folder, "webpages", site_id),
-        milvus_uri=os.path.join(data_folder, "rag", site_id, "milvus.db"),
+        milvus_uri=os.path.join(data_folder, "rag", f"{site_id}.db"),
     )
 
 
@@ -162,7 +162,7 @@ def build_target(
 
     Args:
         site_id: 站點識別碼。
-        milvus_uri: 向量庫建置位置（run 的 results/、data/rag/{site_id}/.staging-* 或系統暫存）。
+        milvus_uri: 向量庫建置位置（run 的 results/milvus.db、data/rag/.staging-*/{site_id}.db 或系統暫存）。
         webpages_data_use_latest_results: True 時改用 runs/ 中同站點最新一次 image summarizer
             的結果（需該次以 save=True 執行）；False 時使用 data/webpages/{site_id}。
         runs_folder: runs/ 根目錄。

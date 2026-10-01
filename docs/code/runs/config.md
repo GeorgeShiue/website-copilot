@@ -5,7 +5,7 @@
 - [x] image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.yml
 - [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 None 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
-- [x] 保留建置 vector store 的 config 到 data/rag/results/（Milvus：`milvus.db`）
+- [x] 保留建置 vector store 的 config 到 data/rag/{site_id}.db/meta/
 - [x] 設計 run config class
 - [x] 提供 CLI 參數覆寫 config 功能
 - [x] 使用 yaml + pydantic 取代 toml + dataclass
@@ -89,7 +89,7 @@
 - `query_engine`：`query_llm_name`、`evaluator_llm_name`、`cutoff`（0～1；hybrid 模式不使用）。查詢問題在 `RAGQueryRunConfig.query`（`--run.query`），未指定時使用站點的 `sample_query`。
 - 執行期目標 `RAGTarget(site_id, webpages_dir, milvus_uri)`：
   - 資料來源：預設 `data/webpages/{site_id}`；`--run.webpages-data-use-latest-results` 時為 runs/ 中同站點最新的 image_summarizer 結果。
-  - 向量庫：rag-build 依 save／publish 建在 run 的 `results/milvus.db`、`data/rag/{site_id}/.staging-*` 或系統暫存（publish 時原子替換到 `data/rag/{site_id}/milvus.db`）；rag-query 與 serve 使用 `data/rag/{site_id}/milvus.db`。
+  - 向量庫：rag-build 依 save／publish 建在 run 的 `results/milvus.db`、`data/rag/.staging-*/{site_id}.db` 或系統暫存（publish 時連同 `meta/` 原子替換到 `data/rag/{site_id}.db`）；rag-query 與 serve 使用 `data/rag/{site_id}.db`（rag-query 可用 `--run.vector-store-run` 改查 runs/ 的向量庫）。Milvus collection 名稱固定為 `chunks`。
 
 目前 class 預設值與 `configs/rag/test.yml` 皆為 **Milvus hybrid search**（`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）。
 
@@ -143,7 +143,7 @@ module_config 與 run_config 的寫入機制：
 - 目前主要 workflow 入口的行為：
   - `run_website_crawler()`：寫 `module_config.yml`、`results.json`、`results/*.md`
   - `run_image_summarizer()`：寫 `module_config.yml`、`results.json`、`results/*.md`
-  - `run_rag_build()`：寫 `module_config.yml`（與 `run_config.yml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
+  - `run_rag_build()`：寫 `module_config.yml`（與 `run_config.yml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.yml`；重建（rebuild）時另存一份 `module_config.yml` 到向量庫路徑。
   - `run_agent_query()`：經 `run_agent_build()` 建構 agent（`module_config.yml` 寫在 `agent_build/`）；本身只寫 `run_config.yml`，並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
   - `run_agent_build()`：寫 `module_config.yml` 與 `run_config.yml` 至 `runs/<ts>/agent_build/<config>/`。
@@ -177,7 +177,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 
 - run_website_crawler()：寫 module_config.yml、results.json、results/\*.md
 - run_image_summarizer()：寫 module_config.yml、results.json、results/\*.md
-- run_rag_build()：寫 module_config.yml（與 run_config.yml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）
+- run_rag_build()：寫 module_config.yml（與 run_config.yml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>.db`（詳見 workflow.md）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.yml；重建時另存一份到向量庫路徑
 - run_agent_query()：寫 run_config.yml 與 `results_{thread_id}.json`（module_config.yml 由 run_agent_build 寫在 `agent_build/`）（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
 - run_agent_build()：寫 module_config.yml（與 run_config.yml）至 `runs/<ts>/agent_build/<config>/`

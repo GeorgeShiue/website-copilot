@@ -8,6 +8,7 @@ from typing import Any
 from website_copilot.config.pipeline_config import AgentRunConfig, RAGQueryRunConfig
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.site_config import SiteConfig
+from website_copilot.ingestion.indexing.index import COLLECTION_NAME
 from website_copilot.pipelines.serve import run_agent_build
 from website_copilot.retrieval.evaluation import (
     build_evaluators,
@@ -47,7 +48,7 @@ def run_rag_query(
         overrides: RAGConfig 的巢狀覆寫值。
 
     只查詢既有向量庫、不建庫也不寫入 data/：預設為 data/ 中已 publish 的向量庫
-    （data/rag/{site_id}/milvus.db），指定 vector_store_run 時為該 run 的 results/milvus.db。
+    （data/rag/{site_id}.db），指定 vector_store_run 時為該 run 的 results/milvus.db。
     建庫一律走 run_rag_build。
 
     Raises:
@@ -143,7 +144,7 @@ def run_rag_query(
                     "query_llm_name": config.query_engine.query_llm_name,
                     "evaluator_llm_name": config.query_engine.evaluator_llm_name,
                     "vector_store_type": config.vector_store.vector_store_type,
-                    "collection_name": site.site_id,
+                    "collection_name": COLLECTION_NAME,
                     "query_mode": config.retriever.query_mode,
                     "similarity_top_k": config.retriever.similarity_top_k,
                     "hybrid_top_k": config.retriever.hybrid_top_k,

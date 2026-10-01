@@ -79,7 +79,7 @@ MakeRegistry = Callable[..., RAGRegistry]
 def make_registry(tmp_path: Path) -> MakeRegistry:
     """建立以 tmp_path/data 為 base_folder 的 RAGRegistry。
 
-    建立 data/rag/<site_id>/milvus.db（模擬已 publish 的向量庫），
+    建立 data/rag/<site_id>.db（模擬已 publish 的向量庫），
     讓 list_sites() 與 _site_exists() 能正確運作。
     """
 
@@ -90,7 +90,7 @@ def make_registry(tmp_path: Path) -> MakeRegistry:
         rag_dir = tmp_path / "data" / "rag"
         rag_dir.mkdir(parents=True, exist_ok=True)
         for site_id in existing_sites or []:
-            (rag_dir / site_id / "milvus.db").mkdir(parents=True)
+            (rag_dir / f"{site_id}.db").mkdir(parents=True)
         return RAGRegistry(
             base_folder=str(tmp_path / "data"),
             config_name="default",
@@ -139,6 +139,25 @@ class TestListSites:
         assert registry.list_sites() == ["nculab"]
         with pytest.raises(ValueError, match="ncucsie.*不存在"):
             registry.get("ncucsie")
+
+    def test_ignores_publish_leftovers(self, make_registry: MakeRegistry) -> None:
+        """.staging-*／.db.tmp／.db.old 等 publish 中間產物與舊版目錄不是站點。"""
+        registry = make_registry(existing_sites=["nculab"])
+        rag = os.path.join(registry.base_folder, "rag")
+        for leftover in (
+            ".staging-abc123",
+            ".staging-xyz.db",
+            "ncucsie.db.tmp",
+            "ncucsie.db.old",
+            "legacy/milvus.db",
+        ):
+            os.makedirs(os.path.join(rag, leftover))
+        assert registry.list_sites() == ["nculab"]
+
+    def test_db_file_is_not_a_vector_store(self, make_registry: MakeRegistry) -> None:
+        registry = make_registry(existing_sites=["nculab"])
+        Path(registry.base_folder, "rag", "ncucsie.db").write_text("not a dir")
+        assert registry.list_sites() == ["nculab"]
 
 
 # ---------- get: site not found ----------
@@ -345,7 +364,7 @@ def test_published_target() -> None:
     assert published_target("ncucsie", "data") == RAGTarget(
         site_id="ncucsie",
         webpages_dir="data/webpages/ncucsie",
-        milvus_uri="data/rag/ncucsie/milvus.db",
+        milvus_uri="data/rag/ncucsie.db",
     )
 
 

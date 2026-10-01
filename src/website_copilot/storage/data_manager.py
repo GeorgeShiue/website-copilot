@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from typing import Any
 
 from website_copilot.config.base_config import BaseModuleConfig
@@ -23,6 +24,9 @@ from website_copilot.utils.config_helper import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 已發布向量庫（data/rag/{site_id}.db）內存放設定紀錄的資料夾
+META_FOLDER_NAME = "meta"
 
 
 def _remove_path(path: str) -> None:
@@ -140,13 +144,20 @@ class DataManager:
         save_generated_exclude_words(generation_result, raw_pages, raw_webpages_path)
         return raw_webpages_path
 
+    def vector_store_path(self, site_id: str) -> str:
+        """已發布向量庫的位置 data/rag/{site_id}.db（Milvus Lite 要求資料夾名稱以 .db 結尾）。
+
+        向量庫資料與設定紀錄（meta/）都在這個資料夾內，publish 時一起原子替換。
+        """
+        return os.path.join(self.base_folder, "rag", f"{site_id}.db")
+
     def create_vector_store_staging(self, site_id: str) -> str:
-        """在 data/rag/{site_id}/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
+        """在 data/rag/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
 
         與正式向量庫位於同一檔案系統，publish 時可直接以 rename 移入；
-        呼叫端負責在結束時刪除（無論成功或失敗）。
+        呼叫端負責在結束時刪除（無論成功或失敗）。向量庫應建在其中的 {site_id}.db。
         """
-        rag_path = os.path.join(self.base_folder, "rag", site_id)
+        rag_path = os.path.join(self.base_folder, "rag")
         os.makedirs(rag_path, exist_ok=True)
         return tempfile.mkdtemp(prefix=".staging-", dir=rag_path)
 
@@ -155,30 +166,33 @@ class DataManager:
         site_id: str,
         source_path: str,
         move: bool = False,
+        write_meta: Callable[[str], None] | None = None,
     ) -> str:
-        """以原子替換發布 Milvus 向量庫到 data/rag/{site_id}/milvus.db。
+        """以原子替換發布 Milvus 向量庫到 data/rag/{site_id}.db。
 
-        先將新向量庫放到同目錄的 milvus.db.tmp，再以 rename 替換：
-        舊 milvus.db → milvus.db.old、milvus.db.tmp → milvus.db，最後刪除 .old。
-        正式路徑不會出現複製到一半的內容；已開啟舊向量庫的 server 不受影響。
+        先將新向量庫放到同目錄的 {site_id}.db.tmp，寫入 meta/ 後再以 rename 替換：
+        舊 {site_id}.db → .old、.tmp → {site_id}.db，最後刪除 .old。
+        正式路徑不會出現複製到一半的內容，向量庫與設定紀錄一定同版；已開啟舊向量庫的
+        server 不受影響。
 
         Args:
             site_id: 站點識別碼。
             source_path: 原始向量庫路徑。
             move: True 時以 rename 移入（來源為同檔案系統的 staging，不保留來源）；
                 False 時複製（來源為 runs/，保留來源）。
+            write_meta: 以 meta 資料夾路徑呼叫，寫入設定紀錄（module_config.yml 等）；
+                在替換前執行，失敗時不影響正式路徑。
 
         Returns:
-            發布後的向量庫所在資料夾路徑。
+            發布後的向量庫資料夾路徑。
         """
-        rag_path = os.path.join(self.base_folder, "rag", site_id)
-        os.makedirs(rag_path, exist_ok=True)
+        os.makedirs(os.path.join(self.base_folder, "rag"), exist_ok=True)
+        dest_path = self.vector_store_path(site_id)
 
-        dest_path = os.path.join(rag_path, "milvus.db")
         # source == dest 時跳過，避免清掉 dest 時連同 source 一起刪除
         if os.path.realpath(source_path) == os.path.realpath(dest_path):
             logger.info(f"Milvus vector store already at {dest_path}, skipping publish")
-            return rag_path
+            return dest_path
 
         tmp_path = f"{dest_path}.tmp"
         old_path = f"{dest_path}.old"
@@ -192,7 +206,12 @@ class DataManager:
             elif os.path.isdir(source_path):
                 shutil.copytree(source_path, tmp_path)
             else:
-                shutil.copy2(source_path, tmp_path)
+                raise NotADirectoryError(f"向量庫應為資料夾: {source_path}")
+
+            if write_meta is not None:
+                meta_path = os.path.join(tmp_path, META_FOLDER_NAME)
+                os.makedirs(meta_path, exist_ok=True)
+                write_meta(meta_path)
 
             if os.path.exists(dest_path):
                 os.replace(dest_path, old_path)
@@ -207,7 +226,7 @@ class DataManager:
         _remove_path(old_path)
 
         logger.info(f"Published Milvus vector store to {dest_path}")
-        return rag_path
+        return dest_path
 
     # ----- Publish 元資料方法 -----
 
@@ -251,13 +270,23 @@ class DataManager:
         """
         dest_folder = os.path.join(self.base_folder, category, site_id)
         os.makedirs(dest_folder, exist_ok=True)
+        self.write_run_metadata(dest_folder, config, site, run_config, log_path)
+        return dest_folder
 
+    def write_run_metadata(
+        self,
+        dest_folder: str,
+        config: BaseModuleConfig,
+        site: SiteConfig,
+        run_config: object | None = None,
+        log_path: str | None = None,
+    ) -> None:
+        """把 module_config.yml／site_config.yml／run_config.yml／terminal.log 寫入 dest_folder。"""
         save_module_config(config, os.path.join(dest_folder, "module_config.yml"))
         save_site_config(site, os.path.join(dest_folder, "site_config.yml"))
         if run_config is not None:
             save_run_config(run_config, os.path.join(dest_folder, "run_config.yml"))
         self._copy_single_file(log_path, dest_folder, "terminal.log")
-        return dest_folder
 
     # ----- Discover 方法 -----
 
@@ -279,8 +308,8 @@ class DataManager:
         return os.path.join(self.base_folder, "webpages", site_id)
 
     def get_vector_store_path(self, site_id: str) -> str:
-        """回傳指定 site 的向量庫路徑。"""
-        return os.path.join(self.base_folder, "rag", site_id)
+        """回傳指定 site 的向量庫路徑（data/rag/{site_id}.db）。"""
+        return self.vector_store_path(site_id)
 
     def site_exists(self, site_id: str) -> bool:
         """檢查 site 是否存在。"""

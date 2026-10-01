@@ -12,7 +12,7 @@
 - [src/website_copilot/storage/run_context.py](src/website_copilot/storage/run_context.py)：模組無關的共用 helper（`create_run_context()` / `create_run_no_site_context()` 的 run context 建立、`run_workflow_context()` 的 ExitStack logging 生命週期管理）。
 - [src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)：管理 `data/` 目錄的持久化資料，提供 `publish_*` 方法將 run 產物發布到 `data/webpages/<site_id>/` 等路徑。
 - `website-copilot prepare`（`cli/prepare.py` → `run_prepare()`）：Prepare 階段入口，依序執行**網站爬蟲** → **圖片摘要** → **RAG 建置**三個階段並 publish 到 `data/`。
-- `website-copilot serve`（`cli/serve.py` → `serve()`）：Serve 階段入口，依序以 `run_agent_build()` 建構 agent、`run_server_build(agent)` 建立 Chat 伺服器，啟動並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>/milvus.db`（不需要 `data/webpages/`），缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `load_rag()` 載入，不建置）。
+- `website-copilot serve`（`cli/serve.py` → `serve()`）：Serve 階段入口，依序以 `run_agent_build()` 建構 agent、`run_server_build(agent)` 建立 Chat 伺服器，啟動並阻塞至中斷（CTRL+C）；只讀取 `data/rag/<site_id>.db`（不需要 `data/webpages/`），缺少向量庫的站點不會被列為可用（`RAGRegistry` 經 `load_rag()` 載入，不建置）。
 - `src/website_copilot/agent/tools/webpage_retriever.py`：將 RAG retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由，供下游 Agent 動態呼叫檢索。
 - `src/website_copilot/retrieval/registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
 - `src/website_copilot/agent/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
@@ -67,13 +67,13 @@
   1. 載入站點與 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 的參數（`configs/rag/{config_name}.yml` 或 class 預設值）。
   2. 依 save／publish 決定向量庫位置，以 `build_target()` 產生 `RAGTarget`（資料來源預設 `data/webpages/{site_id}`，`webpages_data_use_latest_results` 時為 runs/ 中同站點最新的圖片摘要結果），再呼叫 `build_rag(config, target, force_rebuild=True, build_query_engine=False)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）；內部以 `IndexBuilder(config, target).build_or_load(force_rebuild=True)` 讀取 webpages 來源（`load_source()`）後重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
   3. `save=True` 時在 run 路徑寫出 `module_config.yml`、`site_config.yml` 與 `run_config.yml`，最後 `rag.close()` 釋放資源。config 在建庫過程中不會被改寫（位置都在 `RAGTarget`）。
-  4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。向量庫位置屬於執行期資訊，不寫入 `module_config.yml`（改記錄在 log 的「RAG Target」）。建庫位置：
+  4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `<site_id>.db.tmp` 並寫入 `meta/`（module／site／run config 與 log），舊版 rename 成 `.old`、新版 rename 成 `<site_id>.db`，再刪 `.old`；中途失敗會還原舊版，向量庫與設定紀錄一定同版）。建庫結束時 `IndexHandle.close()` 會一併停止本地 Milvus Lite server（確保資料已 flush 後才搬移資料夾）。向量庫位置屬於執行期資訊，不寫入 `module_config.yml`（改記錄在 log 的「RAG Target」）。建庫位置：
 
      | save | publish | 建庫位置 | 結束後留下的檔案 |
      |---|---|---|---|
      | True | True | `runs/.../results/milvus.db` | runs/ 保留一份，另複製到 data/ 後原子替換 |
      | True | False | `runs/.../results/milvus.db` | 只有 runs/ |
-     | False | True | `data/rag/<site_id>/.staging-*/milvus.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
+     | False | True | `data/rag/.staging-*/<site_id>.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
      | False | False | 系統暫存資料夾 | 無（結束時刪除） |
 
   5. 暫存資料夾（staging 或系統暫存）以 `try/finally` 保證刪除，建庫失敗時舊向量庫不受影響。
@@ -130,7 +130,7 @@
 
 `DataManager` 則負責將 run 產物發布到 `data/` 持久化路徑（如 `data/webpages/<site_id>/`）。
 
-> 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 在 `save=True` 時把向量庫寫入 `results/milvus.db`，只有 publish 才會原子替換到 `data/rag/<site_id>/`。
+> 註：`rag_query` 會在 `results/` 下額外產生每次 query 一份的 `query_{index}.md`；`rag_build` 在 `save=True` 時把向量庫寫入 `results/milvus.db`，只有 publish 才會原子替換到 `data/rag/<site_id>.db`。
 >
 > 註：agent 對話結果由 `run_manager.save_agent_results_as_json()` 寫入 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；未提供 `thread_id` 時自動 `auto-{uuid}`，CLI 與 server 行為一致）；agent 路徑無 `site_id` 層，也**不寫 `results.json`**。
 

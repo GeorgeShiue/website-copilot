@@ -216,7 +216,7 @@ Pydantic v2 schema，定義四個參數供 LLM 填寫：
 
 ### create_webpage_retriever_tool()
 工具工廠，接受 `registry: RAGRegistry`，流程：
-1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `load_rag(config, published_target(site_id, ...))` 載入已 publish 的 `data/rag/{site_id}/milvus.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/rag/{site_id}/milvus.db` 是否存在判斷
+1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `load_rag(config, published_target(site_id, ...))` 載入已 publish 的 `data/rag/{site_id}.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/rag/{site_id}.db` 資料夾是否存在判斷（忽略 `.staging-*`／`.tmp`／`.old`）
 2. 包裝為 `StructuredTool(name="webpage_retriever")`，執行期以 `rag.retrieve(...)` 檢索
 3. 回傳格式化後的檢索結果（含 `URL:` 行，供 `extract_sources_from_messages()` 解析來源）
 4. RAG 資源生命週期由 `RAGRegistry` 管理（`registry.close()` 統一釋放），工具本身不負責關閉

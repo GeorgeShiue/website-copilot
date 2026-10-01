@@ -99,7 +99,7 @@ def test_does_not_build_or_publish(mocks) -> None:
 def test_data_folder_untouched(mocks, tmp_path: Path, monkeypatch) -> None:
     """以 tmp 的 data/ 作為已發布位置：查詢前後整個目錄樹不變。"""
     data = tmp_path / "data"
-    store = data / "rag" / "nculab" / "milvus.db"
+    store = data / "rag" / "nculab.db"
     store.mkdir(parents=True)
     (store / "x.parquet").write_bytes(b"abc")
     monkeypatch.setattr(

@@ -26,12 +26,30 @@ from website_copilot.utils.log_helper import log_run_time, log_session, print_lo
 logger = logging.getLogger(__name__)
 
 
-def _close_vector_store(vector_store: MilvusVectorStore) -> None:
+def _close_vector_store(vector_store: MilvusVectorStore, milvus_uri: str) -> None:
+    """關閉 Milvus client，並停止本地（.db）模式的 Milvus Lite server。
+
+    Milvus Lite server 與 client 分開：只關 client，server 會一直開到程式結束才 flush。
+    publish 前若 server 還開著，搬移資料夾後 flush 會寫回原路徑，已發布的向量庫只剩
+    未 flush 的 WAL（且原路徑留下殘骸）。因此關閉時必須一併 release server。
+    """
     if isinstance(vector_store, MilvusVectorStore):
         try:
             vector_store._milvusclient.close()
         except Exception:
             logger.warning("Milvus client close() failed", exc_info=True)
+        if milvus_uri.endswith(".db") and "://" not in milvus_uri:
+            try:
+                from milvus_lite.server_manager import server_manager_instance
+
+                server_manager_instance.release_server(milvus_uri)
+            except Exception:
+                logger.warning("Milvus Lite server release failed", exc_info=True)
+
+
+# 所有站點的 Milvus collection 名稱：向量庫已是每站一份（data/rag/{site_id}.db），
+# collection 不再重複 site_id（站點資訊仍在 node metadata）。
+COLLECTION_NAME = "chunks"
 
 
 @dataclass(frozen=True)
@@ -39,9 +57,9 @@ class RAGTarget:
     """RAG 的執行期目標：由站點與執行模式決定，不是可調參數（不寫入 module_config）。
 
     Attributes:
-        site_id: 站點識別碼，作為 Milvus collection 名稱與 node metadata。
+        site_id: 站點識別碼，寫入 node metadata。
         webpages_dir: 建庫資料來源（含 results.json 與 results/*.md 的資料夾）。
-        milvus_uri: 向量庫位置。
+        milvus_uri: 向量庫位置（Milvus Lite 資料夾，名稱須以 .db 結尾）。
     """
 
     site_id: str
@@ -65,7 +83,7 @@ class IndexHandle:
 
     def close(self) -> None:
         """關閉 Milvus client 連線。"""
-        _close_vector_store(self.vector_store)
+        _close_vector_store(self.vector_store, self.milvus_uri)
 
 
 class IndexBuilder:
@@ -99,7 +117,7 @@ class IndexBuilder:
             with log_run_time("Build index", record=False):
                 index = self.build_index(vector_store, nodes)
         except BaseException:
-            _close_vector_store(vector_store)
+            _close_vector_store(vector_store, self.target.milvus_uri)
             raise
         self._log_build_stats()
         return self._handle(vector_store, index)
@@ -114,7 +132,7 @@ class IndexBuilder:
                 vector_store.client.load_collection(vector_store.collection_name)
             index = self.load_index(vector_store)
         except BaseException:
-            _close_vector_store(vector_store)
+            _close_vector_store(vector_store, self.target.milvus_uri)
             raise
         self._log_build_stats()
         return self._handle(vector_store, index)
@@ -179,7 +197,7 @@ class IndexBuilder:
             vector_store_config.hybrid_ranker,
         )
         return VectorStoreBuilder.build(
-            collection_name=self.target.site_id,
+            collection_name=COLLECTION_NAME,
             embedding_name=self.config.index.embedding_name,
             milvus_uri=self.target.milvus_uri,
             hybrid_ranker=vector_store_config.hybrid_ranker,
