@@ -26,7 +26,13 @@ from website_copilot.agent.tools.webpage_retriever import (
 )
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.ingestion.indexing.index import IndexBuilder, RAGTarget
-from website_copilot.retrieval.factory import build_rag, build_target, published_target
+from website_copilot.retrieval.factory import (
+    build_rag,
+    build_target,
+    load_rag,
+    published_target,
+    vector_store_run_target,
+)
 from website_copilot.retrieval.registry import RAGRegistry
 
 # ===========================================================================
@@ -357,6 +363,69 @@ def test_build_rag_does_not_modify_config(tmp_path: Path) -> None:
 
     index_builder.assert_called_once_with(config, target)
     assert config.model_dump() == before
+
+
+def _make_rag_build_run(root: Path, site_id: str = "nculab") -> Path:
+    run = root / "runs" / "20260101_000000" / "rag_build" / site_id / "r"
+    (run / "results" / "milvus.db").mkdir(parents=True)
+    (run / "site_config.yml").write_text(f"site_id: {site_id}\n", encoding="utf-8")
+    (run / "module_config.yml").write_text(
+        "# source: configs/rag/test.yml\nnodes: {}\n", encoding="utf-8"
+    )
+    return run
+
+
+class TestVectorStoreRunTarget:
+    """rag-query --run.vector-store-run：指向 runs/ 中 rag-build 的向量庫（唯讀）。"""
+
+    def test_target_points_to_run_results(self, tmp_path: Path) -> None:
+        run = _make_rag_build_run(tmp_path)
+
+        target = vector_store_run_target("nculab", str(run), data_folder="data")
+
+        assert target == RAGTarget(
+            site_id="nculab",
+            webpages_dir="data/webpages/nculab",
+            milvus_uri=str(run / "results" / "milvus.db"),
+        )
+
+    def test_logs_source_of_build_run(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        run = _make_rag_build_run(tmp_path)
+        with patch("website_copilot.retrieval.factory.print_log") as print_log:
+            vector_store_run_target("nculab", str(run))
+        assert "configs/rag/test.yml" in print_log.call_args.args[0]
+
+    def test_missing_run_path_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="vector_store_run"):
+            vector_store_run_target("nculab", str(tmp_path / "nope"))
+
+    def test_missing_vector_store_raises(self, tmp_path: Path) -> None:
+        run = _make_rag_build_run(tmp_path)
+        (run / "results" / "milvus.db").rmdir()
+        with pytest.raises(FileNotFoundError, match="找不到向量庫"):
+            vector_store_run_target("nculab", str(run))
+
+    def test_missing_site_config_raises(self, tmp_path: Path) -> None:
+        run = _make_rag_build_run(tmp_path)
+        (run / "site_config.yml").unlink()
+        with pytest.raises(FileNotFoundError, match="site_config.yml"):
+            vector_store_run_target("nculab", str(run))
+
+    def test_site_mismatch_raises(self, tmp_path: Path) -> None:
+        run = _make_rag_build_run(tmp_path, site_id="ncucsie")
+        with pytest.raises(ValueError, match="站點不一致"):
+            vector_store_run_target("nculab", str(run))
+
+
+def test_load_rag_never_builds_and_reports_missing_store(tmp_path: Path) -> None:
+    """load_rag 向量庫不存在時報錯（不退回重建），提示先 prepare。"""
+    target = RAGTarget("nculab", str(tmp_path / "web"), str(tmp_path / "milvus.db"))
+    with patch("website_copilot.retrieval.factory.IndexBuilder") as index_builder:
+        with pytest.raises(FileNotFoundError, match="prepare"):
+            load_rag(RAGConfig(), target, build_query_engine=True)
+    index_builder.assert_not_called()
 
 
 class TestReturnStyleBuild:

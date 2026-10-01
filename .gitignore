@@ -13,3 +13,6 @@ ingestion_cache/
 /runs/
 /chats/
 .DS_Store
+
+# Milvus Lite 載入時由 parquet 建出的檢索索引（可重建）
+data/rag/**/indexes/

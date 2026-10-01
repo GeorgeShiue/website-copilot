@@ -54,6 +54,29 @@ def test_run_config_argument_name() -> None:
     )
 
 
+def test_vector_store_run_argument() -> None:
+    mock = _run(
+        [
+            "run",
+            "rag-query",
+            "nculab",
+            "--run.config",
+            "test",
+            "--run.vector-store-run",
+            "runs/x/rag_build/nculab/r",
+        ],
+        "website_copilot.pipelines.exp.run_rag_query",
+    )
+
+    run_config, _ = mock.call_args.args
+    assert run_config.vector_store_run == "runs/x/rag_build/nculab/r"
+
+
+def test_rag_query_force_rebuild_removed() -> None:
+    with pytest.raises(SystemExit):
+        main(["run", "rag-query", "nculab", "--run.force-rebuild"])
+
+
 def test_old_config_name_argument_rejected() -> None:
     with pytest.raises(SystemExit):
         main(["run", "rag-query", "nculab", "--run.config-name", "test"])

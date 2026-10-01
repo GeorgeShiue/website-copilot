@@ -70,8 +70,11 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 ## 五、執行範例
 
 ```bash
-# 範例：rag query 並覆寫 retriever 的 similarity_top_k（強制重建向量庫）
-uv run website-copilot run rag-query nculab --run.config test --run.force-rebuild --module.retriever.similarity-top-k 10
+# 範例：rag query 並覆寫 retriever 的 similarity_top_k（查詢已發布的向量庫）
+uv run website-copilot run rag-query nculab --run.config test --module.retriever.similarity-top-k 10
+
+# 範例：查詢 runs/ 中 rag-build 建出的實驗向量庫（唯讀，不碰 data/）
+uv run website-copilot run rag-query nculab --run.config test --run.vector-store-run runs/<ts>/rag_build/nculab/<run_name>
 
 # 範例：指定查詢問題（未指定時使用站點的 sample_query）
 uv run website-copilot run rag-query ncucsie --run.query "介紹資工系課程"

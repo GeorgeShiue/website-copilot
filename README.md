@@ -193,6 +193,8 @@ uv run website-copilot run rag-build nculab --run.publish
 # 查詢已 publish 的向量庫；未指定 --run.query 時使用站點的 sample_query
 uv run website-copilot run rag-query ncucsie
 uv run website-copilot run rag-query nculab --run.query "實驗室的成員有哪些人？"
+# 查詢 runs/ 中 rag-build 建出的實驗向量庫（只查詢，不建庫、不寫入 data/）
+uv run website-copilot run rag-query nculab --run.vector-store-run runs/<ts>/rag_build/nculab/<run_name>
 
 # 自訂 top-k（透過 CLI 覆寫，巢狀結構與設定檔相同）
 uv run website-copilot run rag-query nculab --module.retriever.similarity-top-k 10 --module.retriever.hybrid-top-k 20

@@ -157,6 +157,11 @@ def test_save_only_writes_runs_not_data(env):
     assert str(env.runs) in env.rags[0].milvus_uri
     assert not env.rag_dir.exists()
 
+    # run 資料夾含 site_config.yml，供 rag-query --run.vector-store-run 核對站點
+    (run_path,) = env.runs.glob(f"*/rag_build/{env.site_id}/r1")
+    with open(run_path / "site_config.yml", encoding="utf-8") as f:
+        assert yaml.safe_load(f)["site_id"] == env.site_id
+
 
 def test_publish_only_moves_staging_into_place(env):
     run_rag_build(_run_config(save=False, publish=True))

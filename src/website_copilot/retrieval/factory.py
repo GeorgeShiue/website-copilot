@@ -1,6 +1,6 @@
 """在 index 之上組裝查詢物件（retriever / query engine），並提供 RAG 的建置（build_rag）與 serve 載入（load_rag）入口。
 
-站點、資料來源與向量庫位置以 RAGTarget 傳入（published_target／build_target 依執行模式產生），
+站點、資料來源與向量庫位置以 RAGTarget 傳入（published_target／vector_store_run_target／build_target 依執行模式產生），
 config 只含可調參數，建置過程中不會被改寫。
 """
 
@@ -8,6 +8,7 @@ import logging
 import os
 from typing import Any
 
+import yaml
 from llama_index.core import VectorStoreIndex, get_response_synthesizer
 from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.query_engine import RetrieverQueryEngine
@@ -101,6 +102,55 @@ def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
     )
 
 
+def vector_store_run_target(
+    site_id: str, run_path: str, data_folder: str = "data"
+) -> RAGTarget:
+    """runs/ 中 rag-build 建出的向量庫（<run_path>/results/milvus.db），供 rag-query 唯讀查詢。
+
+    以 <run_path>/site_config.yml 核對站點；log 印出建庫時的設定來源（module_config.yml 檔頭）。
+
+    Raises:
+        FileNotFoundError: run_path 或其 results/milvus.db 不存在時。
+        ValueError: run 的站點與 site_id 不一致時。
+    """
+    if not os.path.isdir(run_path):
+        raise FileNotFoundError(f"vector_store_run 不存在或不是資料夾: {run_path}")
+    milvus_uri = os.path.join(run_path, "results", "milvus.db")
+    if not os.path.exists(milvus_uri):
+        raise FileNotFoundError(
+            f"找不到向量庫: {milvus_uri}（vector_store_run 應為 rag-build 的 run 資料夾）"
+        )
+    site_config_path = os.path.join(run_path, "site_config.yml")
+    if not os.path.isfile(site_config_path):
+        raise FileNotFoundError(f"找不到 {site_config_path}，無法核對站點")
+    with open(site_config_path, encoding="utf-8") as f:
+        run_site = (yaml.safe_load(f) or {}).get("site_id")
+    if run_site != site_id:
+        raise ValueError(
+            f"站點不一致: vector_store_run 屬於 {run_site!r}，但指定的站點為 {site_id!r}"
+        )
+    print_log(f"vector_store_run: {run_path}（建庫設定 {_run_source(run_path)}）")
+    return RAGTarget(
+        site_id=site_id,
+        webpages_dir=os.path.join(data_folder, "webpages", site_id),
+        milvus_uri=milvus_uri,
+    )
+
+
+def _run_source(run_path: str) -> str:
+    """讀取 run 的 module_config.yml 檔頭的 `# source:`；讀不到時回傳 unknown。"""
+    try:
+        with open(os.path.join(run_path, "module_config.yml"), encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("# source:"):
+                    return line.removeprefix("# source:").strip()
+                if not line.startswith("#"):
+                    break
+    except OSError:
+        pass
+    return "unknown"
+
+
 def build_target(
     site_id: str,
     milvus_uri: str,
@@ -168,8 +218,12 @@ def build_rag(
     return rag
 
 
-def load_rag(config: RAGConfig, target: RAGTarget) -> RAG:
-    """只載入既有向量庫到 retriever 層級，絕不建置（供 serve 階段使用）。
+def load_rag(
+    config: RAGConfig, target: RAGTarget, build_query_engine: bool = False
+) -> RAG:
+    """只載入既有向量庫（預設到 retriever 層級；build_query_engine 時含 query engine），絕不建置。
+
+    供 serve（retriever）與 rag-query（query engine）使用。
 
     Raises:
         FileNotFoundError: 向量庫不存在時（應先執行 prepare 階段 publish）。
@@ -180,5 +234,4 @@ def load_rag(config: RAGConfig, target: RAGTarget) -> RAG:
             "（請先執行 prepare 階段建置並 publish 向量庫）"
         )
     index_handle: IndexHandle = IndexBuilder(config, target).load()
-    rag = RAGBuilder(config).build(index_handle, build_query_engine=False)
-    return rag
+    return RAGBuilder(config).build(index_handle, build_query_engine=build_query_engine)

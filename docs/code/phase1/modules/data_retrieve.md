@@ -45,7 +45,7 @@ IndexBuilder(config)                  # ingestion/indexing/index.py，回傳 Ind
 │   ├── build_vector_store() # (2) 建立向量儲存（Milvus，支援 Hybrid）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
 ├── load()                   # (3a) 既有向量庫直接載入（不讀 webpages、不建 nodes）
-└── build_or_load()          # 依 force_rebuild / 向量庫是否存在選擇 build 或 load
+└── build_or_load()          # 依 force_rebuild / 向量庫是否存在選擇 build 或 load（僅 rag-build／prepare 使用；rag-query 與 serve 走 load_rag，不建庫）
 
 RAGBuilder(config)                    # retrieval/factory.py
 ├── build_retriever(index)   # (4) 建立檢索器（支援 filter_dict 動態過濾）

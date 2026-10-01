@@ -80,9 +80,9 @@
 
 ### 4. `run_rag_query()`
 
-- 目的：以既有的 vector store / index 為基礎，重建必要資源並執行多輪 query 與評估。
+- 目的：以既有的 vector store / index 為基礎，執行多輪 query 與評估。只查詢、不建庫也不寫入 `data/`；建庫一律走 `run_rag_build()`。
 - 流程：
-  1. 載入站點與 `RAGConfig`，以 `published_target(site_id)`（`data/webpages/{site_id}`、`data/rag/{site_id}/milvus.db`）呼叫 `build_rag(config, target, force_rebuild=...)`：`IndexBuilder.build_or_load()` 依 `force_rebuild` 或向量庫是否存在決定「重建」（讀取 webpages 來源）或「載入」既有 index，再由 `RAGBuilder.build()` 建立 retriever（支援 `query_mode="hybrid"` 與 `filter_dict`）與 query engine。
+  1. 載入站點與 `RAGConfig`，決定向量庫位置並以 `load_rag(config, target, build_query_engine=True)` 載入（向量庫不存在時報錯，不退回重建）：預設為 `published_target(site_id)`（`data/rag/{site_id}/milvus.db`）；指定 `--run.vector-store-run <rag-build 的 run 資料夾>` 時為 `vector_store_run_target()`（該 run 的 `results/milvus.db`，以 `site_config.yml` 核對站點、log 印出建庫設定來源）。再由 `RAGBuilder.build()` 建立 retriever（支援 `query_mode="hybrid"` 與 `filter_dict`）與 query engine。
   2. 呼叫 `build_evaluators(config)` 取得 Faithfulness / Relevancy evaluator。
   3. 以 `run_config.query`（`--run.query`）或站點的 `sample_query`（兩者皆無時報錯）進行多輪查詢，並以 `evaluate_response(evaluators, query, response)` 評估。
   4. 回報 faithfulness / relevancy 評估結果，並將每次 query 結果落盤：
@@ -172,8 +172,9 @@ uv run website-copilot run rag-build nculab
 ```
 
 ```bash
-# 執行 RAG 查詢流程並允許重建
-uv run website-copilot run rag-query nculab --run.config test --run.force-rebuild
+# 先以 rag-build 建出實驗向量庫（寫入 runs/），再以 --run.vector-store-run 查詢它
+uv run website-copilot run rag-build nculab --run.config test
+uv run website-copilot run rag-query nculab --run.config test --run.vector-store-run runs/<ts>/rag_build/nculab/<run_name>
 ```
 
 ## 七、注意事項與建議

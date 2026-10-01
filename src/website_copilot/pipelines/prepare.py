@@ -317,6 +317,7 @@ def run_rag_build(
             if save:
                 assert run_manager is not None
                 save_module_config(config, run_manager.module_config_path)
+                save_site_config(site, run_manager.site_config_path)
                 save_run_config(run_config, run_manager.run_config_path)
 
             # ----- Publish（原子替換到 data/） -----

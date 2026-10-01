@@ -44,7 +44,9 @@ class RAGBuildRunConfig(BaseRunConfig):
 
 @dataclass
 class RAGQueryRunConfig(BaseRunConfig):
-    force_rebuild: bool = False
+    vector_store_run: str | None = None
+    """rag-build 的 run 資料夾（如 runs/<ts>/rag_build/<site>/<run_name>）；查詢其 results/milvus.db。
+    未指定時查詢 data/ 中已 publish 的向量庫"""
     query_times: int = 1
     query: str | None = None
     """查詢問題；未指定時使用站點設定的 sample_query"""

@@ -14,7 +14,11 @@ from website_copilot.retrieval.evaluation import (
     evaluate_response,
     response_to_dict,
 )
-from website_copilot.retrieval.factory import build_rag, published_target
+from website_copilot.retrieval.factory import (
+    load_rag,
+    published_target,
+    vector_store_run_target,
+)
 from website_copilot.storage.run_context import (
     create_run_context,
     create_run_no_site_context,
@@ -38,15 +42,18 @@ def run_rag_query(
 
     Args:
         run_config: 執行參數（site 對應 configs/sites/{site}.yml；config_name 對應
-            configs/rag/{name}.yml；query 未指定時使用站點的 sample_query；force_rebuild
-            是否強制重建向量庫；query_times 查詢次數）。
+            configs/rag/{name}.yml；query 未指定時使用站點的 sample_query；vector_store_run
+            指定 rag-build 的 run 資料夾時查詢其向量庫；query_times 查詢次數）。
         overrides: RAGConfig 的巢狀覆寫值。
 
-    查詢 data/ 中已 publish 的向量庫（data/rag/{site_id}/milvus.db）；force_rebuild 時以
-    data/webpages/{site_id} 重建於同一位置。
+    只查詢既有向量庫、不建庫也不寫入 data/：預設為 data/ 中已 publish 的向量庫
+    （data/rag/{site_id}/milvus.db），指定 vector_store_run 時為該 run 的 results/milvus.db。
+    建庫一律走 run_rag_build。
 
     Raises:
-        ValueError: run_config.query 與站點的 sample_query 皆未設定時。
+        ValueError: run_config.query 與站點的 sample_query 皆未設定時，或 vector_store_run
+            屬於其他站點時。
+        FileNotFoundError: 向量庫不存在時。
     """
     # ----- 初始化設定和路徑 -----
     query_times = run_config.query_times
@@ -71,11 +78,12 @@ def run_rag_query(
         log_session("Building RAG and Evaluators", style="cyan")
         log_config("SiteConfig Loaded from yaml", site)
         log_config(f"{config.__class__.__name__} Loaded from yaml", config)
-        rag = build_rag(
-            config,
-            published_target(site.site_id),
-            force_rebuild=run_config.force_rebuild,
+        target = (
+            vector_store_run_target(site.site_id, run_config.vector_store_run)
+            if run_config.vector_store_run
+            else published_target(site.site_id)
         )
+        rag = load_rag(config, target, build_query_engine=True)
 
         try:
             evaluators = build_evaluators(config)
