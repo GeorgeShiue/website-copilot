@@ -31,7 +31,8 @@
 | A | config 模型改為 pydantic + 巢狀 class | — |
 | B | 設定檔改為 YAML（含 `extends`） | A |
 | C | 移除 CLI 中介層 | A |
-| D | 站點分層 | A、B |
+| C2 | config class 為預設值基準（Phase C 審核後追加，修訂 V2） | A、B、C |
+| D | 站點分層 | A、B、C2 |
 
 ### 執行順序說明
 
@@ -41,6 +42,8 @@ C（CLI）與 D（站點分層）彼此無相依，兩種順序技術上都可�
 - **付費整合測試只跑一次**：行為變動最大的站點分層放最後，D 完成後跑一次即涵蓋 C 與 D。
 
 代價：C 到 D 之間，`site_id` 與 `query_engine.query` 會暫時出現在自動產生的 CLI 參數中（如 `--module.site-id`），D 完成後自動消失。
+
+C2（預設值基準）於 Phase C 審核時追加，排在 D 之前：D 會重整設定檔結構，在新的預設值基準上進行可避免設定檔改兩次；C 已完成驗證，不與方向調整混在同一個 commit。
 
 ### Phase A：config 模型改為 pydantic + 巢狀 class（todo 4、5）
 
@@ -106,7 +109,7 @@ class RAGConfig(BaseModuleConfig):
 | # | 問題 | 決策 |
 |---|---|---|
 | V1 | 型別嚴格程度 | 先嘗試全面採用 `strict=True`（已實測：巢狀 dict 與 YAML list 在 strict 下可正常載入；lax 模式會把 `True` 轉成 `1`）。若遇到無法相容的情況（如 tyro 產生的值、YAML 的日期型別），改為在個別欄位使用 `StrictInt`／`StrictBool` 等，並記錄在 dev.md |
-| V2 | 預設值的單一來源 | 程式不給預設值，`default.yml` 為唯一來源；其他設定檔以 `extends: default` 繼承（見 Phase B） |
+| V2 | 預設值的單一來源 | ~~程式不給預設值，`default.yml` 為唯一來源；其他設定檔以 `extends: default` 繼承（見 Phase B）~~ → Phase C2 修訂：config class 的欄位預設值為唯一來源，yml 只寫差異（見 Phase C2） |
 | V3 | 跨欄位規則 | 以 `model_validator` 實作，YAML 結構不變 |
 | V4 | 建立後的修改 | `validate_assignment=True`，修改時重新驗證 |
 | V5 | 錯誤訊息與 CI | loader 將 `ValidationError` 包成 `ConfigValidationError` 並附上設定檔路徑；新增測試載入 `configs/` 下所有設定檔 |
@@ -284,6 +287,57 @@ website-copilot run rag-query --run.config test --module.retriever.similarity-to
 - **tests**：`tests/integration`、`tests/unit/test_pipeline_*.py` 改用新簽名（`run_website_crawler(WebsiteCrawlerRunConfig(config_name="test"))`、`run_prepare(PrepareRunConfig(config_name="test", publish=False))`）；新增 `--run.config` 參數名稱的 CLI 測試。
 - **過渡狀態**：`site_id` 與 `query_engine.query` 會暫時出現在 CLI（`--module.site-id`），Phase D 移除欄位後自動消失。
 
+### Phase C2：config class 為預設值基準（Phase C 審核後追加）
+
+#### 背景
+
+Phase C 審核時比較「`default.yml` 為唯一預設值基準」（V2）與「config class 為唯一預設值基準」，決定改採後者。關鍵考量：
+
+- **型別與值寫在一起**：預設值、型別、約束與說明集中在 config class，IDE／pyright／`--help` 直接可見。
+- **不依賴 yml 也能建立 config**：程式與測試可直接 `RetrieverConfig()`、`RAGConfig(site_id=...)`；未來打包成套件時不需要隨附 `configs/`。
+
+代價（已接受）：調整基準值需改程式碼；長 prompt 回到 Python 常數；只看 yml 無法得知完整設定值（以 `module_config.yml` 與 `--help` 補足）；設定檔漏寫欄位時改為使用預設值，不再報錯（拼錯欄位名稱仍由 `extra="forbid"` 擋下）。
+
+#### 決策
+
+| # | 問題 | 決策 |
+|---|---|---|
+| K1 | 預設值來源 | config class 欄位預設值為唯一來源（修訂 V2）；yml 只寫與預設值不同的部分 |
+| K2 | 必填欄位 | 站點欄位不以 nculab 的值作為預設：`site_id`、`crawl.url`、`query_engine.query` 在 Phase D 前維持必填，`crawl` 的 `url_patterns`／`allowed_domains`／`path_prefix` 維持 `None` 預設，nculab 的值留在 `default.yml`（D 移到 `SiteConfig`／run config）；其餘參數欄位皆有預設值，值等於 Phase C 的 `default.yml` |
+| K3 | 設定名稱 `default` | `default.yml` 可省略：`from_yaml("default")` 在檔案不存在時等於 class 預設值；其他名稱仍須有檔案（找不到時照舊報錯）。此例外只適用於直接載入 `default`：`extends: default` 指向不存在的檔案時照舊報錯並列出繼承鏈（D 之後所有設定都不再 extends default）。C2 期間各模組 `default.yml` 只留站點欄位，agent 的 `default.yml` 刪除 |
+| K4 | `run_name_fields` 預設 | 改為 class 層級的 `_DEFAULT_RUN_NAME_FIELDS`（ClassVar）；yml 有寫就整個取代（含寫 `[]` 明確清空），沒寫時使用 class 預設（原本為 `[]`） |
+| K5 | 長 prompt | 移到 `config/prompts.py`（圖片摘要 prompt、agent system prompt），config class 引用常數 |
+| K6 | 模組建構子的預設值 | 一併移除，避免第三套預設值：建構子維持個別參數（不改收 config 物件，ingestion 模組不依賴 config 套件），與 config 對應的參數一律改為必填、由呼叫端明確傳入；語意為「未設定」的參數（`crawl_website` 的 `url_patterns`／`allowed_domains`／`path_prefix`）改為必填但可傳 `None`；`WebsiteCrawler` 的 `cleaner` 改為必填（移除 `or WebpageMarkdownCleaner()`）；不在 config 中的內部參數（如 `max_low_occ_ratio`）保留預設 |
+| K7 | `--help` 顯示 | `{Config}Overrides` 的葉欄位以 `help_behavior_hint` 顯示 class 預設值 `(default: X)`（長字串截斷），必填欄位標示「必填，來自設定檔」；`--module` 的說明註明「`--run.config` 設定檔的值優先於此預設」；以 `metavar` 去除 `{None}\|` 前綴。「未指定 = None」機制不變 |
+| K8 | 預設值本身的驗證 | `ConfigModel` 開啟 `validate_default=True`，建立 config 時一併驗證預設值（含跨欄位規則），避免誤寫的預設值靜默通過；另以單元測試確認各 config 的 class 預設值有效 |
+
+#### 變更範圍
+
+- **config 模型**
+  - 四個 `*_config.py` 的參數欄位加上預設值（等於 Phase C 的 `default.yml`）；`content_threshold` 預設引用 `KEEP_IMAGE_CONTENT_THRESHOLD`。
+  - section 欄位改為 `Field(default_factory=Section)`、list 預設值用 `default_factory`；`hybrid_ranker_params` 預設為 `HybridRankerParams(weights=[1.0, 0.5])`。
+  - 新增 `config/prompts.py`。
+  - 各 config 加上 `_DEFAULT_RUN_NAME_FIELDS`：rag 為 `[vector_store.vector_store_type]`，其餘為 `[]`（D 依 S10 調整）。
+- **loader**：`load_config_dict` 在名稱為 `default` 且檔案不存在時回傳空 dict（`source` 標示為 class 預設值）；`_pop_run_name_fields` 未寫時改回傳 class 預設。
+- **configs/**
+  - 各模組 `default.yml` 刪除模組參數，只留站點欄位（目前為 nculab）；`agent/default.yml` 刪除，`agent/test.yml` 改為不 extends（空設定＝class 預設）。
+  - 其餘站點／測試設定維持 extends 鏈與差異內容；`run_name_fields` 與 class 預設相同者可省略。
+  - `configs/README.md` 改寫預設值來源說明。
+- **模組建構子（K6）**：`WebsiteCrawler.__init__`（含 `cleaner`）／`crawl_website`、`WebpageMarkdownCleaner.__init__`、`ImageSummarizer.__init__`／`summarize_crawl_results_images`、`NodePipelineBuilder.__init__`、`VectorStoreBuilder.build` 中與 config 對應的參數改為必填（「未設定」語意的參數必填但可傳 `None`）；`VectorStoreBuilder` 在 `hybrid_ranker_params=None` 時依 ranker 套用的內建參數屬「未設定」語意，保留。測試改以 config class 預設值傳入（如由 `CleanConfig()` 取值）。
+- **ConfigModel（K8）**：`model_config` 加上 `validate_default=True`。
+- **CLI（K7）**：`make_overrides_model` 從原始欄位的 `default`／`default_factory` 產生 help hint 與 metavar。
+- **測試**
+  - `test_configs.py`：缺欄位測試改為「一般欄位省略時使用預設值、站點欄位缺少時報錯」；新增不經 yml 建立 config、class 預設值本身通過驗證（跨欄位規則）、`default` 無檔案時等於 class 預設、`run_name_fields` 的 class 預設與 `[]` 明確清空。
+  - `test_overrides.py`／`test_cli.py`：help hint 與 metavar。
+  - 模組建構子的測試（`test_markdown_cleaner.py`、`test_dedup_key.py` 等）改傳必填參數。
+- **文件**：`configs/README.md`、`docs/code/runs/config.md`、README 設定說明。
+
+#### 驗證
+
+- config 快照與 Phase C 完全相同（26 份設定 × 全部欄位與 `run_name`）。
+- 「舊 `default.yml` 的模組參數」與「新 class 預設值」逐欄位相同（一次性比對，結果記錄於 dev.md）。
+- 共同關卡（check.sh、免費整合測試、CLI 冒煙）；`--help` 顯示預設值。
+
 ### Phase D：站點分層（todo 1）
 
 #### 現況分析
@@ -313,20 +367,13 @@ crawl:
   path_prefix: /
 ```
 
-```yaml
-# configs/website_crawler/default.yml —— 爬蟲參數，不含站點資訊
-run_name_fields: [init.max_depth]   # 沿用舊站點檔的 run name 欄位
-init:
-  max_depth: 2
-  max_pages: null
-  content_threshold: 0.25
-  light_mode: true
-  wait_for_images: true
-clean:
-  llm_model: gpt-5.6-luna
-  sample_ratio: 0.1
-  repeat: 5
-  max_prompt_tokens: 500000
+模組參數的預設值在 config class（Phase C2），站點檔移出後各模組不再需要 `default.yml`：
+
+```python
+class WebsiteCrawlerConfig(BaseModuleConfig):
+    _DEFAULT_RUN_NAME_FIELDS: ClassVar[list[str]] = ["init.max_depth"]  # 沿用舊站點檔的 run name 欄位（S10）
+    init: CrawlerInitConfig = Field(default_factory=CrawlerInitConfig)
+    clean: CleanConfig = Field(default_factory=CleanConfig)  # max_prompt_tokens 預設改為 500000（S2）
 ```
 
 ```python
@@ -348,20 +395,21 @@ class SiteConfig(ConfigModel):
 
 ```
 configs/sites/{nculab,ncucsie,claudecode}.yml
-configs/website_crawler/{default,test}.yml       # test：extends default，只寫 max_pages: 40
-configs/image_summarizer/{default,test}.yml
-configs/rag/{default,test}.yml
-configs/agent/{default,test}.yml                 # agent 為多站，不受影響
+configs/website_crawler/test.yml                 # 只寫 run_name_fields: [init.max_pages] 與 init.max_pages: 40
+configs/image_summarizer/test.yml
+configs/rag/test.yml
+configs/agent/test.yml                           # agent 為多站，不受影響
+# 各模組 default.yml 刪除：`--run.config default` 等於 class 預設值（C2 的 K3）
 ```
 
-刪除所有 `{nculab,ncucsie,claudecode}.yml` 與 `test_{nculab,ncucsie,claudecode}.yml`（Phase B 由 TOML 轉來）。
+刪除所有 `{nculab,ncucsie,claudecode}.yml`、`test_{nculab,ncucsie,claudecode}.yml`（Phase B 由 TOML 轉來）與各模組 `default.yml`（C2 後只剩站點欄位）。
 
 #### 決策
 
 | # | 問題 | 決策 |
 |---|---|---|
 | S1 | 站點檔如何接入程式 | 獨立的 `SiteConfig`；pipeline 依 `run_config.site` 自行載入，不另外傳參數（符合 C3「不重複傳遞」） |
-| S2 | 站點特有的模組參數（claudecode 的 `max_prompt_tokens`） | 直接把 default 提高到 `500000`，站點檔不提供模組覆寫 |
+| S2 | 站點特有的模組參數（claudecode 的 `max_prompt_tokens`） | 直接把 class 預設值提高到 `500000`，站點檔不提供模組覆寫 |
 | S3 | RAG 的 `query` | 從 `RAGConfig` 移到 `RAGQueryRunConfig`；未指定時使用 `site.sample_query` |
 | S4 | 未提供站點 | 必填，不設預設值（避免誤將錯誤站點 publish 到 data/） |
 | S5 | RAG 內部如何取得 site_id 與路徑 | 新增執行期物件 `RAGTarget(site_id, webpages_dir, milvus_uri)`，由 factory 依站點與執行模式產生；`RAGConfig` 移除路徑欄位 |
@@ -369,7 +417,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 | S7 | image-summarizer 讀到其他站點的爬蟲結果（既有 bug） | `load_latest_results` 加 `site_id` 過濾；找不到該站點結果時報錯，不退回其他站點 |
 | S8 | 站點在 CLI 的形式 | 位置參數：`website-copilot prepare ncucsie --run.config test`（已實測 tyro `Positional` 可行） |
 | S9 | 站點顯示名稱／描述 | 不納入本次重構，列入 todo「功能進度」 |
-| S10 | Phase D 後 prepare 的 run 資料夾名稱 | 舊站點檔的 run name 欄位搬進 default：crawler `[init.max_depth]`、image_summarizer `[summarize.model]`（rag 原本即為 `[vector_store.vector_store_type]`），使 `prepare {site}` 的 run 名稱與原本相同 |
+| S10 | Phase D 後 prepare 的 run 資料夾名稱 | 舊站點檔的 run name 欄位搬進 class 的 `_DEFAULT_RUN_NAME_FIELDS`（C2 的 K4）：crawler `[init.max_depth]`、image_summarizer `[summarize.model]`（rag 原本即為 `[vector_store.vector_store_type]`），使 `prepare {site}` 的 run 名稱與原本相同 |
 
 #### 補充現況（S5–S7 的依據）
 
@@ -382,11 +430,11 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 - **config 模型**
   - 新增 `config/site_config.py`（`SiteConfig`、`SiteCrawlConfig`，`from_yaml(site_id)`）。
   - `SiteConfig` 共用 Phase B 的 YAML loader（支援 extends，但目前無用途）；它不是 `BaseModuleConfig`，沒有 `config_name`／`run_name_fields`。
-  - `configs/{website_crawler,image_summarizer}/default.yml` 設定 `run_name_fields`（S10）。
+  - `WebsiteCrawlerConfig`／`ImageSummarizerConfig` 的 `_DEFAULT_RUN_NAME_FIELDS` 設定為舊站點檔的 run name 欄位（S10）。
   - `WebsiteCrawlerConfig`／`ImageSummarizerConfig`／`RAGConfig` 移除 `site_id`；`WebsiteCrawlerConfig` 移除 `crawl` 區塊（url 類欄位改由 `site.crawl` 提供）。
   - `RAGConfig`：移除 `query_engine.query`、`webpages_data_folder_path`、`milvus_uri` 與 `__post_init__` 的路徑推導（改由 `RAGTarget` 提供，見 retrieval）。
   - `SiteConfig.site_id` 加格式約束與「與檔名一致」檢查（S6）。
-  - `WebsiteCrawlerConfig.clean.max_prompt_tokens` 的 default 設定改為 `500000`。
+  - `CleanConfig.max_prompt_tokens` 的 class 預設值改為 `500000`。
 - **run config／CLI**
   - `PrepareRunConfig`、`BaseRunConfig`（website-crawler／image-summarizer／rag-build）、`RAGQueryRunConfig` 新增必填位置參數 `site: Annotated[str, tyro.conf.Positional]`（S8）。
   - `RAGQueryRunConfig` 新增 `query: str | None = None`。
@@ -429,7 +477,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 | Q3 | 未知 key 的處理 | 改為報錯（`extra="forbid"`） |
 | Q4 | `data/` 下已 publish 的舊 `.toml` 記錄檔 | ~~不轉換；`publish_run_metadata` 寫入新 `.yml` 時刪除同資料夾的舊 `.toml`~~ → Phase B 審核時改為：一次性轉換為 `.yml` 並刪除原檔，publish 不做清理（理由見 dev.md） |
 | Q5 | `exp.py` 引用不存在的 config | 8 個實驗全部刪除，連同 `exp` 子命令（Phase C） |
-| Q6 | 執行順序 | A → B → C（CLI）→ D（站點分層），理由見「執行順序說明」 |
+| Q6 | 執行順序 | A → B → C（CLI）→ C2（預設值基準）→ D（站點分層），理由見「執行順序說明」與 Phase C2 |
 
 ## 驗證
 
@@ -452,6 +500,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 | A | 無。toml 已寫的欄位本來就優先於程式預設值（`cache_download_images`、`vlm_max_workers`、prompt 等值不變）；toml 缺漏的欄位以現行程式預設值補齊。僅型別正規化（tomlkit 型別 → 原生型別） |
 | B | 無（extends 解析後應與 TOML 完全相同）；唯一例外為 agent prompt 的 `\n`，比對前先換算 |
 | C | 無（config 結構不變，只改 CLI） |
+| C2 | 無（預設值由 `default.yml` 移到 config class，載入結果應完全相同） |
 | D | `site_id` 與 url 類欄位移到 `SiteConfig`；`query` 移到 run config；`milvus_uri`／`webpages_data_folder_path` 移到 `RAGTarget`；nculab／ncucsie 的 `max_prompt_tokens` 由 200000 變為 500000；`default` 設定本身的 run_name 由 `default` 變為 `max_depth-2`（crawler）／`model-gpt-5.6-luna`（image_summarizer），而「站點 + default」的 run_name 與舊 `{site}.toml` 相同（S10） |
 
 ### 各 Phase 額外檢查
@@ -480,7 +529,7 @@ configs/agent/{default,test}.yml                 # agent 為多站，不受影�
 
 **Phase D**
 
-- 快照比對：每個站點 × 模組的「`sites/{site}.yml` + 模組 default」等於舊的 `{site}.toml`（扣除預期差異），run_name 也相同（S10）。
+- 快照比對：每個站點 × 模組的「`sites/{site}.yml` + 模組 class 預設值」等於舊的 `{site}.toml`（扣除預期差異），run_name 也相同（S10）。
 - 路徑不變：`data/{category}/{site_id}/` 與 runs/ 結構和原本一致。
 - 未提供站點位置參數時 CLI 報錯；site_id 格式不符或與檔名不一致時報錯。
 - `RAGTarget`：各執行模式（save／publish／皆否／serve）產生的路徑正確；config 物件在建庫過程中不再被改寫。

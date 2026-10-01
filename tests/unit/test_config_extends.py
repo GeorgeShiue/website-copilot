@@ -137,9 +137,12 @@ def test_empty_file_extends_nothing(tmp_path: Path) -> None:
 
 @pytest.fixture
 def rag_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """tmp 的 configs/rag：base.yml 為 configs/rag/test.yml 展開後的完整內容。"""
+    """tmp 的 configs/rag：base.yml 為 configs/rag/test.yml 載入後的完整內容（含 class 預設值
+    與 run_name_fields），讓子檔的合併規則可以對所有欄位測試。"""
+    config = RAGConfig.from_yaml("test")
+    base = {"run_name_fields": config.run_name_fields, **config.model_dump()}
     monkeypatch.setattr(RAGConfig, "_CONFIG_FOLDER_PATH", str(tmp_path))
-    _write(tmp_path, "base", load_config_dict("configs/rag", "test").data)
+    _write(tmp_path, "base", base)
     return tmp_path
 
 
@@ -164,15 +167,14 @@ def test_run_name_fields_replaced(rag_folder: Path) -> None:
     assert config.run_name == "similarity_top_k-10"
 
 
-def test_run_name_fields_omitted_is_default(rag_folder: Path) -> None:
+def test_run_name_fields_omitted_uses_class_default(rag_folder: Path) -> None:
     data = load_config_dict(rag_folder, "base").data
     del data["run_name_fields"]
     _write(rag_folder, "plain", data)
 
     config = RAGConfig.from_yaml("plain")
 
-    assert config.run_name_fields == []
-    assert config.run_name == "default"
+    assert config.run_name_fields == ["vector_store.vector_store_type"]
 
 
 @pytest.mark.parametrize("key", ["extends", "run_name_fields"])
@@ -201,7 +203,7 @@ def test_null_on_required_field_rejected(rag_folder: Path) -> None:
 
 
 def test_switch_ranker_requires_clearing_weights(rag_folder: Path) -> None:
-    """dict 遞迴合併：改用 RRFRanker 時需明確寫 weights: null。"""
+    """dict 遞迴合併：繼承鏈中已寫 weights 時，改用 RRFRanker 需明確寫 weights: null。"""
     _write(
         rag_folder,
         "rrf_bad",
@@ -228,6 +230,29 @@ def test_switch_ranker_requires_clearing_weights(rag_folder: Path) -> None:
     with pytest.raises(ConfigValidationError, match="RRFRanker"):
         RAGConfig.from_yaml("rrf_bad")
     params = RAGConfig.from_yaml("rrf_ok").vector_store.hybrid_ranker_params
+    assert params is not None and params.k == 60 and params.weights is None
+
+
+def test_switch_ranker_without_weights_in_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """class 預設值不會與設定檔給的 dict 逐欄合併：繼承鏈未寫 weights 時，只寫 k 即可。"""
+    monkeypatch.setattr(RAGConfig, "_CONFIG_FOLDER_PATH", str(tmp_path))
+    _write(
+        tmp_path,
+        "rrf",
+        {
+            "site_id": "s",
+            "query_engine": {"query": "q"},
+            "vector_store": {
+                "hybrid_ranker": "RRFRanker",
+                "hybrid_ranker_params": {"k": 60},
+            },
+        },
+    )
+
+    params = RAGConfig.from_yaml("rrf").vector_store.hybrid_ranker_params
+
     assert params is not None and params.k == 60 and params.weights is None
 
 

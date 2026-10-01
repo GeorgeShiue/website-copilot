@@ -162,3 +162,48 @@ git 追蹤的 9 份舊記錄檔（data/ 下沒有其他 `.toml`）以一次性�
 - CLI 冒煙：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`--help` 中 `--run.config`、`--module.retriever.similarity-top-k` 等巢狀參數與欄位說明正確，`litellm_kwargs` 不在 CLI。`exp` 已不在子命令清單（`website-copilot exp ...` 顯示可用子命令為 prepare／serve／run）。
 - config 快照：與 Phase B 的快照完全相同（config 結構與設定檔未改變）。
 - 過渡狀態（依 plan）：`--module.site-id`、`--module.query-engine.query` 目前出現在 CLI，Phase D 移除欄位後自動消失。
+
+## Phase C2：config class 為預設值基準
+
+> Phase C 審核時追加（修訂 V2），決策見 plan.md 的 Phase C2（K1–K8）。
+
+### 變更
+
+- `config/base_config.py`
+  - `ConfigModel` 加上 `validate_default=True`（K8）。
+  - `BaseModuleConfig` 新增 ClassVar `_DEFAULT_RUN_NAME_FIELDS`；`_run_name_fields` 改為 `None` 表示「使用 class 預設」，`run_name_fields` property 依此回傳，因此不經 loader 建立的 config 也有正確的 `run_name`（K4）。
+  - `from_yaml()` 改經 `_load()`：設定名稱為 `default` 且檔案不存在時回傳空設定，`source` 為 `{Class} 預設值（{path} 不存在）`；其他名稱與 `extends: default` 找不到檔案照舊報錯（K3）。
+  - `_pop_run_name_fields()`：設定檔未寫時回傳 `None`（使用 class 預設），寫 `[]` 為明確清空。
+- 四個 `*_config.py`：所有參數欄位加上預設值（等於 Phase C 的 `default.yml`），section 改為 `Field(default_factory=...)`；站點欄位維持必填（`site_id`、`crawl.url`、`query_engine.query`），`crawl` 的其他欄位維持 `None`（K2）。`content_threshold` 預設引用 `KEEP_IMAGE_CONTENT_THRESHOLD`；`hybrid_ranker_params` 預設為 `HybridRankerParams(weights=[1.0, 0.5])`；RAG 的 `_DEFAULT_RUN_NAME_FIELDS = ("vector_store.vector_store_type",)`。
+- 新增 `config/prompts.py`：`IMAGE_SUMMARY_PROMPT`、`AGENT_SYSTEM_PROMPT`，由 `default.yml` 的內容產生並確認逐字相同（K5）。
+- `config/overrides.py`（K7）：`make_overrides_model(model, defaults=None)` 為葉欄位加上 `tyro.conf.arg(help_behavior_hint=..., metavar=...)`：
+  - hint 為 `(default: X)`（`_format_default`：None／bool／list 以 YAML flow 呈現，字串截斷為 60 字並把換行顯示為 `\n`），必填欄位為 `(必填，來自設定檔)`。
+  - 可選 section 的預設值取自上層的預設實例（`hybrid_ranker_params.weights` 顯示 `[1.0, 0.5]`，而非 `HybridRankerParams.weights` 本身的 `None`）。
+  - metavar 由型別產生（`INT`、`{hybrid,default}`、`{True,False}`、`FLOAT [FLOAT ...]`），不再顯示 `{None}|`。
+  - `cli/run.py` 的 `module` 說明加上「(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先」。
+- 模組建構子（K6）：以下參數改為 keyword-only 必填，移除與 config 重複的預設值：`WebsiteCrawler.__init__`（含 `cleaner`，移除 `or WebpageMarkdownCleaner()` 與對 config 套件的 import）、`crawl_website`（`url_patterns`／`allowed_domains`／`path_prefix` 必填可為 `None`）、`WebpageMarkdownCleaner.__init__`（保留內部參數 `max_low_occ_ratio=0.1`）、`ImageSummarizer.__init__`、`summarize_crawl_results_images`（`vlm_max_workers`、`image_source`）、`NodePipelineBuilder.__init__`、`VectorStoreBuilder.build`（`hybrid_ranker`、`hybrid_ranker_params`）。pipeline 原本就以 keyword 傳入，呼叫端不需修改。
+- `configs/`
+  - `website_crawler`／`image_summarizer`／`rag` 的 `default.yml` 只留 nculab 的站點欄位（與 `litellm_kwargs` 的參數範例註解）。
+  - 刪除 `agent/default.yml`；`agent/test.yml` 改為只有註解（等於 class 預設）。
+  - 其餘站點／測試設定未修改（內容本來就只寫差異；rag 的 `run_name_fields` 原本繼承自 `default.yml`，現在由 class 預設提供，結果相同）。
+- 文件：`configs/README.md`（預設值來源、`default.yml` 可省略、`run_name_fields` 的 class 預設與 `[]`、class 預設不與 mapping 逐欄合併）、`docs/code/runs/config.md`（模型結構、載入流程、各模組說明；一併修正 Phase C 漏改的「扁平 overrides」步驟與 `TOML` 字樣）、`docs/code/runs/cli.md`（help 顯示、RRFRanker 的 CLI 寫法）、README（設定說明、目錄樹）。
+- 測試
+  - `test_configs.py`：`_load_dict` 改為「讀 repo 的設定檔後 `model_dump()`」的完整內容（不受 monkeypatch 的資料夾影響）；新增不經設定檔建立（四模組只給站點欄位）、section 預設、可變預設不共用、`validate_default` 擋下錯誤預設、省略欄位用預設、站點欄位缺少時報錯、`crawl` 站點欄位無站點預設、`default` 無檔案等於 class 預設（含 source 文字）、`extends: default` 缺檔報錯、`default` 無檔案仍需站點欄位、`run_name_fields` 的 class 預設與 `[]` 清空、不經 loader 的 `run_name`、存檔包含所有欄位；刪除「缺欄位即報錯」測試。
+  - `test_config_extends.py`：`rag_folder` 的 base 改為完整內容；`run_name_fields` 省略時改為 class 預設；新增「繼承鏈未寫 weights 時，RRFRanker 只寫 k 即可」。
+  - `test_overrides.py`：`_metavar`、`_format_default`（含截斷）。
+  - `test_cli.py`：`--help` 顯示 `(default: 10)`、`{hybrid,default}`、可選 section 的預設值、必填標示，且不含 `{None`。
+  - `test_markdown_cleaner.py`：以 `_cleaner(**kwargs)`（取 `CleanConfig()` 的值）建立；`test_dedup_key.py`：以 `CrawlerInitConfig()` 的值與 mock cleaner 建立 `WebsiteCrawler`。
+
+### 實作中的發現
+
+- **class 預設值不會與設定檔寫的 mapping 逐欄合併**：deep merge 只在設定檔之間進行；設定檔寫了 `hybrid_ranker_params: {k: 60}` 時，pydantic 以這個 dict 建立 `HybridRankerParams`，其 `weights` 為該 class 自己的預設 `None`，不會帶入 `VectorStoreConfig` 預設實例的 `[1.0, 0.5]`。因此只要繼承鏈沒寫 `weights`，改用 RRFRanker 只需寫 `{k: 60}`；繼承鏈有寫 `weights` 時才需要 `weights: null`。已更新欄位說明、`configs/README.md` 與 `cli.md`，並加測試。CLI 只指定 `--module.vector-store.hybrid-ranker RRFRanker` 時，仍因預設的 `weights` 被跨欄位規則擋下（`test_override_triggers_cross_field_rule` 維持通過）。
+- **scratchpad 中先前的快照檔已被清除**：比對基準改以 `git worktree` 檢出 Phase C 的 commit（`2ccd068`），用同一支快照腳本重新產生。
+
+### 驗證
+
+- class 預設值比對：以 Phase C 的 `default.yml`（`load_config_dict` 展開）為基準，四個模組「只給站點欄位、其餘用 class 預設」的 `model_dump()` 與其**逐欄位相同**（RAG 扣除由 site_id 推導的路徑），`run_name_fields` 也相同。
+- `prompts.py` 的兩個常數與 `default.yml` 的 prompt 逐字相同。
+- config 快照：與 Phase C（`2ccd068`）的快照**完全相同**（26 份設定，含已無檔案的 `agent/default`；全部欄位與 `run_name`）。
+- `scripts/check.sh`：exit 0（ruff、pyright 0 errors、323 passed、widget 同步）。
+- `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected。
+- CLI 冒煙：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`--help` 顯示 `(default: ...)` 與必填標示，不再有 `{None}|`。

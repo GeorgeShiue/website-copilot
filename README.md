@@ -59,7 +59,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── __init__.py          # main()：prepare / serve / run 分派
 │   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
 │   │   └── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
-│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）
+│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）、prompts.py（長 prompt 預設值）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
 │   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
@@ -103,7 +103,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── agent/                   # Agent 設定（default / test）
 │   ├── README.md                # 設定檔撰寫說明（extends、run_name_fields、YAML 注意事項）
 │   ├── rag/
-│   │   ├── default.yml          # 預設設定（Milvus + WeightedRanker hybrid）
+│   │   ├── default.yml          # 預設站點（nculab）的站點欄位；參數預設值在 RAGConfig
 │   │   ├── nculab.yml / ncucsie.yml / claudecode.yml  # 多站設定（extends: default）
 │   │   └── test.yml             # 測試用（extends: test_nculab）
 │   ├── image_summarizer/
@@ -141,7 +141,7 @@ cp .env.example .env        # 填入 API 金鑰
 
 ## 設定
 
-本專案使用 `configs/` 底下的 YAML 設定檔（`.yml`，可用 `extends` 繼承同資料夾的設定，撰寫方式見 [configs/README.md](configs/README.md)），以及從 `.env` 讀取環境變數。
+本專案的模組參數預設值寫在 `src/website_copilot/config/*_config.py` 的 config class；`configs/` 底下的 YAML 設定檔（`.yml`）只寫與預設值不同的部分，可用 `extends` 繼承同資料夾的設定（撰寫方式見 [configs/README.md](configs/README.md)）。環境變數從 `.env` 讀取。`uv run website-copilot run <module> --help` 會列出所有參數與預設值。
 
 ### 爬蟲設定
 

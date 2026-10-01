@@ -40,12 +40,14 @@ UNSUPPORTED_IMAGE_SUFFIXES = (".svg", ".avif", ".bmp", ".ico", ".tif", ".tiff")
 class ImageSummarizer:
     def __init__(
         self,
-        download_timeout: float = 10.0,
-        success_threshold: float = 0.8,  # 圖片下載成功率低於此值則啟動重試機制
-        max_retries: int = 6,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
-        cache_download_images: bool = False,  # 適用於同一批網頁重複實驗的情況
-        cache_image_captions: bool = False,  # 適用於同一批網頁重複實驗的情況
+        *,
+        download_timeout: float,
+        success_threshold: float,  # 圖片下載成功率低於此值則啟動重試機制
+        max_retries: int,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
+        cache_download_images: bool,  # 適用於同一批網頁重複實驗的情況
+        cache_image_captions: bool,  # 適用於同一批網頁重複實驗的情況
     ) -> None:
+        """參數皆由 ImageSummarizerConfig.init 傳入（預設值見 config）。"""
         # ===== init args =====
         self.download_timeout = download_timeout
         self.success_threshold = success_threshold
@@ -78,10 +80,11 @@ class ImageSummarizer:
     def summarize_crawl_results_images(
         self,
         crawl_results: dict[str, dict[str, Any]],
+        *,
         model: str,
         prompt: str,
-        vlm_max_workers: int = 10,
-        image_source: Literal["images", "markdown"] = "markdown",
+        vlm_max_workers: int,
+        image_source: Literal["images", "markdown"],
         **litellm_kwargs: Any,
     ) -> dict[str, dict[str, Any]]:
         """

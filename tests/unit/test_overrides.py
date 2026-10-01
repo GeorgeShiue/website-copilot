@@ -1,4 +1,4 @@
-"""config/overrides.py 測試：由 module config 自動產生的 partial model 與 prune_empty。"""
+"""config/overrides.py 測試：由 module config 自動產生的 partial model、prune_empty 與 --help 顯示。"""
 
 from typing import Any, Literal
 
@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from website_copilot.config.agent_config import AgentConfig
 from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
 from website_copilot.config.overrides import (
+    _format_default,
+    _metavar,
     make_overrides_model,
     overrides_to_dict,
     prune_empty,
@@ -110,3 +112,40 @@ def test_overrides_to_dict_keeps_only_specified_values() -> None:
 )
 def test_prune_empty(data: dict[str, Any], expected: dict[str, Any]) -> None:
     assert prune_empty(data) == expected
+
+
+# ---------- --help 顯示（help hint、metavar） ----------
+
+
+@pytest.mark.parametrize(
+    ("annotation", "expected"),
+    [
+        (int | None, "INT"),
+        (float, "FLOAT"),
+        (Literal["hybrid", "default"] | None, "{hybrid,default}"),
+        (bool, "{True,False}"),
+        (list[float] | None, "FLOAT [FLOAT ...]"),
+        (dict[str, Any], None),
+    ],
+)
+def test_metavar(annotation: Any, expected: str | None) -> None:
+    assert _metavar(annotation) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (10, "10"),
+        (None, "null"),
+        (True, "true"),
+        ([1.0, 0.5], "[1.0, 0.5]"),
+        ("gpt-5.6-luna", "gpt-5.6-luna"),
+        ("a\nb", "a\\nb"),
+    ],
+)
+def test_format_default(value: Any, expected: str) -> None:
+    assert _format_default(value) == expected
+
+
+def test_format_default_truncates_long_string() -> None:
+    assert _format_default("x" * 100) == "x" * 60 + "…"

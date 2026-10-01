@@ -55,9 +55,10 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 - `{Config}Overrides` 的產生規則（`config/overrides.py`）：
   - 巢狀 section（含 `hybrid_ranker_params` 這類 `Model | None` 的可選 section）→ 巢狀 partial model，以預設實例作為預設值。
   - 葉欄位 → `X | None = None`，`None` 代表「未指定」；`Literal` 欄位保留選項清單，`Field(description=...)` 帶入 `--help`。
+  - `--help` 以 `(default: X)` 顯示 config class 的預設值（長字串截斷；可選 section 如 `hybrid_ranker_params` 取上層預設實例的值），必填的站點欄位標示「(必填，來自設定檔)」；以 metavar 隱藏 `None` 選項（顯示 `INT`、`{hybrid,default}`、`FLOAT [FLOAT ...]`）。實際執行時 `--run.config` 設定檔的值優先於此預設。
   - `dict[str, Any]` 欄位（`litellm_kwargs`）tyro 無法處理，排除在 CLI 之外，只能寫在設定檔。
 - CLI 無法把欄位設為 `null`（`None` 即「未指定」）；需要時另寫 extends 設定檔。
-- 型別錯誤（如 `--module.retriever.similarity-top-k abc`、不在 `Literal` 內的值）由 tyro 擋下；範圍與跨欄位規則在 `from_yaml()` 合併後由 pydantic 驗證（如只改 `--module.vector-store.hybrid-ranker RRFRanker` 時，合併後仍帶有設定檔的 `weights`，會被跨欄位規則擋下）。
+- 型別錯誤（如 `--module.retriever.similarity-top-k abc`、不在 `Literal` 內的值）由 tyro 擋下；範圍與跨欄位規則在 `from_yaml()` 合併後由 pydantic 驗證（如只改 `--module.vector-store.hybrid-ranker RRFRanker` 時，`hybrid_ranker_params` 仍為預設的 `weights`，會被跨欄位規則擋下；需同時指定 `--module.vector-store.hybrid-ranker-params.k 60`）。
 - bool 欄位以值指定：`--module.init.light-mode False`。
 
 ## 四、`run_config.yml` 與 `module_config.yml` 的差異與產生時機

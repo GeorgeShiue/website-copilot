@@ -20,7 +20,6 @@ from crawl4ai.deep_crawling.filters import (
 )
 from rich.table import Table
 
-from website_copilot.config.website_crawler_config import KEEP_IMAGE_CONTENT_THRESHOLD
 from website_copilot.ingestion.crawling.html_date_extractor import (
     extract_date_from_html,
 )
@@ -46,20 +45,22 @@ MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 class WebsiteCrawler:
     def __init__(
         self,
-        max_depth: int | None = None,
-        max_pages: int | None = None,
-        content_threshold: float = KEEP_IMAGE_CONTENT_THRESHOLD,
-        light_mode: bool = True,
-        wait_for_images: bool = True,
-        cleaner: WebpageMarkdownCleaner | None = None,
+        *,
+        max_depth: int | None,
+        max_pages: int | None,
+        content_threshold: float,
+        light_mode: bool,
+        wait_for_images: bool,
+        cleaner: WebpageMarkdownCleaner,
     ) -> None:
+        """參數皆由 WebsiteCrawlerConfig 傳入（預設值見 config），None 代表不限制。"""
         # ===== init args =====
         self.max_depth = max_depth
         self.max_pages = max_pages
         self.content_threshold = content_threshold
         self.light_mode = light_mode
         self.wait_for_images = wait_for_images
-        self.cleaner = cleaner or WebpageMarkdownCleaner()
+        self.cleaner = cleaner
 
         # ===== crawl args =====
         self.url: str
@@ -74,12 +75,16 @@ class WebsiteCrawler:
 
     def crawl_website(
         self,
+        *,
         url: str,
-        url_patterns: list[str] | None = None,
-        allowed_domains: list[str] | None = None,
-        path_prefix: str | None = None,
+        url_patterns: list[str] | None,
+        allowed_domains: list[str] | None,
+        path_prefix: str | None,
     ) -> dict[str, dict] | None:
-        """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。"""
+        """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。
+
+        url_patterns／allowed_domains 為 None 時不過濾；path_prefix 為 None 時取起始 URL 的父路徑。
+        """
         self.url = url
         self.url_patterns = url_patterns
         self.allowed_domains = allowed_domains

@@ -3,11 +3,17 @@
 from unittest.mock import MagicMock
 from urllib.parse import urlparse
 
+from website_copilot.config.website_crawler_config import CrawlerInitConfig
+from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
 
 
 def _make_crawler(url: str, path_prefix: str | None = None) -> WebsiteCrawler:
-    crawler = WebsiteCrawler()
+    # 去重邏輯不使用 cleaner，以 mock 代替
+    crawler = WebsiteCrawler(
+        **CrawlerInitConfig().model_dump(),
+        cleaner=MagicMock(spec=WebpageMarkdownCleaner),
+    )
     crawler.url = url
     if path_prefix is not None:
         crawler.path_prefix = path_prefix.rstrip("/")

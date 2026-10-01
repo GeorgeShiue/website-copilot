@@ -13,6 +13,7 @@ from typing import ClassVar
 from pydantic import Field
 
 from website_copilot.config.base_config import BaseModuleConfig, NonEmptyStr
+from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ class AgentConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/agent"
 
     llm_name: NonEmptyStr = Field(
-        description="Agent 使用的 LLM（與 RAG query LLM 解耦）"
+        default="gpt-5.6-luna", description="Agent 使用的 LLM（與 RAG query LLM 解耦）"
     )
-    system_prompt: NonEmptyStr = Field(description="Agent 的系統提示詞")
+    system_prompt: NonEmptyStr = Field(
+        default=AGENT_SYSTEM_PROMPT,
+        description="Agent 的系統提示詞（見 config/prompts.py）",
+    )

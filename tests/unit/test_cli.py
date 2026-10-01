@@ -3,6 +3,7 @@
 - `--run.config` 參數名稱（Python 屬性仍為 config_name）；舊的 `--run.config-name` 被拒。
 - `--module.*` 巢狀覆寫參數：只傳遞有指定的欄位，合併後的 config 值正確。
 - 型別錯誤由 tyro 擋下；dict 欄位（litellm_kwargs）不在 CLI；exp 子命令已移除。
+- `--help` 顯示 config class 的預設值與必填標示，不顯示 None 選項。
 """
 
 from unittest.mock import MagicMock, patch
@@ -159,3 +160,21 @@ def test_serve_command() -> None:
 def test_exp_command_removed() -> None:
     with pytest.raises(SystemExit):
         main(["exp", "rag_dense_vs_hybrid"])
+
+
+def test_help_shows_class_defaults(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("COLUMNS", "200")  # 避免 rich 換行切斷字串
+    with pytest.raises(SystemExit):
+        main(["run", "rag-query", "--help"])
+    out = capsys.readouterr().out
+
+    assert "--module.retriever.similarity-top-k INT" in out
+    assert "dense 檢索回傳的節點數 (default: 10)" in out
+    assert "--module.retriever.query-mode {hybrid,default}" in out
+    # 可選 section 的預設值取自上層的預設實例
+    assert "WeightedRanker 的 [dense, sparse] 權重 (default: [1.0, 0.5])" in out
+    assert "--module.query-engine.query STR" in out
+    assert "(必填，來自設定檔)" in out
+    assert "{None" not in out

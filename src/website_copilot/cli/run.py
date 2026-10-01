@@ -42,35 +42,35 @@ else:
 class WebsiteCrawlerCLI:
     run: WebsiteCrawlerRunConfig
     module: WebsiteCrawlerOverrides
-    """覆寫 configs/website_crawler/<config>.yml 的設定值"""
+    """覆寫 configs/website_crawler/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 @dataclass
 class ImageSummarizerCLI:
     run: ImageSummarizerRunConfig
     module: ImageSummarizerOverrides
-    """覆寫 configs/image_summarizer/<config>.yml 的設定值"""
+    """覆寫 configs/image_summarizer/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 @dataclass
 class RAGBuildCLI:
     run: RAGBuildRunConfig
     module: RAGOverrides
-    """覆寫 configs/rag/<config>.yml 的設定值"""
+    """覆寫 configs/rag/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 @dataclass
 class RAGQueryCLI:
     run: RAGQueryRunConfig
     module: RAGOverrides
-    """覆寫 configs/rag/<config>.yml 的設定值"""
+    """覆寫 configs/rag/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 @dataclass
 class AgentCLI:
     run: AgentRunConfig
     module: AgentOverrides
-    """覆寫 configs/agent/<config>.yml 的設定值"""
+    """覆寫 configs/agent/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 ModuleCommand = (

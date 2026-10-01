@@ -25,31 +25,34 @@
 
 - `src/website_copilot/config/base_config.py`：`ConfigModel`、`BaseModuleConfig`、`NonEmptyStr`。
 - `src/website_copilot/config/yaml_helper.py`：讀取 YAML 並展開 `extends`（`load_config_dict`、`deep_merge`）。
+- `src/website_copilot/config/prompts.py`：長字串預設值（圖片摘要 prompt、agent system prompt）。
+- `src/website_copilot/config/overrides.py`：由 config class 自動產生 CLI 覆寫參數（見 cli.md）。
 
 模型結構：
 
-- `ConfigModel`（`base_config.py`）：所有 config（含巢狀 section）的共用基底，設定 `strict=True`（不做型別轉換，如 `true` 不可放進 int 欄位、`"6"` 不可放進 int 欄位；int 可放進 float 欄位）、`extra="forbid"`（未知 key 直接報錯）、`validate_assignment=True`（建立後修改欄位也會重新驗證）。
-- `BaseModuleConfig`：模組 config 的基底，提供 `from_yaml()` 與 `run_name`；`config_name`、`run_name_fields`、`source`（來源描述）由 loader 設為 `PrivateAttr`，不參與驗證與 `model_dump()`。
-- 每個 YAML 巢狀 mapping（section）對應一個巢狀 `ConfigModel`（如 `RAGConfig.retriever` 為 `RetrieverConfig`），程式以 `config.retriever.similarity_top_k` 存取；`site_id` 等不屬於任何 section 的欄位寫在 TOML 最上層。
-- 程式不給預設值，設定檔為唯一來源：缺少欄位即報錯；只有語意為「未設定」的可選欄位預設為 `None`（`max_depth`、`max_pages`、`seed`、`url_patterns`、`allowed_domains`、`path_prefix`、`webpages_data_folder_path`、`milvus_uri`、`hybrid_ranker_params`），`litellm_kwargs` 預設為空 dict。
+- `ConfigModel`（`base_config.py`）：所有 config（含巢狀 section）的共用基底，設定 `strict=True`（不做型別轉換，如 `true` 不可放進 int 欄位、`"6"` 不可放進 int 欄位；int 可放進 float 欄位）、`extra="forbid"`（未知 key 直接報錯）、`validate_assignment=True`（建立後修改欄位也會重新驗證）、`validate_default=True`（預設值也經過驗證，含跨欄位規則）。
+- `BaseModuleConfig`：模組 config 的基底，提供 `from_yaml()` 與 `run_name`；`config_name`、`run_name_fields`、`source`（來源描述）由 loader 設為 `PrivateAttr`，不參與驗證與 `model_dump()`。`_DEFAULT_RUN_NAME_FIELDS`（ClassVar）為設定檔未寫 `run_name_fields` 時的 run name 欄位。
+- 每個 YAML 巢狀 mapping（section）對應一個巢狀 `ConfigModel`（如 `RAGConfig.retriever` 為 `RetrieverConfig`），程式以 `config.retriever.similarity_top_k` 存取；`site_id` 等不屬於任何 section 的欄位寫在 YAML 最上層。
+- **config class 的欄位預設值是唯一的預設值來源**（Phase C2）：設定檔只寫與預設值不同的部分，省略的欄位使用預設值；section 以 `default_factory` 建立，因此可直接 `RetrieverConfig()`、`RAGConfig(site_id=..., query_engine=QueryEngineConfig(query=...))` 建立 config，不需讀設定檔。長 prompt 在 `config/prompts.py`。
+- 站點欄位（`site_id`、`crawl.url`、`query_engine.query`）沒有預設值、必須寫在設定檔（Phase D 移到 `SiteConfig`／run config）；`crawl` 的 `url_patterns`／`allowed_domains`／`path_prefix` 預設為 `None`（不過濾）。
 - 單欄位約束以型別與 `Field` 表達（`PositiveInt`、`Literal`、`Field(ge=, le=)` 等）；非空字串使用 `NonEmptyStr`（只檢查不改寫，prompt 的前後換行原樣保留）。
 - 跨欄位規則以 `model_validator` 實作：`nodes.chunk_overlap < nodes.chunk_size`；`hybrid_ranker_params` 有設定時，`WeightedRanker` 必須有 `weights`（長度 2）且不可有 `k`，`RRFRanker` 必須有 `k` 且不可有 `weights`。
 
 載入流程（`BaseModuleConfig.from_yaml(config_name, overrides=None)`）：
 
-1. 由 `config_name` 組出 `configs/<module>/<config_name>.yml`，以 `yaml.safe_load` 讀成 dict，逐層處理 `extends` 並以 deep merge 由父到子合併（`config/yaml_helper.py`）。
-2. 取出最上層保留 key `run_name_fields`（dotted path 的 list，省略時為 `[]`），檢查每個路徑都指向模型欄位。
-3. 扁平 overrides（如 `similarity_top_k=20`）依欄位名稱放入所屬 section；找不到欄位時報錯（過渡機制，CLI 改為巢狀參數後移除）。
-4. `model_validate(dict)`（只驗證合併後的結果一次）；`ValidationError` 轉成 `ConfigValidationError`，訊息含設定檔路徑、繼承鏈與欄位路徑，如 `configs/rag/test.yml (extends: test_nculab → nculab → default): retriever.similarity_top_k: Input should be greater than 0`。
+1. 由 `config_name` 組出 `configs/<module>/<config_name>.yml`，以 `yaml.safe_load` 讀成 dict，逐層處理 `extends` 並以 deep merge 由父到子合併（`config/yaml_helper.py`）。`default.yml` 可省略：檔案不存在時視為空設定（等於 class 預設值）；其他名稱或 `extends: default` 找不到檔案時報錯。
+2. 取出最上層保留 key `run_name_fields`（dotted path 的 list），檢查每個路徑都指向模型欄位；未寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`。
+3. 巢狀 overrides（如 `{"retriever": {"similarity_top_k": 20}}`）以同一個 deep merge 疊在最上層（父檔 < 子檔 < overrides）。
+4. `model_validate(dict)`（只驗證合併後的結果一次，未寫的欄位補上 class 預設值）；`ValidationError` 轉成 `ConfigValidationError`，訊息含設定檔路徑、繼承鏈與欄位路徑，如 `configs/rag/test.yml (extends: test_nculab → nculab → default): retriever.similarity_top_k: Input should be greater than 0`。
 5. 設定 `config_name`、`run_name_fields` 與 `source`。
 
 設定檔撰寫方式（`extends` 合併規則、`null` 清除、YAML 1.1 注意事項）見 [configs/README.md](../../../configs/README.md)。
 
-備註：`run_config.yml` 只在呼叫端傳入 `run_config` 時，由 pipeline 函式呼叫 `utils.config_helper.save_run_config()` 寫出（`website-copilot run` 與 `serve` 會傳入，內容含 `save`／`publish`；此機制同為保持執行可追溯性）。
+備註：`run_config` 為所有 pipeline 函式的必填參數，`run_config.yml` 一律由 pipeline 函式呼叫 `utils.config_helper.save_run_config()` 寫出（內容含 `save`／`publish`）。
 
 ## 二、各模組怎麼載入與覆寫
 
-以下為各模組在程式庫中的實際對應位置與載入流程摘要（已同步程式碼）：
+以下為各模組的欄位摘要；預設值見各 config class，或 `uv run website-copilot run <module> --help` 的 `(default: ...)`：
 
 ### Website crawler
 
@@ -71,23 +74,23 @@
 
 - Config model: `RAGConfig`（`src/website_copilot/config/rag_config.py`），設定檔 `configs/rag/{config_name}.yml`。
 - 最上層：`site_id`、`webpages_data_folder_path`（可省略，預設 `data/webpages/{site_id}`）。
-- `vector_store`：`vector_store_type`（僅 `"milvus"`）、`milvus_uri`（可省略，預設 `data/rag/{site_id}/milvus.db`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`）、`hybrid_ranker_params`（可省略，如 `{ weights = [1.0, 0.5] }` 或 `{ k = 60 }`；省略時依 ranker 使用預設值）。
+- `vector_store`：`vector_store_type`（僅 `"milvus"`）、`milvus_uri`（可省略，預設 `data/rag/{site_id}/milvus.db`）、`hybrid_ranker`（`"RRFRanker"` 或 `"WeightedRanker"`）、`hybrid_ranker_params`（預設 `{weights: [1.0, 0.5]}`；改用 RRFRanker 時寫 `{k: 60}`；寫 `null` 時依 ranker 使用內建參數）。
 - `nodes`：`chunk_size`、`chunk_overlap`、`paragraph_separator`。
 - `index`：`embedding_name`。
 - `retriever`：`query_mode`（`"default"` 或 `"hybrid"`）、`similarity_top_k`、`hybrid_top_k`、`alpha`（0～1）。
 - `query_engine`：`query_llm_name`、`evaluator_llm_name`、`cutoff`（0～1；hybrid 模式不使用）、`query`。
 
-目前 `configs/rag/*.yml` 皆設定為 **Milvus hybrid search**（`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）。
+目前 class 預設值與 `configs/rag/*.yml` 皆為 **Milvus hybrid search**（`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）。
 
 ### Agent
 
 - Config model: `AgentConfig`（`src/website_copilot/config/agent_config.py`），設定檔 `configs/agent/{config_name}.yml`（無 section）。
 - 欄位：`llm_name`（與 RAG config 的 `query_llm_name` **解耦**）、`system_prompt`。
-- 現行 `configs/agent/{default,test}.yml` 的 `run_name_fields` 為 `[]`，故 `run_name` 為 `default`。
+- `configs/agent/` 沒有 `default.yml`（`--run.config default` 即 class 預設值）；`test.yml` 目前與預設值相同。`run_name` 為 `default`。
 
 ## 三、共用 helper（`utils/config_helper.py`）
 
-- `save_module_config(config, file_path)`：以 `config.model_dump()` 寫出 extends 展開後的完整 config（不含 `extends`），檔頭註解記錄來源與 run name 欄位，如：
+- `save_module_config(config, file_path)`：以 `config.model_dump()` 寫出完整 config（extends 展開並補上 class 預設值，不含 `extends`），檔頭註解記錄來源與 run name 欄位，如：
   ```yaml
   # source: configs/rag/test.yml (extends: test_nculab → nculab → default)
   # run_name_fields: [vector_store.vector_store_type]

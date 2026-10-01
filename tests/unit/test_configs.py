@@ -1,6 +1,8 @@
 """module config（pydantic）載入與驗證測試。
 
 - configs/ 下所有設定檔皆能載入並通過驗證。
+- class 預設值：不經設定檔即可建立、預設值本身通過驗證、設定檔省略的欄位使用預設值、
+  `default` 設定檔可省略。
 - strict 型別、未知 key、跨欄位規則、validate_assignment。
 - ConfigValidationError 的訊息包含設定檔路徑與欄位路徑。
 - run_name_fields 與 run_name 組成；扁平 overrides 放入所屬 section。
@@ -14,13 +16,21 @@ from typing import Any
 
 import pytest
 import yaml
-from pydantic import ValidationError
+from pydantic import PositiveInt, ValidationError
 
 from website_copilot.config.agent_config import AgentConfig
-from website_copilot.config.base_config import BaseModuleConfig
+from website_copilot.config.base_config import BaseModuleConfig, ConfigModel
 from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
-from website_copilot.config.rag_config import RAGConfig
-from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
+from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
+from website_copilot.config.rag_config import (
+    QueryEngineConfig,
+    RAGConfig,
+    RetrieverConfig,
+)
+from website_copilot.config.website_crawler_config import (
+    CrawlConfig,
+    WebsiteCrawlerConfig,
+)
 from website_copilot.config.yaml_helper import load_config_dict
 from website_copilot.utils.config_helper import (
     ConfigValidationError,
@@ -39,10 +49,20 @@ CONFIG_FILES = sorted(Path("configs").glob("*/*.yml"))
 
 
 def _load_dict(module: str, name: str = "test") -> dict[str, Any]:
-    """extends 展開後、移除 run_name_fields 的設定內容（可直接 model_validate）。"""
+    """repo 中 configs/ 的設定載入後的完整內容（含 class 預設值，可直接 model_validate 或寫成
+    設定檔）；固定讀取 repo 的 configs/，不受測試中 monkeypatch 的 _CONFIG_FOLDER_PATH 影響。"""
     data = load_config_dict(f"configs/{module}", name).data
     data.pop("run_name_fields", None)
-    return data
+    return MODULE_CONFIGS[module].model_validate(data).model_dump()
+
+
+# 各模組在 Phase D 前必填的站點欄位（其餘欄位皆有 class 預設值）
+SITE_FIELDS: dict[str, dict[str, Any]] = {
+    "website_crawler": {"site_id": "s", "crawl": {"url": "https://example.com/"}},
+    "image_summarizer": {"site_id": "s"},
+    "rag": {"site_id": "s", "query_engine": {"query": "q"}},
+    "agent": {},
+}
 
 
 # ---------- configs/ 下所有設定檔 ----------
@@ -62,6 +82,106 @@ def test_all_config_files_load(path: Path) -> None:
 def test_config_files_found() -> None:
     assert {p.parent.name for p in CONFIG_FILES} == set(MODULE_CONFIGS)
     assert not list(Path("configs").glob("**/*.toml"))
+
+
+# ---------- class 預設值 ----------
+
+
+@pytest.mark.parametrize("module", list(MODULE_CONFIGS))
+def test_build_without_config_file(module: str) -> None:
+    """只給站點欄位即可建立，其餘欄位使用 class 預設值（含跨欄位規則的驗證）。"""
+    config = MODULE_CONFIGS[module].model_validate(SITE_FIELDS[module])
+
+    assert config.run_name
+
+
+def test_section_defaults() -> None:
+    assert RetrieverConfig().similarity_top_k == 10
+    config = RAGConfig(site_id="s", query_engine=QueryEngineConfig(query="q"))
+    assert config.retriever == RetrieverConfig()
+    params = config.vector_store.hybrid_ranker_params
+    assert params is not None and params.weights == [1.0, 0.5]
+    assert AgentConfig().system_prompt == AGENT_SYSTEM_PROMPT
+
+
+def test_mutable_defaults_not_shared() -> None:
+    a = RAGConfig(site_id="a", query_engine=QueryEngineConfig(query="q"))
+    b = RAGConfig(site_id="b", query_engine=QueryEngineConfig(query="q"))
+    a.retriever.similarity_top_k = 20
+    assert a.vector_store.hybrid_ranker_params is not None
+    a.vector_store.hybrid_ranker_params.weights = [0.1, 0.9]
+
+    assert b.retriever.similarity_top_k == 10
+    assert b.vector_store.hybrid_ranker_params is not None
+    assert b.vector_store.hybrid_ranker_params.weights == [1.0, 0.5]
+
+
+def test_invalid_default_rejected() -> None:
+    """validate_default：誤寫的預設值在建立時即報錯。"""
+
+    class _Bad(ConfigModel):
+        count: PositiveInt = 0
+
+    with pytest.raises(ValidationError, match="count"):
+        _Bad()
+
+
+def test_omitted_field_uses_class_default() -> None:
+    data = _load_dict("rag")
+    del data["retriever"]["alpha"]
+    del data["index"]
+
+    config = RAGConfig.model_validate(data)
+
+    assert config.retriever.alpha == RetrieverConfig().alpha
+    assert config.index.embedding_name == "text-embedding-3-small"
+
+
+@pytest.mark.parametrize(
+    ("module", "path"),
+    [
+        ("website_crawler", "site_id"),
+        ("website_crawler", "crawl.url"),
+        ("rag", "query_engine.query"),
+        ("image_summarizer", "site_id"),
+    ],
+)
+def test_missing_site_field_rejected(module: str, path: str) -> None:
+    """站點欄位在 Phase D 前維持必填，不以特定站點的值作為預設。"""
+    data = _load_dict(module)
+    *sections, name = path.split(".")
+    target = data
+    for section in sections:
+        target = target[section]
+    del target[name]
+
+    with pytest.raises(ValidationError, match=path):
+        MODULE_CONFIGS[module].model_validate(data)
+
+
+def test_crawl_site_fields_have_no_site_defaults() -> None:
+    crawl = CrawlConfig(url="https://example.com/")
+
+    assert (crawl.url_patterns, crawl.allowed_domains, crawl.path_prefix) == (
+        None,
+        None,
+        None,
+    )
+
+
+def test_default_config_file_optional() -> None:
+    """`default` 沒有設定檔時等於 class 預設值（agent 已無 default.yml）。"""
+    assert not Path("configs/agent/default.yml").exists()
+
+    config = AgentConfig.from_yaml("default")
+
+    assert config.model_dump() == AgentConfig().model_dump()
+    assert config.source == "AgentConfig 預設值（configs/agent/default.yml 不存在）"
+
+
+def test_missing_non_default_config_file_rejected() -> None:
+    with pytest.raises(FileNotFoundError, match="missing.yml"):
+        AgentConfig.from_yaml("missing")
 
 
 # ---------- strict 型別與未知 key ----------
@@ -107,14 +227,6 @@ def test_unknown_key_rejected(section: str | None) -> None:
     (data if section is None else data[section])["unknown_key"] = 1
 
     with pytest.raises(ValidationError, match="unknown_key"):
-        RAGConfig.model_validate(data)
-
-
-def test_missing_required_field_rejected() -> None:
-    data = _load_dict("rag")
-    del data["retriever"]["alpha"]
-
-    with pytest.raises(ValidationError, match="retriever.alpha"):
         RAGConfig.model_validate(data)
 
 
@@ -172,10 +284,7 @@ def test_hybrid_ranker_params_rules(
 ) -> None:
     data = _load_dict("rag")
     data["vector_store"]["hybrid_ranker"] = ranker
-    if params is None:
-        del data["vector_store"]["hybrid_ranker_params"]
-    else:
-        data["vector_store"]["hybrid_ranker_params"] = params
+    data["vector_store"]["hybrid_ranker_params"] = params
 
     if valid:
         RAGConfig.model_validate(data)
@@ -296,6 +405,21 @@ def test_missing_config_file(tmp_rag_folder: Path) -> None:
         RAGConfig.from_yaml("missing")
 
 
+def test_extends_missing_default_rejected(tmp_rag_folder: Path) -> None:
+    """`default` 可省略只適用於直接載入；extends 指向不存在的 default.yml 照舊報錯。"""
+    (tmp_rag_folder / "child.yml").write_text("extends: default\n")
+
+    with pytest.raises(ConfigValidationError, match="繼承鏈：child → default"):
+        RAGConfig.from_yaml("child")
+
+
+def test_default_without_file_still_requires_site_fields(
+    tmp_rag_folder: Path,
+) -> None:
+    with pytest.raises(ConfigValidationError, match="site_id"):
+        RAGConfig.from_yaml("default")
+
+
 def test_nested_overrides_deep_merged() -> None:
     """overrides 以 deep merge 疊在 extends 展開結果上，未指定的欄位保留設定檔的值。"""
     config = RAGConfig.from_yaml(
@@ -392,6 +516,23 @@ def test_invalid_run_name_fields_rejected(
         WebsiteCrawlerConfig.from_yaml("c")
 
 
+def test_run_name_fields_class_default(tmp_rag_folder: Path) -> None:
+    """設定檔未寫 run_name_fields 時使用 class 預設；寫 [] 時明確清空。"""
+    dump_yaml(_load_dict("rag"), tmp_rag_folder / "plain.yml")
+    dump_yaml({"extends": "plain", "run_name_fields": []}, tmp_rag_folder / "empty.yml")
+
+    assert RAGConfig.from_yaml("plain").run_name == "vector_store_type-milvus"
+    assert RAGConfig.from_yaml("empty").run_name_fields == []
+    assert RAGConfig.from_yaml("empty").run_name == "default"
+
+
+def test_run_name_without_loader() -> None:
+    config = RAGConfig(site_id="s", query_engine=QueryEngineConfig(query="q"))
+
+    assert config.run_name_fields == ["vector_store.vector_store_type"]
+    assert config.run_name == "vector_store_type-milvus"
+
+
 def test_private_attrs_not_dumped() -> None:
     config = RAGConfig.from_yaml("test")
 
@@ -442,15 +583,16 @@ def test_saved_multiline_prompt_is_block_scalar(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("module", list(MODULE_CONFIGS))
-def test_saved_module_config_sections(module: str, tmp_path: Path) -> None:
-    """存檔的 key 與設定檔（extends 展開後）相同。"""
+def test_saved_module_config_has_all_fields(module: str, tmp_path: Path) -> None:
+    """存檔包含所有欄位（含 class 預設值與 null），不只設定檔寫到的部分。"""
+    config_cls = MODULE_CONFIGS[module]
     path = tmp_path / "module_config.yml"
-    save_module_config(MODULE_CONFIGS[module].from_yaml("test"), str(path))
+    save_module_config(config_cls.from_yaml("test"), str(path))
     with open(path, encoding="utf-8") as f:
         saved = yaml.safe_load(f)
-    source = _load_dict(module)
 
-    assert set(saved) == set(source)
-    for key, value in source.items():
-        if isinstance(value, dict):
-            assert set(value) <= set(saved[key])
+    assert list(saved) == list(config_cls.model_fields)
+    for name, value in saved.items():
+        annotation = config_cls.model_fields[name].annotation
+        if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
+            assert list(value) == list(annotation.model_fields)

@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 class NodePipelineBuilder:
     def __init__(
         self,
-        chunk_size: int = 800,
-        chunk_overlap: int = 100,
-        paragraph_separator: str = "\n\n",
+        *,
+        chunk_size: int,
+        chunk_overlap: int,
+        paragraph_separator: str,
     ) -> None:
+        """參數皆由 RAGConfig.nodes 傳入（預設值見 config）。"""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.paragraph_separator = paragraph_separator

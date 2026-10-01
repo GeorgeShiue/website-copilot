@@ -65,13 +65,16 @@ class ExcludeWordsGenerationError(RuntimeError):
 class WebpageMarkdownCleaner:
     def __init__(
         self,
-        model: str = "gpt-5.6-luna",
-        sample_ratio: float = 0.1,
-        repeat: int = 5,
-        max_prompt_tokens: int = 200_000,
-        seed: int | None = None,
+        *,
+        model: str,
+        sample_ratio: float,
+        repeat: int,
+        max_prompt_tokens: int,
+        seed: int | None,
         max_low_occ_ratio: float = 0.1,
     ) -> None:
+        """model～seed 由 WebsiteCrawlerConfig.clean 傳入（預設值見 config）；
+        max_low_occ_ratio 為內部參數，不在 config 中。"""
         # ===== init args =====
         self.model = model
         self.sample_ratio = sample_ratio

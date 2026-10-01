@@ -45,14 +45,16 @@ class VectorStoreBuilder:
         collection_name: str,
         milvus_uri: str,
         embedding_name: str,
-        hybrid_ranker: str = "WeightedRanker",
-        hybrid_ranker_params: dict | None = None,
+        hybrid_ranker: str,
+        hybrid_ranker_params: dict | None,
     ) -> MilvusVectorStore:
         """建立 MilvusVectorStore。
 
         固定不使用 MilvusVectorStore 內建的 overwrite（collection 層級的
         drop + recreate），一律沿用既有 collection；若要重建，呼叫端須先以
         IndexBuilder.clean() 整檔刪除，讓這裡等同於全新建立。
+
+        hybrid_ranker_params 為 None 時依 hybrid_ranker 套用內建參數（「未設定」語意）。
         """
         dim = VectorStoreBuilder.resolve_embedding_dim(embedding_name)
         if hybrid_ranker_params is None:

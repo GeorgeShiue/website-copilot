@@ -1,17 +1,32 @@
 """WebpageMarkdownCleaner 的 LLM 產生 exclude_words 與清理單元測試。"""
 
 import json
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 from litellm import ModelResponse
 
+from website_copilot.config.website_crawler_config import CleanConfig
 from website_copilot.ingestion.crawling.markdown_cleaner import (
     ExcludeWordsGenerationError,
     WebpageMarkdownCleaner,
 )
 
 MOD = "website_copilot.ingestion.crawling.markdown_cleaner"
+
+
+def _cleaner(**kwargs: Any) -> WebpageMarkdownCleaner:
+    """以 CleanConfig 的預設值建立 cleaner，kwargs 覆寫個別參數。"""
+    clean = CleanConfig()
+    params: dict[str, Any] = {
+        "model": clean.llm_model,
+        "sample_ratio": clean.sample_ratio,
+        "repeat": clean.repeat,
+        "max_prompt_tokens": clean.max_prompt_tokens,
+        "seed": clean.seed,
+    }
+    return WebpageMarkdownCleaner(**{**params, **kwargs})
 
 
 def _response(words):
@@ -51,7 +66,7 @@ def test_generate_union_and_vote_order():
         _response(["Skip to main content", "Footer text"]),
         _response(["Footer text", "Skip to main content"]),
     ]
-    cleaner = WebpageMarkdownCleaner(repeat=3, seed=0)
+    cleaner = _cleaner(repeat=3, seed=0)
     with (
         patch(f"{MOD}.completion", side_effect=responses),
         patch(f"{MOD}.completion_cost", return_value=0.01),
@@ -65,7 +80,7 @@ def test_generate_union_and_vote_order():
 
 
 def test_single_run_failure_is_skipped_all_fail_raises():
-    cleaner = WebpageMarkdownCleaner(repeat=2, seed=0)
+    cleaner = _cleaner(repeat=2, seed=0)
     with (
         patch(
             f"{MOD}.completion",
@@ -86,7 +101,7 @@ def test_single_run_failure_is_skipped_all_fail_raises():
 
 
 def test_prompt_over_limit_raises():
-    cleaner = WebpageMarkdownCleaner(repeat=2, max_prompt_tokens=10)
+    cleaner = _cleaner(repeat=2, max_prompt_tokens=10)
     with (
         patch(f"{MOD}.token_counter", return_value=11),
         patch(f"{MOD}.completion") as c,
@@ -97,12 +112,12 @@ def test_prompt_over_limit_raises():
 
 
 def test_clean_pages_applies_exclude_words():
-    out = WebpageMarkdownCleaner().clean_pages(PAGES, ["Footer text"])
+    out = _cleaner().clean_pages(PAGES, ["Footer text"])
     assert all("Footer text" not in v and "body" in v for v in out.values())
 
 
 def test_propose_words_rejects_stream_response():
-    cleaner = WebpageMarkdownCleaner(repeat=1, seed=0)
+    cleaner = _cleaner(repeat=1, seed=0)
     with (
         patch(f"{MOD}.completion", return_value=object()),
         patch(f"{MOD}.token_counter", return_value=100),
@@ -116,20 +131,20 @@ def test_validate_words_threshold_boundary():
     # 30 頁（單頁行覆蓋率 1/30 < LOW_COVERAGE）：導覽詞每頁都有；「正文」只在 p0 出現
     pages = {f"p{i}": f"nav bar\nbody {i}" for i in range(30)}
     pages["p0"] += "\n正文 sentence"
-    cleaner = WebpageMarkdownCleaner(max_low_occ_ratio=0.1)
+    cleaner = _cleaner(max_low_occ_ratio=0.1)
     kept, stats = cleaner.validate_words(pages, ["nav bar", "正文"])
     assert kept == ["nav bar"]
     assert stats["正文"]["low_occ_ratio"] == 1.0
     # 「body」30 行皆為低覆蓋行（各只在 1 頁）→ 比例 1.0；放寬到 1.0 才保留
     assert cleaner.validate_words(pages, ["body"])[0] == []
-    assert WebpageMarkdownCleaner(max_low_occ_ratio=1.0).validate_words(
-        pages, ["body"]
-    )[0] == ["body"]
+    assert _cleaner(max_low_occ_ratio=1.0).validate_words(pages, ["body"])[0] == [
+        "body"
+    ]
 
 
 def test_generate_rejects_low_coverage_word():
     responses = [_response(["Footer text", "only"])] * 2
-    cleaner = WebpageMarkdownCleaner(repeat=2, seed=0)
+    cleaner = _cleaner(repeat=2, seed=0)
     with (
         patch(f"{MOD}.completion", side_effect=responses),
         patch(f"{MOD}.completion_cost", return_value=0.0),
@@ -143,7 +158,7 @@ def test_generate_rejects_low_coverage_word():
 
 
 def test_generate_all_rejected_returns_empty_words():
-    cleaner = WebpageMarkdownCleaner(repeat=1, seed=0)
+    cleaner = _cleaner(repeat=1, seed=0)
     with (
         patch(f"{MOD}.completion", return_value=_response(["only"])),
         patch(f"{MOD}.completion_cost", return_value=0.0),
@@ -154,7 +169,7 @@ def test_generate_all_rejected_returns_empty_words():
 
 
 def test_generate_skips_llm_when_too_few_pages():
-    cleaner = WebpageMarkdownCleaner(repeat=2)
+    cleaner = _cleaner(repeat=2)
     with patch(f"{MOD}.completion") as c:
         assert cleaner.generate_exclude_words({"a": "Footer text"}) is None
         c.assert_not_called()
