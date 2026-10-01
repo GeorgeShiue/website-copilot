@@ -11,7 +11,7 @@ import pytest
 
 RAG_DIR = Path(__file__).resolve().parents[2] / "data" / "rag"
 STORES = sorted(p for p in RAG_DIR.glob("*.db") if p.is_dir())
-EXPECTED_SITES = ["claudecode", "ncucsie", "nculab"]
+EXPECTED_SITES = ["ncucsie", "nculab"]
 
 
 def test_published_sites() -> None:

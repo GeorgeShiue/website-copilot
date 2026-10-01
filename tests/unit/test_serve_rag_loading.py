@@ -137,4 +137,4 @@ def test_registry_loads_published_sites_in_repo(
 
 
 def test_published_sites_found() -> None:
-    assert PUBLISHED_SITES == ["claudecode", "ncucsie", "nculab"]
+    assert PUBLISHED_SITES == ["ncucsie", "nculab"]

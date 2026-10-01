@@ -101,7 +101,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   └── sync-widget.sh           # 同步 widget.js 到 extension/
 ├── configs/
 │   ├── README.md                # 設定檔撰寫說明（站點／模組設定、extends、YAML 注意事項）
-│   ├── sites/                   # 站點設定：nculab / ncucsie / claudecode（site_id、sample_query、爬取範圍）
+│   ├── sites/                   # 站點設定：nculab / ncucsie（site_id、sample_query、爬取範圍）
 │   ├── website_crawler/         # 模組設定：test.yml（只寫與 class 預設值不同的部分）
 │   ├── image_summarizer/
 │   ├── rag/

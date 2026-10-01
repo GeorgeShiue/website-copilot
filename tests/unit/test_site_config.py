@@ -49,7 +49,7 @@ def test_all_site_files_load(path: Path) -> None:
 
 
 def test_site_files_found() -> None:
-    assert SiteConfig.available_sites() == ["claudecode", "ncucsie", "nculab"]
+    assert SiteConfig.available_sites() == ["ncucsie", "nculab"]
 
 
 def test_crawl_optional_fields_default_to_none() -> None:

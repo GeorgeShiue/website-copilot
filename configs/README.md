@@ -7,7 +7,7 @@
 
 ```
 configs/
-├── sites/             # SiteConfig：nculab.yml / ncucsie.yml / claudecode.yml
+├── sites/             # SiteConfig：nculab.yml / ncucsie.yml
 ├── website_crawler/   # WebsiteCrawlerConfig：test.yml
 ├── image_summarizer/  # ImageSummarizerConfig：test.yml
 ├── rag/               # RAGConfig：test.yml
