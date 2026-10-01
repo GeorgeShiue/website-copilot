@@ -47,7 +47,7 @@ def _close_vector_store(vector_store: MilvusVectorStore, milvus_uri: str) -> Non
                 logger.warning("Milvus Lite server release failed", exc_info=True)
 
 
-# 所有站點的 Milvus collection 名稱：向量庫已是每站一份（data/rag/{site_id}.db），
+# 所有站點的 Milvus collection 名稱：向量庫已是每站一份（data/vector_db/{site_id}.db），
 # collection 不再重複 site_id（站點資訊仍在 node metadata）。
 COLLECTION_NAME = "chunks"
 
@@ -58,12 +58,12 @@ class RAGTarget:
 
     Attributes:
         site_id: 站點識別碼，寫入 node metadata。
-        webpages_dir: 建庫資料來源（含 results.json 與 results/*.md 的資料夾）。
+        aug_webpages_dir: 建庫資料來源（含 results.json 與 results/*.md 的資料夾）。
         milvus_uri: 向量庫位置（Milvus Lite 資料夾，名稱須以 .db 結尾）。
     """
 
     site_id: str
-    webpages_dir: str
+    aug_webpages_dir: str
     milvus_uri: str
 
 
@@ -95,11 +95,11 @@ class IndexBuilder:
     def build_or_load(self, force_rebuild: bool = False) -> IndexHandle:
         """建到 index 層級，視情況重建或載入既有 index。不含 retriever／query engine。
 
-        - force_rebuild=True 或 store 路徑不存在時重建（讀取 webpages 來源）。
-        - 否則載入既有向量庫（不讀取 webpages）。
+        - force_rebuild=True 或 store 路徑不存在時重建（讀取 aug_webpages 來源）。
+        - 否則載入既有向量庫（不讀取 aug_webpages）。
         """
         if self._should_rebuild(force_rebuild):
-            source = load_source(self.target.webpages_dir)
+            source = load_source(self.target.aug_webpages_dir)
             return self.build(source)
         return self.load()
 

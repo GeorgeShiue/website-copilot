@@ -4,8 +4,8 @@
 - 走「載入既有向量庫」路徑：不清除、不建 nodes、不建 index，並重新 load collection。
 - 只建到 retriever 層級，不建 query engine。
 - 向量庫不存在時，拋出指示先執行 prepare 的 FileNotFoundError。
-- 不需要 data/webpages/（serve 只讀向量庫），也不需要 configs/（RAG 參數使用 class 預設值）。
-- repo 中已 publish 的 data/rag/{site_id}.db 皆能以 site_id 載入。
+- 不需要 data/aug_webpages/（serve 只讀向量庫），也不需要 configs/（RAG 參數使用 class 預設值）。
+- repo 中已 publish 的 data/vector_db/{site_id}.db 皆能以 site_id 載入。
 
 只 patch 掉 Milvus / embedding / retriever 等外部資源，其餘（RAGConfig、RAGRegistry、
 IndexBuilder／RAGBuilder 的流程）皆為真實程式碼。
@@ -34,11 +34,11 @@ FACTORY = "website_copilot.retrieval.factory"
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """在 tmp 目錄建立已 publish 的 data/（沒有 configs/），並切換工作目錄。"""
-    (tmp_path / "data" / "rag" / f"{SITE_ID}.db").mkdir(parents=True)
+    (tmp_path / "data" / "vector_db" / f"{SITE_ID}.db").mkdir(parents=True)
 
-    webpages_dir = tmp_path / "data" / "webpages" / SITE_ID
-    webpages_dir.mkdir(parents=True)
-    (webpages_dir / "results.json").write_text(json.dumps({}), encoding="utf-8")
+    aug_webpages_dir = tmp_path / "data" / "aug_webpages" / SITE_ID
+    aug_webpages_dir.mkdir(parents=True)
+    (aug_webpages_dir / "results.json").write_text(json.dumps({}), encoding="utf-8")
 
     monkeypatch.chdir(tmp_path)
     return tmp_path
@@ -75,7 +75,7 @@ def test_registry_get_loads_published_store_to_retriever(
         fake_backends["build_store"].assert_called_once()
         store_kwargs = fake_backends["build_store"].call_args.kwargs
         assert store_kwargs["collection_name"] == "chunks"
-        assert store_kwargs["milvus_uri"] == f"data/rag/{SITE_ID}.db"
+        assert store_kwargs["milvus_uri"] == f"data/vector_db/{SITE_ID}.db"
         store.client.load_collection.assert_called_once_with(store.collection_name)
 
         fake_backends["clean_store"].assert_not_called()
@@ -91,12 +91,12 @@ def test_registry_get_loads_published_store_to_retriever(
 def test_load_raises_when_vector_store_missing(
     workspace: Path, fake_backends: dict[str, MagicMock]
 ) -> None:
-    (workspace / "data" / "rag" / f"{SITE_ID}.db").rmdir()
+    (workspace / "data" / "vector_db" / f"{SITE_ID}.db").rmdir()
     with pytest.raises(FileNotFoundError) as exc_info:
         load_rag(RAGConfig(), published_target(SITE_ID))
 
     assert str(exc_info.value) == (
-        f"Vector store not found: data/rag/{SITE_ID}.db"
+        f"Vector store not found: data/vector_db/{SITE_ID}.db"
         "（請先執行 prepare 階段建置並 publish 向量庫）"
     )
     fake_backends["build_store"].assert_not_called()
@@ -105,18 +105,18 @@ def test_load_raises_when_vector_store_missing(
 def test_registry_get_works_without_webpages(
     workspace: Path, fake_backends: dict[str, MagicMock]
 ) -> None:
-    shutil.rmtree(workspace / "data" / "webpages")
+    shutil.rmtree(workspace / "data" / "aug_webpages")
 
     with RAGRegistry(config_name="default", base_folder="data") as registry:
         rag = registry.get(SITE_ID)
 
         assert rag.retriever is fake_backends["retriever_cls"].return_value
-        assert rag.milvus_uri == f"data/rag/{SITE_ID}.db"
+        assert rag.milvus_uri == f"data/vector_db/{SITE_ID}.db"
 
 
 PUBLISHED_SITES = sorted(
     path.name.removesuffix(".db")
-    for path in (REPO_ROOT / "data" / "rag").glob("*.db")
+    for path in (REPO_ROOT / "data" / "vector_db").glob("*.db")
     if path.is_dir()
 )
 
@@ -125,7 +125,7 @@ PUBLISHED_SITES = sorted(
 def test_registry_loads_published_sites_in_repo(
     site_id: str, fake_backends: dict[str, MagicMock]
 ) -> None:
-    """repo 中已 publish 的向量庫 collection 名稱固定為 chunks，且位於 data/rag/{site_id}.db。"""
+    """repo 中已 publish 的向量庫 collection 名稱固定為 chunks，且位於 data/vector_db/{site_id}.db。"""
     data_folder = str(REPO_ROOT / "data")
     with RAGRegistry(config_name="default", base_folder=data_folder) as registry:
         assert site_id in registry.list_sites()
@@ -133,7 +133,7 @@ def test_registry_loads_published_sites_in_repo(
 
         store_kwargs = fake_backends["build_store"].call_args.kwargs
         assert store_kwargs["collection_name"] == "chunks"
-        assert rag.milvus_uri == f"{data_folder}/rag/{site_id}.db"
+        assert rag.milvus_uri == f"{data_folder}/vector_db/{site_id}.db"
 
 
 def test_published_sites_found() -> None:

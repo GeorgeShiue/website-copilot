@@ -1,15 +1,15 @@
-"""repo 中已發布向量庫（data/rag/{site_id}.db）的佈局檢查。
+"""repo 中已發布向量庫（data/vector_db/{site_id}.db）的佈局檢查。
 
 - 資料夾名稱以 .db 結尾（Milvus Lite 要求），collection 固定為 chunks。
 - parquet 路徑中 site_id 只出現一次（不再重複），沒有 milvus.db 這一層。
-- 設定紀錄集中在 meta/，與向量庫同版；data/rag 下沒有 publish 中間產物或舊版佈局。
+- 設定紀錄集中在 meta/，與向量庫同版；data/vector_db 下沒有 publish 中間產物或舊版佈局。
 """
 
 from pathlib import Path
 
 import pytest
 
-RAG_DIR = Path(__file__).resolve().parents[2] / "data" / "rag"
+RAG_DIR = Path(__file__).resolve().parents[2] / "data" / "vector_db"
 STORES = sorted(p for p in RAG_DIR.glob("*.db") if p.is_dir())
 EXPECTED_SITES = ["ncucsie", "nculab"]
 
@@ -19,7 +19,7 @@ def test_published_sites() -> None:
 
 
 def test_rag_dir_has_only_vector_stores() -> None:
-    """沒有 .staging-*／.tmp／.old，也沒有舊版 data/rag/{site}/ 資料夾。"""
+    """沒有 .staging-*／.tmp／.old，也沒有舊版 data/vector_db/{site}/ 資料夾。"""
     assert sorted(p.name for p in RAG_DIR.iterdir()) == [
         f"{s}.db" for s in EXPECTED_SITES
     ]

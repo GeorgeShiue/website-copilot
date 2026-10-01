@@ -1,6 +1,6 @@
 """RAGRegistry：多站 RAG 實例管理器（lazy 載入 + LRU 快取，唯讀）。
 
-只載入 prepare 階段已 publish 的向量庫（data/rag/{site_id}.db），不做任何建置。
+只載入 prepare 階段已 publish 的向量庫（data/vector_db/{site_id}.db），不做任何建置。
 
 此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
 """
@@ -38,15 +38,17 @@ class RAGRegistry:
         self._max_cached = max_cached
 
     def _site_exists(self, site_id: str) -> bool:
-        """檢查指定 site_id 是否已 publish 向量庫（data/rag/{site_id}.db 資料夾）。"""
-        return os.path.isdir(os.path.join(self.base_folder, "rag", f"{site_id}.db"))
+        """檢查指定 site_id 是否已 publish 向量庫（data/vector_db/{site_id}.db 資料夾）。"""
+        return os.path.isdir(
+            os.path.join(self.base_folder, "vector_db", f"{site_id}.db")
+        )
 
     def list_sites(self) -> list[str]:
-        """回傳所有可查詢的 site_id 列表（掃描 data/rag/ 下已 publish 向量庫的站點）。
+        """回傳所有可查詢的 site_id 列表（掃描 data/vector_db/ 下已 publish 向量庫的站點）。
 
-        以向量庫而非 data/webpages/ 判斷，避免列出 prepare 尚未完成 RAG 建置的站點。
+        以向量庫而非 data/aug_webpages/ 判斷，避免列出 prepare 尚未完成 RAG 建置的站點。
         """
-        rag_path = os.path.join(self.base_folder, "rag")
+        rag_path = os.path.join(self.base_folder, "vector_db")
         if not os.path.isdir(rag_path):
             return []
         # 只認 {site_id}.db；.staging-*／.db.tmp／.db.old 等 publish 中間產物不是站點

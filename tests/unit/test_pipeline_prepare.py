@@ -2,7 +2,7 @@
 
 - run_prepare：三階段以同一個站點與 save=False / publish=True 串接；publish=False 時改存 runs/
   並以 runs/ 最新的圖片摘要結果建庫；crawler 無產出時提前結束。
-- run_rag_build 的建庫位置與 publish 行為（原子替換到 data/rag/{site_id}.db）：
+- run_rag_build 的建庫位置與 publish 行為（原子替換到 data/vector_db/{site_id}.db）：
   build_rag 以 fake 替代：在 RAGTarget.milvus_uri 寫出假向量庫，不呼叫 embedding；
   runs/、data/ 與系統暫存資料夾皆在 tmp。
 """
@@ -52,7 +52,7 @@ class _Env:
         self.data = tmp_path / "data"
         self.systmp = tmp_path / "systmp"
         self.site_id = SiteConfig.from_yaml(SITE).site_id
-        self.rag_dir = self.data / "rag"
+        self.rag_dir = self.data / "vector_db"
         self.store = self.rag_dir / f"{self.site_id}.db"
         self.rags: list[_FakeRAG] = []
         self.targets: list[RAGTarget] = []
@@ -147,10 +147,12 @@ def test_save_and_publish_keeps_runs_copy_and_publishes(env):
         "run_config.yml",
         "terminal.log",
     }
-    # 向量庫建在本次 run 的 results/，資料來源為 data/webpages/{site_id}
+    # 向量庫建在本次 run 的 results/，資料來源為 data/aug_webpages/{site_id}
     run_path = env.runs.glob(f"*/rag_build/{env.site_id}/r1")
     assert env.targets[0].milvus_uri == str(next(run_path) / "results" / "milvus.db")
-    assert env.targets[0].webpages_dir == str(env.data / "webpages" / env.site_id)
+    assert env.targets[0].aug_webpages_dir == str(
+        env.data / "aug_webpages" / env.site_id
+    )
     assert env.rags[0].closed
 
 
@@ -179,7 +181,7 @@ def test_publish_only_moves_staging_into_place(env):
         "run_config.yml",
     }
     assert not env.runs.exists()
-    # 建在 data/rag/.staging-*/{site_id}.db（已刪除），不直接寫入正式位置
+    # 建在 data/vector_db/.staging-*/{site_id}.db（已刪除），不直接寫入正式位置
     staging = os.path.dirname(env.targets[0].milvus_uri)
     assert os.path.basename(staging).startswith(".staging-")
     assert os.path.dirname(staging) == str(env.rag_dir)
@@ -240,7 +242,7 @@ def test_build_does_not_modify_config(env):
 
 
 def test_webpages_data_use_latest_results(env):
-    """webpages_data_use_latest_results：資料來源改為 runs/ 中同站點最新的圖片摘要結果。"""
+    """aug_webpages_data_use_latest_results：資料來源改為 runs/ 中同站點最新的圖片摘要結果。"""
     latest = env.runs / "20260930_100000" / "image_summarizer" / env.site_id / "r"
     (latest / "results").mkdir(parents=True)
 
@@ -250,11 +252,11 @@ def test_webpages_data_use_latest_results(env):
             config_name="test",
             save=True,
             publish=False,
-            webpages_data_use_latest_results=True,
+            aug_webpages_data_use_latest_results=True,
         )
     )
 
-    assert env.targets[0].webpages_dir == str(latest)
+    assert env.targets[0].aug_webpages_dir == str(latest)
 
 
 def test_missing_vector_store_skips_publish(env):
@@ -268,7 +270,7 @@ def test_missing_vector_store_skips_publish(env):
 def test_swap_failure_restores_old_store(tmp_path):
     """tmp → {site}.db 的 rename 失敗時，舊向量庫還原且不留 .tmp／.old。"""
     data_manager = DataManager(base_folder=str(tmp_path / "data"))
-    rag_dir = tmp_path / "data" / "rag"
+    rag_dir = tmp_path / "data" / "vector_db"
     (rag_dir / "site.db").mkdir(parents=True)
     (rag_dir / "site.db" / "vec.bin").write_text("old")
     source = tmp_path / "new.db"
@@ -304,7 +306,7 @@ def _seed_store(root, name: str, content: str) -> None:
 def test_write_meta_failure_keeps_old_store(tmp_path):
     """meta 寫入失敗（替換前）：正式向量庫維持舊版，不留 .tmp／.old。"""
     data_manager = DataManager(base_folder=str(tmp_path / "data"))
-    rag_dir = tmp_path / "data" / "rag"
+    rag_dir = tmp_path / "data" / "vector_db"
     _seed_store(rag_dir, "site.db", "old")
     _seed_store(tmp_path, "new.db", "new")
 
@@ -323,7 +325,7 @@ def test_write_meta_failure_keeps_old_store(tmp_path):
 def test_publish_cleans_leftovers_and_keeps_meta_with_store(tmp_path):
     """前次中斷殘留的 .tmp／.old 在下次 publish 時清掉；meta 與向量庫同一次替換。"""
     data_manager = DataManager(base_folder=str(tmp_path / "data"))
-    rag_dir = tmp_path / "data" / "rag"
+    rag_dir = tmp_path / "data" / "vector_db"
     _seed_store(rag_dir, "site.db", "old")
     _seed_store(rag_dir, "site.db.tmp", "stale-tmp")
     _seed_store(rag_dir, "site.db.old", "stale-old")
@@ -350,13 +352,13 @@ def test_publish_rejects_non_directory_source(tmp_path):
     source.write_text("x")
     with pytest.raises(NotADirectoryError):
         data_manager.publish_vector_store("site", str(source))
-    assert os.listdir(tmp_path / "data" / "rag") == []
+    assert os.listdir(tmp_path / "data" / "vector_db") == []
 
 
 def test_vector_store_path(tmp_path):
     data_manager = DataManager(base_folder=str(tmp_path / "data"))
     assert data_manager.vector_store_path("nculab") == str(
-        tmp_path / "data" / "rag" / "nculab.db"
+        tmp_path / "data" / "vector_db" / "nculab.db"
     )
 
 
@@ -392,7 +394,7 @@ def test_run_prepare_chains_stages_with_publish() -> None:
             config_name="test",
             save=False,
             publish=True,
-            webpages_data_use_latest_results=False,
+            aug_webpages_data_use_latest_results=False,
         )
     )
 
@@ -426,7 +428,7 @@ def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> N
             config_name="test",
             save=True,
             publish=False,
-            webpages_data_use_latest_results=True,
+            aug_webpages_data_use_latest_results=True,
         )
     )
 

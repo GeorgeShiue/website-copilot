@@ -25,7 +25,7 @@ from website_copilot.utils.config_helper import (
 
 logger = logging.getLogger(__name__)
 
-# 已發布向量庫（data/rag/{site_id}.db）內存放設定紀錄的資料夾
+# 已發布向量庫（data/vector_db/{site_id}.db）內存放設定紀錄的資料夾
 META_FOLDER_NAME = "meta"
 
 
@@ -54,7 +54,7 @@ class DataManager:
     def publish_crawl_results(self, site_id: str, results: dict[str, Any]) -> str:
         """將爬取結果發布到 data/raw_webpages/{site_id}/（crawler 自己的原始輸出）。
 
-        跟 publish_markdown() 寫入的 data/webpages/{site_id}/ 完全分開存放——後者
+        跟 publish_markdown() 寫入的 data/aug_webpages/{site_id}/ 完全分開存放——後者
         才是 image summarizer 產生、RAG 建庫實際讀取的最終版本
         （見 indexing.source.load_source），避免 image_summarizer 執行後
         覆蓋掉 crawler 自己的原始輸出。
@@ -80,12 +80,12 @@ class DataManager:
         return raw_webpages_path
 
     def publish_markdown(self, site_id: str, enhanced_results: dict[str, dict]) -> str:
-        """發布增強後的結果到 data/webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
+        """發布增強後的結果到 data/aug_webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
 
         enhanced_results 是 image_summarizer 就地在 crawl_results 上疊加
         enhanced_markdown 欄位後回傳的完整結果（每頁仍保留 url／images／metadata／
         crawl_info 等原始欄位），所以這裡連同 results.json 一起發布，讓
-        data/webpages/{site_id}/ 維持跟 RAG 目前預期的結構一致（results.json +
+        data/aug_webpages/{site_id}/ 維持跟 RAG 目前預期的結構一致（results.json +
         results/*.md），RAG 端完全不用改。crawler 自己的原始輸出另外存在
         data/raw_webpages/{site_id}/（見 publish_crawl_results）。
 
@@ -94,21 +94,21 @@ class DataManager:
             enhanced_results: 增強後的爬取結果 dict（含原始欄位 + enhanced_markdown）。
 
         Returns:
-            發布後的 webpages 資料夾路徑。
+            發布後的 aug_webpages 資料夾路徑。
         """
-        webpages_path = os.path.join(self.base_folder, "webpages", site_id)
-        os.makedirs(webpages_path, exist_ok=True)
+        aug_webpages_path = os.path.join(self.base_folder, "aug_webpages", site_id)
+        os.makedirs(aug_webpages_path, exist_ok=True)
 
-        results_json_path = os.path.join(webpages_path, "results.json")
+        results_json_path = os.path.join(aug_webpages_path, "results.json")
         with open(results_json_path, "w", encoding="utf-8") as f:
             json.dump(enhanced_results, f, ensure_ascii=False, indent=4)
 
-        dest_results = os.path.join(webpages_path, "results")
+        dest_results = os.path.join(aug_webpages_path, "results")
         os.makedirs(dest_results, exist_ok=True)
         self._write_markdown_files(dest_results, enhanced_results, "enhanced_markdown")
         logger.info(f"Published enhanced markdown to {dest_results}")
 
-        return webpages_path
+        return aug_webpages_path
 
     def _write_markdown_files(
         self,
@@ -145,19 +145,19 @@ class DataManager:
         return raw_webpages_path
 
     def vector_store_path(self, site_id: str) -> str:
-        """已發布向量庫的位置 data/rag/{site_id}.db（Milvus Lite 要求資料夾名稱以 .db 結尾）。
+        """已發布向量庫的位置 data/vector_db/{site_id}.db（Milvus Lite 要求資料夾名稱以 .db 結尾）。
 
         向量庫資料與設定紀錄（meta/）都在這個資料夾內，publish 時一起原子替換。
         """
-        return os.path.join(self.base_folder, "rag", f"{site_id}.db")
+        return os.path.join(self.base_folder, "vector_db", f"{site_id}.db")
 
     def create_vector_store_staging(self, site_id: str) -> str:
-        """在 data/rag/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
+        """在 data/vector_db/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
 
         與正式向量庫位於同一檔案系統，publish 時可直接以 rename 移入；
         呼叫端負責在結束時刪除（無論成功或失敗）。向量庫應建在其中的 {site_id}.db。
         """
-        rag_path = os.path.join(self.base_folder, "rag")
+        rag_path = os.path.join(self.base_folder, "vector_db")
         os.makedirs(rag_path, exist_ok=True)
         return tempfile.mkdtemp(prefix=".staging-", dir=rag_path)
 
@@ -168,7 +168,7 @@ class DataManager:
         move: bool = False,
         write_meta: Callable[[str], None] | None = None,
     ) -> str:
-        """以原子替換發布 Milvus 向量庫到 data/rag/{site_id}.db。
+        """以原子替換發布 Milvus 向量庫到 data/vector_db/{site_id}.db。
 
         先將新向量庫放到同目錄的 {site_id}.db.tmp，寫入 meta/ 後再以 rename 替換：
         舊 {site_id}.db → .old、.tmp → {site_id}.db，最後刪除 .old。
@@ -186,7 +186,7 @@ class DataManager:
         Returns:
             發布後的向量庫資料夾路徑。
         """
-        os.makedirs(os.path.join(self.base_folder, "rag"), exist_ok=True)
+        os.makedirs(os.path.join(self.base_folder, "vector_db"), exist_ok=True)
         dest_path = self.vector_store_path(site_id)
 
         # source == dest 時跳過，避免清掉 dest 時連同 source 一起刪除
@@ -259,7 +259,7 @@ class DataManager:
 
         Args:
             site_id: 站點識別碼。
-            category: 目標子目錄（"webpages" 或 "rag"）。
+            category: 目標子目錄（"raw_webpages" 或 "aug_webpages"）。
             config: 模組設定物件（用於序列化 module_config.yml）。
             site: 站點設定（用於序列化 site_config.yml）。
             run_config: Run 設定物件（可選，用於序列化 run_config.yml）。
@@ -292,26 +292,26 @@ class DataManager:
 
     def list_sites(self) -> list[str]:
         """回傳所有可用的 site_id 列表。"""
-        webpages_path = os.path.join(self.base_folder, "webpages")
-        if not os.path.isdir(webpages_path):
+        aug_webpages_path = os.path.join(self.base_folder, "aug_webpages")
+        if not os.path.isdir(aug_webpages_path):
             return []
 
         sites = []
-        for item in os.listdir(webpages_path):
-            item_path = os.path.join(webpages_path, item)
+        for item in os.listdir(aug_webpages_path):
+            item_path = os.path.join(aug_webpages_path, item)
             if os.path.isdir(item_path):
                 sites.append(item)
         return sorted(sites)
 
     def get_webpages_path(self, site_id: str) -> str:
-        """回傳指定 site 的 webpages 路徑。"""
-        return os.path.join(self.base_folder, "webpages", site_id)
+        """回傳指定 site 的 aug_webpages 路徑。"""
+        return os.path.join(self.base_folder, "aug_webpages", site_id)
 
     def get_vector_store_path(self, site_id: str) -> str:
-        """回傳指定 site 的向量庫路徑（data/rag/{site_id}.db）。"""
+        """回傳指定 site 的向量庫路徑（data/vector_db/{site_id}.db）。"""
         return self.vector_store_path(site_id)
 
     def site_exists(self, site_id: str) -> bool:
         """檢查 site 是否存在。"""
-        webpages_path = self.get_webpages_path(site_id)
-        return os.path.isdir(webpages_path)
+        aug_webpages_path = self.get_webpages_path(site_id)
+        return os.path.isdir(aug_webpages_path)

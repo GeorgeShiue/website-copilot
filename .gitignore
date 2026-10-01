@@ -15,4 +15,4 @@ ingestion_cache/
 .DS_Store
 
 # Milvus Lite 載入時由 parquet 建出的檢索索引（可重建）
-data/rag/**/indexes/
+data/vector_db/**/indexes/

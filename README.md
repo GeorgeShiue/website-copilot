@@ -108,7 +108,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   └── agent/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
 │   ├── raw_webpages/<site_id>/  # 爬蟲原始輸出（fit_markdown）
-│   ├── webpages/<site_id>/      # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
+│   ├── aug_webpages/<site_id>/  # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
 │   └── rag/<site_id>.db/        # 向量資料庫（Milvus Lite 資料夾）；建庫設定備份在其中的 meta/
 ├── docs/
 │   ├── project.md               # 專案總覽與路線圖
@@ -166,7 +166,7 @@ cp .env.example .env        # 填入 API 金鑰
 | 階段 | 入口 | 職責 |
 |---|---|---|
 | Prepare | `website-copilot prepare` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
-| Serve | `website-copilot serve` | 啟動 Chat 伺服器，只讀取 `data/rag/<site_id>.db`，不做任何建置（不需要 `data/webpages/`） |
+| Serve | `website-copilot serve` | 啟動 Chat 伺服器，只讀取 `data/vector_db/<site_id>.db`，不做任何建置（不需要 `data/aug_webpages/`） |
 
 兩階段唯一的介面是 `data/` 目錄：站點只有在 prepare 成功 publish 向量庫後，才會出現在 server 的可用知識庫中。
 
@@ -263,17 +263,17 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 - `run_config.yml` — run-level 參數（含 `save` / `publish`；所有入口都會寫出，`website-copilot prepare` 由各階段各自寫出）
 - `terminal.log` — 執行日誌
 
-向量資料庫預設持久化於 `data/rag/<site_id>.db/`（Milvus Lite 要求資料夾名稱以 `.db` 結尾，collection 固定為 `chunks`）：
+向量資料庫預設持久化於 `data/vector_db/<site_id>.db/`（Milvus Lite 要求資料夾名稱以 `.db` 結尾，collection 固定為 `chunks`）：
 - `collections/chunks/…` — Milvus Lite 向量儲存（`indexes/` 為載入時產生的可重建索引，已被 `.gitignore` 忽略）
 - `meta/` — 建庫的 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`，與向量庫同一次原子替換
 
-`run_rag_build` 絕不直接寫入 `data/rag/<site_id>.db`，只透過 publish 原子替換（先放 `<site_id>.db.tmp`、寫入 `meta/`，再 rename 取代舊版），因此執行中的 server 不會讀到建到一半的向量庫，建庫失敗時舊版也完整保留。建庫位置依 `save`／`publish` 而定：
+`run_rag_build` 絕不直接寫入 `data/vector_db/<site_id>.db`，只透過 publish 原子替換（先放 `<site_id>.db.tmp`、寫入 `meta/`，再 rename 取代舊版），因此執行中的 server 不會讀到建到一半的向量庫，建庫失敗時舊版也完整保留。建庫位置依 `save`／`publish` 而定：
 
 | save | publish | 建庫位置 | 結束後留下的檔案 |
 |---|---|---|---|
 | True | True | `runs/.../results/milvus.db` | runs/ 保留一份，另複製到 data/ 後原子替換 |
 | True | False | `runs/.../results/milvus.db` | 只有 runs/ |
-| False | True | `data/rag/.staging-*/<site_id>.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
+| False | True | `data/vector_db/.staging-*/<site_id>.db` | 以 rename 移入正式位置，staging 刪除；只有 data/ |
 | False | False | 系統暫存資料夾 | 無（結束時刪除） |
 
 ### 聊天記錄（`runs/`）
@@ -330,7 +330,7 @@ Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot ser
 - RAG Retriever Tool（StructuredTool 封裝，供 Agent 呼叫）
 - Gemini / GPT 驅動的來源檢索式查詢引擎
 - 自動化回答品質評估（Faithfulness + Relevancy）
-- Query 結果落盤（`results.json` + `results/query_{index}.md`）；RAG 建庫位置依 `save`／`publish` 決定，publish 以原子替換更新 `data/rag/<site_id>.db`
+- Query 結果落盤（`results.json` + `results/query_{index}.md`）；RAG 建庫位置依 `save`／`publish` 決定，publish 以原子替換更新 `data/vector_db/<site_id>.db`
 - Prepare／Serve 兩階段分離（`website-copilot prepare`／`website-copilot serve`，以 `data/` 為唯一介面）
 - Chrome Extension 站點偵測（`hostname` → `page_url` → `resolve_site_id`）
 - Service Worker Keepalive + Typing Indicator + 跨頁面 session 共享

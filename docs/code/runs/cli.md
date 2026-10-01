@@ -10,7 +10,7 @@
 - `src/website_copilot/pipelines/serve.py`：`run_agent_build`（建構 agent）、`run_server_build`（以注入的 agent 建立 ChatApp + ChatServer）與 `serve`（`run_agent_build` → `run_server_build` → `server.run()` → 關閉）。
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。`site` 為必填的位置參數（`Annotated[str, tyro.conf.Positional]`，metavar `SITE`），對應 `configs/sites/{site}.yml`；agent／serve 為多站，沒有 `site`。`config_name` 在 CLI 上為 `--run.config`（`tyro.conf.arg(name="config")`），Python 屬性維持 `config_name`。
 - [src/website_copilot/config/overrides.py](src/website_copilot/config/overrides.py)：`make_overrides_model()` 由 module config 自動產生 CLI 覆寫用的 partial model（`{Config}Overrides`），`overrides_to_dict()` 轉成只含已指定欄位的巢狀 dict。
-  - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>.db`（詳見 workflow.md）。
+  - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/vector_db/<site_id>.db`（詳見 workflow.md）。
 - [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)：管理 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
 - `src/website_copilot/utils/config_helper.py`：共用設定工具，提供寫出 module_config.yml／run_config.yml 與顯示 config 的 helper 函式。
 
@@ -88,7 +88,7 @@ uv run website-copilot run rag-query nculab --module.retriever.hybrid-top-k 20 -
 # 範例：限制爬取頁數
 uv run website-copilot run website-crawler nculab --module.init.max-pages 10
 
-# 範例：RAG 建置（向量庫存在本次 run 的 results/），並原子替換發布到 data/rag/
+# 範例：RAG 建置（向量庫存在本次 run 的 results/），並原子替換發布到 data/vector_db/
 uv run website-copilot run rag-build nculab --run.publish
 
 # 範例：prepare（站點為位置參數；--run.no-publish 只存 runs/）

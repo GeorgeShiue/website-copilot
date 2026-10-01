@@ -91,14 +91,14 @@ class RAGBuilder:
 
 
 def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
-    """已 publish 的位置：資料來源 data/webpages/{site_id}、向量庫 data/rag/{site_id}.db。
+    """已 publish 的位置：資料來源 data/aug_webpages/{site_id}、向量庫 data/vector_db/{site_id}.db。
 
     serve 載入與 rag-query 使用；rag-build 一律不直接寫入這裡（見 build_target）。
     """
     return RAGTarget(
         site_id=site_id,
-        webpages_dir=os.path.join(data_folder, "webpages", site_id),
-        milvus_uri=os.path.join(data_folder, "rag", f"{site_id}.db"),
+        aug_webpages_dir=os.path.join(data_folder, "aug_webpages", site_id),
+        milvus_uri=os.path.join(data_folder, "vector_db", f"{site_id}.db"),
     )
 
 
@@ -132,7 +132,7 @@ def vector_store_run_target(
     print_log(f"vector_store_run: {run_path}（建庫設定 {_run_source(run_path)}）")
     return RAGTarget(
         site_id=site_id,
-        webpages_dir=os.path.join(data_folder, "webpages", site_id),
+        aug_webpages_dir=os.path.join(data_folder, "aug_webpages", site_id),
         milvus_uri=milvus_uri,
     )
 
@@ -154,7 +154,7 @@ def _run_source(run_path: str) -> str:
 def build_target(
     site_id: str,
     milvus_uri: str,
-    webpages_data_use_latest_results: bool = False,
+    aug_webpages_data_use_latest_results: bool = False,
     runs_folder: str = "runs",
     data_folder: str = "data",
 ) -> RAGTarget:
@@ -162,27 +162,29 @@ def build_target(
 
     Args:
         site_id: 站點識別碼。
-        milvus_uri: 向量庫建置位置（run 的 results/milvus.db、data/rag/.staging-*/{site_id}.db 或系統暫存）。
-        webpages_data_use_latest_results: True 時改用 runs/ 中同站點最新一次 image summarizer
-            的結果（需該次以 save=True 執行）；False 時使用 data/webpages/{site_id}。
+        milvus_uri: 向量庫建置位置（run 的 results/milvus.db、data/vector_db/.staging-*/{site_id}.db 或系統暫存）。
+        aug_webpages_data_use_latest_results: True 時改用 runs/ 中同站點最新一次 image summarizer
+            的結果（需該次以 save=True 執行）；False 時使用 data/aug_webpages/{site_id}。
         runs_folder: runs/ 根目錄。
         data_folder: data/ 根目錄。
     """
-    if webpages_data_use_latest_results:
+    if aug_webpages_data_use_latest_results:
         log_session("Finding Latest Webpages Data", style="cyan")
-        webpages_dir = load_latest_run_path(
+        aug_webpages_dir = load_latest_run_path(
             runs_folder, "image_summarizer", site_id=site_id
         )
     else:
-        webpages_dir = os.path.join(data_folder, "webpages", site_id)
-    return RAGTarget(site_id=site_id, webpages_dir=webpages_dir, milvus_uri=milvus_uri)
+        aug_webpages_dir = os.path.join(data_folder, "aug_webpages", site_id)
+    return RAGTarget(
+        site_id=site_id, aug_webpages_dir=aug_webpages_dir, milvus_uri=milvus_uri
+    )
 
 
 def log_target(target: RAGTarget) -> None:
     """記錄本次 RAG 的站點、資料來源與向量庫位置（不寫入 module_config.yml）。"""
     log_session("RAG Target", style="cyan")
     print_log(f"site_id: {target.site_id}")
-    print_log(f"webpages_dir: {target.webpages_dir}")
+    print_log(f"aug_webpages_dir: {target.aug_webpages_dir}")
     print_log(f"milvus_uri: {target.milvus_uri}")
 
 

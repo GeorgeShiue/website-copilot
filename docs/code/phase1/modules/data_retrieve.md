@@ -13,7 +13,7 @@
 
 - **模組實作**
 	- `src/website_copilot/retrieval/rag.py`（**runtime 執行**：`query`、`retrieve` 與資源釋放；由 `IndexHandle` + retriever + query engine 組成）
-	- `src/website_copilot/ingestion/indexing/`（**建庫**：`source.py` 載入 webpages 來源、`transforms.py` 自訂 Markdown Parser / 圖片與日期萃取、`node_pipeline.py` 產出 nodes、`vector_store.py` 建立 Milvus、`index.py` 的 `IndexBuilder` 建置或載入並回傳 `IndexHandle`）
+	- `src/website_copilot/ingestion/indexing/`（**建庫**：`source.py` 載入 aug_webpages 來源、`transforms.py` 自訂 Markdown Parser / 圖片與日期萃取、`node_pipeline.py` 產出 nodes、`vector_store.py` 建立 Milvus、`index.py` 的 `IndexBuilder` 建置或載入並回傳 `IndexHandle`）
 	- `src/website_copilot/retrieval/factory.py`（**組裝**：`RAGBuilder` 在 `IndexHandle` 上建 retriever / query engine；`build_rag()` 建置、`load_rag()` 供 serve 載入）
 	- `src/website_copilot/retrieval/evaluation.py`（**評估**：`build_evaluators` / `evaluate_response`、Faithfulness / Relevancy 的 Prompt 模板，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
 	- `src/website_copilot/config/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
@@ -44,7 +44,7 @@ IndexBuilder(config)                  # ingestion/indexing/index.py，回傳 Ind
 │   ├── build_nodes()        # (1) 讀取 Markdown（load_source）→ Pipeline 產出節點
 │   ├── build_vector_store() # (2) 建立向量儲存（Milvus，支援 Hybrid）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
-├── load()                   # (3a) 既有向量庫直接載入（不讀 webpages、不建 nodes）
+├── load()                   # (3a) 既有向量庫直接載入（不讀 aug_webpages、不建 nodes）
 └── build_or_load()          # 依 force_rebuild / 向量庫是否存在選擇 build 或 load（僅 rag-build／prepare 使用；rag-query 與 serve 走 load_rag，不建庫）
 
 RAGBuilder(config)                    # retrieval/factory.py
@@ -68,11 +68,11 @@ RAG（runtime）
 ### 1. 載入資料
 
 #### 初始化與 results.json
-- 重建時由 `load_source()`（`ingestion/indexing/source.py`）讀取 `{target.webpages_dir}/results.json`（由爬蟲產生的網頁清單），若檔案不存在則在清除舊向量庫前直接拋出 `FileNotFoundError`；載入既有向量庫（serve）時不讀取。
+- 重建時由 `load_source()`（`ingestion/indexing/source.py`）讀取 `{target.aug_webpages_dir}/results.json`（由爬蟲產生的網頁清單），若檔案不存在則在清除舊向量庫前直接拋出 `FileNotFoundError`；載入既有向量庫（serve）時不讀取。
 - `results.json` 的 key 為網頁標題（去除 `.md` 副檔名），value 包含 `url`、`metadata`（含 `page_type`、`description`）、`images`、`crawl_info` 等資訊。
 
 #### 讀取 Markdown 文件
-- `IndexBuilder.build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{target.webpages_dir}/results`。
+- `IndexBuilder.build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{target.aug_webpages_dir}/results`。
 - 只處理副檔名為 `.md` 的檔案，確保輸入內容來自爬蟲生成的 Markdown 成果。
 - 透過 `NodePipelineBuilder._build_file_metadata()` 回呼函式，根據 `results.json` 為每份文件注入以下 metadata：
   - `page_title` — 頁面標題
@@ -216,7 +216,7 @@ Pydantic v2 schema，定義四個參數供 LLM 填寫：
 
 ### create_webpage_retriever_tool()
 工具工廠，接受 `registry: RAGRegistry`，流程：
-1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `load_rag(config, published_target(site_id, ...))` 載入已 publish 的 `data/rag/{site_id}.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/rag/{site_id}.db` 資料夾是否存在判斷（忽略 `.staging-*`／`.tmp`／`.old`）
+1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `load_rag(config, published_target(site_id, ...))` 載入已 publish 的 `data/vector_db/{site_id}.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/vector_db/{site_id}.db` 資料夾是否存在判斷（忽略 `.staging-*`／`.tmp`／`.old`）
 2. 包裝為 `StructuredTool(name="webpage_retriever")`，執行期以 `rag.retrieve(...)` 檢索
 3. 回傳格式化後的檢索結果（含 `URL:` 行，供 `extract_sources_from_messages()` 解析來源）
 4. RAG 資源生命週期由 `RAGRegistry` 管理（`registry.close()` 統一釋放），工具本身不負責關閉

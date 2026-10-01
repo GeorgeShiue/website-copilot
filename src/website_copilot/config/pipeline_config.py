@@ -39,7 +39,7 @@ class ImageSummarizerRunConfig(BaseRunConfig):
 
 @dataclass
 class RAGBuildRunConfig(BaseRunConfig):
-    webpages_data_use_latest_results: bool = False
+    aug_webpages_data_use_latest_results: bool = False
 
 
 @dataclass

@@ -71,8 +71,6 @@ extend-exclude = [
 [tool.pyright]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", "**/.*"]
 typeCheckingMode = "basic"
-
-[tool.pyright.typeEvaluation]
 deprecateTypingAliases = true
 strictDictionaryInference = true
 strictListInference = true

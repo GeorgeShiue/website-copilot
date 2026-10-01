@@ -79,7 +79,7 @@ MakeRegistry = Callable[..., RAGRegistry]
 def make_registry(tmp_path: Path) -> MakeRegistry:
     """建立以 tmp_path/data 為 base_folder 的 RAGRegistry。
 
-    建立 data/rag/<site_id>.db（模擬已 publish 的向量庫），
+    建立 data/vector_db/<site_id>.db（模擬已 publish 的向量庫），
     讓 list_sites() 與 _site_exists() 能正確運作。
     """
 
@@ -87,7 +87,7 @@ def make_registry(tmp_path: Path) -> MakeRegistry:
         existing_sites: list[str] | None = None,
         max_cached: int = 5,
     ) -> RAGRegistry:
-        rag_dir = tmp_path / "data" / "rag"
+        rag_dir = tmp_path / "data" / "vector_db"
         rag_dir.mkdir(parents=True, exist_ok=True)
         for site_id in existing_sites or []:
             (rag_dir / f"{site_id}.db").mkdir(parents=True)
@@ -131,11 +131,11 @@ class TestListSites:
     def test_excludes_sites_without_vector_store(
         self, make_registry: MakeRegistry
     ) -> None:
-        """只有 webpages 或空 rag 目錄（尚未 publish 向量庫）的站點不列出。"""
+        """只有 aug_webpages 或空 rag 目錄（尚未 publish 向量庫）的站點不列出。"""
         registry = make_registry(existing_sites=["nculab"])
         base = registry.base_folder
-        os.makedirs(os.path.join(base, "webpages", "ncucsie"))
-        os.makedirs(os.path.join(base, "rag", "pending"))
+        os.makedirs(os.path.join(base, "aug_webpages", "ncucsie"))
+        os.makedirs(os.path.join(base, "vector_db", "pending"))
         assert registry.list_sites() == ["nculab"]
         with pytest.raises(ValueError, match="ncucsie.*不存在"):
             registry.get("ncucsie")
@@ -143,7 +143,7 @@ class TestListSites:
     def test_ignores_publish_leftovers(self, make_registry: MakeRegistry) -> None:
         """.staging-*／.db.tmp／.db.old 等 publish 中間產物與舊版目錄不是站點。"""
         registry = make_registry(existing_sites=["nculab"])
-        rag = os.path.join(registry.base_folder, "rag")
+        rag = os.path.join(registry.base_folder, "vector_db")
         for leftover in (
             ".staging-abc123",
             ".staging-xyz.db",
@@ -156,7 +156,7 @@ class TestListSites:
 
     def test_db_file_is_not_a_vector_store(self, make_registry: MakeRegistry) -> None:
         registry = make_registry(existing_sites=["nculab"])
-        Path(registry.base_folder, "rag", "ncucsie.db").write_text("not a dir")
+        Path(registry.base_folder, "vector_db", "ncucsie.db").write_text("not a dir")
         assert registry.list_sites() == ["nculab"]
 
 
@@ -328,7 +328,7 @@ class TestShouldRebuildMilvus:
 
 
 def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> None:
-    """webpages_data_use_latest_results=True：改用 runs/ 中同 site 最新的圖片摘要結果。"""
+    """aug_webpages_data_use_latest_results=True：改用 runs/ 中同 site 最新的圖片摘要結果。"""
     runs = tmp_path / "runs"
     for ts, site in [
         ("20260929_090000", "nculab"),
@@ -340,13 +340,13 @@ def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) ->
     target = build_target(
         "nculab",
         str(tmp_path / "out" / "milvus.db"),
-        webpages_data_use_latest_results=True,
+        aug_webpages_data_use_latest_results=True,
         runs_folder=str(runs),
     )
 
     assert target == RAGTarget(
         site_id="nculab",
-        webpages_dir=str(
+        aug_webpages_dir=str(
             runs / "20260929_100000" / "image_summarizer" / "nculab" / "r"
         ),
         milvus_uri=str(tmp_path / "out" / "milvus.db"),
@@ -356,15 +356,15 @@ def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) ->
 def test_build_target_defaults_to_published_webpages() -> None:
     target = build_target("nculab", "/tmp/x/milvus.db", data_folder="data")
 
-    assert target.webpages_dir == "data/webpages/nculab"
+    assert target.aug_webpages_dir == "data/aug_webpages/nculab"
     assert target.milvus_uri == "/tmp/x/milvus.db"
 
 
 def test_published_target() -> None:
     assert published_target("ncucsie", "data") == RAGTarget(
         site_id="ncucsie",
-        webpages_dir="data/webpages/ncucsie",
-        milvus_uri="data/rag/ncucsie.db",
+        aug_webpages_dir="data/aug_webpages/ncucsie",
+        milvus_uri="data/vector_db/ncucsie.db",
     )
 
 
@@ -404,7 +404,7 @@ class TestVectorStoreRunTarget:
 
         assert target == RAGTarget(
             site_id="nculab",
-            webpages_dir="data/webpages/nculab",
+            aug_webpages_dir="data/aug_webpages/nculab",
             milvus_uri=str(run / "results" / "milvus.db"),
         )
 

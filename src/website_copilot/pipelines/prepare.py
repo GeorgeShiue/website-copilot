@@ -239,7 +239,7 @@ def run_image_summarizer(
             )
             data_manager.publish_run_metadata(
                 site_id=site.site_id,
-                category="webpages",
+                category="aug_webpages",
                 config=config,
                 site=site,
                 run_config=run_config,
@@ -256,15 +256,15 @@ def run_rag_build(
     """建構 RAG 並落盤結果。完整包含建立 rag 流程。
 
     run_config.site 對應 configs/sites/{site}.yml、config_name 對應 configs/rag/{name}.yml；
-    overrides 為 RAGConfig 的巢狀覆寫值。建庫資料來源預設為 data/webpages/{site_id}，
-    run_config.webpages_data_use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果。
+    overrides 為 RAGConfig 的巢狀覆寫值。建庫資料來源預設為 data/aug_webpages/{site_id}，
+    run_config.aug_webpages_data_use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果。
 
     一律重建向量庫，不受既有向量庫是否存在影響；建庫絕不直接寫入
-    data/rag/{site_id}.db，只透過 publish 原子替換（設定紀錄放在其中的 meta/，一起替換）。
+    data/vector_db/{site_id}.db，只透過 publish 原子替換（設定紀錄放在其中的 meta/，一起替換）。
     建庫位置：
 
     - save=True：建在該次 run 的 results/milvus.db（保留於 runs/）。
-    - save=False, publish=True：建在 data/rag/.staging-*/{site_id}.db，publish 時
+    - save=False, publish=True：建在 data/vector_db/.staging-*/{site_id}.db，publish 時
       以 rename 移入正式位置，staging 一律刪除。
     - save=False, publish=False：建在系統暫存資料夾，結束時刪除（不留任何檔案）。
     """
@@ -301,7 +301,7 @@ def run_rag_build(
             target = build_target(
                 site.site_id,
                 milvus_uri,
-                webpages_data_use_latest_results=run_config.webpages_data_use_latest_results,
+                aug_webpages_data_use_latest_results=run_config.aug_webpages_data_use_latest_results,
                 runs_folder=run_manager.base_folder
                 if run_manager is not None
                 else "runs",
@@ -389,7 +389,7 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
                     config_name=config_name,
                     save=save,
                     publish=publish,
-                    webpages_data_use_latest_results=not publish,
+                    aug_webpages_data_use_latest_results=not publish,
                 )
             )
 

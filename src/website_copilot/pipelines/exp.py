@@ -48,7 +48,7 @@ def run_rag_query(
         overrides: RAGConfig 的巢狀覆寫值。
 
     只查詢既有向量庫、不建庫也不寫入 data/：預設為 data/ 中已 publish 的向量庫
-    （data/rag/{site_id}.db），指定 vector_store_run 時為該 run 的 results/milvus.db。
+    （data/vector_db/{site_id}.db），指定 vector_store_run 時為該 run 的 results/milvus.db。
     建庫一律走 run_rag_build。
 
     Raises:
