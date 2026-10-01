@@ -13,7 +13,7 @@ from typing import Annotated, Any, ClassVar, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, PrivateAttr, ValidationError
 
-from website_copilot.config.yaml_helper import load_config_dict
+from website_copilot.config.yaml_helper import deep_merge, load_config_dict
 from website_copilot.utils.config_helper import ConfigValidationError
 
 RUN_NAME_FIELDS_KEY = "run_name_fields"
@@ -68,30 +68,35 @@ class BaseModuleConfig(ConfigModel):
 
     @property
     def source(self) -> str:
-        """載入來源描述，如 `configs/rag/test.yml (extends: default)`；未經 loader 建立時為空字串。"""
+        """載入來源描述，如 `configs/rag/test.yml (extends: default)`，有套用 overrides 時
+        結尾加上 ` + overrides`；未經 loader 建立時為空字串。"""
         return self._source
 
     @classmethod
-    def from_yaml(cls, config_name: str = "default", **overrides: Any) -> Self:
-        """從 YAML 設定檔（展開 extends）建立 config，overrides 為扁平欄位名稱（如 similarity_top_k）。
+    def from_yaml(
+        cls, config_name: str = "default", overrides: dict[str, Any] | None = None
+    ) -> Self:
+        """從 YAML 設定檔（展開 extends）建立 config。
 
-        最上層保留 key `run_name_fields`（dotted path 的 list）取出後不參與驗證；
-        extends 由 loader 處理。所有層合併、套用 overrides 後只驗證一次。
+        最上層保留 key `run_name_fields`（dotted path 的 list）取出後不參與驗證。
+        overrides 為巢狀 dict（如 `{"retriever": {"similarity_top_k": 20}}`），以與 extends
+        相同的 deep merge 疊在最上層（父檔 < 子檔 < overrides），最後只驗證一次。
         """
         loaded = load_config_dict(cls._CONFIG_FOLDER_PATH, config_name)
         data = loaded.data
         run_name_fields = cls._pop_run_name_fields(data, loaded.source)
-        cls._apply_flat_overrides(data, overrides, source=loaded.source)
+        source = loaded.source
+        if overrides:
+            data = deep_merge(data, overrides)
+            source = f"{source} + overrides"
 
         try:
             config = cls.model_validate(data)
         except ValidationError as e:
-            raise ConfigValidationError(
-                format_validation_error(loaded.source, e)
-            ) from e
+            raise ConfigValidationError(format_validation_error(source, e)) from e
         config._config_name = config_name
         config._run_name_fields = run_name_fields
-        config._source = loaded.source
+        config._source = source
         return config
 
     @classmethod
@@ -110,28 +115,6 @@ class BaseModuleConfig(ConfigModel):
                     f"{source}: {RUN_NAME_FIELDS_KEY}: 找不到欄位 {field_path}"
                 )
         return fields
-
-    @classmethod
-    def _apply_flat_overrides(
-        cls, data: dict[str, Any], overrides: dict[str, Any], source: str
-    ) -> None:
-        """將扁平的 overrides 放到所屬 section（過渡用，Phase C 改為巢狀 overrides）。
-
-        欄位名稱在頂層與各 section 中皆唯一；找不到對應欄位時報錯。
-        """
-        for key, value in overrides.items():
-            if key in cls.model_fields and not _is_section(cls, key):
-                data[key] = value
-                continue
-            sections = [
-                name
-                for name in cls.model_fields
-                if _is_section(cls, name)
-                and key in _section_model(cls, name).model_fields
-            ]
-            if len(sections) != 1:
-                raise ConfigValidationError(f"{source}: 未知的 override 欄位：{key}")
-            data.setdefault(sections[0], {})[key] = value
 
     def get_field(self, dotted_path: str) -> Any:
         """以 dotted path（如 "init.max_depth"）取得巢狀欄位值。"""

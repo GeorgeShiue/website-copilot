@@ -89,7 +89,7 @@ def build_rag(
     run_manager: RunManager | None = None,
     build_query_engine: bool = True,
     config: RAGConfig | None = None,
-    **config_overrides,
+    overrides: dict[str, Any] | None = None,
 ) -> RAG:
     """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟。
 
@@ -105,15 +105,14 @@ def build_rag(
         build_query_engine: 是否建到 retriever／query engine 層級；
             False 時僅建到 vector store／index 層級（不含 retriever）。
         config: 呼叫端已建立的 RAGConfig（可選）。傳入時直接沿用，不再重新
-            解析 yml；此時 config_name／**config_overrides 會被忽略。
-        **config_overrides: RAGConfig 覆寫值（含 site_id），僅在 config 為
-            None 時生效。
+            解析 yml；此時 config_name／overrides 會被忽略。
+        overrides: RAGConfig 的巢狀覆寫值（含 site_id），僅在 config 為 None 時生效。
 
     Returns:
         已建構的 RAG 實例（呼叫端負責 close）。
     """
     if config is None:
-        config = RAGConfig.from_yaml(config_name, **config_overrides)
+        config = RAGConfig.from_yaml(config_name, overrides)
 
     # ----- 解決 webpages 資料路徑（改用 runs/ 中最新的 image summarizer 結果）-----
     if webpages_data_use_latest_results:

@@ -56,11 +56,10 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 ├── src/website_copilot/
 │   ├── schemas.py               # 跨層共用資料型別（GenerationResult）
 │   ├── cli/                     # `website-copilot <subcommand>`（tyro 子命令）
-│   │   ├── __init__.py          # main()：prepare / serve / run / exp 分派
+│   │   ├── __init__.py          # main()：prepare / serve / run 分派
 │   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
-│   │   ├── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
-│   │   └── exp.py               # exp <name>：批次實驗
-│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig / ModuleConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）
+│   │   └── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
+│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
 │   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
@@ -83,7 +82,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── pipelines/
 │   │   ├── prepare.py           # run_website_crawler / run_image_summarizer / run_rag_build / run_prepare
 │   │   ├── serve.py             # run_agent_build / run_server_build / serve（不 import 爬蟲）
-│   │   └── exp.py               # run_rag_query / run_agent_query + 批次實驗（EXPERIMENTS）
+│   │   └── exp.py               # run_rag_query / run_agent_query（實驗／除錯用）
 │   └── utils/                   # config_helper / log_helper
 ├── tests/
 │   ├── unit/                    # 單元測試（預設執行）
@@ -179,36 +178,30 @@ cp .env.example .env        # 填入 API 金鑰
 ### Prepare：爬取、圖片摘要與 RAG 建置
 
 ```bash
-uv run website-copilot prepare --run.config-name nculab
+uv run website-copilot prepare --run.config nculab
 ```
 
-`--run.config-name` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
+`--run.config` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`；加上 `--run.no-publish` 則只存到 `runs/`、不寫入 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
 
 各階段也可以單獨執行（`website-copilot run <module>`）：
 
 ```bash
-uv run website-copilot run website-crawler --run.config-name nculab --module.max-pages 10
-uv run website-copilot run image-summarizer --run.config-name nculab
-uv run website-copilot run rag-build --run.config-name nculab --run.publish
+uv run website-copilot run website-crawler --run.config nculab --module.init.max-pages 10
+uv run website-copilot run image-summarizer --run.config nculab
+uv run website-copilot run rag-build --run.config nculab --run.publish
 ```
 
 ### 執行 RAG 查詢
 
 ```bash
 # 使用 Milvus + WeightedRanker 執行混合檢索
-uv run website-copilot run rag-query --run.config-name milvus
+uv run website-copilot run rag-query --run.config test
 
-# 自訂 top-k（透過 CLI 覆寫）
-uv run website-copilot run rag-query --run.config-name milvus --module.similarity-top-k 10 --module.hybrid-top-k 20
+# 自訂 top-k（透過 CLI 覆寫，巢狀結構與設定檔相同）
+uv run website-copilot run rag-query --run.config test --module.retriever.similarity-top-k 10 --module.retriever.hybrid-top-k 20
 ```
 
-也可以透過 `website-copilot exp <name>` 執行批次實驗（定義於 `pipelines/exp.py` 的 `EXPERIMENTS`），例如比較 Dense 與 Hybrid 在多個查詢上的表現：
-
-```bash
-uv run website-copilot exp rag_dense_vs_hybrid
-```
-
-> **注意**：各實驗以 `config_name` 對應 `configs/rag/{name}.yml`（例如 `dense`、`hybrid`、`milvus-weight`、`milvus-RRF`、`gemini-3.1-pro` 等實驗用設定檔），這些檔案未收錄於倉庫。執行前需先自行建立對應設定檔，或調整 `pipelines/exp.py` 中的 `config_name` 清單。
+`--module.*` 由各 module config 自動產生（`uv run website-copilot run rag-query --help` 可列出所有參數）。
 
 ### 執行 Agent 問答（CLI）
 
@@ -267,7 +260,7 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
 - `module_config.yml` — 本次執行的模組參數備份
-- `run_config.yml` — run-level 參數（含 `save` / `publish`；透過 `website-copilot run` / `serve` 執行時寫出；`website-copilot prepare` 目前不傳入 `run_config`，故不寫出）
+- `run_config.yml` — run-level 參數（含 `save` / `publish`；所有入口都會寫出，`website-copilot prepare` 由各階段各自寫出）
 - `terminal.log` — 執行日誌
 
 向量資料庫預設持久化於 `data/rag/<site_id>/`：

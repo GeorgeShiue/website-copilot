@@ -5,7 +5,7 @@
 - workflow 依階段拆成下列模組，負責把 config、module 與 RunManager 串起來並執行實際流程：
   - [src/website_copilot/pipelines/prepare.py](src/website_copilot/pipelines/prepare.py)：Prepare 階段（爬蟲、圖片摘要、RAG 建置，以及三階段串接的 `run_prepare()`）。
   - [src/website_copilot/pipelines/serve.py](src/website_copilot/pipelines/serve.py)：Serve 階段（`run_agent_build()` 建構 agent、`run_server_build()` 建立 server、`serve()` 管理生命週期）；不 import 爬蟲與 VLM 模組。
-  - [src/website_copilot/pipelines/exp.py](src/website_copilot/pipelines/exp.py)：RAG 查詢評估、Agent 問答（`run_agent_query()`）與批次實驗（實驗／除錯用）。
+  - [src/website_copilot/pipelines/exp.py](src/website_copilot/pipelines/exp.py)：RAG 查詢評估、Agent 問答（`run_agent_query()`）（實驗／除錯用）。
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 CLI 與程式使用。
 - [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)：以 `for_run()`（3 層）/ `for_run_no_site()`（2 層）classmethod 建立 `runs/<timestamp>/<module>/<site_id>/<run>/` 路徑，負責 results、module_config、run_config 與 log 的輸出位置。
 - [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)：結果持久化與發現函式（從 RunManager 分離的無狀態工具）。
@@ -36,7 +36,8 @@
 2. 這些函式都會先建立對應的 module 物件，再從對應的 config model 讀取 YAML 設定，最後將設定套用到 module 的 init 與執行參數。
 3. 每個 workflow 都會建立或接收 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config()` 寫出 `module_config.yml`（agent 的 `run_agent_build` / `run_agent_query` 會寫；`run_server_build` 不寫，server 的 run 目錄只有 `run_config.yml`），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
-5. `run_config.yml` 由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
+5. 所有入口的簽名一致：`run_xxx(run_config, overrides=None)`。`run_config`（RunConfig，必填）提供 `config_name`、`save`、`publish` 等執行參數，`overrides` 為 module config 的巢狀覆寫值（如 `{"retriever": {"similarity_top_k": 20}}`）；`run_config.yml` 一律以 `save_run_config()` 寫出。
+6. `run_prepare(run_config: PrepareRunConfig)` 以同一個 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig` 傳給各階段；`publish=True`（預設）時各階段 `save=False, publish=True`，`publish=False`（`--run.no-publish`）時 `save=True, publish=False` 且 RAG 以 runs/ 中本次的圖片摘要結果建庫。
 
 ## 三、主要 Workflow 入口
 
@@ -64,7 +65,7 @@
 - 流程：
   1. 透過 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 載入 `configs/rag/{config_name}.yml`。
   2. 呼叫 `build_rag(..., build_query_engine=False)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）建立並回傳 `RAG`；內部以 `IndexBuilder(config).build_or_load(force_rebuild=True)` 讀取 webpages 來源（`load_source()`）後重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
-  3. `save=True` 時在 run 路徑寫出 `module_config.yml` 與（`run_config` 非 None 時）`run_config.yml`，最後 `rag.close()` 釋放資源。
+  3. `save=True` 時在 run 路徑寫出 `module_config.yml` 與 `run_config.yml`，最後 `rag.close()` 釋放資源。
   4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。發布的 `module_config.yml` 會記錄正式路徑。建庫位置：
 
      | save | publish | 建庫位置 | 結束後留下的檔案 |
@@ -91,27 +92,27 @@
 ### 5. `run_agent_build()` / `run_agent_query()`
 
 - 目的：以 LangGraph `create_agent` 包裝 `webpage_retriever` + `list_knowledge_bases` 工具，執行 Agent 問答（`website-copilot run agent`；`run_agent_build()` 定義於 `pipelines/serve.py`、`run_agent_query()` 定義於 `pipelines/exp.py`）。舊版 `run_agent()` 已移除；`run_agent_query()` 與 `run_server_build()` 為完整入口（各自建立 run context、agent、落盤與關閉）；`run_agent_build()` 為 agent 建構 + 落盤的程式化 API，`serve()` 透過它建構 agent 後注入 `run_server_build()`，`run_agent_query()` 也透過它建構 agent。
-- `run_agent_build(config_name="default", run_config=None, **config_overrides) -> Agent`：
+- `run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides=None) -> Agent`：
   1. 一律以 `create_run_no_site_context(module="agent_build", config_name=...)` 建立自己的 `RunManager`（`runs/<ts>/agent_build/<config>/`），並以 `with run_workflow_context(...)` 包住 logging 生命週期。
-  2. 載入 `AgentConfig.from_yaml(config_name, **config_overrides)` 後呼叫 `create_agent(config)`（內部建立 `Tool(config.config_name)`、LLM 與編譯圖；失敗時 `tool.close()` 後 re-raise）。
-  3. 寫出 `module_config.yml`；`run_config` 非 None 時寫出 `run_config.yml`（落盤失敗時 `agent.close()` 後 re-raise）；回傳**未關閉**的 agent，由呼叫端負責 `close()`。
-- `run_agent_query(config_name="default", query=None, thread_id=None, stream=False, run_config=None, **config_overrides) -> None`：
-  1. 以 `run_agent_build(config_name, **config_overrides)` 建構 `Agent`（獨立的 `runs/<ts>/agent_build/<config>/`，寫出 `module_config.yml`）。
+  2. 載入 `AgentConfig.from_yaml(run_config.config_name, overrides)` 後呼叫 `create_agent(config)`（內部建立 `Tool(config.config_name)`、LLM 與編譯圖；失敗時 `tool.close()` 後 re-raise）。
+  3. 寫出 `module_config.yml` 與 `run_config.yml`（落盤失敗時 `agent.close()` 後 re-raise）；回傳**未關閉**的 agent，由呼叫端負責 `close()`。
+- `run_agent_query(run_config: AgentRunConfig, overrides=None) -> None`（`query`、`thread_id`、`stream` 由 `run_config` 提供）：
+  1. 以 `run_agent_build(run_config, overrides)` 建構 `Agent`（獨立的 `runs/<ts>/agent_build/<config>/`，寫出 `module_config.yml` 與 `run_config.yml`）。
   2. 以 `create_run_no_site_context(module="agent", config_name=..., base_folder="runs")` 建立 `RunManager` 與落盤路徑（`runs/<ts>/agent/<config>/`），並以 `run_workflow_context` 起頭；依 `stream` 選擇 `agent.astream_result()`（逐 token）或 `agent.ask()` 問答；`thread_id` 相同保留多輪記憶。
   3. `thread_id` 未提供時自動產生 `auto-{uuid}`（每次執行獨立）。
   4. 顯示回答與來源 URL，並以 `RunManager.save_agent_results_as_json(thread_id=..., results=[result], agent_config=agent.config)` 落盤 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫）且印出實際輸出路徑。
-  5. `run_config` 非 None 時寫出 `run_config.yml`（不寫 `module_config.yml`），最後 `log_run_paths("complete")`；例外路徑只記錄 log 後 re-raise，由 `finally` 呼叫一次 `agent.close()` 釋放 RAG 資源。
+  5. 寫出 `run_config.yml`（不寫 `module_config.yml`），最後 `log_run_paths("complete")`；例外路徑只記錄 log 後 re-raise，由 `finally` 呼叫一次 `agent.close()` 釋放 RAG 資源。
 
 ### 6. `run_server_build()`
 
 - 目的：以注入的 agent 透過 `ChatApp.create()` 建立 FastAPI app，並回傳持有 `chat_app` 的 `ChatServer`（**非阻塞**的 `uvicorn.Server` 子類；由 `serve()` 使用）。
 - 流程：
-  1. `run_server_build(agent, run_config=None, allowed_origins=None, host="127.0.0.1", port=8000) -> ChatServer` 以 `create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")` 建立自己的 `RunManager`（`runs/<ts>/server/<config>/`，與 `run_agent_build` 的 run 目錄分開、時間戳可能不同）；不寫 `module_config.yml`。
-  2. `ChatApp.create(agent=agent, run_manager=run_manager, allowed_origins=allowed_origins)` 組裝 app，再以 `uvicorn.Config(chat_app.app, host=..., port=...)` 建立 `uvicorn.Server`。
-  3. `run_config` 非 None 時寫出 `run_config.yml`（路徑為 `run_manager.run_config_path`），最後 `log_run_paths("complete")`。
+  1. `run_server_build(agent, run_config: ServeRunConfig) -> ChatServer`（`host`／`port`／`allowed_origins` 由 `run_config` 提供）以 `create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")` 建立自己的 `RunManager`（`runs/<ts>/server/<config>/`，與 `run_agent_build` 的 run 目錄分開、時間戳可能不同）；不寫 `module_config.yml`。
+  2. `ChatApp.create(agent=agent, run_manager=run_manager, allowed_origins=run_config.allowed_origins)` 組裝 app，再以 `uvicorn.Config(chat_app.app, host=..., port=...)` 建立 `uvicorn.Server`。
+  3. 寫出 `run_config.yml`（路徑為 `run_manager.run_config_path`），最後 `log_run_paths("complete")`。
   4. 建立 app / server 過程失敗時 re-raise，**不關閉**注入的 agent（由建立 agent 的呼叫端負責）。
   5. 呼叫端只需 `server.run()` 阻塞（或 `await server.serve()`）；`ChatServer.serve()` 結束時（正常／中斷／例外）於 `finally` 自動呼叫 `chat_app.close()` 釋放 agent。
-- `serve(run_config)`：`run_agent_build(config_name=run_config.config_name)` → `run_server_build(agent, ...)`（失敗時 `agent.close()` 後 re-raise）→ `server.run()`，並吞下 `KeyboardInterrupt`。
+- `serve(run_config)`：以同一個 `ServeRunConfig` 呼叫 `run_agent_build(run_config)` → `run_server_build(agent, run_config)`（失敗時 `agent.close()` 後 re-raise）→ `server.run()`，並吞下 `KeyboardInterrupt`。
 
 ## 四、Workflow 與 RunManager
 
@@ -149,7 +150,7 @@ Workflow 不直接手寫設定檔，而是依賴各 module 的 config model 與�
 1. `src/website_copilot/config/*_config.py` 的 pydantic model 以 `from_yaml()` 從 `configs/<module>/<config_name>.yml` 載入設定。
 2. `from_yaml()` 展開 `extends`、套用 overrides 後以 `model_validate()` 驗證，失敗時拋出含設定檔路徑與繼承鏈的 `ConfigValidationError`。
 3. `save_module_config()` 會把實際使用到的設定寫回 `module_config.yml`，方便追蹤本次執行。
-4. `save_run_config()` 由 workflow 函式在 `run_config` 非 None 時寫出 run-level 參數（`website-copilot run` 會傳入；`website-copilot prepare` 目前不寫出）。
+4. `save_run_config()` 由 workflow 函式寫出 run-level 參數（`run_config` 為必填，所有入口都會寫出）。
 
 這表示 workflow 層的責任是「編排與執行」，而不是「定義設定格式」。設定格式與驗證應該維持在 `src/website_copilot/config/`。
 
@@ -157,7 +158,7 @@ Workflow 不直接手寫設定檔，而是依賴各 module 的 config model 與�
 
 ```bash
 # Prepare：依序執行爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
-uv run website-copilot prepare --run.config-name nculab  # 省略時使用 default
+uv run website-copilot prepare --run.config nculab  # 省略時使用 default
 
 # Serve：啟動 Chat 伺服器（阻塞至中斷）
 uv run website-copilot serve --run.port 8000
@@ -165,12 +166,12 @@ uv run website-copilot serve --run.port 8000
 
 ```bash
 # 只跑 workflow 層的 RAG 建置流程（通常透過 CLI 或程式入口呼叫）
-uv run website-copilot run rag-build --run.config-name default
+uv run website-copilot run rag-build --run.config default
 ```
 
 ```bash
 # 執行 RAG 查詢流程並允許重建
-uv run website-copilot run rag-query --run.config-name test --run.force-rebuild
+uv run website-copilot run rag-query --run.config test --run.force-rebuild
 ```
 
 ## 七、注意事項與建議

@@ -14,10 +14,20 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from website_copilot.config.pipeline_config import (
+    ImageSummarizerRunConfig,
+    PrepareRunConfig,
+    RAGBuildRunConfig,
+    WebsiteCrawlerRunConfig,
+)
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.pipelines.prepare import run_rag_build
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.run_manager import RunManager
+
+
+def _run_config(save: bool, publish: bool) -> RAGBuildRunConfig:
+    return RAGBuildRunConfig(config_name="test", save=save, publish=publish)
 
 
 class _FakeRAG:
@@ -116,18 +126,23 @@ def _published_milvus_uri(e: _Env) -> str:
 
 
 def test_save_and_publish_keeps_runs_copy_and_publishes(env):
-    run_rag_build(config_name="test", save=True, publish=True)
+    run_rag_build(_run_config(save=True, publish=True))
 
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
     # runs/ 保留一份（publish 為複製而非移動）
     assert os.path.isdir(env.rags[0].milvus_uri)
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml", "terminal.log"}
+    assert env.rag_dir_entries() == {
+        "milvus.db",
+        "module_config.yml",
+        "run_config.yml",
+        "terminal.log",
+    }
     assert _published_milvus_uri(env) == str(env.rag_dir / "milvus.db")
     assert env.rags[0].closed
 
 
 def test_save_only_writes_runs_not_data(env):
-    run_rag_build(config_name="test", save=True, publish=False)
+    run_rag_build(_run_config(save=True, publish=False))
 
     assert os.path.isdir(env.rags[0].milvus_uri)
     assert str(env.runs) in env.rags[0].milvus_uri
@@ -135,17 +150,17 @@ def test_save_only_writes_runs_not_data(env):
 
 
 def test_publish_only_moves_staging_into_place(env):
-    run_rag_build(config_name="test", save=False, publish=True)
+    run_rag_build(_run_config(save=False, publish=True))
 
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
     # 不留 staging／.tmp／.old，也不寫 runs/
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml"}
+    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml", "run_config.yml"}
     assert not env.runs.exists()
     assert _published_milvus_uri(env) == str(env.rag_dir / "milvus.db")
 
 
 def test_no_save_no_publish_leaves_no_files(env):
-    run_rag_build(config_name="test", save=False, publish=False)
+    run_rag_build(_run_config(save=False, publish=False))
 
     assert not env.runs.exists()
     assert not env.rag_dir.exists()
@@ -158,11 +173,11 @@ def test_no_save_no_publish_leaves_no_files(env):
 
 def test_publish_replaces_existing_store(env):
     env.seed_old_store()
-    run_rag_build(config_name="test", save=False, publish=True)
+    run_rag_build(_run_config(save=False, publish=True))
 
     assert os.listdir(env.rag_dir / "milvus.db") == ["vec.bin"]
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "new"
-    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml"}
+    assert env.rag_dir_entries() == {"milvus.db", "module_config.yml", "run_config.yml"}
 
 
 def test_build_failure_keeps_old_store_and_cleans_staging(env):
@@ -170,7 +185,7 @@ def test_build_failure_keeps_old_store_and_cleans_staging(env):
     env.build_error = RuntimeError("embedding failed")
 
     with pytest.raises(RuntimeError, match="embedding failed"):
-        run_rag_build(config_name="test", save=False, publish=True)
+        run_rag_build(_run_config(save=False, publish=True))
 
     assert (env.rag_dir / "milvus.db" / "vec.bin").read_text() == "old"
     assert env.rag_dir_entries() == {"milvus.db"}
@@ -178,7 +193,7 @@ def test_build_failure_keeps_old_store_and_cleans_staging(env):
 
 def test_missing_vector_store_skips_vector_publish_but_publishes_metadata(env):
     env.write_store = False
-    run_rag_build(config_name="test", save=True, publish=True)
+    run_rag_build(_run_config(save=True, publish=True))
 
     assert not (env.rag_dir / "milvus.db").exists()
     assert (env.rag_dir / "module_config.yml").is_file()
@@ -220,6 +235,7 @@ def test_swap_failure_restores_old_store(tmp_path):
 
 
 def test_run_prepare_chains_stages_with_publish() -> None:
+    """publish=True：三階段以同一個 config 名稱、save=False／publish=True 的 RunConfig 串接。"""
     from website_copilot.pipelines import prepare
 
     with (
@@ -227,16 +243,21 @@ def test_run_prepare_chains_stages_with_publish() -> None:
         patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
-        prepare.run_prepare("test")
-    crawl.assert_called_once_with(config_name="test", save=False, publish=True)
+        prepare.run_prepare(PrepareRunConfig(config_name="test"))
+    crawl.assert_called_once_with(
+        WebsiteCrawlerRunConfig(config_name="test", save=False, publish=True)
+    )
     image.assert_called_once_with(
-        config_name="test", crawl_results={"p": {}}, save=False, publish=True
+        ImageSummarizerRunConfig(config_name="test", save=False, publish=True),
+        crawl_results={"p": {}},
     )
     rag.assert_called_once_with(
-        config_name="test",
-        webpages_data_use_latest_results=False,
-        save=False,
-        publish=True,
+        RAGBuildRunConfig(
+            config_name="test",
+            save=False,
+            publish=True,
+            webpages_data_use_latest_results=False,
+        )
     )
 
 
@@ -249,16 +270,21 @@ def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> N
         patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
-        prepare.run_prepare("test", publish=False)
-    crawl.assert_called_once_with(config_name="test", save=True, publish=False)
+        prepare.run_prepare(PrepareRunConfig(config_name="test", publish=False))
+    crawl.assert_called_once_with(
+        WebsiteCrawlerRunConfig(config_name="test", save=True, publish=False)
+    )
     image.assert_called_once_with(
-        config_name="test", crawl_results={"p": {}}, save=True, publish=False
+        ImageSummarizerRunConfig(config_name="test", save=True, publish=False),
+        crawl_results={"p": {}},
     )
     rag.assert_called_once_with(
-        config_name="test",
-        webpages_data_use_latest_results=True,
-        save=True,
-        publish=False,
+        RAGBuildRunConfig(
+            config_name="test",
+            save=True,
+            publish=False,
+            webpages_data_use_latest_results=True,
+        )
     )
 
 
@@ -270,6 +296,6 @@ def test_run_prepare_stops_when_crawler_returns_none() -> None:
         patch.object(prepare, "run_image_summarizer") as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
-        prepare.run_prepare("test")
+        prepare.run_prepare(PrepareRunConfig(config_name="test"))
     image.assert_not_called()
     rag.assert_not_called()

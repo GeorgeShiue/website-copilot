@@ -65,7 +65,7 @@ def _make_mock_rag(site_id: str = "test") -> MagicMock:
     return rag
 
 
-def _config_for_site(config_name: str, **overrides: Any) -> MagicMock:
+def _config_for_site(config_name: str, overrides: dict[str, Any]) -> MagicMock:
     """RAGConfig.from_yaml 替身：回傳帶有對應 site_id 的 config。"""
     cfg = MagicMock()
     cfg.site_id = overrides.get("site_id", "x")
@@ -178,7 +178,9 @@ class TestGetCacheMiss:
 
         result = registry.get("nculab")
 
-        mock_config_cls.from_yaml.assert_called_once_with("default", site_id="nculab")
+        mock_config_cls.from_yaml.assert_called_once_with(
+            "default", {"site_id": "nculab"}
+        )
         mock_load_rag.assert_called_once_with(fake_config)
         assert result is fake_rag
 

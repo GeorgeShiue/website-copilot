@@ -16,7 +16,7 @@ configs/
 - `{site}.yml`：站點設定（`nculab`／`ncucsie`／`claudecode`），只寫與 default 不同的欄位。
 - `test_{site}.yml`：測試用設定（如 `max_pages: 40`），繼承 `{site}.yml`；`test.yml` 等同 `test_nculab.yml`。
 
-CLI 的 `--run.config-name <name>` 對應 `configs/<module>/<name>.yml`。
+CLI 的 `--run.config <name>` 對應 `configs/<module>/<name>.yml`。
 
 ## 結構
 

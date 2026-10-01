@@ -35,7 +35,7 @@
 - 單欄位約束以型別與 `Field` 表達（`PositiveInt`、`Literal`、`Field(ge=, le=)` 等）；非空字串使用 `NonEmptyStr`（只檢查不改寫，prompt 的前後換行原樣保留）。
 - 跨欄位規則以 `model_validator` 實作：`nodes.chunk_overlap < nodes.chunk_size`；`hybrid_ranker_params` 有設定時，`WeightedRanker` 必須有 `weights`（長度 2）且不可有 `k`，`RRFRanker` 必須有 `k` 且不可有 `weights`。
 
-載入流程（`BaseModuleConfig.from_yaml(config_name, **overrides)`）：
+載入流程（`BaseModuleConfig.from_yaml(config_name, overrides=None)`）：
 
 1. 由 `config_name` 組出 `configs/<module>/<config_name>.yml`，以 `yaml.safe_load` 讀成 dict，逐層處理 `extends` 並以 deep merge 由父到子合併（`config/yaml_helper.py`）。
 2. 取出最上層保留 key `run_name_fields`（dotted path 的 list，省略時為 `[]`），檢查每個路徑都指向模型欄位。
@@ -117,7 +117,7 @@
 module_config 與 run_config 的寫入機制：
 
 - `utils/config_helper.save_module_config(config, path)` 會以 `model_dump()` 把 config 分 section 寫出為 `module_config.yml`。
-- `utils/config_helper.save_run_config(run_config, path)` 會把 run dataclass 的所有欄位寫入 `run_config.yml`（`None` 為 `null`）。由 workflow 函式在收到 `run_config`（非 None）時呼叫 `save_run_config()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
+- `utils/config_helper.save_run_config(run_config, path)` 會把 run dataclass 的所有欄位寫入 `run_config.yml`（`None` 為 `null`）。由 workflow 函式呼叫 `save_run_config()` 寫出；`website-copilot run` 會傳入 run 參數（`website-copilot prepare` 目前不寫出）。
 
 結果檔案與產出：
 
@@ -129,7 +129,7 @@ module_config 與 run_config 的寫入機制：
   - `run_rag_build()`：寫 `module_config.yml`（與 `run_config.yml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.yml`；重建（rebuild）時另存一份 `module_config.yml` 到向量庫路徑。
   - `run_agent_query()`：經 `run_agent_build()` 建構 agent（`module_config.yml` 寫在 `agent_build/`）；本身只寫 `run_config.yml`，並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
-  - `run_agent_build()`：寫 `module_config.yml`（與 `run_config.yml`，若有傳入）至 `runs/<ts>/agent_build/<config>/`。
+  - `run_agent_build()`：寫 `module_config.yml` 與 `run_config.yml` 至 `runs/<ts>/agent_build/<config>/`。
   - `run_server_build()`：只寫 `run_config.yml`（不寫 `module_config.yml`）；對話結果由 server 的 `_event_stream()` 以 `save_agent_results_as_json()` 落盤至 `runs/<ts>/server/<config>/results_{thread_id}.json`。
 - module_config.yml
 - run_config.yml
@@ -143,16 +143,11 @@ save_module_config() 以 `model_dump()` 輸出完整 config（含 RAG 推導出�
 
 save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `null`）。
 
-目前實際寫入時機：
+寫入時機：`run_config` 為所有 pipeline 函式的必填參數，因此所有入口都會寫出 `run_config.yml`：
 
-- `website-copilot run <module>`（`cli/run.py`）：tyro 解析 CLI → 以 `run_config=command.run` 傳入對應 pipeline 函式 → 函式內在流程中呼叫 `save_run_config(run_config, run_manager.run_config_path)`
-- `website-copilot prepare`：目前不傳入 `run_config`，因此不寫出 `run_config.yml`
-- `website-copilot serve`：傳入 `ServeRunConfig`，由 `run_server_build()` 寫出 `run_config.yml`
-
-因此：
-
-- 走 `website-copilot run` 入口時，run_config.yml 會被寫出（由 pipeline 函式代為寫入）
-- 直接呼叫 `src/website_copilot/pipelines/*.py` 內函式時，需在呼叫時傳入 `run_config` 才會寫出；`website-copilot prepare` 目前不寫出
+- `website-copilot run <module>`（`cli/run.py`）：tyro 解析 CLI → `run_xxx(command.run, overrides)` → 函式內呼叫 `save_run_config(run_config, run_manager.run_config_path)`（publish 時另寫到 `data/`）。
+- `website-copilot prepare`：`run_prepare` 以同一個 config 名稱建立各階段的 RunConfig，各階段各自寫出（publish 時寫到 `data/{category}/{site_id}/run_config.yml`）。
+- `website-copilot serve`：同一個 `ServeRunConfig` 由 `run_agent_build()` 與 `run_server_build()` 各自寫出。
 
 ### 結果檔案
 
@@ -175,12 +170,11 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 
 倉庫中的測試與實驗（現況）：
 
-- `tests/integration/test_module.py` 會透過程式 API 逐一呼叫各 run function（皆使用 `config_name="test"`）：
+- `tests/integration/test_module.py` 會透過程式 API 逐一呼叫各 run function（皆以 `config_name="test"` 的 RunConfig 呼叫）：
   - `run_website_crawler`、`run_image_summarizer`、`run_rag_build`
   - `run_agent_build`、`run_agent_query`
 
-- `tests/integration/test_pipeline.py` 會執行 `run_prepare(config_name="test", publish=False)`（只存到 `runs/`，RAG 以 `runs/` 中本次的圖片摘要結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
-- `website-copilot exp <name>`（實驗定義於 `pipelines/exp.py` 的 `EXPERIMENTS`）為手動實驗入口，方便針對不同 `config_name` 或模型版本做比較。
+- `tests/integration/test_pipeline.py` 會執行 `run_prepare(PrepareRunConfig(config_name="test", publish=False))`（只存到 `runs/`，RAG 以 `runs/` 中本次的圖片摘要結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
 
 ## 六、結論
 
@@ -193,7 +187,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 - 四個主要模組（crawler、image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
 - `BaseModuleConfig`（`src/website_copilot/config/base_config.py`）為共用基底，不綁定 `site_id`；需要 `site_id` 的子類（如 `RAGConfig`、`WebsiteCrawlerConfig`）自行宣告欄位。
 - 驗證以 pydantic 型別、`Field` 約束與 `model_validator` 表達，在建構與修改欄位時即捕捉錯誤。
-- `pipeline_config.py`（`src/website_copilot/config/pipeline_config.py`）定義 RunConfig 與 ModuleConfig dataclass，供 CLI（tyro）與程式端共用。
+- `pipeline_config.py`（`src/website_copilot/config/pipeline_config.py`）定義 RunConfig dataclass，供 CLI（tyro）與程式端共用；CLI 的 `--module.*` 覆寫參數由 `config/overrides.py` 從 module config 自動產生。
 
 ## Evidence
 

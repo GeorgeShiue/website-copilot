@@ -97,7 +97,7 @@ def test_load_raises_when_vector_store_missing(
     workspace: Path, fake_backends: dict[str, MagicMock]
 ) -> None:
     (workspace / "data" / "rag" / SITE_ID / "milvus.db").unlink()
-    config = RAGConfig.from_yaml("default", site_id=SITE_ID)
+    config = RAGConfig.from_yaml("default", {"site_id": SITE_ID})
 
     with pytest.raises(FileNotFoundError) as exc_info:
         load_rag(config)

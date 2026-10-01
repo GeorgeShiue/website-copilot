@@ -5,6 +5,8 @@ run_agent_build 與 run_server_build 各自持有獨立的 run context（RunMana
 只讀取 prepare 階段 publish 到 data/ 的向量庫，不 import 爬蟲與 VLM 相關模組。
 """
 
+from typing import Any
+
 import uvicorn
 
 from website_copilot.agent.agent import Agent, create_agent
@@ -25,24 +27,23 @@ from website_copilot.utils.log_helper import log_session, print_log
 
 
 def run_agent_build(
-    config_name: str = "default",
-    run_config: AgentRunConfig | None = None,
-    **config_overrides,
+    run_config: AgentRunConfig | ServeRunConfig,
+    overrides: dict[str, Any] | None = None,
 ) -> Agent:
     """建構 Agent 並落盤設定，回傳 agent（資源由呼叫端負責 close()）。
 
     一律建立自己的 run context：runs/<ts>/agent_build/<config>/。
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.yml）。
-        run_config: AgentRunConfig 實例（可選，用於落盤 run config yml）。
-        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
+        run_config: `run agent` 的 AgentRunConfig 或 `serve` 的 ServeRunConfig；
+            config_name 對應 configs/agent/{name}.yml。
+        overrides: AgentConfig 的巢狀覆寫值（llm_name / system_prompt）。
     """
-    config = AgentConfig.from_yaml(config_name, **config_overrides)
+    config = AgentConfig.from_yaml(run_config.config_name, overrides)
 
     run_manager, run_title = create_run_no_site_context(
         module="agent_build",
-        config_name=config_name,
+        config_name=run_config.config_name,
     )
 
     with run_workflow_context(run_title, run_manager=run_manager):
@@ -56,8 +57,7 @@ def run_agent_build(
 
             # ---- 儲存設定 -----
             save_module_config(config, run_manager.module_config_path)
-            if run_config is not None:
-                save_run_config(run_config, run_manager.run_config_path)
+            save_run_config(run_config, run_manager.run_config_path)
         except Exception:
             agent.close()
             raise
@@ -65,13 +65,7 @@ def run_agent_build(
     return agent
 
 
-def run_server_build(
-    agent: Agent,
-    run_config: ServeRunConfig | None = None,
-    allowed_origins: list[str] | None = None,
-    host: str = "127.0.0.1",
-    port: int = 8000,
-) -> ChatServer:
+def run_server_build(agent: Agent, run_config: ServeRunConfig) -> ChatServer:
     """以注入的 Agent 建立 ChatApp（FastAPI app）並回傳 ChatServer（非阻塞）。
 
     建立自己的 run context：runs/<ts>/server/<config>/，對話結果落盤於此。
@@ -81,10 +75,8 @@ def run_server_build(
 
     Args:
         agent: 已建構的 Agent（通常來自 run_agent_build()）。
-        run_config: ServeRunConfig 實例（可選，用於落盤 run config yml）。
-        allowed_origins: CORS 允許來源（None 時全開放）。
-        host: 監聽位址，預設 "127.0.0.1"。
-        port: 監聽連接埠，預設 8000。
+        run_config: ServeRunConfig；host／port 為監聽位址與連接埠，allowed_origins 為
+            CORS 允許來源（None 時全開放），並落盤為 run_config.yml。
 
     Returns:
         ChatServer：交由呼叫端 run() 或 await serve()，結束時自動關閉 agent。
@@ -102,12 +94,15 @@ def run_server_build(
             chat_app = ChatApp.create(
                 agent=agent,
                 run_manager=run_manager,
-                allowed_origins=allowed_origins,
+                allowed_origins=run_config.allowed_origins,
             )
 
             # --- 啟動 Server -----
             uvicorn_config = uvicorn.Config(
-                chat_app.app, host=host, port=port, log_level="info"
+                chat_app.app,
+                host=run_config.host,
+                port=run_config.port,
+                log_level="info",
             )
             server = ChatServer(uvicorn_config, chat_app)
 
@@ -115,8 +110,7 @@ def run_server_build(
             log_session("Server Initialization Completed", style="cyan")
 
             # ---- 儲存設定 -----
-            if run_config is not None:
-                save_run_config(run_config, run_manager.run_config_path)
+            save_run_config(run_config, run_manager.run_config_path)
         except Exception as e:
             log_session("Server Initialization Failed", style="red")
             print_log(f"Error: {e}")
@@ -127,16 +121,10 @@ def run_server_build(
 
 def serve(run_config: ServeRunConfig) -> None:
     """建構 Agent 後啟動 Chat Server 並阻塞至中斷（agent 資源由 ChatServer 結束時關閉）。"""
-    agent = run_agent_build(config_name=run_config.config_name)
+    agent = run_agent_build(run_config)
 
     try:
-        server = run_server_build(
-            agent,
-            run_config=run_config,
-            allowed_origins=run_config.allowed_origins,
-            host=run_config.host,
-            port=run_config.port,
-        )
+        server = run_server_build(agent, run_config)
     except Exception:
         agent.close()
         raise

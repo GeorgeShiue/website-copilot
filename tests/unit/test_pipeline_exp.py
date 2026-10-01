@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from agent_stubs import (
@@ -19,6 +19,16 @@ from agent_stubs import (
     FakeAgentStub,
     setup_mock_run_manager,
 )
+
+from website_copilot.config.pipeline_config import AgentRunConfig
+
+
+@pytest.fixture(autouse=True)
+def mock_save_run_config(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """run_config 為必填、一律落盤；以 mock 取代，避免寫出 mock RunManager 的假路徑。"""
+    mock = MagicMock()
+    monkeypatch.setattr("website_copilot.pipelines.exp.save_run_config", mock)
+    return mock
 
 
 # ===========================================================================
@@ -43,7 +53,9 @@ def test_run_agent_query_calls_agent_ask(
     mock_run_agent_build.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
 
-    run_agent_query(config_name="test", query="你好", thread_id="session-1")
+    run_agent_query(
+        AgentRunConfig(config_name="test", query="你好", thread_id="session-1")
+    )
 
     assert len(fake_agent.asked) == 1
     assert fake_agent.asked[0]["query"] == "你好"
@@ -67,13 +79,40 @@ def test_run_agent_query_delegates_save_to_run_manager(
     mock_run_agent_build.return_value = fake_agent
     mock_rm = setup_mock_run_manager(mock_rm_cls)
 
-    run_agent_query(config_name="test", query="hello", thread_id="session-1")
+    run_agent_query(
+        AgentRunConfig(config_name="test", query="hello", thread_id="session-1")
+    )
 
     mock_rm.save_agent_results_as_json.assert_called_once()
     save_kwargs = mock_rm.save_agent_results_as_json.call_args.kwargs
     assert save_kwargs["thread_id"] == "session-1"
     assert save_kwargs["agent_config"] is fake_agent.config
     assert save_kwargs["results"][0]["response"] == "fake answer"
+
+
+@patch("website_copilot.pipelines.exp.run_agent_build")
+@patch("website_copilot.storage.run_context.RunManager")
+@patch("website_copilot.storage.run_context.save_logging_file")
+@patch("website_copilot.pipelines.exp.log_session")
+def test_run_agent_query_passes_run_config_and_overrides(
+    mock_log_session,
+    _mock_save_logging,
+    mock_rm_cls,
+    mock_run_agent_build,
+    mock_save_run_config,
+):
+    """run_agent_query：run_config 與 overrides 原樣交給 run_agent_build，run_config 落盤到 agent run。"""
+    from website_copilot.pipelines.exp import run_agent_query
+
+    mock_run_agent_build.return_value = FakeAgentStub()
+    mock_rm = setup_mock_run_manager(mock_rm_cls)
+    run_config = AgentRunConfig(config_name="test", query="hello")
+    overrides = {"llm_name": "other-llm"}
+
+    run_agent_query(run_config, overrides)
+
+    mock_run_agent_build.assert_called_once_with(run_config, overrides)
+    mock_save_run_config.assert_called_once_with(run_config, mock_rm.run_config_path)
 
 
 @patch("website_copilot.pipelines.exp.run_agent_build")
@@ -92,7 +131,7 @@ def test_run_agent_query_auto_generates_thread_id(
     mock_run_agent_build.return_value = FakeAgentStub()
     mock_rm = setup_mock_run_manager(mock_rm_cls)
 
-    run_agent_query(config_name="test", query="hello")
+    run_agent_query(AgentRunConfig(config_name="test", query="hello"))
 
     thread_id = mock_rm.save_agent_results_as_json.call_args.kwargs["thread_id"]
     assert thread_id is not None
@@ -116,7 +155,7 @@ def test_run_agent_query_closes_agent_on_success(
     mock_run_agent_build.return_value = fake_agent
     setup_mock_run_manager(mock_rm_cls)
 
-    run_agent_query(config_name="test", query="hello")
+    run_agent_query(AgentRunConfig(config_name="test", query="hello"))
 
     assert fake_agent.close_called
 
@@ -139,7 +178,7 @@ def test_run_agent_query_closes_agent_on_error(
     setup_mock_run_manager(mock_rm_cls)
 
     with pytest.raises(RuntimeError):
-        run_agent_query(config_name="test", query="hello")
+        run_agent_query(AgentRunConfig(config_name="test", query="hello"))
 
     assert fake_agent.close_count == 1
 
@@ -162,7 +201,7 @@ def test_run_agent_query_closes_agent_on_stream_error(
     setup_mock_run_manager(mock_rm_cls)
 
     with pytest.raises(RuntimeError):
-        run_agent_query(config_name="test", query="hello", stream=True)
+        run_agent_query(AgentRunConfig(config_name="test", query="hello", stream=True))
 
     assert fake_agent.close_count == 1
 
@@ -185,10 +224,9 @@ def test_run_agent_query_stream_persists_streamed_result(
     mock_rm = setup_mock_run_manager(mock_rm_cls)
 
     run_agent_query(
-        config_name="test",
-        query="hello",
-        thread_id="session-1",
-        stream=True,
+        AgentRunConfig(
+            config_name="test", query="hello", thread_id="session-1", stream=True
+        )
     )
 
     mock_rm.save_agent_results_as_json.assert_called_once()

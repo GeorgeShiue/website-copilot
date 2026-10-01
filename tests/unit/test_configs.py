@@ -208,7 +208,7 @@ def test_assignment_is_validated() -> None:
 
 
 def test_rag_default_paths_follow_site_id() -> None:
-    config = RAGConfig.from_yaml("test", site_id="ncucsie")
+    config = RAGConfig.from_yaml("test", {"site_id": "ncucsie"})
 
     assert config.webpages_data_folder_path == "data/webpages/ncucsie"
     assert config.vector_store.milvus_uri == "data/rag/ncucsie/milvus.db"
@@ -296,28 +296,52 @@ def test_missing_config_file(tmp_rag_folder: Path) -> None:
         RAGConfig.from_yaml("missing")
 
 
-def test_flat_overrides_go_to_their_section() -> None:
+def test_nested_overrides_deep_merged() -> None:
+    """overrides 以 deep merge 疊在 extends 展開結果上，未指定的欄位保留設定檔的值。"""
     config = RAGConfig.from_yaml(
         "test",
-        similarity_top_k=20,
-        cutoff=0.3,
-        hybrid_ranker_params={"weights": [1.0, 0.3]},
+        {
+            "retriever": {"similarity_top_k": 20},
+            "query_engine": {"cutoff": 0.3},
+            "vector_store": {"hybrid_ranker_params": {"weights": [1.0, 0.3]}},
+        },
     )
 
     assert config.retriever.similarity_top_k == 20
+    assert config.retriever.hybrid_top_k == 10
     assert config.query_engine.cutoff == 0.3
+    assert config.query_engine.query_llm_name == "gpt-5.6-luna"
     params = config.vector_store.hybrid_ranker_params
     assert params is not None and params.weights == [1.0, 0.3]
+    assert config.source.endswith(" + overrides")
 
 
-def test_unknown_override_rejected() -> None:
-    with pytest.raises(ConfigValidationError, match="unknown_key"):
-        RAGConfig.from_yaml("test", unknown_key=1)
+def test_empty_overrides_keep_source() -> None:
+    assert RAGConfig.from_yaml("test", {}).source == RAGConfig.from_yaml("test").source
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"unknown_key": 1}, {"retriever": {"unknown_key": 1}}, {"run_name_fields": []}],
+)
+def test_unknown_override_rejected(overrides: dict[str, Any]) -> None:
+    with pytest.raises(ConfigValidationError, match="unknown_key|run_name_fields"):
+        RAGConfig.from_yaml("test", overrides)
 
 
 def test_invalid_override_rejected() -> None:
-    with pytest.raises(ConfigValidationError, match="retriever.alpha"):
-        RAGConfig.from_yaml("test", alpha=2.0)
+    """override 的值同樣經過驗證，錯誤訊息標示有套用 overrides。"""
+    with pytest.raises(ConfigValidationError) as exc_info:
+        RAGConfig.from_yaml("test", {"retriever": {"alpha": 2.0}})
+
+    message = str(exc_info.value)
+    assert "+ overrides: retriever.alpha:" in message
+
+
+def test_override_triggers_cross_field_rule() -> None:
+    """只改 hybrid_ranker 時，合併後仍帶有設定檔的 weights，被跨欄位規則擋下。"""
+    with pytest.raises(ConfigValidationError, match="RRFRanker"):
+        RAGConfig.from_yaml("test", {"vector_store": {"hybrid_ranker": "RRFRanker"}})
 
 
 # ---------- run name ----------

@@ -15,4 +15,4 @@ def main(cli: PrepareCLI) -> None:
     from website_copilot.utils.log_helper import setup_logging
 
     setup_logging("info")
-    run_prepare(config_name=cli.run.config_name)
+    run_prepare(cli.run)

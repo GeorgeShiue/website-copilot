@@ -1,19 +1,22 @@
-"""Run config 與 module config（CLI override 欄位）統一定義。
+"""Run config 定義：控制 workflow 執行參數（config 名稱、save、publish 等）。
 
-Run config 控制 workflow 執行參數（config_name、publish 等）。
-Module config 定義 CLI 可覆寫的模組設定欄位（從 YAML 載入後可被 CLI 覆蓋）。
+pipeline 函式一律接收 run_config（必填）與 overrides；CLI 的 module 覆寫參數由
+`config/overrides.py` 從各 module config 自動產生，不在此定義。
+
+`config_name` 在 CLI 上為 `--run.config`（Python 屬性維持 config_name，避免與 config 物件混淆）。
 """
 
 from dataclasses import dataclass
+from typing import Annotated
 
-# ════════════════════════════════════════════════════════════════════
-#  Run Config
-# ════════════════════════════════════════════════════════════════════
+import tyro
+
+ConfigName = Annotated[str, tyro.conf.arg(name="config")]
 
 
 @dataclass
 class BaseRunConfig:
-    config_name: str = "default"
+    config_name: ConfigName = "default"
     run_name_use_config_name: bool = False
     publish: bool = False
     save: bool = True
@@ -43,7 +46,7 @@ class RAGQueryRunConfig(BaseRunConfig):
 @dataclass
 class AgentRunConfig:
     query: str
-    config_name: str = "default"
+    config_name: ConfigName = "default"
     thread_id: str | None = None
     stream: bool = False
     publish: bool = False
@@ -51,49 +54,21 @@ class AgentRunConfig:
 
 @dataclass
 class PrepareRunConfig:
-    """Prepare 階段（website-copilot prepare）的執行參數；config_name 同時決定各階段使用的 config。"""
+    """Prepare 階段（website-copilot prepare）的執行參數；config_name 同時決定各階段使用的 config。
 
-    config_name: str = "default"
+    publish=True 時各階段結果 publish 到 data/（不存 runs/）；False（`--run.no-publish`）時
+    只存到 runs/，RAG 以 runs/ 中本次的圖片摘要結果建庫。
+    """
+
+    config_name: ConfigName = "default"
+    publish: bool = True
 
 
 @dataclass
 class ServeRunConfig:
     """Serve 階段（website-copilot serve）的執行參數；config_name 對應 configs/agent/{name}.yml。"""
 
-    config_name: str = "default"
+    config_name: ConfigName = "default"
     host: str = "127.0.0.1"
     port: int = 8000
     allowed_origins: list[str] | None = None
-
-
-# ════════════════════════════════════════════════════════════════════
-#  Module Config（CLI override 欄位）
-# ════════════════════════════════════════════════════════════════════
-
-
-@dataclass
-class WebsiteCrawlerModuleConfig:
-    max_pages: int | None = None
-
-
-@dataclass
-class ImageSummarizerModuleConfig:
-    model: str | None = None
-
-
-@dataclass
-class RAGModuleConfig:
-    hybrid_ranker: str | None = None
-    weights: list[float] | None = None
-    similarity_top_k: int | None = None
-    query_mode: str | None = None
-    hybrid_top_k: int | None = None
-    alpha: float | None = None
-    cutoff: float | None = None
-    query: str | None = None
-
-
-@dataclass
-class AgentModuleConfig:
-    llm_name: str | None = None
-    system_prompt: str | None = None

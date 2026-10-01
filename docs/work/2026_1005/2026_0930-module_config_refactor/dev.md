@@ -116,3 +116,49 @@ git 追蹤的 9 份舊記錄檔（data/ 下沒有其他 `.toml`）以一次性�
 - `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected；實際產生的 `runs/<ts>/agent_build/test/module_config.yml` 檔頭為 `# source: configs/agent/test.yml (extends: default)`，prompt 為 block scalar。
 - CLI 冒煙：`prepare`／`serve`／`exp --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0。
 - `grep -rn toml src tests scripts`：只剩 `.toml` 不被接受、`configs/` 無 `.toml` 的測試。
+
+## Phase C：移除 CLI 中介層
+
+### 變更
+
+- 新增 `config/overrides.py`（C1）
+  - `make_overrides_model(model)` 以 `pydantic.create_model` 遞迴產生 `{Config}Overrides`：巢狀 section（含 `hybrid_ranker_params` 這類 `Model | None` 的可選 section）→ 巢狀 partial model，以預設實例作為預設值；葉欄位 → `X | None = None`；排除 `dict` 欄位（`litellm_kwargs`）；複製 `Field(description=...)`。
+  - `prune_empty(dict)` 遞迴移除 `None` 與清空的 dict；`overrides_to_dict(model)` = `prune_empty(model_dump(exclude_none=True))`。
+  - partial model 不帶約束、不設 strict，只負責收集值；範圍與跨欄位規則在 `from_yaml()` 合併後統一驗證。
+- `BaseModuleConfig.from_yaml(config_name, overrides=None)`（C2）：overrides 為巢狀 dict，以 extends 同一個 `deep_merge` 疊在最上層（父檔 < 子檔 < overrides），最後驗證一次。刪除 Phase A 的過渡機制 `_apply_flat_overrides`。有套用 overrides 時 `source` 結尾加上 ` + overrides`（錯誤訊息與 `module_config.yml` 檔頭）。
+- `config/pipeline_config.py`：刪除 `*ModuleConfig`；`config_name` 以 `ConfigName = Annotated[str, tyro.conf.arg(name="config")]` 標註（C5，CLI 為 `--run.config`，Python 屬性維持 `config_name`）；`PrepareRunConfig` 新增 `publish: bool = True`。
+- `cli/run.py`：`module` 欄位改為自動產生的 `{Config}Overrides`；刪除 overrides 轉換迴圈、`weights → hybrid_ranker_params` 特例與 `run_kwargs` 的 `pop`；各分支為 `run_xxx(command.run, overrides)`。動態產生的 model 不能當靜態型別，以 `TYPE_CHECKING` 分支讓 pyright 視為 `BaseModel`；`module` 欄位加 docstring 作為 `--help` 的 section 說明（tyro 會把欄位後的註解當說明，不能用 `# type: ignore`）。
+- `cli/prepare.py`：`run_prepare(cli.run)`。
+- pipeline 簽名（C3）：
+  - `run_website_crawler(run_config, overrides=None)`、`run_image_summarizer(run_config, overrides=None, crawl_results=None)`、`run_rag_build(run_config, overrides=None)`、`run_rag_query(run_config, overrides=None)`、`run_agent_query(run_config, overrides=None)`、`run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides=None)`、`run_prepare(run_config)`。
+  - `config_name`、`save`、`publish`、`run_name_use_config_name`、`webpages_data_use_latest_results`、`force_rebuild`、`query_times`、`query`／`thread_id`／`stream` 一律從 `run_config` 讀取；`run_config` 必填，所有路徑都以 `save_run_config` 寫出 `run_config.yml`。
+  - `run_prepare` 以同一個 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig`（`save = not publish`、`webpages_data_use_latest_results = not publish`）。
+  - `serve(run_config)` 以同一個 `ServeRunConfig` 呼叫 `run_agent_build(run_config)` 與 `run_server_build(agent, run_config)`。
+  - `build_rag(config_name, ..., overrides=None)`；`RAGRegistry.get` 改為 `RAGConfig.from_yaml(config_name, {"site_id": site_id})`。
+- 刪除 exp（C4）：`cli/exp.py`、`cli/__init__.py` 的 `exp` 子命令、`pipelines/exp.py` 的 8 個實驗函式與 `EXPERIMENTS`／`run_experiment`；`pipelines/exp.py` 保留 `run_rag_query`／`run_agent_query`。
+- 文件：README（CLI 範例、目錄樹、移除 exp 說明）、`docs/code/runs/cli.md`（解析流程、覆寫規則、範例改寫）、`docs/code/runs/{config,workflow}.md`（pipeline 簽名、run_config 寫入時機、移除 exp）；`--run.config-name` 全部改為 `--run.config`（`docs/code/phase*/modules/*.md` 經 grep 無此參數）。
+- 測試
+  - 新增 `test_overrides.py`（16 個）：模型名稱、未指定時為空 dict、section／可選 section 為巢狀 partial model、葉欄位型別變為 `X | None`（含 Literal）、`dict` 欄位排除、說明複製、未知欄位被拒、`overrides_to_dict`、`prune_empty`。
+  - 新增 `test_cli.py`（12 個）：以 mock 攔截 pipeline 函式，驗證 `--run.config`、舊 `--run.config-name` 被拒、巢狀 `--module.*`（含 list、Literal、bool）只傳遞有指定的欄位且合併後的 config 值正確、型別錯誤／不在 Literal 內的值／`litellm_kwargs` 被 tyro 擋下、`prepare`（預設 publish、`--run.no-publish`）、`serve`、`exp` 已移除。
+  - `test_configs.py`：巢狀 overrides 的 deep merge、未指定欄位保留、`+ overrides` 來源、未知 key（含 `run_name_fields`）、override 值的驗證與跨欄位規則。
+  - `test_pipeline_prepare.py`：`run_rag_build(RAGBuildRunConfig(...))`；publish 到 data/ 的檔案多出 `run_config.yml`；`run_prepare` 以 mock 確認建立並傳遞三個階段的 RunConfig（`config_name` 相同）。
+  - `test_pipeline_exp.py`／`test_pipeline_serve.py`：改用新簽名；autouse fixture 以 mock 取代 `save_run_config`（run_config 必填後會實際寫檔到 mock RunManager 的假路徑）；新增 run_config／overrides 原樣傳遞的斷言。
+  - `test_rag_tools.py`、`test_serve_rag_loading.py`、`tests/integration/*`：改用新簽名。
+
+### 與 plan 不同或 plan 未明訂的決定（請審核）
+
+1. **`hybrid_ranker_params` 的 CLI 路徑**：plan 的原型表寫 `--module.vector-store.weights 1.0 0.3`，但 Phase A 已把 `hybrid_ranker_params` 做成獨立 model，巢狀規則下參數為 `--module.vector-store.hybrid-ranker-params.weights 1.0 0.3`（與設定檔結構一致）。
+2. **`run_server_build(agent, run_config)`**：plan 的 C3 簽名清單沒有列出它；為了與 C3「不重複傳遞」一致，一併移除 `host`／`port`／`allowed_origins` 參數，改從 `run_config` 讀取，`run_config` 改為必填。
+3. **`source` 標示 `+ overrides`**：`module_config.yml` 內容已含覆寫後的值，但只看檔案無法得知有沒有經過 CLI 覆寫；檔頭 `# source:` 結尾加上 ` + overrides`，驗證錯誤訊息也標示錯誤值可能來自 overrides。
+4. **`run agent`／`serve` 的 `agent_build` 目錄也寫 `run_config.yml`**：`run_agent_build` 的 `run_config` 改為必填後，`runs/<ts>/agent_build/<config>/` 也會有 `run_config.yml`（原本只有 serve 的 server 目錄與 agent 目錄有）。
+5. **bool 覆寫以值指定**：`{Config}Overrides` 的 bool 欄位為 `bool | None`，CLI 為 `--module.init.light-mode False`，而非 `--flag`／`--no-flag`（後者無法表達「未指定」）。
+6. **`--help` 顯示 `{None}|INT`**：葉欄位為 `X | None`，tyro 會把 `None` 列為可選值；未另外處理。
+
+### 驗證
+
+- `grep -rn "EXPERIMENTS\|run_experiment\|ExpCLI" src tests README.md docs/code`：無結果。
+- `scripts/check.sh`：exit 0（ruff、pyright 0 errors、290 passed、widget 同步）。
+- `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected。
+- CLI 冒煙：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`--help` 中 `--run.config`、`--module.retriever.similarity-top-k` 等巢狀參數與欄位說明正確，`litellm_kwargs` 不在 CLI。`exp` 已不在子命令清單（`website-copilot exp ...` 顯示可用子命令為 prepare／serve／run）。
+- config 快照：與 Phase B 的快照完全相同（config 結構與設定檔未改變）。
+- 過渡狀態（依 plan）：`--module.site-id`、`--module.query-engine.query` 目前出現在 CLI，Phase D 移除欄位後自動消失。

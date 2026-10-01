@@ -6,10 +6,12 @@
 import os
 import shutil
 import tempfile
+from typing import Any
 
 from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
 from website_copilot.config.pipeline_config import (
     ImageSummarizerRunConfig,
+    PrepareRunConfig,
     RAGBuildRunConfig,
     WebsiteCrawlerRunConfig,
 )
@@ -45,33 +47,27 @@ from website_copilot.utils.log_helper import (
 
 
 def run_website_crawler(
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
-    save: bool = True,
-    publish: bool = False,
-    run_config: WebsiteCrawlerRunConfig | None = None,
-    **config_overrides,
+    run_config: WebsiteCrawlerRunConfig,
+    overrides: dict[str, Any] | None = None,
 ) -> dict[str, dict] | None:
     """執行網站爬蟲工作流程。
 
     Args:
-        config_name: WebsiteCrawlerConfig 名稱（對應 configs/website_crawler/{name}.yml）。
-        run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        save: 是否將本次執行結果落盤到 runs/（預設 True）。
-        publish: 是否將本次執行結果 publish 到 data/（預設 False）。
-        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
-        **config_overrides: WebsiteCrawlerConfig 覆寫值（含 site_id）。
+        run_config: 執行參數（config_name 對應 configs/website_crawler/{name}.yml；
+            save 落盤到 runs/、publish 發布到 data/）。
+        overrides: WebsiteCrawlerConfig 的巢狀覆寫值（含 site_id）。
 
     Returns:
         爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    config = WebsiteCrawlerConfig.from_yaml(config_name, **config_overrides)
+    save, publish = run_config.save, run_config.publish
+    config = WebsiteCrawlerConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
         module="website_crawler",
-        config_name=config_name,
+        config_name=run_config.config_name,
         config=config,
-        run_name_use_config_name=run_name_use_config_name,
+        run_name_use_config_name=run_config.run_name_use_config_name,
         save=save,
     )
     data_manager = DataManager()
@@ -124,8 +120,7 @@ def run_website_crawler(
                 crawl_results, run_manager.results_folder_path, "fit_markdown"
             )
             save_module_config(config, run_manager.module_config_path)
-            if run_config is not None:
-                save_run_config(run_config, run_manager.run_config_path)
+            save_run_config(run_config, run_manager.run_config_path)
 
         # ----- Publish（publish 到 data/） -----
         if publish:
@@ -151,35 +146,29 @@ def run_website_crawler(
 
 
 def run_image_summarizer(
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
+    run_config: ImageSummarizerRunConfig,
+    overrides: dict[str, Any] | None = None,
     crawl_results: dict[str, dict] | None = None,
-    save: bool = True,
-    publish: bool = False,
-    run_config: ImageSummarizerRunConfig | None = None,
-    **config_overrides,
 ) -> dict[str, dict] | None:
     """執行網頁圖片摘要工作流程。
 
     Args:
-        config_name: ImageSummarizerConfig 名稱（對應 configs/image_summarizer/{name}.yml）。
-        run_name_use_config_name: 是否使用 config_name 作為 run_name。
+        run_config: 執行參數（config_name 對應 configs/image_summarizer/{name}.yml；
+            save 落盤到 runs/、publish 發布到 data/）。
+        overrides: ImageSummarizerConfig 的巢狀覆寫值（含 site_id）。
         crawl_results: 爬取結果 dict（可選，None 時從最新結果載入）。
-        save: 是否將本次執行結果落盤到 runs/（預設 True）。
-        publish: 是否將本次執行結果 publish 到 data/（預設 False）。
-        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
-        **config_overrides: ImageSummarizerConfig 覆寫值（含 site_id）。
 
     Returns:
         增強後的爬取結果 dict | None。
     """
     # ----- 初始化設定和路徑 -----
-    config = ImageSummarizerConfig.from_yaml(config_name, **config_overrides)
+    save, publish = run_config.save, run_config.publish
+    config = ImageSummarizerConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
         module="image_summarizer",
-        config_name=config_name,
+        config_name=run_config.config_name,
         config=config,
-        run_name_use_config_name=run_name_use_config_name,
+        run_name_use_config_name=run_config.run_name_use_config_name,
         save=save,
     )
     data_manager = DataManager()
@@ -228,8 +217,7 @@ def run_image_summarizer(
                 enhanced_results, run_manager.results_folder_path, "enhanced_markdown"
             )
             save_module_config(config, run_manager.module_config_path)
-            if run_config is not None:
-                save_run_config(run_config, run_manager.run_config_path)
+            save_run_config(run_config, run_manager.run_config_path)
 
         # ----- Publish（publish 到 data/） -----
         if publish:
@@ -249,15 +237,13 @@ def run_image_summarizer(
 
 
 def run_rag_build(
-    config_name: str = "default",
-    webpages_data_use_latest_results: bool = False,
-    save: bool = True,
-    publish: bool = False,
-    run_name_use_config_name: bool = False,
-    run_config: RAGBuildRunConfig | None = None,
-    **config_overrides,
+    run_config: RAGBuildRunConfig,
+    overrides: dict[str, Any] | None = None,
 ) -> None:
     """建構 RAG 並落盤結果。完整包含建立 rag 流程。
+
+    run_config.config_name 對應 configs/rag/{name}.yml；overrides 為 RAGConfig 的巢狀覆寫值。
+    run_config.webpages_data_use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果建庫。
 
     一律重建向量庫，不受既有向量庫是否存在影響；建庫絕不直接寫入
     data/rag/{site_id}/milvus.db，只透過 publish 原子替換。建庫位置：
@@ -267,12 +253,13 @@ def run_rag_build(
       以 rename 移入正式位置，staging 一律刪除。
     - save=False, publish=False：建在系統暫存資料夾，結束時刪除（不留任何檔案）。
     """
-    config = RAGConfig.from_yaml(config_name, **config_overrides)
+    save, publish = run_config.save, run_config.publish
+    config = RAGConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
         module="rag_build",
-        config_name=config_name,
+        config_name=run_config.config_name,
         config=config,
-        run_name_use_config_name=run_name_use_config_name,
+        run_name_use_config_name=run_config.run_name_use_config_name,
         save=save,
     )
     data_manager = DataManager()
@@ -294,7 +281,7 @@ def run_rag_build(
             rag = build_rag(
                 config=config,
                 force_rebuild=True,
-                webpages_data_use_latest_results=webpages_data_use_latest_results,
+                webpages_data_use_latest_results=run_config.webpages_data_use_latest_results,
                 run_manager=run_manager,
                 build_query_engine=False,
             )
@@ -307,8 +294,7 @@ def run_rag_build(
             if save:
                 assert run_manager is not None
                 save_module_config(config, run_manager.module_config_path)
-                if run_config is not None:
-                    save_run_config(run_config, run_manager.run_config_path)
+                save_run_config(run_config, run_manager.run_config_path)
 
             # ----- Publish（原子替換到 data/） -----
             if publish:
@@ -332,18 +318,20 @@ def run_rag_build(
             shutil.rmtree(staging_dir, ignore_errors=True)
 
 
-def run_prepare(config_name: str = "default", publish: bool = True) -> None:
+def run_prepare(run_config: PrepareRunConfig) -> None:
     """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置。
 
     與 serve 階段以 data/ 目錄為唯一介面：本階段負責寫入，serve 階段只讀取已 publish
     的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
 
     Args:
-        config_name: 各階段共用的 config 名稱（對應 configs/{module}/{name}.yml）。
-        publish: True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
+        run_config: config_name 為各階段共用的 config 名稱（對應 configs/{module}/{name}.yml）；
+            publish=True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
             runs/，不寫入 data/，RAG 以 runs/ 中本次的圖片摘要結果建庫（供測試使用）。
     """
     reset_run_summary()
+    config_name = run_config.config_name
+    publish = run_config.publish
     save = not publish
 
     with log_run_time(f"Prepare Workflow ({config_name})"):
@@ -352,29 +340,31 @@ def run_prepare(config_name: str = "default", publish: bool = True) -> None:
         try:
             # ----- Website Crawler -----
             crawl_results = run_website_crawler(
-                config_name=config_name,
-                save=save,
-                publish=publish,
+                WebsiteCrawlerRunConfig(
+                    config_name=config_name, save=save, publish=publish
+                )
             )
             if crawl_results is None:
                 return
 
             # ----- Image Summarizer -----
             enhanced_results = run_image_summarizer(
-                config_name=config_name,
+                ImageSummarizerRunConfig(
+                    config_name=config_name, save=save, publish=publish
+                ),
                 crawl_results=crawl_results,
-                save=save,
-                publish=publish,
             )
             if enhanced_results is None:
                 return
 
             # ----- RAG Build -----
             run_rag_build(
-                config_name=config_name,
-                webpages_data_use_latest_results=not publish,
-                save=save,
-                publish=publish,
+                RAGBuildRunConfig(
+                    config_name=config_name,
+                    save=save,
+                    publish=publish,
+                    webpages_data_use_latest_results=not publish,
+                )
             )
 
             # ----- 輸出完成訊息 -----

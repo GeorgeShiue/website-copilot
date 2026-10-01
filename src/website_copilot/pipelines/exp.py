@@ -1,9 +1,9 @@
-"""RAG 查詢評估、Agent 問答 workflow 與批次實驗（實驗／除錯用，不屬於 prepare 或 serve 階段）。"""
+"""RAG 查詢評估與 Agent 問答 workflow（實驗／除錯用，不屬於 prepare 或 serve 階段）。"""
 
 import asyncio
 import time
 import uuid
-from collections.abc import Callable
+from typing import Any
 
 from website_copilot.config.pipeline_config import AgentRunConfig, RAGQueryRunConfig
 from website_copilot.config.rag_config import RAGConfig
@@ -29,30 +29,24 @@ from website_copilot.utils.log_helper import log_session, print_log
 
 
 def run_rag_query(
-    config_name: str = "default",
-    run_name_use_config_name: bool = False,
-    force_rebuild: bool = False,
-    query_times: int = 1,
-    run_config: RAGQueryRunConfig | None = None,
-    **config_overrides,
+    run_config: RAGQueryRunConfig,
+    overrides: dict[str, Any] | None = None,
 ) -> None:
     """執行 RAG 查詢工作流程。
 
     Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.yml）。
-        run_name_use_config_name: 是否使用 config_name 作為 run_name。
-        force_rebuild: 是否強制重建向量庫。
-        query_times: 查詢次數。
-        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
-        **config_overrides: RAGConfig 覆寫值（含 site_id）。
+        run_config: 執行參數（config_name 對應 configs/rag/{name}.yml；force_rebuild
+            是否強制重建向量庫；query_times 查詢次數）。
+        overrides: RAGConfig 的巢狀覆寫值（含 site_id）。
     """
     # ----- 初始化設定和路徑 -----
-    config = RAGConfig.from_yaml(config_name, **config_overrides)
+    query_times = run_config.query_times
+    config = RAGConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
         module="rag_query",
-        config_name=config_name,
+        config_name=run_config.config_name,
         config=config,
-        run_name_use_config_name=run_name_use_config_name,
+        run_name_use_config_name=run_config.run_name_use_config_name,
     )
     assert run_manager is not None  # save 未在此函式開放，永遠會建立 RunManager
 
@@ -62,7 +56,7 @@ def run_rag_query(
         log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         rag = build_rag(
             config=config,
-            force_rebuild=force_rebuild,
+            force_rebuild=run_config.force_rebuild,
         )
 
         try:
@@ -147,8 +141,7 @@ def run_rag_query(
 
             # ---- 儲存設定 -----
             save_module_config(config, run_manager.module_config_path)
-            if run_config is not None:
-                save_run_config(run_config, run_manager.run_config_path)
+            save_run_config(run_config, run_manager.run_config_path)
         except Exception as e:
             log_session("RAG Query Failed", style="red")
             print_log(f"Error: {e}")
@@ -159,12 +152,8 @@ def run_rag_query(
 
 
 def run_agent_query(
-    query: str,
-    config_name: str = "default",
-    thread_id: str | None = None,
-    stream: bool = False,
-    run_config: AgentRunConfig | None = None,
-    **config_overrides,
+    run_config: AgentRunConfig,
+    overrides: dict[str, Any] | None = None,
 ) -> None:
     """執行 Agent 問答工作流程（建構 agent → 建立 run context → 問答 → 落盤 → 關閉）。
 
@@ -173,21 +162,19 @@ def run_agent_query(
     agent 的 Tool 生命週期在本函式內結束（呼叫端不需持有 agent）。
 
     Args:
-        config_name: AgentConfig 名稱（對應 configs/agent/{name}.yml）。
-        query: 使用者問題。
-        thread_id: session 識別；None 時自動產生 auto-{uuid}。
-        stream: 是否逐 token 串流輸出。
-        run_config: RunConfig 實例（可選，用於落盤 run config yml）。
-        **config_overrides: AgentConfig 覆寫值（llm_name / system_prompt）。
+        run_config: 執行參數（config_name 對應 configs/agent/{name}.yml；query 使用者問題；
+            thread_id 為 session 識別，None 時自動產生 auto-{uuid}；stream 是否逐 token 串流輸出）。
+        overrides: AgentConfig 的巢狀覆寫值（llm_name / system_prompt）。
     """
+    query, thread_id = run_config.query, run_config.thread_id
 
     # ---- 建構 Agent（獨立的 agent_build run context）-----
-    agent = run_agent_build(config_name, **config_overrides)
+    agent = run_agent_build(run_config, overrides)
 
     try:
         run_manager, run_title = create_run_no_site_context(
             module="agent",
-            config_name=config_name,
+            config_name=run_config.config_name,
             base_folder="runs",
         )
 
@@ -196,7 +183,7 @@ def run_agent_query(
                 # ---- Agent 問答 -----
                 log_session("Agent Query and Response", style="cyan")
                 print_log(f"Query: {query}")
-                if stream:
+                if run_config.stream:
                     result = asyncio.run(
                         agent.astream_result(
                             query,
@@ -217,8 +204,7 @@ def run_agent_query(
                 log_session("Agent Query Completed", style="cyan")
 
                 # ---- 儲存設定（module_config.yml 已由 run_agent_build 寫入）-----
-                if run_config is not None:
-                    save_run_config(run_config, run_manager.run_config_path)
+                save_run_config(run_config, run_manager.run_config_path)
 
                 # ---- 儲存結果 -----
                 if thread_id is None:
@@ -234,165 +220,3 @@ def run_agent_query(
                 raise
     finally:
         agent.close()
-
-
-# ════════════════════════════════════════════════════════════════════
-#  批次實驗（各實驗以 config_name 對應 configs/{module}/{name}.yml）
-# ════════════════════════════════════════════════════════════════════
-
-
-def image_summarizer_model():
-    from website_copilot.pipelines.prepare import run_image_summarizer
-
-    # gemini_flash_lite_models = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
-    # gemini_3_all_tier_models = [
-    #     "gemini-3.1-flash-lite",
-    #     "gemini-3-flash",
-    #     "gemini-3-pro",
-    # ]
-    models = ["gemini-3.1-flash-lite", "gemini-3-flash"]  # temp
-
-    for model in models:
-        run_image_summarizer(
-            config_name=model,
-            run_name_use_config_name=True,
-        )
-
-
-def image_summarizer_prompt():
-    from website_copilot.pipelines.prepare import run_image_summarizer
-
-    # all_prompts = ["prompt-v1", "prompt-v2", "prompt-v3"]
-    prompts = ["prompt-v3"]  # temp
-
-    for prompt in prompts:
-        run_image_summarizer(
-            config_name=prompt,
-            run_name_use_config_name=True,
-        )
-
-
-def rag_dense_model():
-    queries = [
-        "實驗室近三年發表過哪些論文？",
-        "實驗室的成員有哪些人？",
-        "實驗室開發過哪些與 AI 相關的應用？",
-    ]
-    models = [
-        # "gemini-3.1-flash-lite",
-        # "gemini-3-flash",
-        # "gemini-3.5-flash",
-        # "gemini-2.5-pro",
-        "gemini-3.1-pro",
-    ]
-
-    for query in queries:
-        for model in models:
-            run_rag_query(
-                config_name=model,
-                run_name_use_config_name=True,
-                query_times=10,
-                query=query,
-            )
-
-
-def rag_hybrid_ranker():
-    hybrid_rankers = [
-        "milvus-weight",
-        "milvus-RRF",
-    ]
-
-    for hybrid_ranker in hybrid_rankers:
-        run_rag_query(
-            config_name=hybrid_ranker,
-        )
-
-
-def rag_hybrid_ranker_weights():
-    hybrid_ranker_weights = [
-        "milvus-weight-1.0_0.3",
-        "milvus-weight-1.0_0.5",
-        "milvus-weight-0.9_0.3",
-    ]
-
-    for hybrid_ranker_weight in hybrid_ranker_weights:
-        run_rag_query(
-            config_name=hybrid_ranker_weight,
-            run_name_use_config_name=True,
-        )
-
-
-def rag_hybrid_top_k():
-    hybrid_top_k_configs = [
-        "milvus-topk-10",
-        "milvus-topk-20",
-        "milvus-topk-30",
-    ]
-
-    for hybrid_top_k_config in hybrid_top_k_configs:
-        run_rag_query(
-            config_name=hybrid_top_k_config,
-            run_name_use_config_name=True,
-        )
-
-
-def rag_hybrid_five_question():
-    queries = [
-        "milvus-q1-members",
-        "milvus-q2-activities",
-        "milvus-q3-prepare",
-        "milvus-q4-contact",
-        "milvus-q5-papers",
-    ]
-
-    for query in queries:
-        run_rag_query(
-            config_name=query,
-            run_name_use_config_name=True,
-        )
-
-
-def rag_dense_vs_hybrid():
-    query_modes = ["dense", "hybrid"]
-    queries = [
-        "實驗室的成員有哪些人？",
-        "實驗室在2024年有哪些活動？",
-        "加入實驗室需要準備哪些資料？",
-        "如何聯絡研究室指導教授？",
-        "實驗室近三年發表過哪些論文？",
-    ]
-
-    for i, query in enumerate(queries):
-        for query_mode in query_modes:
-            # 每個 question+strategy 使用獨立 DB 路徑，避免 pymilvus ConnectionManager
-            # 以 URI 為 key 快取連線導致下一輪 reconnect 到已關閉的舊 server
-            unique_uri = f"data/rag/exps/milvus_{query_mode}_q{i + 1}.db"
-            run_rag_query(
-                config_name=query_mode,
-                run_name_use_config_name=True,
-                query=query,
-                milvus_uri=unique_uri,
-            )
-            # MilvusLite gRPC 關閉後 transport 需時間回收，確保新 server 啟動前舊 ping 已消散
-            time.sleep(1)
-
-
-EXPERIMENTS: dict[str, Callable[[], None]] = {
-    "image_summarizer_model": image_summarizer_model,
-    "image_summarizer_prompt": image_summarizer_prompt,
-    "rag_dense_model": rag_dense_model,
-    "rag_hybrid_ranker": rag_hybrid_ranker,
-    "rag_hybrid_ranker_weights": rag_hybrid_ranker_weights,
-    "rag_hybrid_top_k": rag_hybrid_top_k,
-    "rag_hybrid_five_question": rag_hybrid_five_question,
-    "rag_dense_vs_hybrid": rag_dense_vs_hybrid,
-}
-
-
-def run_experiment(name: str) -> None:
-    """依名稱執行 EXPERIMENTS 中的批次實驗。"""
-    if name not in EXPERIMENTS:
-        raise ValueError(
-            f"Unknown experiment '{name}'. Available: {', '.join(EXPERIMENTS)}"
-        )
-    EXPERIMENTS[name]()
