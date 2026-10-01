@@ -1,4 +1,8 @@
-"""在 index 之上組裝查詢物件（retriever / query engine），並提供 RAG 的建置（build_rag）與 serve 載入（load_rag）入口。"""
+"""在 index 之上組裝查詢物件（retriever / query engine），並提供 RAG 的建置（build_rag）與 serve 載入（load_rag）入口。
+
+站點、資料來源與向量庫位置以 RAGTarget 傳入（published_target／build_target 依執行模式產生），
+config 只含可調參數，建置過程中不會被改寫。
+"""
 
 import logging
 import os
@@ -11,12 +15,15 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.vector_stores.types import VectorStoreQueryMode
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.ingestion.indexing.index import IndexBuilder, IndexHandle
+from website_copilot.ingestion.indexing.index import (
+    IndexBuilder,
+    IndexHandle,
+    RAGTarget,
+)
 from website_copilot.retrieval.llama_index_helpers import build_filters, create_llm
 from website_copilot.retrieval.rag import RAG
-from website_copilot.storage.run_manager import RunManager
 from website_copilot.storage.run_persistence import load_latest_run_path
-from website_copilot.utils.log_helper import log_session
+from website_copilot.utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)
 
@@ -82,77 +89,96 @@ class RAGBuilder:
         )
 
 
-def build_rag(
-    config_name: str = "default",
-    force_rebuild: bool = False,
+def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
+    """已 publish 的位置：資料來源 data/webpages/{site_id}、向量庫 data/rag/{site_id}/milvus.db。
+
+    serve 載入與 rag-query 使用；rag-build 一律不直接寫入這裡（見 build_target）。
+    """
+    return RAGTarget(
+        site_id=site_id,
+        webpages_dir=os.path.join(data_folder, "webpages", site_id),
+        milvus_uri=os.path.join(data_folder, "rag", site_id, "milvus.db"),
+    )
+
+
+def build_target(
+    site_id: str,
+    milvus_uri: str,
     webpages_data_use_latest_results: bool = False,
-    run_manager: RunManager | None = None,
-    build_query_engine: bool = True,
-    config: RAGConfig | None = None,
-    overrides: dict[str, Any] | None = None,
-) -> RAG:
-    """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟。
+    runs_folder: str = "runs",
+    data_folder: str = "data",
+) -> RAGTarget:
+    """rag-build 的目標：向量庫位置由呼叫端依 save／publish 決定，資料來源依執行模式決定。
 
     Args:
-        config_name: RAGConfig 名稱（對應 configs/rag/{name}.yml）。config 為
-            None 時才會用它從 yml 解析。
+        site_id: 站點識別碼。
+        milvus_uri: 向量庫建置位置（run 的 results/、data/rag/{site_id}/.staging-* 或系統暫存）。
+        webpages_data_use_latest_results: True 時改用 runs/ 中同站點最新一次 image summarizer
+            的結果（需該次以 save=True 執行）；False 時使用 data/webpages/{site_id}。
+        runs_folder: runs/ 根目錄。
+        data_folder: data/ 根目錄。
+    """
+    if webpages_data_use_latest_results:
+        log_session("Finding Latest Webpages Data", style="cyan")
+        webpages_dir = load_latest_run_path(
+            runs_folder, "image_summarizer", site_id=site_id
+        )
+    else:
+        webpages_dir = os.path.join(data_folder, "webpages", site_id)
+    return RAGTarget(site_id=site_id, webpages_dir=webpages_dir, milvus_uri=milvus_uri)
+
+
+def log_target(target: RAGTarget) -> None:
+    """記錄本次 RAG 的站點、資料來源與向量庫位置（不寫入 module_config.yml）。"""
+    log_session("RAG Target", style="cyan")
+    print_log(f"site_id: {target.site_id}")
+    print_log(f"webpages_dir: {target.webpages_dir}")
+    print_log(f"milvus_uri: {target.milvus_uri}")
+
+
+def build_rag(
+    config: RAGConfig,
+    target: RAGTarget,
+    force_rebuild: bool = False,
+    build_query_engine: bool = True,
+) -> RAG:
+    """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟；不會改寫 config。
+
+    Args:
+        config: RAG 參數。
+        target: 站點、資料來源與向量庫位置（見 published_target／build_target）。
         force_rebuild: 是否強制重建向量庫。
-        webpages_data_use_latest_results: 是否改用 runs/ 中該 site 最新一次
-            image summarizer 的結果建庫（需該次以 save=True 執行）；False 時
-            使用 config.webpages_data_folder_path（預設 data/webpages/{site_id}）。
-        run_manager: 呼叫端已建立的 RunManager（可選）。傳入時向量庫會建到
-            該 run 的 results/ 目錄下；None 時使用 config 的預設持久化路徑。
         build_query_engine: 是否建到 retriever／query engine 層級；
             False 時僅建到 vector store／index 層級（不含 retriever）。
-        config: 呼叫端已建立的 RAGConfig（可選）。傳入時直接沿用，不再重新
-            解析 yml；此時 config_name／overrides 會被忽略。
-        overrides: RAGConfig 的巢狀覆寫值（含 site_id），僅在 config 為 None 時生效。
 
     Returns:
         已建構的 RAG 實例（呼叫端負責 close）。
     """
-    if config is None:
-        config = RAGConfig.from_yaml(config_name, overrides)
-
-    # ----- 解決 webpages 資料路徑（改用 runs/ 中最新的 image summarizer 結果）-----
-    if webpages_data_use_latest_results:
-        log_session("Finding Latest Webpages Data", style="cyan")
-        config.webpages_data_folder_path = load_latest_run_path(
-            run_manager.base_folder if run_manager is not None else "runs",
-            "image_summarizer",
-            site_id=config.site_id,
-        )
-
-    # ----- 解決向量庫存放位置（預設位置 vs 呼叫端 run 的 results/）-----
-    if run_manager is not None:
-        config.vector_store.milvus_uri = os.path.join(
-            run_manager.results_folder_path, "milvus.db"
-        )
-
+    log_target(target)
+    index_builder = IndexBuilder(config, target)
     if build_query_engine:
         log_session("Building RAG to Query Engine", style="cyan")
-        index_handle = IndexBuilder(config).build_or_load(force_rebuild=force_rebuild)
+        index_handle = index_builder.build_or_load(force_rebuild=force_rebuild)
         rag = RAGBuilder(config).build(index_handle)
     else:
         log_session("Building RAG to Vector Store", style="cyan")
-        index_handle = IndexBuilder(config).build_or_load(force_rebuild=force_rebuild)
+        index_handle = index_builder.build_or_load(force_rebuild=force_rebuild)
         rag = RAG(index_handle)
 
     return rag
 
 
-def load_rag(config: RAGConfig) -> RAG:
+def load_rag(config: RAGConfig, target: RAGTarget) -> RAG:
     """只載入既有向量庫到 retriever 層級，絕不建置（供 serve 階段使用）。
 
     Raises:
         FileNotFoundError: 向量庫不存在時（應先執行 prepare 階段 publish）。
     """
-    assert config.vector_store.milvus_uri is not None
-    if not os.path.exists(config.vector_store.milvus_uri):
+    if not os.path.exists(target.milvus_uri):
         raise FileNotFoundError(
-            f"Vector store not found: {config.vector_store.milvus_uri}"
+            f"Vector store not found: {target.milvus_uri}"
             "（請先執行 prepare 階段建置並 publish 向量庫）"
         )
-    index_handle: IndexHandle = IndexBuilder(config).load()
+    index_handle: IndexHandle = IndexBuilder(config, target).load()
     rag = RAGBuilder(config).build(index_handle, build_query_engine=False)
     return rag

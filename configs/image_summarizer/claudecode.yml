@@ -1,4 +1,0 @@
-extends: default
-run_name_fields: [summarize.model]
-
-site_id: claudecode

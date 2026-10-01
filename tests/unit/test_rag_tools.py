@@ -25,7 +25,8 @@ from website_copilot.agent.tools.webpage_retriever import (
     create_webpage_retriever_tool,
 )
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.ingestion.indexing.index import IndexBuilder
+from website_copilot.ingestion.indexing.index import IndexBuilder, RAGTarget
+from website_copilot.retrieval.factory import build_rag, build_target, published_target
 from website_copilot.retrieval.registry import RAGRegistry
 
 # ===========================================================================
@@ -65,13 +66,6 @@ def _make_mock_rag(site_id: str = "test") -> MagicMock:
     return rag
 
 
-def _config_for_site(config_name: str, overrides: dict[str, Any]) -> MagicMock:
-    """RAGConfig.from_yaml 替身：回傳帶有對應 site_id 的 config。"""
-    cfg = MagicMock()
-    cfg.site_id = overrides.get("site_id", "x")
-    return cfg
-
-
 MakeRegistry = Callable[..., RAGRegistry]
 
 
@@ -101,12 +95,12 @@ def make_registry(tmp_path: Path) -> MakeRegistry:
 
 
 def _track_loaded_rags(mock_load_rag: MagicMock) -> OrderedDict[str, MagicMock]:
-    """讓 load_rag 依 config.site_id 回傳 RAG 替身，並記錄於回傳的 dict。"""
+    """讓 load_rag 依 target.site_id 回傳 RAG 替身，並記錄於回傳的 dict。"""
     rags: OrderedDict[str, MagicMock] = OrderedDict()
 
-    def make_rag_side_effect(config: Any) -> MagicMock:
-        rag = _make_mock_rag(config.site_id)
-        rags[config.site_id] = rag
+    def make_rag_side_effect(config: Any, target: RAGTarget) -> MagicMock:
+        rag = _make_mock_rag(target.site_id)
+        rags[target.site_id] = rag
         return rag
 
     mock_load_rag.side_effect = make_rag_side_effect
@@ -170,7 +164,6 @@ class TestGetCacheMiss:
         registry = make_registry(existing_sites=["nculab"])
 
         fake_config = MagicMock()
-        fake_config.site_id = "nculab"
         mock_config_cls.from_yaml.return_value = fake_config
 
         fake_rag = _make_mock_rag("nculab")
@@ -178,10 +171,10 @@ class TestGetCacheMiss:
 
         result = registry.get("nculab")
 
-        mock_config_cls.from_yaml.assert_called_once_with(
-            "default", {"site_id": "nculab"}
+        mock_config_cls.from_yaml.assert_called_once_with("default")
+        mock_load_rag.assert_called_once_with(
+            fake_config, published_target("nculab", registry.base_folder)
         )
-        mock_load_rag.assert_called_once_with(fake_config)
         assert result is fake_rag
 
 
@@ -201,9 +194,7 @@ class TestGetCacheHit:
     ) -> None:
         registry = make_registry(existing_sites=["nculab"])
 
-        fake_config = MagicMock()
-        fake_config.site_id = "nculab"
-        mock_config_cls.from_yaml.return_value = fake_config
+        mock_config_cls.from_yaml.return_value = MagicMock()
         fake_rag = _make_mock_rag("nculab")
         mock_load_rag.return_value = fake_rag
 
@@ -231,7 +222,7 @@ class TestLRUEviction:
     ) -> None:
         registry = make_registry(existing_sites=["a", "b", "c"], max_cached=2)
 
-        mock_config_cls.from_yaml.side_effect = _config_for_site
+        mock_config_cls.from_yaml.return_value = MagicMock()
 
         rags = _track_loaded_rags(mock_load_rag)
 
@@ -260,7 +251,7 @@ class TestClose:
     ) -> None:
         registry = make_registry(existing_sites=["a", "b"])
 
-        mock_config_cls.from_yaml.side_effect = _config_for_site
+        mock_config_cls.from_yaml.return_value = MagicMock()
 
         rags = _track_loaded_rags(mock_load_rag)
 
@@ -279,8 +270,8 @@ class TestClose:
 
 
 def _make_builder() -> IndexBuilder:
-    """建立以 configs/rag/test.yml 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
-    return IndexBuilder(RAGConfig.from_yaml("test"))
+    """建立以 RAGConfig 預設值與 published target 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
+    return IndexBuilder(RAGConfig(), published_target("test"))
 
 
 class TestShouldRebuildMilvus:
@@ -311,10 +302,8 @@ class TestShouldRebuildMilvus:
             assert builder._should_rebuild(force_rebuild=True) is True
 
 
-def test_build_rag_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> None:
+def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> None:
     """webpages_data_use_latest_results=True：改用 runs/ 中同 site 最新的圖片摘要結果。"""
-    from website_copilot.retrieval.factory import build_rag
-
     runs = tmp_path / "runs"
     for ts, site in [
         ("20260929_090000", "nculab"),
@@ -322,25 +311,52 @@ def test_build_rag_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> No
         ("20260929_110000", "ncucsie"),  # 較新但不同 site
     ]:
         (runs / ts / "image_summarizer" / site / "r" / "results").mkdir(parents=True)
-    config = MagicMock(site_id="nculab")
-    run_manager = MagicMock(
-        base_folder=str(runs), results_folder_path=str(tmp_path / "out")
+
+    target = build_target(
+        "nculab",
+        str(tmp_path / "out" / "milvus.db"),
+        webpages_data_use_latest_results=True,
+        runs_folder=str(runs),
     )
+
+    assert target == RAGTarget(
+        site_id="nculab",
+        webpages_dir=str(
+            runs / "20260929_100000" / "image_summarizer" / "nculab" / "r"
+        ),
+        milvus_uri=str(tmp_path / "out" / "milvus.db"),
+    )
+
+
+def test_build_target_defaults_to_published_webpages() -> None:
+    target = build_target("nculab", "/tmp/x/milvus.db", data_folder="data")
+
+    assert target.webpages_dir == "data/webpages/nculab"
+    assert target.milvus_uri == "/tmp/x/milvus.db"
+
+
+def test_published_target() -> None:
+    assert published_target("ncucsie", "data") == RAGTarget(
+        site_id="ncucsie",
+        webpages_dir="data/webpages/ncucsie",
+        milvus_uri="data/rag/ncucsie/milvus.db",
+    )
+
+
+def test_build_rag_does_not_modify_config(tmp_path: Path) -> None:
+    """建庫過程只讀 config，位置由 RAGTarget 提供（config 不再被改寫）。"""
+    config = RAGConfig()
+    before = config.model_dump()
+    target = RAGTarget("nculab", str(tmp_path / "web"), str(tmp_path / "milvus.db"))
 
     with (
-        patch("website_copilot.retrieval.factory.IndexBuilder"),
+        patch("website_copilot.retrieval.factory.IndexBuilder") as index_builder,
         patch("website_copilot.retrieval.factory.RAG"),
     ):
-        build_rag(
-            config=config,
-            webpages_data_use_latest_results=True,
-            run_manager=run_manager,
-            build_query_engine=False,
-        )
+        build_rag(config, target, force_rebuild=True, build_query_engine=False)
 
-    assert config.webpages_data_folder_path == str(
-        runs / "20260929_100000" / "image_summarizer" / "nculab" / "r"
-    )
+    index_builder.assert_called_once_with(config, target)
+    assert config.model_dump() == before
 
 
 class TestReturnStyleBuild:
@@ -360,9 +376,8 @@ class TestReturnStyleBuild:
 
     def test_rebuild_reads_source_before_cleaning(self, tmp_path: Any) -> None:
         """results.json 不存在 → 在清除既有向量庫前就失敗。"""
-        config = MagicMock()
-        config.webpages_data_folder_path = str(tmp_path / "missing")
-        builder = IndexBuilder(config)
+        target = RAGTarget("demo", str(tmp_path / "missing"), str(tmp_path / "db"))
+        builder = IndexBuilder(RAGConfig(), target)
         with (
             patch.object(builder, "clean") as mock_clean,
             pytest.raises(FileNotFoundError, match="results.json"),

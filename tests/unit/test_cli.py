@@ -3,7 +3,7 @@
 - `--run.config` 參數名稱（Python 屬性仍為 config_name）；舊的 `--run.config-name` 被拒。
 - `--module.*` 巢狀覆寫參數：只傳遞有指定的欄位，合併後的 config 值正確。
 - 型別錯誤由 tyro 擋下；dict 欄位（litellm_kwargs）不在 CLI；exp 子命令已移除。
-- `--help` 顯示 config class 的預設值與必填標示，不顯示 None 選項。
+- `--help` 顯示 config class 的預設值，不顯示 None 選項；站點為必填的位置參數。
 """
 
 from unittest.mock import MagicMock, patch
@@ -37,18 +37,26 @@ def _run(args: list[str], target: str) -> MagicMock:
 
 def test_run_config_argument_name() -> None:
     mock = _run(
-        ["run", "rag-query", "--run.config", "test", "--run.query-times", "3"],
+        [
+            "run",
+            "rag-query",
+            "nculab",
+            "--run.config",
+            "test",
+            "--run.query-times",
+            "3",
+        ],
         "website_copilot.pipelines.exp.run_rag_query",
     )
 
     mock.assert_called_once_with(
-        RAGQueryRunConfig(config_name="test", query_times=3), {}
+        RAGQueryRunConfig(site="nculab", config_name="test", query_times=3), {}
     )
 
 
 def test_old_config_name_argument_rejected() -> None:
     with pytest.raises(SystemExit):
-        main(["run", "rag-query", "--run.config-name", "test"])
+        main(["run", "rag-query", "nculab", "--run.config-name", "test"])
 
 
 def test_nested_module_overrides() -> None:
@@ -56,6 +64,7 @@ def test_nested_module_overrides() -> None:
         [
             "run",
             "rag-query",
+            "nculab",
             "--run.config",
             "test",
             "--module.retriever.similarity-top-k",
@@ -89,6 +98,7 @@ def test_bool_override() -> None:
         [
             "run",
             "website-crawler",
+            "ncucsie",
             "--run.config",
             "test",
             "--run.no-save",
@@ -101,7 +111,9 @@ def test_bool_override() -> None:
     )
 
     run_config, overrides = mock.call_args.args
-    assert run_config == WebsiteCrawlerRunConfig(config_name="test", save=False)
+    assert run_config == WebsiteCrawlerRunConfig(
+        site="ncucsie", config_name="test", save=False
+    )
     assert overrides == {"init": {"light_mode": False, "max_pages": 5}}
     config = WebsiteCrawlerConfig.from_yaml("test", overrides)
     assert config.init.light_mode is False
@@ -122,11 +134,25 @@ def test_agent_command() -> None:
 @pytest.mark.parametrize(
     "args",
     [
-        ["run", "rag-query", "--module.retriever.similarity-top-k", "abc"],
-        ["run", "rag-query", "--module.retriever.query-mode", "dense"],
-        ["run", "image-summarizer", "--module.litellm-kwargs", "{}"],
+        ["run", "rag-query", "nculab", "--module.retriever.similarity-top-k", "abc"],
+        ["run", "rag-query", "nculab", "--module.retriever.query-mode", "dense"],
+        ["run", "image-summarizer", "nculab", "--module.litellm-kwargs", "{}"],
+        # 站點資訊不再是模組參數（Phase C 過渡期的參數已消失）
+        ["run", "rag-query", "nculab", "--module.site-id", "x"],
+        ["run", "rag-query", "nculab", "--module.query-engine.query", "q"],
+        # 站點為必填的位置參數
+        ["run", "rag-query", "--run.config", "test"],
+        ["prepare", "--run.config", "test"],
     ],
-    ids=["int", "literal", "dict-field"],
+    ids=[
+        "int",
+        "literal",
+        "dict-field",
+        "no-module-site-id",
+        "no-module-query",
+        "missing-site",
+        "prepare-missing-site",
+    ],
 )
 def test_invalid_cli_arguments_rejected(args: list[str]) -> None:
     with pytest.raises(SystemExit):
@@ -135,17 +161,32 @@ def test_invalid_cli_arguments_rejected(args: list[str]) -> None:
 
 def test_prepare_command() -> None:
     mock = _run(
-        ["prepare", "--run.config", "test", "--run.no-publish"],
+        ["prepare", "ncucsie", "--run.config", "test", "--run.no-publish"],
         "website_copilot.pipelines.prepare.run_prepare",
     )
 
-    mock.assert_called_once_with(PrepareRunConfig(config_name="test", publish=False))
+    mock.assert_called_once_with(
+        PrepareRunConfig(site="ncucsie", config_name="test", publish=False)
+    )
 
 
 def test_prepare_publishes_by_default() -> None:
-    mock = _run(["prepare"], "website_copilot.pipelines.prepare.run_prepare")
+    mock = _run(["prepare", "nculab"], "website_copilot.pipelines.prepare.run_prepare")
 
-    mock.assert_called_once_with(PrepareRunConfig(config_name="default", publish=True))
+    mock.assert_called_once_with(
+        PrepareRunConfig(site="nculab", config_name="default", publish=True)
+    )
+
+
+def test_rag_query_query_argument() -> None:
+    mock = _run(
+        ["run", "rag-query", "ncucsie", "--run.query", "介紹資工系課程"],
+        "website_copilot.pipelines.exp.run_rag_query",
+    )
+
+    run_config, _ = mock.call_args.args
+    assert run_config.site == "ncucsie"
+    assert run_config.query == "介紹資工系課程"
 
 
 def test_serve_command() -> None:
@@ -175,6 +216,8 @@ def test_help_shows_class_defaults(
     assert "--module.retriever.query-mode {hybrid,default}" in out
     # 可選 section 的預設值取自上層的預設實例
     assert "WeightedRanker 的 [dense, sparse] 權重 (default: [1.0, 0.5])" in out
-    assert "--module.query-engine.query STR" in out
-    assert "(必填，來自設定檔)" in out
-    assert "{None" not in out
+    assert "SITE  站點名稱，對應 configs/sites/{site}.yml (required)" in out
+    # 站點欄位已移出模組 config，模組參數全部都有預設值
+    assert "--module.query-engine.query " not in out
+    assert "(必填，來自設定檔)" not in out
+    assert "--module.retriever.similarity-top-k {None" not in out

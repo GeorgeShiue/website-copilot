@@ -20,7 +20,7 @@ SERVER_PORT = 8001
 @pytest.mark.cost
 def test_prepare():
     """publish=False：結果只存到 runs/，不覆寫 data/。"""
-    run_prepare(PrepareRunConfig(config_name="test", publish=False))
+    run_prepare(PrepareRunConfig(site="nculab", config_name="test", publish=False))
 
 
 def test_serve():

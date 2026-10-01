@@ -34,6 +34,21 @@ def _close_vector_store(vector_store: MilvusVectorStore) -> None:
             logger.warning("Milvus client close() failed", exc_info=True)
 
 
+@dataclass(frozen=True)
+class RAGTarget:
+    """RAG 的執行期目標：由站點與執行模式決定，不是可調參數（不寫入 module_config）。
+
+    Attributes:
+        site_id: 站點識別碼，作為 Milvus collection 名稱與 node metadata。
+        webpages_dir: 建庫資料來源（含 results.json 與 results/*.md 的資料夾）。
+        milvus_uri: 向量庫位置。
+    """
+
+    site_id: str
+    webpages_dir: str
+    milvus_uri: str
+
+
 @dataclass
 class IndexHandle:
     """已建置或載入的向量庫 index。
@@ -54,8 +69,9 @@ class IndexHandle:
 
 
 class IndexBuilder:
-    def __init__(self, config: RAGConfig) -> None:
+    def __init__(self, config: RAGConfig, target: RAGTarget) -> None:
         self.config = config
+        self.target = target
         self._build_stats: dict[str, str] = {}
 
     def build_or_load(self, force_rebuild: bool = False) -> IndexHandle:
@@ -65,8 +81,7 @@ class IndexBuilder:
         - 否則載入既有向量庫（不讀取 webpages）。
         """
         if self._should_rebuild(force_rebuild):
-            assert self.config.webpages_data_folder_path is not None
-            source = load_source(self.config.webpages_data_folder_path)
+            source = load_source(self.target.webpages_dir)
             return self.build(source)
         return self.load()
 
@@ -107,11 +122,10 @@ class IndexBuilder:
     def _handle(
         self, vector_store: MilvusVectorStore, index: VectorStoreIndex
     ) -> IndexHandle:
-        assert self.config.vector_store.milvus_uri is not None
         return IndexHandle(
             vector_store=vector_store,
             index=index,
-            milvus_uri=self.config.vector_store.milvus_uri,
+            milvus_uri=self.target.milvus_uri,
         )
 
     def _log_build_stats(self) -> None:
@@ -130,13 +144,12 @@ class IndexBuilder:
         """
         if force_rebuild:
             return True
-        assert self.config.vector_store.milvus_uri is not None
-        return not os.path.exists(self.config.vector_store.milvus_uri)
+        return not os.path.exists(self.target.milvus_uri)
 
     def clean(self) -> None:
         """整檔刪除既有向量庫（重建前呼叫）。"""
-        milvus_uri = self.config.vector_store.milvus_uri
-        if milvus_uri and os.path.exists(milvus_uri):
+        milvus_uri = self.target.milvus_uri
+        if os.path.exists(milvus_uri):
             if os.path.isdir(milvus_uri):
                 shutil.rmtree(milvus_uri)
             else:
@@ -152,7 +165,7 @@ class IndexBuilder:
         nodes = builder.build(
             md_folder_path=source.md_folder_path,
             results_json=source.results_json,
-            site_id=self.config.site_id,
+            site_id=self.target.site_id,
         )
         self._build_stats["Documents loaded"] = str(builder.last_doc_count)
         self._build_stats["Nodes produced"] = str(len(nodes))
@@ -160,16 +173,15 @@ class IndexBuilder:
 
     def build_vector_store(self) -> MilvusVectorStore:
         vector_store_config = self.config.vector_store
-        assert vector_store_config.milvus_uri is not None
         params = vector_store_config.hybrid_ranker_params
         logger.info(
             "Building Milvus vector store (sparse embedding: BGE-M3, hybrid_ranker=%s)",
             vector_store_config.hybrid_ranker,
         )
         return VectorStoreBuilder.build(
-            collection_name=self.config.site_id,
+            collection_name=self.target.site_id,
             embedding_name=self.config.index.embedding_name,
-            milvus_uri=vector_store_config.milvus_uri,
+            milvus_uri=self.target.milvus_uri,
             hybrid_ranker=vector_store_config.hybrid_ranker,
             hybrid_ranker_params=(
                 params.model_dump(exclude_none=True) if params is not None else None

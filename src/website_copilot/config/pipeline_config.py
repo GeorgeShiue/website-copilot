@@ -4,6 +4,8 @@ pipeline 函式一律接收 run_config（必填）與 overrides；CLI 的 module
 `config/overrides.py` 從各 module config 自動產生，不在此定義。
 
 `config_name` 在 CLI 上為 `--run.config`（Python 屬性維持 config_name，避免與 config 物件混淆）。
+`site` 為必填的位置參數（如 `website-copilot prepare ncucsie`），對應 configs/sites/{site}.yml；
+agent／serve 為多站，不需要 site。
 """
 
 from dataclasses import dataclass
@@ -12,10 +14,13 @@ from typing import Annotated
 import tyro
 
 ConfigName = Annotated[str, tyro.conf.arg(name="config")]
+Site = Annotated[str, tyro.conf.Positional, tyro.conf.arg(metavar="SITE")]
 
 
 @dataclass
 class BaseRunConfig:
+    site: Site
+    """站點名稱，對應 configs/sites/{site}.yml"""
     config_name: ConfigName = "default"
     run_name_use_config_name: bool = False
     publish: bool = False
@@ -41,6 +46,8 @@ class RAGBuildRunConfig(BaseRunConfig):
 class RAGQueryRunConfig(BaseRunConfig):
     force_rebuild: bool = False
     query_times: int = 1
+    query: str | None = None
+    """查詢問題；未指定時使用站點設定的 sample_query"""
 
 
 @dataclass
@@ -54,12 +61,14 @@ class AgentRunConfig:
 
 @dataclass
 class PrepareRunConfig:
-    """Prepare 階段（website-copilot prepare）的執行參數；config_name 同時決定各階段使用的 config。
+    """Prepare 階段（website-copilot prepare）的執行參數；site 與 config_name 同時決定各階段的設定。
 
     publish=True 時各階段結果 publish 到 data/（不存 runs/）；False（`--run.no-publish`）時
     只存到 runs/，RAG 以 runs/ 中本次的圖片摘要結果建庫。
     """
 
+    site: Site
+    """站點名稱，對應 configs/sites/{site}.yml"""
     config_name: ConfigName = "default"
     publish: bool = True
 

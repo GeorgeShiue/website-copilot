@@ -2,7 +2,7 @@
 
 - configs/ 下所有設定檔皆能載入並通過驗證。
 - class 預設值：不經設定檔即可建立、預設值本身通過驗證、設定檔省略的欄位使用預設值、
-  `default` 設定檔可省略。
+  `default` 設定檔可省略。模組 config 不含站點資訊（站點設定見 test_site_config.py）。
 - strict 型別、未知 key、跨欄位規則、validate_assignment。
 - ConfigValidationError 的訊息包含設定檔路徑與欄位路徑。
 - run_name_fields 與 run_name 組成；扁平 overrides 放入所屬 section。
@@ -22,15 +22,8 @@ from website_copilot.config.agent_config import AgentConfig
 from website_copilot.config.base_config import BaseModuleConfig, ConfigModel
 from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
 from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
-from website_copilot.config.rag_config import (
-    QueryEngineConfig,
-    RAGConfig,
-    RetrieverConfig,
-)
-from website_copilot.config.website_crawler_config import (
-    CrawlConfig,
-    WebsiteCrawlerConfig,
-)
+from website_copilot.config.rag_config import RAGConfig, RetrieverConfig
+from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.config.yaml_helper import load_config_dict
 from website_copilot.utils.config_helper import (
     ConfigValidationError,
@@ -45,7 +38,12 @@ MODULE_CONFIGS: dict[str, type[BaseModuleConfig]] = {
     "agent": AgentConfig,
 }
 
-CONFIG_FILES = sorted(Path("configs").glob("*/*.yml"))
+# 模組設定檔（configs/sites/ 的站點設定見 test_site_config.py）
+CONFIG_FILES = sorted(
+    path
+    for module in MODULE_CONFIGS
+    for path in Path(f"configs/{module}").glob("*.yml")
+)
 
 
 def _load_dict(module: str, name: str = "test") -> dict[str, Any]:
@@ -54,15 +52,6 @@ def _load_dict(module: str, name: str = "test") -> dict[str, Any]:
     data = load_config_dict(f"configs/{module}", name).data
     data.pop("run_name_fields", None)
     return MODULE_CONFIGS[module].model_validate(data).model_dump()
-
-
-# 各模組在 Phase D 前必填的站點欄位（其餘欄位皆有 class 預設值）
-SITE_FIELDS: dict[str, dict[str, Any]] = {
-    "website_crawler": {"site_id": "s", "crawl": {"url": "https://example.com/"}},
-    "image_summarizer": {"site_id": "s"},
-    "rag": {"site_id": "s", "query_engine": {"query": "q"}},
-    "agent": {},
-}
 
 
 # ---------- configs/ 下所有設定檔 ----------
@@ -81,6 +70,10 @@ def test_all_config_files_load(path: Path) -> None:
 
 def test_config_files_found() -> None:
     assert {p.parent.name for p in CONFIG_FILES} == set(MODULE_CONFIGS)
+    assert {p.name for p in Path("configs").iterdir() if p.is_dir()} == {
+        *MODULE_CONFIGS,
+        "sites",
+    }
     assert not list(Path("configs").glob("**/*.toml"))
 
 
@@ -89,15 +82,25 @@ def test_config_files_found() -> None:
 
 @pytest.mark.parametrize("module", list(MODULE_CONFIGS))
 def test_build_without_config_file(module: str) -> None:
-    """只給站點欄位即可建立，其餘欄位使用 class 預設值（含跨欄位規則的驗證）。"""
-    config = MODULE_CONFIGS[module].model_validate(SITE_FIELDS[module])
+    """全部欄位都有 class 預設值，不經設定檔即可建立（含跨欄位規則的驗證）。"""
+    config = MODULE_CONFIGS[module]()
 
     assert config.run_name
 
 
+@pytest.mark.parametrize("module", ["website_crawler", "image_summarizer", "rag"])
+def test_module_config_has_no_site_fields(module: str) -> None:
+    """站點資訊在 SiteConfig，模組 config 不含 site_id／crawl／query 等站點欄位。"""
+    fields = MODULE_CONFIGS[module].model_fields
+
+    assert "site_id" not in fields and "crawl" not in fields
+    with pytest.raises(ValidationError, match="site_id"):
+        MODULE_CONFIGS[module].model_validate({"site_id": "nculab"})
+
+
 def test_section_defaults() -> None:
     assert RetrieverConfig().similarity_top_k == 10
-    config = RAGConfig(site_id="s", query_engine=QueryEngineConfig(query="q"))
+    config = RAGConfig()
     assert config.retriever == RetrieverConfig()
     params = config.vector_store.hybrid_ranker_params
     assert params is not None and params.weights == [1.0, 0.5]
@@ -105,8 +108,8 @@ def test_section_defaults() -> None:
 
 
 def test_mutable_defaults_not_shared() -> None:
-    a = RAGConfig(site_id="a", query_engine=QueryEngineConfig(query="q"))
-    b = RAGConfig(site_id="b", query_engine=QueryEngineConfig(query="q"))
+    a = RAGConfig()
+    b = RAGConfig()
     a.retriever.similarity_top_k = 20
     assert a.vector_store.hybrid_ranker_params is not None
     a.vector_store.hybrid_ranker_params.weights = [0.1, 0.9]
@@ -137,46 +140,18 @@ def test_omitted_field_uses_class_default() -> None:
     assert config.index.embedding_name == "text-embedding-3-small"
 
 
-@pytest.mark.parametrize(
-    ("module", "path"),
-    [
-        ("website_crawler", "site_id"),
-        ("website_crawler", "crawl.url"),
-        ("rag", "query_engine.query"),
-        ("image_summarizer", "site_id"),
-    ],
-)
-def test_missing_site_field_rejected(module: str, path: str) -> None:
-    """站點欄位在 Phase D 前維持必填，不以特定站點的值作為預設。"""
-    data = _load_dict(module)
-    *sections, name = path.split(".")
-    target = data
-    for section in sections:
-        target = target[section]
-    del target[name]
+@pytest.mark.parametrize("module", list(MODULE_CONFIGS))
+def test_default_config_file_optional(module: str) -> None:
+    """`default` 沒有設定檔時等於 class 預設值（各模組皆已無 default.yml）。"""
+    config_cls = MODULE_CONFIGS[module]
+    assert not Path(f"configs/{module}/default.yml").exists()
 
-    with pytest.raises(ValidationError, match=path):
-        MODULE_CONFIGS[module].model_validate(data)
+    config = config_cls.from_yaml("default")
 
-
-def test_crawl_site_fields_have_no_site_defaults() -> None:
-    crawl = CrawlConfig(url="https://example.com/")
-
-    assert (crawl.url_patterns, crawl.allowed_domains, crawl.path_prefix) == (
-        None,
-        None,
-        None,
+    assert config.model_dump() == config_cls().model_dump()
+    assert config.source == (
+        f"{config_cls.__name__} 預設值（configs/{module}/default.yml 不存在）"
     )
-
-
-def test_default_config_file_optional() -> None:
-    """`default` 沒有設定檔時等於 class 預設值（agent 已無 default.yml）。"""
-    assert not Path("configs/agent/default.yml").exists()
-
-    config = AgentConfig.from_yaml("default")
-
-    assert config.model_dump() == AgentConfig().model_dump()
-    assert config.source == "AgentConfig 預設值（configs/agent/default.yml 不存在）"
 
 
 def test_missing_non_default_config_file_rejected() -> None:
@@ -212,15 +187,6 @@ def test_int_accepted_for_float_field() -> None:
     assert config.init.download_timeout == 10.0
 
 
-def test_allowed_domains_string_rejected() -> None:
-    """舊版字串會被逐字元檢查而通過；現在只接受 list。"""
-    data = _load_dict("website_crawler")
-    data["crawl"]["allowed_domains"] = "sites.google.com"
-
-    with pytest.raises(ValidationError, match="crawl.allowed_domains"):
-        WebsiteCrawlerConfig.model_validate(data)
-
-
 @pytest.mark.parametrize("section", [None, "retriever"])
 def test_unknown_key_rejected(section: str | None) -> None:
     data = _load_dict("rag")
@@ -246,14 +212,6 @@ def test_non_empty_str_keeps_whitespace() -> None:
     config = ImageSummarizerConfig.model_validate(data)
 
     assert config.summarize.prompt == "\nprompt\n"
-
-
-def test_path_prefix_must_start_with_slash() -> None:
-    data = _load_dict("website_crawler")
-    data["crawl"]["path_prefix"] = "site/nculab"
-
-    with pytest.raises(ValidationError, match="path_prefix 必須以 / 開頭"):
-        WebsiteCrawlerConfig.model_validate(data)
 
 
 # ---------- 跨欄位規則 ----------
@@ -310,17 +268,10 @@ def test_assignment_is_validated() -> None:
     with pytest.raises(ValidationError, match="similarity_top_k"):
         config.retriever.similarity_top_k = 0
     with pytest.raises(ValidationError, match="milvus_uri"):
-        config.milvus_uri = "x"  # type: ignore[attr-defined]  # 頂層無此欄位
+        config.milvus_uri = "x"  # type: ignore[attr-defined]  # 位置改由 RAGTarget 提供
 
-    config.vector_store.milvus_uri = "runs/x/milvus.db"
-    assert config.vector_store.milvus_uri == "runs/x/milvus.db"
-
-
-def test_rag_default_paths_follow_site_id() -> None:
-    config = RAGConfig.from_yaml("test", {"site_id": "ncucsie"})
-
-    assert config.webpages_data_folder_path == "data/webpages/ncucsie"
-    assert config.vector_store.milvus_uri == "data/rag/ncucsie/milvus.db"
+    config.retriever.similarity_top_k = 20
+    assert config.retriever.similarity_top_k == 20
 
 
 # ---------- from_yaml：錯誤訊息與 overrides ----------
@@ -383,7 +334,7 @@ def test_custom_validator_error_message(tmp_rag_folder: Path) -> None:
     [
         ("alpha: 1e-3", "retriever.alpha"),  # YAML 1.1：1e-3 為字串
         ("alpha: yes", "retriever.alpha"),  # YAML 1.1：yes 為 bool
-        ("query: 2026-09-30", "query_engine.query"),  # 日期
+        ("query_llm_name: 2026-09-30", "query_engine.query_llm_name"),  # 日期
     ],
 )
 def test_yaml_11_pitfalls_rejected_by_strict(
@@ -411,13 +362,6 @@ def test_extends_missing_default_rejected(tmp_rag_folder: Path) -> None:
 
     with pytest.raises(ConfigValidationError, match="繼承鏈：child → default"):
         RAGConfig.from_yaml("child")
-
-
-def test_default_without_file_still_requires_site_fields(
-    tmp_rag_folder: Path,
-) -> None:
-    with pytest.raises(ConfigValidationError, match="site_id"):
-        RAGConfig.from_yaml("default")
 
 
 def test_nested_overrides_deep_merged() -> None:
@@ -474,9 +418,9 @@ def test_override_triggers_cross_field_rule() -> None:
 @pytest.mark.parametrize(
     ("module", "name", "expected"),
     [
-        ("website_crawler", "default", "default"),
-        ("website_crawler", "ncucsie", "max_depth-2"),
+        ("website_crawler", "default", "max_depth-2"),
         ("website_crawler", "test", "max_pages-40"),
+        ("image_summarizer", "default", "model-gpt-5.6-luna"),
         ("image_summarizer", "test", "model-gpt-5.6-luna"),
         ("rag", "test", "vector_store_type-milvus"),
         ("agent", "test", "default"),
@@ -527,7 +471,7 @@ def test_run_name_fields_class_default(tmp_rag_folder: Path) -> None:
 
 
 def test_run_name_without_loader() -> None:
-    config = RAGConfig(site_id="s", query_engine=QueryEngineConfig(query="q"))
+    config = RAGConfig()
 
     assert config.run_name_fields == ["vector_store.vector_store_type"]
     assert config.run_name == "vector_store_type-milvus"
@@ -564,7 +508,7 @@ def test_saved_module_config_header(tmp_path: Path) -> None:
     text = path.read_text(encoding="utf-8")
 
     assert text.startswith(
-        "# source: configs/rag/test.yml (extends: test_nculab → nculab → default)\n"
+        "# source: configs/rag/test.yml\n"
         "# run_name_fields: [vector_store.vector_store_type]\n"
     )
     saved = yaml.safe_load(text)

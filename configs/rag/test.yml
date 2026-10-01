@@ -1,2 +1,1 @@
-# 測試用設定：等同 test_nculab
-extends: test_nculab
+# 測試用設定：目前與 RAGConfig 的預設值相同（rag_config.py）

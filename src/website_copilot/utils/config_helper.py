@@ -10,6 +10,7 @@ from website_copilot.utils.log_helper import log_session, print_log
 
 if TYPE_CHECKING:
     from website_copilot.config.base_config import BaseModuleConfig
+    from website_copilot.config.site_config import SiteConfig
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,12 @@ def save_module_config(config: "BaseModuleConfig", file_path: str) -> None:
         header.append(f"source: {config.source}")
     header.append(f"run_name_fields: [{', '.join(config.run_name_fields)}]")
     dump_yaml(config.model_dump(), file_path, header=header)
+
+
+def save_site_config(site: "SiteConfig", file_path: str) -> None:
+    """將站點設定寫成 site_config.yml，讓 runs/ 與 data/ 的紀錄可重現。"""
+    header = [f"source: {site.source}"] if site.source else None
+    dump_yaml(site.model_dump(), file_path, header=header)
 
 
 def save_run_config(config: object, file_path: str) -> None:

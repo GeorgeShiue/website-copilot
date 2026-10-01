@@ -1,8 +1,0 @@
-extends: claudecode
-run_name_fields: [init.max_pages]
-
-init:
-  max_pages: 40
-
-clean:
-  max_prompt_tokens: 200000

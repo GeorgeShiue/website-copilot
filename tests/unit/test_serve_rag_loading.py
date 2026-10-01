@@ -4,7 +4,8 @@
 - 走「載入既有向量庫」路徑：不清除、不建 nodes、不建 index，並重新 load collection。
 - 只建到 retriever 層級，不建 query engine。
 - 向量庫不存在時，拋出指示先執行 prepare 的 FileNotFoundError。
-- 不需要 data/webpages/（serve 只讀向量庫）。
+- 不需要 data/webpages/（serve 只讀向量庫），也不需要 configs/（RAG 參數使用 class 預設值）。
+- repo 中已 publish 的 data/rag/{site_id}/ 皆能以 site_id 載入。
 
 只 patch 掉 Milvus / embedding / retriever 等外部資源，其餘（RAGConfig、RAGRegistry、
 IndexBuilder／RAGBuilder 的流程）皆為真實程式碼。
@@ -21,7 +22,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.retrieval.factory import load_rag
+from website_copilot.retrieval.factory import load_rag, published_target
 from website_copilot.retrieval.registry import RAGRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -32,11 +33,7 @@ FACTORY = "website_copilot.retrieval.factory"
 
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """在 tmp 目錄建立 configs/ 與已 publish 的 data/，並切換工作目錄。"""
-    config_dir = tmp_path / "configs" / "rag"
-    config_dir.mkdir(parents=True)
-    shutil.copy(REPO_ROOT / "configs" / "rag" / "default.yml", config_dir)
-
+    """在 tmp 目錄建立已 publish 的 data/（沒有 configs/），並切換工作目錄。"""
     rag_dir = tmp_path / "data" / "rag" / SITE_ID
     rag_dir.mkdir(parents=True)
     (rag_dir / "milvus.db").touch()
@@ -97,10 +94,8 @@ def test_load_raises_when_vector_store_missing(
     workspace: Path, fake_backends: dict[str, MagicMock]
 ) -> None:
     (workspace / "data" / "rag" / SITE_ID / "milvus.db").unlink()
-    config = RAGConfig.from_yaml("default", {"site_id": SITE_ID})
-
     with pytest.raises(FileNotFoundError) as exc_info:
-        load_rag(config)
+        load_rag(RAGConfig(), published_target(SITE_ID))
 
     assert str(exc_info.value) == (
         f"Vector store not found: data/rag/{SITE_ID}/milvus.db"
@@ -119,3 +114,27 @@ def test_registry_get_works_without_webpages(
 
         assert rag.retriever is fake_backends["retriever_cls"].return_value
         assert rag.milvus_uri == f"data/rag/{SITE_ID}/milvus.db"
+
+
+PUBLISHED_SITES = sorted(
+    path.parent.name for path in (REPO_ROOT / "data" / "rag").glob("*/milvus.db")
+)
+
+
+@pytest.mark.parametrize("site_id", PUBLISHED_SITES)
+def test_registry_loads_published_sites_in_repo(
+    site_id: str, fake_backends: dict[str, MagicMock]
+) -> None:
+    """repo 中已 publish 的向量庫以 site_id 為 collection 名稱，且位於 data/rag/{site_id}/。"""
+    data_folder = str(REPO_ROOT / "data")
+    with RAGRegistry(config_name="default", base_folder=data_folder) as registry:
+        assert site_id in registry.list_sites()
+        rag = registry.get(site_id)
+
+        store_kwargs = fake_backends["build_store"].call_args.kwargs
+        assert store_kwargs["collection_name"] == site_id
+        assert rag.milvus_uri == f"{data_folder}/rag/{site_id}/milvus.db"
+
+
+def test_published_sites_found() -> None:
+    assert PUBLISHED_SITES == ["claudecode", "ncucsie", "nculab"]

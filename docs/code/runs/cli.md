@@ -8,7 +8,7 @@
 - `src/website_copilot/cli/{prepare,serve}.py`：兩階段入口的參數定義，分別呼叫 `pipelines.prepare.run_prepare(run_config)`、`pipelines.serve.serve(run_config)`。
 - `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`serve`；exp：`run_rag_query`、`run_agent_query`），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
 - `src/website_copilot/pipelines/serve.py`：`run_agent_build`（建構 agent）、`run_server_build`（以注入的 agent 建立 ChatApp + ChatServer）與 `serve`（`run_agent_build` → `run_server_build` → `server.run()` → 關閉）。
-- [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。`config_name` 在 CLI 上為 `--run.config`（`tyro.conf.arg(name="config")`），Python 屬性維持 `config_name`。
+- [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。`site` 為必填的位置參數（`Annotated[str, tyro.conf.Positional]`，metavar `SITE`），對應 `configs/sites/{site}.yml`；agent／serve 為多站，沒有 `site`。`config_name` 在 CLI 上為 `--run.config`（`tyro.conf.arg(name="config")`），Python 屬性維持 `config_name`。
 - [src/website_copilot/config/overrides.py](src/website_copilot/config/overrides.py)：`make_overrides_model()` 由 module config 自動產生 CLI 覆寫用的 partial model（`{Config}Overrides`），`overrides_to_dict()` 轉成只含已指定欄位的巢狀 dict。
   - `RAGBuildRunConfig` 的 `save`／`publish` 決定向量庫建置位置：`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/rag/<site_id>/milvus.db`（詳見 workflow.md）。
 - [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py)：管理 `runs/<timestamp>/<module>/<site_id>/<run>/` 四層路徑，提供結果儲存、module/run config 路徑、log 與路徑顯示功能。
@@ -24,7 +24,7 @@
 4. `run` 子命令：以 `overrides_to_dict(command.module)` 取得只含已指定欄位的巢狀 dict（未指定的欄位與 section 不會出現），連同 `command.run` 傳給對應 pipeline：`run_xxx(command.run, overrides)`。
    - `config_name`、`save`、`publish` 等一律由 pipeline 從 `run_config` 讀取，不再展開傳遞。
    - Agent 分支：`run_agent_query(run_config, overrides)` 負責 agent 的建立與關閉（於 `finally` 呼叫 `agent.close()`）。
-5. pipeline 以 `Config.from_yaml(run_config.config_name, overrides)` 載入：讀取 `configs/<module>/{config_name}.yml` 並展開 `extends`，overrides 以同一個 deep merge 疊在最上層（父檔 < 子檔 < overrides），最後以 pydantic 驗證一次（失敗時拋出含設定檔路徑的 `ConfigValidationError`，來源標示 `+ overrides`）。
+5. pipeline 以 `SiteConfig.from_yaml(run_config.site)` 載入站點，並以 `Config.from_yaml(run_config.config_name, overrides)` 載入模組設定：讀取 `configs/<module>/{config_name}.yml` 並展開 `extends`，overrides 以同一個 deep merge 疊在最上層（父檔 < 子檔 < overrides），最後以 pydantic 驗證一次（失敗時拋出含設定檔路徑的 `ConfigValidationError`，來源標示 `+ overrides`）。
 6. `run_config` 為必填，pipeline 一律呼叫 `save_run_config()` 寫出 `run_config.yml`。
 
 ### Agent 問答（`run agent`）
@@ -55,7 +55,7 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 - `{Config}Overrides` 的產生規則（`config/overrides.py`）：
   - 巢狀 section（含 `hybrid_ranker_params` 這類 `Model | None` 的可選 section）→ 巢狀 partial model，以預設實例作為預設值。
   - 葉欄位 → `X | None = None`，`None` 代表「未指定」；`Literal` 欄位保留選項清單，`Field(description=...)` 帶入 `--help`。
-  - `--help` 以 `(default: X)` 顯示 config class 的預設值（長字串截斷；可選 section 如 `hybrid_ranker_params` 取上層預設實例的值），必填的站點欄位標示「(必填，來自設定檔)」；以 metavar 隱藏 `None` 選項（顯示 `INT`、`{hybrid,default}`、`FLOAT [FLOAT ...]`）。實際執行時 `--run.config` 設定檔的值優先於此預設。
+  - `--help` 以 `(default: X)` 顯示 config class 的預設值（長字串截斷；可選 section 如 `hybrid_ranker_params` 取上層預設實例的值），沒有預設值的欄位標示「(必填，來自設定檔)」（目前模組 config 皆有預設值）；以 metavar 隱藏 `None` 選項（顯示 `INT`、`{hybrid,default}`、`FLOAT [FLOAT ...]`）。實際執行時 `--run.config` 設定檔的值優先於此預設。
   - `dict[str, Any]` 欄位（`litellm_kwargs`）tyro 無法處理，排除在 CLI 之外，只能寫在設定檔。
 - CLI 無法把欄位設為 `null`（`None` 即「未指定」）；需要時另寫 extends 設定檔。
 - 型別錯誤（如 `--module.retriever.similarity-top-k abc`、不在 `Literal` 內的值）由 tyro 擋下；範圍與跨欄位規則在 `from_yaml()` 合併後由 pydantic 驗證（如只改 `--module.vector-store.hybrid-ranker RRFRanker` 時，`hybrid_ranker_params` 仍為預設的 `weights`，會被跨欄位規則擋下；需同時指定 `--module.vector-store.hybrid-ranker-params.k 60`）。
@@ -71,19 +71,25 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 
 ```bash
 # 範例：rag query 並覆寫 retriever 的 similarity_top_k（強制重建向量庫）
-uv run website-copilot run rag-query --run.config test --run.force-rebuild --module.retriever.similarity-top-k 10
+uv run website-copilot run rag-query nculab --run.config test --run.force-rebuild --module.retriever.similarity-top-k 10
+
+# 範例：指定查詢問題（未指定時使用站點的 sample_query）
+uv run website-copilot run rag-query ncucsie --run.query "介紹資工系課程"
 
 # 範例：自訂 WeightedRanker 權重
-uv run website-copilot run rag-query --run.config test --module.vector-store.hybrid-ranker-params.weights 1.0 0.3
+uv run website-copilot run rag-query nculab --module.vector-store.hybrid-ranker-params.weights 1.0 0.3
 
 # 範例：設定 hybrid 檢索參數
-uv run website-copilot run rag-query --run.config test --module.retriever.hybrid-top-k 20 --module.retriever.alpha 0.7
+uv run website-copilot run rag-query nculab --module.retriever.hybrid-top-k 20 --module.retriever.alpha 0.7
 
 # 範例：限制爬取頁數
-uv run website-copilot run website-crawler --run.config nculab --module.init.max-pages 10
+uv run website-copilot run website-crawler nculab --module.init.max-pages 10
 
 # 範例：RAG 建置（向量庫存在本次 run 的 results/），並原子替換發布到 data/rag/
-uv run website-copilot run rag-build --run.config default --run.publish
+uv run website-copilot run rag-build nculab --run.publish
+
+# 範例：prepare（站點為位置參數；--run.no-publish 只存 runs/）
+uv run website-copilot prepare ncucsie --run.config test --run.no-publish
 ```
 
 ## 六、注意事項與建議

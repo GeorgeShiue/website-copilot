@@ -1,6 +1,0 @@
-# 預設站點（nculab）的站點欄位；模組參數的預設值在 RAGConfig（rag_config.py）
-# 站點欄位在 Phase D 移到 configs/sites/（query 移到 run config）
-site_id: nculab
-
-query_engine:
-  query: 實驗室的成員有哪些人？

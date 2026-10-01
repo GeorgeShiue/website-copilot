@@ -1,8 +1,0 @@
-# 預設站點（nculab）的站點欄位；模組參數的預設值在 WebsiteCrawlerConfig（website_crawler_config.py）
-# 站點欄位在 Phase D 移到 configs/sites/
-site_id: nculab
-
-crawl:
-  url: https://sites.google.com/site/nculab/labintro
-  url_patterns: ["*nculab*"]
-  allowed_domains: [sites.google.com]

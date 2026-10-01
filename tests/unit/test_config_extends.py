@@ -242,8 +242,6 @@ def test_switch_ranker_without_weights_in_chain(
         tmp_path,
         "rrf",
         {
-            "site_id": "s",
-            "query_engine": {"query": "q"},
             "vector_store": {
                 "hybrid_ranker": "RRFRanker",
                 "hybrid_ranker_params": {"k": 60},

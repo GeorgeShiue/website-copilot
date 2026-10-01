@@ -44,6 +44,7 @@ class RunManager:
         self.results_json_path: str = ""
         self.module_config_path: str = ""
         self.run_config_path: str = ""
+        self.site_config_path: str = ""
         self.log_path: str = ""
 
         if module_name:
@@ -96,6 +97,7 @@ class RunManager:
         os.makedirs(self.results_folder_path, exist_ok=True)
         self.module_config_path = os.path.join(self.run_path, "module_config.yml")
         self.run_config_path = os.path.join(self.run_path, "run_config.yml")
+        self.site_config_path = os.path.join(self.run_path, "site_config.yml")
         self.log_path = os.path.join(self.run_path, "terminal.log")
 
     def log_run_paths(self, usage: str) -> None:
@@ -104,6 +106,7 @@ class RunManager:
             "Results json",
             "Module config",
             "Run config",
+            "Site config",
             "Log file",
         ]
 
@@ -117,6 +120,9 @@ class RunManager:
             ("Run config", self.run_config_path),
             ("Log file", self.log_path),
         ]
+        # 有站點的 run 另存 site_config.yml（agent／server 為多站，無此檔）
+        if self.site_id:
+            rows.insert(-1, ("Site config", self.site_config_path))
 
         table = Table(
             box=box.SIMPLE_HEAVY,

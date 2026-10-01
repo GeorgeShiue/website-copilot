@@ -1,2 +1,5 @@
-# 測試用設定：等同 test_nculab
-extends: test_nculab
+# 測試用設定：限制頁數，run 名稱改以 max_pages 命名（其餘為 WebsiteCrawlerConfig 的預設值）
+run_name_fields: [init.max_pages]
+
+init:
+  max_pages: 40

@@ -1,5 +1,0 @@
-extends: ncucsie
-run_name_fields: [init.max_pages]
-
-init:
-  max_pages: 40

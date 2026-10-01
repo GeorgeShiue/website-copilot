@@ -1,9 +1,0 @@
-# 預設站點（nculab）的站點欄位；模組參數的預設值在 ImageSummarizerConfig（image_summarizer_config.py）
-# 站點欄位在 Phase D 移到 configs/sites/
-site_id: nculab
-
-# 直接傳給 litellm 的額外參數，例：
-#   temperature: 0.2 # gpt-5 系列不支援
-#   timeout: 10
-#   max_tokens: 300
-litellm_kwargs: {}

@@ -1,11 +1,10 @@
 import logging
-from typing import Annotated, ClassVar
+from typing import ClassVar
 
 from pydantic import (
     Field,
     NonNegativeInt,
     PositiveInt,
-    field_validator,
 )
 
 from website_copilot.config.base_config import (
@@ -36,26 +35,6 @@ class CrawlerInitConfig(ConfigModel):
     wait_for_images: bool = True
 
 
-class CrawlConfig(ConfigModel):
-    """站點資訊（Phase D 移到 SiteConfig），不以特定站點的值作為預設。"""
-
-    url: NonEmptyStr = Field(description="爬蟲起始網址")
-    url_patterns: Annotated[list[str], Field(min_length=1)] | None = Field(
-        default=None, description="允許爬取的網址 pattern（glob）"
-    )
-    allowed_domains: Annotated[list[NonEmptyStr], Field(min_length=1)] | None = None
-    path_prefix: str | None = Field(
-        default=None, description="只爬取此路徑前綴下的頁面，需以 / 開頭"
-    )
-
-    @field_validator("path_prefix")
-    @classmethod
-    def _check_path_prefix(cls, value: str | None) -> str | None:
-        if value is not None and not value.startswith("/"):
-            raise ValueError("path_prefix 必須以 / 開頭")
-        return value
-
-
 class CleanConfig(ConfigModel):
     llm_model: NonEmptyStr = Field(
         default="gpt-5.6-luna", description="產生 exclude words 的 LLM"
@@ -63,15 +42,16 @@ class CleanConfig(ConfigModel):
     sample_ratio: float = Field(default=0.1, gt=0, le=1, description="抽樣頁面比例")
     repeat: PositiveInt = Field(default=5, description="抽樣產生 exclude words 的次數")
     max_prompt_tokens: PositiveInt = Field(
-        default=200_000, description="exclude words prompt 的 token 上限，超過時報錯"
+        default=500_000, description="exclude words prompt 的 token 上限，超過時報錯"
     )
     seed: int | None = Field(default=None, description="抽樣亂數種子")
 
 
 class WebsiteCrawlerConfig(BaseModuleConfig):
-    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/website_crawler"
+    """爬蟲參數；起始網址與爬取範圍屬於站點資訊，見 SiteConfig.crawl。"""
 
-    site_id: NonEmptyStr  # Phase D 移除，改由 SiteConfig 提供
+    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/website_crawler"
+    _DEFAULT_RUN_NAME_FIELDS: ClassVar[tuple[str, ...]] = ("init.max_depth",)
+
     init: CrawlerInitConfig = Field(default_factory=CrawlerInitConfig)
-    crawl: CrawlConfig
     clean: CleanConfig = Field(default_factory=CleanConfig)

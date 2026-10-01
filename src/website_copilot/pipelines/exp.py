@@ -7,13 +7,14 @@ from typing import Any
 
 from website_copilot.config.pipeline_config import AgentRunConfig, RAGQueryRunConfig
 from website_copilot.config.rag_config import RAGConfig
+from website_copilot.config.site_config import SiteConfig
 from website_copilot.pipelines.serve import run_agent_build
 from website_copilot.retrieval.evaluation import (
     build_evaluators,
     evaluate_response,
     response_to_dict,
 )
-from website_copilot.retrieval.factory import build_rag
+from website_copilot.retrieval.factory import build_rag, published_target
 from website_copilot.storage.run_context import (
     create_run_context,
     create_run_no_site_context,
@@ -24,6 +25,7 @@ from website_copilot.utils.config_helper import (
     log_config,
     save_module_config,
     save_run_config,
+    save_site_config,
 )
 from website_copilot.utils.log_helper import log_session, print_log
 
@@ -35,16 +37,30 @@ def run_rag_query(
     """執行 RAG 查詢工作流程。
 
     Args:
-        run_config: 執行參數（config_name 對應 configs/rag/{name}.yml；force_rebuild
+        run_config: 執行參數（site 對應 configs/sites/{site}.yml；config_name 對應
+            configs/rag/{name}.yml；query 未指定時使用站點的 sample_query；force_rebuild
             是否強制重建向量庫；query_times 查詢次數）。
-        overrides: RAGConfig 的巢狀覆寫值（含 site_id）。
+        overrides: RAGConfig 的巢狀覆寫值。
+
+    查詢 data/ 中已 publish 的向量庫（data/rag/{site_id}/milvus.db）；force_rebuild 時以
+    data/webpages/{site_id} 重建於同一位置。
+
+    Raises:
+        ValueError: run_config.query 與站點的 sample_query 皆未設定時。
     """
     # ----- 初始化設定和路徑 -----
     query_times = run_config.query_times
+    site = SiteConfig.from_yaml(run_config.site)
+    query = run_config.query or site.sample_query
+    if not query:
+        raise ValueError(
+            f"未指定查詢：請以 --run.query 指定，或在 {site.source} 設定 sample_query"
+        )
     config = RAGConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
         module="rag_query",
         config_name=run_config.config_name,
+        site_id=site.site_id,
         config=config,
         run_name_use_config_name=run_config.run_name_use_config_name,
     )
@@ -53,9 +69,11 @@ def run_rag_query(
     with run_workflow_context(run_title, run_manager=run_manager):
         # ----- 初始化 RAG 和 評估器 -----
         log_session("Building RAG and Evaluators", style="cyan")
+        log_config("SiteConfig Loaded from yaml", site)
         log_config(f"{config.__class__.__name__} Loaded from yaml", config)
         rag = build_rag(
-            config=config,
+            config,
+            published_target(site.site_id),
             force_rebuild=run_config.force_rebuild,
         )
 
@@ -69,13 +87,13 @@ def run_rag_query(
             for i in range(query_times):
                 # ----- 查詢與回應 -----
                 log_session(f"Query & Response {i + 1}", style="cyan")
-                response = rag.query(config.query_engine.query, log_sources=True)
+                response = rag.query(query, log_sources=True)
 
                 # ----- 回應評估 -----
                 # * 可改用 regas 或 deepeval 評估
                 log_session("Evaluation", style="cyan")
                 faithfulness_result, relevancy_result = evaluate_response(
-                    evaluators, query=config.query_engine.query, response=response
+                    evaluators, query=query, response=response
                 )
                 if faithfulness_result.passing:
                     faithfulness_pass += 1
@@ -84,7 +102,7 @@ def run_rag_query(
 
                 query_results.append(
                     response_to_dict(
-                        query=config.query_engine.query,
+                        query=query,
                         response=response,
                         faithfulness_result=faithfulness_result,
                         relevancy_result=relevancy_result,
@@ -113,11 +131,11 @@ def run_rag_query(
                 "config": {
                     "config_name": config.config_name,
                     "run_name": run_manager.run_name,
-                    "query": config.query_engine.query,
+                    "query": query,
                     "query_llm_name": config.query_engine.query_llm_name,
                     "evaluator_llm_name": config.query_engine.evaluator_llm_name,
                     "vector_store_type": config.vector_store.vector_store_type,
-                    "collection_name": config.site_id,
+                    "collection_name": site.site_id,
                     "query_mode": config.retriever.query_mode,
                     "similarity_top_k": config.retriever.similarity_top_k,
                     "hybrid_top_k": config.retriever.hybrid_top_k,
@@ -141,6 +159,7 @@ def run_rag_query(
 
             # ---- 儲存設定 -----
             save_module_config(config, run_manager.module_config_path)
+            save_site_config(site, run_manager.site_config_path)
             save_run_config(run_config, run_manager.run_config_path)
         except Exception as e:
             log_session("RAG Query Failed", style="red")

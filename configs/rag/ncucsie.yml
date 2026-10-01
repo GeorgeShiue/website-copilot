@@ -1,6 +1,0 @@
-extends: default
-
-site_id: ncucsie
-
-query_engine:
-  query: 介紹資工系課程

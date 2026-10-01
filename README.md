@@ -59,7 +59,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── __init__.py          # main()：prepare / serve / run 分派
 │   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
 │   │   └── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
-│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）、prompts.py（長 prompt 預設值）
+│   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；site_config.py（SiteConfig）；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）、prompts.py（長 prompt 預設值）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
 │   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
@@ -100,14 +100,12 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── clean-runs.sh            # 刪除 runs/ 中今天以前的 run（--dry-run / --yes）
 │   └── sync-widget.sh           # 同步 widget.js 到 extension/
 ├── configs/
-│   ├── agent/                   # Agent 設定（default / test）
-│   ├── README.md                # 設定檔撰寫說明（extends、run_name_fields、YAML 注意事項）
-│   ├── rag/
-│   │   ├── default.yml          # 預設站點（nculab）的站點欄位；參數預設值在 RAGConfig
-│   │   ├── nculab.yml / ncucsie.yml / claudecode.yml  # 多站設定（extends: default）
-│   │   └── test.yml             # 測試用（extends: test_nculab）
+│   ├── README.md                # 設定檔撰寫說明（站點／模組設定、extends、YAML 注意事項）
+│   ├── sites/                   # 站點設定：nculab / ncucsie / claudecode（site_id、sample_query、爬取範圍）
+│   ├── website_crawler/         # 模組設定：test.yml（只寫與 class 預設值不同的部分）
 │   ├── image_summarizer/
-│   └── website_crawler/
+│   ├── rag/
+│   └── agent/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
 │   ├── raw_webpages/<site_id>/  # 爬蟲原始輸出（fit_markdown）
 │   ├── webpages/<site_id>/      # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
@@ -141,17 +139,14 @@ cp .env.example .env        # 填入 API 金鑰
 
 ## 設定
 
-本專案的模組參數預設值寫在 `src/website_copilot/config/*_config.py` 的 config class；`configs/` 底下的 YAML 設定檔（`.yml`）只寫與預設值不同的部分，可用 `extends` 繼承同資料夾的設定（撰寫方式見 [configs/README.md](configs/README.md)）。環境變數從 `.env` 讀取。`uv run website-copilot run <module> --help` 會列出所有參數與預設值。
+設定分成站點與模組兩類（撰寫方式見 [configs/README.md](configs/README.md)），環境變數從 `.env` 讀取：
 
-### 爬蟲設定
-
-- `configs/website_crawler/*.yml`
-- 控制爬取深度、頁面數量限制、內容過濾、URL 模式與允許網域。
-
-### 圖片摘要設定
-
-- `configs/image_summarizer/*.yml`
-- 控制圖片下載逾時、重試行為、快取、模型選擇、prompt 文本以及圖片來源模式。
+- **站點設定**（`configs/sites/{site_id}.yml`）：站點身分（`site_id`）、`sample_query` 與爬取範圍（起始 URL、URL 模式、允許網域、路徑前綴）。CLI 以位置參數指定站點。
+- **模組設定**（`configs/{module}/{name}.yml`）：參數的預設值寫在 `src/website_copilot/config/*_config.py` 的 config class，設定檔只寫與預設值不同的部分，以 `--run.config <name>` 指定（省略時為 class 預設值）。`uv run website-copilot run <module> --help` 會列出所有參數與預設值。
+  - 爬蟲（`website_crawler`）：爬取深度、頁面數量限制、內容過濾、exclude words 產生。
+  - 圖片摘要（`image_summarizer`）：圖片下載逾時、重試、快取、模型、prompt 與圖片來源模式。
+  - RAG（`rag`）：切塊、向量庫與 hybrid ranker、embedding、檢索與 query engine。
+  - Agent（`agent`）：LLM 與 system prompt。
 
 ### 環境變數
 
@@ -178,27 +173,29 @@ cp .env.example .env        # 填入 API 金鑰
 ### Prepare：爬取、圖片摘要與 RAG 建置
 
 ```bash
-uv run website-copilot prepare --run.config nculab
+uv run website-copilot prepare ncucsie                 # 站點為必填的位置參數
+uv run website-copilot prepare nculab --run.config test --run.no-publish
 ```
 
-`--run.config` 決定各階段使用的 config（預設 `default`）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`；加上 `--run.no-publish` 則只存到 `runs/`、不寫入 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
+站點（位置參數）決定爬取範圍與 `data/` 下的資料夾，`--run.config` 決定各階段使用的模組設定（預設 `default`，即 class 預設值）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`；加上 `--run.no-publish` 則只存到 `runs/`、不寫入 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
 
 各階段也可以單獨執行（`website-copilot run <module>`）：
 
 ```bash
-uv run website-copilot run website-crawler --run.config nculab --module.init.max-pages 10
-uv run website-copilot run image-summarizer --run.config nculab
-uv run website-copilot run rag-build --run.config nculab --run.publish
+uv run website-copilot run website-crawler nculab --module.init.max-pages 10
+uv run website-copilot run image-summarizer nculab     # 讀取 runs/ 中同站點最新的爬蟲結果
+uv run website-copilot run rag-build nculab --run.publish
 ```
 
 ### 執行 RAG 查詢
 
 ```bash
-# 使用 Milvus + WeightedRanker 執行混合檢索
-uv run website-copilot run rag-query --run.config test
+# 查詢已 publish 的向量庫；未指定 --run.query 時使用站點的 sample_query
+uv run website-copilot run rag-query ncucsie
+uv run website-copilot run rag-query nculab --run.query "實驗室的成員有哪些人？"
 
 # 自訂 top-k（透過 CLI 覆寫，巢狀結構與設定檔相同）
-uv run website-copilot run rag-query --run.config test --module.retriever.similarity-top-k 10 --module.retriever.hybrid-top-k 20
+uv run website-copilot run rag-query nculab --module.retriever.similarity-top-k 10 --module.retriever.hybrid-top-k 20
 ```
 
 `--module.*` 由各 module config 自動產生（`uv run website-copilot run rag-query --help` 可列出所有參數）。
@@ -259,7 +256,8 @@ uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測
 
 - `results.json` — 結構化結果（爬取/摘要結果，或 `run_rag_query` 的 query 三層結構）
 - `results/*.md` — 每頁的 Markdown 內容（`run_rag_query` 另含每次 query 一份的 `results/query_{index}.md`）
-- `module_config.yml` — 本次執行的模組參數備份
+- `module_config.yml` — 本次執行的模組參數備份（不含站點與向量庫位置等執行期資訊）
+- `site_config.yml` — 本次使用的站點設定（有站點的模組）
 - `run_config.yml` — run-level 參數（含 `save` / `publish`；所有入口都會寫出，`website-copilot prepare` 由各階段各自寫出）
 - `terminal.log` — 執行日誌
 

@@ -51,8 +51,8 @@ class SummarizeConfig(ConfigModel):
 
 class ImageSummarizerConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/image_summarizer"
+    _DEFAULT_RUN_NAME_FIELDS: ClassVar[tuple[str, ...]] = ("summarize.model",)
 
-    site_id: NonEmptyStr  # Phase D 移除，改由 SiteConfig 提供
     init: SummarizerInitConfig = Field(default_factory=SummarizerInitConfig)
     summarize: SummarizeConfig = Field(default_factory=SummarizeConfig)
     litellm_kwargs: dict[str, Any] = Field(

@@ -12,14 +12,6 @@ from website_copilot.config.base_config import (
 logger = logging.getLogger(__name__)
 
 
-def _default_webpages_path(site_id: str) -> str:
-    return f"data/webpages/{site_id}"
-
-
-def _default_milvus_uri(site_id: str) -> str:
-    return f"data/rag/{site_id}/milvus.db"
-
-
 class NodesConfig(ConfigModel):
     chunk_size: PositiveInt = 800
     chunk_overlap: PositiveInt = 100
@@ -41,9 +33,6 @@ class HybridRankerParams(ConfigModel):
 
 class VectorStoreConfig(ConfigModel):
     vector_store_type: Literal["milvus"] = "milvus"
-    milvus_uri: NonEmptyStr | None = Field(
-        default=None, description="未設定時為 data/rag/{site_id}/milvus.db"
-    )
     hybrid_ranker: Literal["RRFRanker", "WeightedRanker"] = "WeightedRanker"
     hybrid_ranker_params: HybridRankerParams | None = Field(
         default_factory=lambda: HybridRankerParams(weights=[1.0, 0.5]),
@@ -96,33 +85,21 @@ class QueryEngineConfig(ConfigModel):
         le=1,
         description="相似度門檻，僅在 query_mode 非 hybrid 時生效",
     )
-    query: NonEmptyStr  # Phase D 移到 RAGQueryRunConfig
 
 
 class RAGConfig(BaseModuleConfig):
+    """RAG 參數；站點（collection 名稱）、建庫來源與向量庫位置為執行期值，見 RAGTarget。"""
+
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/rag"
     _DEFAULT_RUN_NAME_FIELDS: ClassVar[tuple[str, ...]] = (
         "vector_store.vector_store_type",
     )
 
-    site_id: NonEmptyStr  # Phase D 移除，改由 SiteConfig 提供
-    webpages_data_folder_path: NonEmptyStr | None = Field(
-        default=None, description="建庫資料來源，未設定時為 data/webpages/{site_id}"
-    )
     nodes: NodesConfig = Field(default_factory=NodesConfig)
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     index: IndexConfig = Field(default_factory=IndexConfig)
     retriever: RetrieverConfig = Field(default_factory=RetrieverConfig)
-    query_engine: QueryEngineConfig
-
-    @model_validator(mode="after")
-    def _fill_default_paths(self) -> Self:
-        """未指定路徑時，由 site_id 動態產生預設路徑。"""
-        if self.webpages_data_folder_path is None:
-            self.webpages_data_folder_path = _default_webpages_path(self.site_id)
-        if self.vector_store.milvus_uri is None:
-            self.vector_store.milvus_uri = _default_milvus_uri(self.site_id)
-        return self
+    query_engine: QueryEngineConfig = Field(default_factory=QueryEngineConfig)
 
     def _post_process_run_name(self, run_name: str) -> str:
         run_name = run_name.replace("/", "-")

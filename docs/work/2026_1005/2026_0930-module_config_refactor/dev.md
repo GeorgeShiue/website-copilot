@@ -207,3 +207,62 @@ git 追蹤的 9 份舊記錄檔（data/ 下沒有其他 `.toml`）以一次性�
 - `scripts/check.sh`：exit 0（ruff、pyright 0 errors、323 passed、widget 同步）。
 - `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected。
 - CLI 冒煙：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`--help` 顯示 `(default: ...)` 與必填標示，不再有 `{None}|`。
+
+## Phase D：站點分層
+
+### 變更
+
+- **SiteConfig**（新增 `config/site_config.py`）：`SiteConfig(site_id, sample_query, crawl: SiteCrawlConfig)`，`from_yaml(site_id)` 共用 YAML loader（支援 extends），檢查 `site_id` 格式（`^[A-Za-z_][A-Za-z0-9_]*$`，中文錯誤訊息）與「與檔名一致」（S6）；找不到站點時列出可用站點；`source` PrivateAttr 供 `site_config.yml` 檔頭使用。
+- **模組 config**
+  - `WebsiteCrawlerConfig` 移除 `site_id` 與 `crawl`（`CrawlConfig` 改為 `SiteCrawlConfig`）；`_DEFAULT_RUN_NAME_FIELDS = ("init.max_depth",)`（S10）；`CleanConfig.max_prompt_tokens` 預設改為 500000（S2）。
+  - `ImageSummarizerConfig` 移除 `site_id`；`_DEFAULT_RUN_NAME_FIELDS = ("summarize.model",)`（S10）。
+  - `RAGConfig` 移除 `site_id`、`webpages_data_folder_path`、`vector_store.milvus_uri`、`query_engine.query` 與路徑推導 validator；`query_engine` 改為 `default_factory`。四個模組 config 現在都能以 `Config()` 直接建立。
+- **run config／CLI**：`BaseRunConfig`、`PrepareRunConfig` 新增必填位置參數 `site`（`Annotated[str, tyro.conf.Positional, tyro.conf.arg(metavar="SITE")]`，S8）；`RAGQueryRunConfig` 新增 `query: str | None = None`（S3）。`--module.site-id`、`--module.query-engine.query` 隨欄位移除自動消失。
+- **RAGTarget（S5）**
+  - `RAGTarget(site_id, webpages_dir, milvus_uri)`（frozen dataclass）定義在 `ingestion/indexing/index.py`：`IndexBuilder(config, target)` 需要它，而 index 模組不依賴 retrieval（plan 寫在 retrieval，依分層調整）。
+  - `retrieval/factory.py`：`published_target(site_id, data_folder)`（serve 與 rag-query）、`build_target(site_id, milvus_uri, webpages_data_use_latest_results, runs_folder, data_folder)`（rag-build）、`log_target()`（log 中的「RAG Target」，取代 module_config 中的路徑記錄）；`build_rag(config, target, force_rebuild, build_query_engine)`、`load_rag(config, target)`。原本改寫 config 的 4 處全部移除，config 在建庫過程中不再被修改。
+  - `RAGRegistry.get(site_id)`：`RAGConfig.from_yaml(config_name)` + `published_target(site_id, base_folder)`（base_folder 現在也決定向量庫位置，原本只用於檢查站點是否存在）。
+- **pipelines**
+  - crawler／summarizer／rag_build／rag_query 以 `SiteConfig.from_yaml(run_config.site)` 載入站點；`site.site_id` 決定 runs/、data/ 資料夾；`crawl_website` 的參數來自 `site.crawl`。
+  - `run_rag_build` 依 save／publish 決定向量庫位置（run 的 results／data 的 staging／系統暫存），以 `build_target()` 產生 target；publish 後不再把正式路徑寫回 config。
+  - `run_rag_query`：`query = run_config.query or site.sample_query`，兩者皆無時在建立 run context 前報錯；向量庫為 `published_target`（與原本 config 預設路徑相同）。
+  - `run_image_summarizer` 未傳入爬蟲結果時，`load_latest_results(..., site_id=site.site_id)` 只讀同站點（S7）。
+  - `run_prepare` 以同一個 `run_config.site` 建立三個階段的 RunConfig；run title 加上站點。
+- **storage**
+  - `load_latest_results(base_folder, module_name, site_id)`：只搜尋 `runs/<ts>/<module>/<site_id>/`，找不到時報錯（S7）。
+  - `create_run_context(module, config_name, site_id, config, ...)`；刪除 `SiteModuleConfig` 型別聯集。
+  - `RunManager.site_config_path`（`site_config.yml`），log 表格只在有站點的 run 顯示；`save_site_config()`（`utils/config_helper.py`）；`DataManager.publish_run_metadata(..., site=...)` 一併發布 `site_config.yml`。
+- **configs/**
+  - 新增 `sites/{nculab,ncucsie,claudecode}.yml`（`site_id`、`sample_query`、`crawl`）。
+  - 刪除各模組的 `default.yml`、`{nculab,ncucsie,claudecode}.yml`、`test_{nculab,ncucsie,claudecode}.yml`；`website_crawler/test.yml` 只剩 `run_name_fields: [init.max_pages]` 與 `init.max_pages: 40`；`image_summarizer/test.yml`（含 litellm_kwargs 範例註解）、`rag/test.yml` 只有註解（等於 class 預設）；`agent/test.yml` 不變。
+- **文件**：`configs/README.md`（站點／模組設定兩類、CLI 組合方式、`site_config.yml`）、README（設定說明、CLI 範例、輸出）、`docs/code/runs/{config,cli,workflow}.md`（SiteConfig、RAGTarget、各 workflow 流程與範例；順帶刪除 workflow.md 中早已不存在的 `override_init_config()` 敘述）。S9（站點顯示名稱／描述）原本就在 todo「功能進度」。
+- **測試**
+  - 新增 `test_site_config.py`（20 個）：所有站點載入、site_id 格式（合法／不合法）、與檔名不一致、找不到時列出可用站點、錯誤訊息含路徑、extends、未知 key、`allowed_domains` 字串被拒、`path_prefix`、`save_site_config` 往返。
+  - 新增 `test_run_persistence.py`：`load_latest_results` 只取同站點最新結果、找不到時不退回其他站點。
+  - `test_configs.py`：模組 config 皆可 `Config()` 建立、不含站點欄位（傳入 `site_id` 被拒）、各模組 `default` 無檔案等於 class 預設；移除站點欄位相關測試（移到 `test_site_config.py`）；run name 改為 S10 的預期值。
+  - `test_rag_tools.py`：`build_target`（latest results、預設 data/webpages）、`published_target`、`build_rag` 不改寫 config、registry 以 `published_target` 載入。
+  - `test_serve_rag_loading.py`：workspace 不再需要 configs/；新增「repo 中已 publish 的 `data/rag/{claudecode,ncucsie,nculab}` 皆能以 site_id 載入（collection 名稱、位置）」。
+  - `test_pipeline_prepare.py`：fake `build_rag(config, target)` 記錄 target；以實際 target 位置取代讀 `module_config` 的 `milvus_uri`（save→runs results、publish→data staging、皆否→系統暫存）；publish 多出 `site_config.yml`、module_config 無執行期路徑、config 不被改寫、`webpages_data_use_latest_results`、image summarizer 只讀同站點、`run_prepare` 三階段 site 相同。
+  - `test_cli.py`：位置參數 `site`、缺少站點時報錯（run 與 prepare）、`--module.site-id`／`--module.query-engine.query` 已不存在、`--run.query`、help 顯示 `SITE`。
+  - 整合測試改用 `site="nculab"`。
+
+### 與 plan 不同或 plan 未明訂的決定（請審核）
+
+1. **`RAGTarget` 放在 `ingestion/indexing/index.py`**：plan 寫在 retrieval；但 `IndexBuilder` 需要它，而 index 模組的既有分層是不依賴 retrieval。產生 target 的函式（`published_target`／`build_target`）仍在 `retrieval/factory.py`。
+2. **`build_rag` 不再負責決定位置**：原本 `build_rag` 依 `run_manager`／`webpages_data_use_latest_results` 改寫 config；現在由呼叫端以 `build_target()` 產生 target 後傳入，`build_rag(config, target, ...)` 只負責建置。
+3. **測試站點的查詢問題**：`rag/test_claudecode.yml` 原本的 query「如何設定 hooks 與 MCP 伺服器？」不再保留（測試設定與站點無關，改用站點的 `sample_query`）；`rag/test_ncucsie.yml` 誤用 nculab 問題的問題隨之修正。
+4. **`site` 的 metavar 為 `SITE`**：tyro 預設顯示 `STR`，改為 `SITE` 較易理解。
+
+### 驗證
+
+- 快照比對（每個站點 × 模組：舊（C2）`{module}/{site}`、`{module}/test_{site}`、`{module}/default`、`{module}/test` vs 新「模組設定 + `sites/{site}.yml`」；rag 的路徑以 `published_target` 換算），差異全部符合預期：
+  - `max_prompt_tokens` 200000 → 500000（nculab、ncucsie、所有 test 設定；claudecode 本來就是 500000）（S2）。
+  - `website_crawler/default` 的 run_name `default` → `max_depth-2`、`image_summarizer/default` 的 `default` → `model-gpt-5.6-luna`（S10）；**所有 `{site}` 設定的 run_name 與舊版相同**。
+  - `website_crawler/default` 的 `path_prefix` 由未設定 → `/site/nculab`（舊 `default.yml` 是不完整的 nculab 設定，現在 `default`＋nculab 等於舊 `nculab.yml`）。
+  - `rag/test_ncucsie`、`rag/test_claudecode` 的 query 改為站點的 `sample_query`（決定 3）。
+  - 其餘欄位（含 site_id、url 類欄位、rag 的資料來源與向量庫路徑）全部相同。
+- 路徑：`data/{category}/{site_id}/` 與 `runs/<ts>/<module>/<site_id>/<run_name>/` 結構不變（測試確認）。
+- `scripts/check.sh`：exit 0（ruff、pyright 0 errors、338 passed、widget 同步）。
+- `uv run pytest tests/integration -m "not cost"`：2 passed、5 deselected。
+- CLI：`prepare`／`serve --help` 與 `run {website-crawler,image-summarizer,rag-build,rag-query,agent} --help` 皆 exit 0；`prepare --run.config test`（缺站點）由 tyro 報錯；`run rag-query unknown_site` 報 `Site config not found: configs/sites/unknown_site.yml（可用的站點：claudecode, ncucsie, nculab）`。
+- **付費整合測試**（E2）：尚未執行，待確認後執行。

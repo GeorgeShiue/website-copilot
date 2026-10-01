@@ -26,17 +26,17 @@ setup_logging("debug")
 
 @pytest.mark.cost
 def test_website_crawler():
-    run_website_crawler(WebsiteCrawlerRunConfig(config_name="test"))
+    run_website_crawler(WebsiteCrawlerRunConfig(site="nculab", config_name="test"))
 
 
 @pytest.mark.cost
 def test_image_summarizer():
-    run_image_summarizer(ImageSummarizerRunConfig(config_name="test"))
+    run_image_summarizer(ImageSummarizerRunConfig(site="nculab", config_name="test"))
 
 
 @pytest.mark.cost
 def test_rag_build():
-    run_rag_build(RAGBuildRunConfig(config_name="test"))
+    run_rag_build(RAGBuildRunConfig(site="nculab", config_name="test"))
 
 
 def test_agent_build():

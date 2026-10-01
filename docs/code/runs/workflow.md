@@ -37,7 +37,8 @@
 3. 每個 workflow 都會建立或接收 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 的 `RunManager`，用來決定本次執行的輸出目錄。
 4. Workflow 會透過 `utils.config_helper.save_module_config()` 寫出 `module_config.yml`（agent 的 `run_agent_build` / `run_agent_query` 會寫；`run_server_build` 不寫，server 的 run 目錄只有 `run_config.yml`），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
 5. 所有入口的簽名一致：`run_xxx(run_config, overrides=None)`。`run_config`（RunConfig，必填）提供 `config_name`、`save`、`publish` 等執行參數，`overrides` 為 module config 的巢狀覆寫值（如 `{"retriever": {"similarity_top_k": 20}}`）；`run_config.yml` 一律以 `save_run_config()` 寫出。
-6. `run_prepare(run_config: PrepareRunConfig)` 以同一個 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig` 傳給各階段；`publish=True`（預設）時各階段 `save=False, publish=True`，`publish=False`（`--run.no-publish`）時 `save=True, publish=False` 且 RAG 以 runs/ 中本次的圖片摘要結果建庫。
+6. 有站點的入口（crawler／summarizer／rag_build／rag_query）以 `SiteConfig.from_yaml(run_config.site)` 載入站點，以 `site.site_id` 決定 runs/ 與 data/ 的資料夾，並把站點設定另存為 `site_config.yml`。
+7. `run_prepare(run_config: PrepareRunConfig)` 以同一個 `site` 與 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig` 傳給各階段；`publish=True`（預設）時各階段 `save=False, publish=True`，`publish=False`（`--run.no-publish`）時 `save=True, publish=False` 且 RAG 以 runs/ 中本次的圖片摘要結果建庫。
 
 ## 三、主要 Workflow 入口
 
@@ -46,27 +47,27 @@
 - 目的：從指定網站爬取頁面、清理 Markdown，並產出可供後續流程使用的 crawl results。
 - 流程：
   1. 建立 [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py) 的 `WebsiteCrawler`。
-  2. 透過 [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py) 從 `configs/website_crawler/{config_name}.yml` 讀入設定。
-  3. 套用 `override_init_config()` 與 `crawl_website()` 的執行參數。
-  4. 若爬取成功，寫出 `module_config.yml`、`results.json` 與 `results/*.md`。
+  2. 載入站點（`configs/sites/{site}.yml`）與爬蟲參數（[src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)，`configs/website_crawler/{config_name}.yml` 或 class 預設值）。
+  3. 以爬蟲參數建立 `WebsiteCrawler`，以站點的 `crawl`（起始 URL、URL 模式、允許網域、路徑前綴）呼叫 `crawl_website()`。
+  4. 若爬取成功，寫出 `module_config.yml`、`site_config.yml`、`results.json` 與 `results/*.md`。
 
 ### 2. `run_image_summarizer()`
 
 - 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown。
 - 流程：
   1. 建立 [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py) 的 `ImageSummarizer`。
-  2. 透過 [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py) 載入 `configs/image_summarizer/{config_name}.yml`。
-  3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results()` 自動載入最近一次 crawler 結果。
-  4. 執行圖片摘要後，寫出 `module_config.yml`、`results.json` 與 `results/*.md`。
+  2. 載入站點與 [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py) 的參數（`configs/image_summarizer/{config_name}.yml` 或 class 預設值）。
+  3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results(..., site_id=...)` 載入 runs/ 中**同站點**最近一次的 crawler 結果（找不到時報錯，不退回其他站點）。
+  4. 執行圖片摘要後，寫出 `module_config.yml`、`site_config.yml`、`results.json` 與 `results/*.md`。
 
 ### 3. `run_rag_build()`
 
 - 目的：建立 RAG 所需的 nodes、vector store、index、retriever 與 query engine（**不含 query 步驟**），並落盤建置產物。
 - 流程：
-  1. 透過 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 載入 `configs/rag/{config_name}.yml`。
-  2. 呼叫 `build_rag(..., build_query_engine=False)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）建立並回傳 `RAG`；內部以 `IndexBuilder(config).build_or_load(force_rebuild=True)` 讀取 webpages 來源（`load_source()`）後重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
-  3. `save=True` 時在 run 路徑寫出 `module_config.yml` 與 `run_config.yml`，最後 `rag.close()` 釋放資源。
-  4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。發布的 `module_config.yml` 會記錄正式路徑。建庫位置：
+  1. 載入站點與 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 的參數（`configs/rag/{config_name}.yml` 或 class 預設值）。
+  2. 依 save／publish 決定向量庫位置，以 `build_target()` 產生 `RAGTarget`（資料來源預設 `data/webpages/{site_id}`，`webpages_data_use_latest_results` 時為 runs/ 中同站點最新的圖片摘要結果），再呼叫 `build_rag(config, target, force_rebuild=True, build_query_engine=False)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）；內部以 `IndexBuilder(config, target).build_or_load(force_rebuild=True)` 讀取 webpages 來源（`load_source()`）後重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
+  3. `save=True` 時在 run 路徑寫出 `module_config.yml`、`site_config.yml` 與 `run_config.yml`，最後 `rag.close()` 釋放資源。config 在建庫過程中不會被改寫（位置都在 `RAGTarget`）。
+  4. 一律重建，且**絕不直接寫入** `data/rag/<site_id>/milvus.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `milvus.db.tmp`，舊版 rename 成 `.old`、新版 rename 成 `milvus.db`，再刪 `.old`；中途失敗會還原舊版）。向量庫位置屬於執行期資訊，不寫入 `module_config.yml`（改記錄在 log 的「RAG Target」）。建庫位置：
 
      | save | publish | 建庫位置 | 結束後留下的檔案 |
      |---|---|---|---|
@@ -81,13 +82,13 @@
 
 - 目的：以既有的 vector store / index 為基礎，重建必要資源並執行多輪 query 與評估。
 - 流程：
-  1. 載入 `RAGConfig`，呼叫 `build_rag(config=config, force_rebuild=...)`：`IndexBuilder.build_or_load()` 依 `force_rebuild` 或向量庫是否存在決定「重建」（讀取 webpages 來源）或「載入」既有 index，再由 `RAGBuilder.build()` 建立 retriever（支援 `query_mode="hybrid"` 與 `filter_dict`）與 query engine。
+  1. 載入站點與 `RAGConfig`，以 `published_target(site_id)`（`data/webpages/{site_id}`、`data/rag/{site_id}/milvus.db`）呼叫 `build_rag(config, target, force_rebuild=...)`：`IndexBuilder.build_or_load()` 依 `force_rebuild` 或向量庫是否存在決定「重建」（讀取 webpages 來源）或「載入」既有 index，再由 `RAGBuilder.build()` 建立 retriever（支援 `query_mode="hybrid"` 與 `filter_dict`）與 query engine。
   2. 呼叫 `build_evaluators(config)` 取得 Faithfulness / Relevancy evaluator。
-  3. 針對預設 query 或指定 query 進行多輪查詢，並以 `evaluate_response(evaluators, query, response)` 評估。
+  3. 以 `run_config.query`（`--run.query`）或站點的 `sample_query`（兩者皆無時報錯）進行多輪查詢，並以 `evaluate_response(evaluators, query, response)` 評估。
   4. 回報 faithfulness / relevancy 評估結果，並將每次 query 結果落盤：
      - `results.json` — 結構化結果（`config` / `summary` / `results` 三層；`summary` 含各評估 pass count 與 pass rate）
      - `results/query_{index}.md` — 每次 query 與回覆各一份，含來源與評估
-  5. 寫出 `module_config.yml`；若本次為重建（rebuild），另存一份到向量庫路徑（依 `vector_store_type` 決定）。
+  5. 寫出 `module_config.yml`、`site_config.yml` 與 `run_config.yml`。
 
 ### 5. `run_agent_build()` / `run_agent_query()`
 
@@ -158,7 +159,8 @@ Workflow 不直接手寫設定檔，而是依賴各 module 的 config model 與�
 
 ```bash
 # Prepare：依序執行爬蟲 → 圖片摘要 → RAG 建置，publish 到 data/
-uv run website-copilot prepare --run.config nculab  # 省略時使用 default
+uv run website-copilot prepare nculab                       # 站點為必填的位置參數
+uv run website-copilot prepare ncucsie --run.config test   # 模組設定省略時使用 class 預設值
 
 # Serve：啟動 Chat 伺服器（阻塞至中斷）
 uv run website-copilot serve --run.port 8000
@@ -166,12 +168,12 @@ uv run website-copilot serve --run.port 8000
 
 ```bash
 # 只跑 workflow 層的 RAG 建置流程（通常透過 CLI 或程式入口呼叫）
-uv run website-copilot run rag-build --run.config default
+uv run website-copilot run rag-build nculab
 ```
 
 ```bash
 # 執行 RAG 查詢流程並允許重建
-uv run website-copilot run rag-query --run.config test --run.force-rebuild
+uv run website-copilot run rag-query nculab --run.config test --run.force-rebuild
 ```
 
 ## 七、注意事項與建議

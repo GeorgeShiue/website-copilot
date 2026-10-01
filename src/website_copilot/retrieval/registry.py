@@ -10,7 +10,7 @@ import os
 from collections import OrderedDict
 
 from website_copilot.config.rag_config import RAGConfig
-from website_copilot.retrieval.factory import load_rag
+from website_copilot.retrieval.factory import load_rag, published_target
 from website_copilot.retrieval.rag import RAG
 
 logger = logging.getLogger(__name__)
@@ -78,9 +78,9 @@ class RAGRegistry:
 
         logger.info("RAG cache miss, loading: site_id=%s", site_id)
 
-        config = RAGConfig.from_yaml(self.config_name, {"site_id": site_id})
+        config = RAGConfig.from_yaml(self.config_name)
         # serve 階段唯讀：只載入 prepare 已 publish 的向量庫，不在 request 中建庫
-        rag = load_rag(config)
+        rag = load_rag(config, published_target(site_id, self.base_folder))
 
         self._cache[site_id] = rag
         self._evict_if_needed()

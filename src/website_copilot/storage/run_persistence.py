@@ -36,23 +36,31 @@ def _filter_run_folders(base_folder: str) -> list[str]:
 
 def load_latest_results(
     base_folder: str,
-    module_name: str = "website_crawler",
+    module_name: str,
+    site_id: str,
 ) -> dict[str, dict]:
-    """從 JSON 檔案讀取最新模組的爬取結果列表。
+    """從 JSON 檔案讀取指定站點最新一次模組執行的結果。
+
+    只搜尋 runs/<ts>/<module>/<site_id>/；找不到該站點的結果時報錯，不退回其他站點。
 
     Args:
         base_folder: runs/ 根目錄。
         module_name: 模組資料夾名稱（如 "website_crawler"）。
+        site_id: 站點識別碼。
 
     Returns:
         最新一份 results.json 的 dict 內容。
     """
-    logger.info("Looking for run folders in %s...", base_folder)
+    logger.info(
+        "Looking for %s results of %s in %s...", module_name, site_id, base_folder
+    )
     run_folder_names = _filter_run_folders(base_folder)
 
     latest_results_json_path = ""
     for folder_name in sorted(run_folder_names, reverse=True):
-        module_folder_path = os.path.join(base_folder, folder_name, module_name)
+        module_folder_path = os.path.join(
+            base_folder, folder_name, module_name, site_id
+        )
         if not os.path.isdir(module_folder_path):
             continue
 
@@ -67,7 +75,9 @@ def load_latest_results(
             break
 
     if not latest_results_json_path:
-        raise FileNotFoundError(f"No {module_name} results found in {base_folder}.")
+        raise FileNotFoundError(
+            f"No {module_name} results of site '{site_id}' found in {base_folder}."
+        )
 
     if not os.path.isfile(latest_results_json_path):
         raise FileNotFoundError(

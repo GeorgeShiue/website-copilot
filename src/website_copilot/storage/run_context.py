@@ -7,11 +7,7 @@
 
 from contextlib import ExitStack
 
-from website_copilot.config.rag_config import RAGConfig
-from website_copilot.config.image_summarizer_config import (
-    ImageSummarizerConfig,
-)
-from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
+from website_copilot.config.base_config import BaseModuleConfig
 from website_copilot.storage.run_manager import RunManager
 from website_copilot.utils.log_helper import (
     log_run_time,
@@ -19,33 +15,30 @@ from website_copilot.utils.log_helper import (
     save_logging_file,
 )
 
-# create_run_context 需要 site_id 欄位，但 BaseModuleConfig 未宣告（由使用 site 的
-# 子類自行宣告），故以實際呼叫端的模組 config 聯集標註。
-SiteModuleConfig = RAGConfig | WebsiteCrawlerConfig | ImageSummarizerConfig
-
 
 def create_run_context(
     module: str,
     config_name: str,
-    config: SiteModuleConfig,
+    site_id: str,
+    config: BaseModuleConfig,
     run_name_use_config_name: bool = False,
     save: bool = True,
 ) -> tuple[RunManager | None, str]:
-    """共用初始化：建立 RunManager 與 run_title。
+    """共用初始化：建立 runs/<ts>/<module>/<site_id>/<run_name>/ 的 RunManager 與 run_title。
 
     save=False 時完全不建立 RunManager（也就不會在 runs/ 底下建立任何目錄）。
 
     Returns:
         (RunManager | None, run_title)。
     """
-    run_title = f"{module.replace('_', ' ').title()} ({config_name})"
+    run_title = f"{module.replace('_', ' ').title()} ({site_id}, {config_name})"
     if not save:
         return None, run_title
 
     run_name = config.config_name if run_name_use_config_name else config.run_name
     run_manager = RunManager.for_run(
         module=module,
-        site_id=config.site_id,
+        site_id=site_id,
         run_name=run_name,
     )
     return run_manager, run_title

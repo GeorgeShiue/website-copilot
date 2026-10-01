@@ -1,5 +1,0 @@
-extends: default
-run_name_fields: [init.max_depth]
-
-crawl:
-  path_prefix: /site/nculab
