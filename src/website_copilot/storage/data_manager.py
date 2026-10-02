@@ -66,18 +66,7 @@ class DataManager:
         Returns:
             發布後的 raw_webpages 資料夾路徑。
         """
-        raw_webpages_path = os.path.join(self.base_folder, "raw_webpages", site_id)
-        os.makedirs(raw_webpages_path, exist_ok=True)
-
-        results_json_path = os.path.join(raw_webpages_path, "results.json")
-        with open(results_json_path, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=4)
-
-        dest_results = os.path.join(raw_webpages_path, "results")
-        os.makedirs(dest_results, exist_ok=True)
-        self._write_markdown_files(dest_results, results, "fit_markdown")
-
-        return raw_webpages_path
+        return self._publish_results(site_id, "raw_webpages", results, "fit_markdown")
 
     def publish_markdown(self, site_id: str, enhanced_results: dict[str, dict]) -> str:
         """發布增強後的結果到 data/aug_webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
@@ -96,19 +85,32 @@ class DataManager:
         Returns:
             發布後的 aug_webpages 資料夾路徑。
         """
-        aug_webpages_path = os.path.join(self.base_folder, "aug_webpages", site_id)
-        os.makedirs(aug_webpages_path, exist_ok=True)
+        return self._publish_results(
+            site_id, "aug_webpages", enhanced_results, "enhanced_markdown"
+        )
 
-        results_json_path = os.path.join(aug_webpages_path, "results.json")
+    def _publish_results(
+        self,
+        site_id: str,
+        category: str,
+        results: dict[str, dict],
+        markdown_key: str,
+    ) -> str:
+        """把 results 發布成 data/{category}/{site_id}/ 的 results.json 與 results/*.md
+        （publish_crawl_results／publish_markdown 共用，兩者只差資料夾與 markdown 欄位）。"""
+        site_path = os.path.join(self.base_folder, category, site_id)
+        os.makedirs(site_path, exist_ok=True)
+
+        results_json_path = os.path.join(site_path, "results.json")
         with open(results_json_path, "w", encoding="utf-8") as f:
-            json.dump(enhanced_results, f, ensure_ascii=False, indent=4)
+            json.dump(results, f, ensure_ascii=False, indent=4)
 
-        dest_results = os.path.join(aug_webpages_path, "results")
+        dest_results = os.path.join(site_path, "results")
         os.makedirs(dest_results, exist_ok=True)
-        self._write_markdown_files(dest_results, enhanced_results, "enhanced_markdown")
-        logger.info(f"Published enhanced markdown to {dest_results}")
+        self._write_markdown_files(dest_results, results, markdown_key)
+        logger.info(f"Published {markdown_key} pages to {dest_results}")
 
-        return aug_webpages_path
+        return site_path
 
     def _write_markdown_files(
         self,
@@ -116,7 +118,7 @@ class DataManager:
         results: dict[str, dict],
         markdown_key: str,
     ) -> None:
-        """把 results 逐頁寫成 {page_title}.md（publish_crawl_results／publish_markdown 共用）。
+        """把 results 逐頁寫成 {page_title}.md（由 _publish_results 呼叫）。
 
         寫入前先清掉 dest_folder 內既有的 .md，讓資料夾內容與 results.json 一致，
         避免前一次爬取留下的頁面殘檔被 RAG 建庫讀進去。
@@ -294,31 +296,3 @@ class DataManager:
         if run_config is not None:
             save_run_config(run_config, os.path.join(dest_folder, "run_config.yml"))
         self._copy_single_file(log_path, dest_folder, "terminal.log")
-
-    # ----- Discover 方法 -----
-
-    def list_sites(self) -> list[str]:
-        """回傳所有可用的 site_id 列表。"""
-        aug_webpages_path = os.path.join(self.base_folder, "aug_webpages")
-        if not os.path.isdir(aug_webpages_path):
-            return []
-
-        sites = []
-        for item in os.listdir(aug_webpages_path):
-            item_path = os.path.join(aug_webpages_path, item)
-            if os.path.isdir(item_path):
-                sites.append(item)
-        return sorted(sites)
-
-    def get_webpages_path(self, site_id: str) -> str:
-        """回傳指定 site 的 aug_webpages 路徑。"""
-        return os.path.join(self.base_folder, "aug_webpages", site_id)
-
-    def get_vector_store_path(self, site_id: str) -> str:
-        """回傳指定 site 的向量庫路徑（data/vector_db/{site_id}.db）。"""
-        return self.vector_store_path(site_id)
-
-    def site_exists(self, site_id: str) -> bool:
-        """檢查 site 是否存在。"""
-        aug_webpages_path = self.get_webpages_path(site_id)
-        return os.path.isdir(aug_webpages_path)

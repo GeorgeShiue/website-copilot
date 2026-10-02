@@ -2,7 +2,7 @@
 
 涵蓋：
 - RAGRegistry：cache hit / cache miss / LRU eviction / close / list_sites
-- IndexBuilder._should_rebuild：Milvus 路徑判斷；RAGBuilder / IndexBuilder 失敗時的資源處理
+- build_rag／RAGBuilder 失敗時的資源處理與建庫順序（先讀來源再清除舊向量庫）
 - Retriever 工具：依 site_id 路由到 registry、參數傳遞與錯誤傳播
 
 load_rag 的載入路徑見 test_serve_rag_loading.py。
@@ -290,41 +290,8 @@ class TestClose:
 
 
 # ===========================================================================
-# IndexBuilder / loader 測試
+# build_target / build_rag / load_rag 測試
 # ===========================================================================
-
-
-def _make_builder() -> IndexBuilder:
-    """建立以 RAGConfig 預設值與 published target 為設定的 IndexBuilder（_should_rebuild 只讀取 milvus_uri）。"""
-    return IndexBuilder(RAGConfig(), published_target("test"))
-
-
-class TestShouldRebuildMilvus:
-    """Milvus 的 _should_rebuild 邏輯測試。"""
-
-    def test_returns_false_when_milvus_db_exists(self) -> None:
-        """milvus.db 已存在 + force_rebuild=False → 不重建。"""
-        builder = _make_builder()
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=False) is False
-
-    def test_returns_true_when_milvus_db_missing(self) -> None:
-        """milvus.db 不存在 → 重建。"""
-        builder = _make_builder()
-        with patch("os.path.exists", return_value=False):
-            assert builder._should_rebuild(force_rebuild=False) is True
-
-    def test_returns_true_when_force_rebuild(self) -> None:
-        """milvus.db 已存在 + force_rebuild=True → 強制重建。"""
-        builder = _make_builder()
-        with patch("os.path.exists", return_value=True):
-            assert builder._should_rebuild(force_rebuild=True) is True
-
-    def test_returns_true_when_force_rebuild_and_db_missing(self) -> None:
-        """milvus.db 不存在 + force_rebuild=True → 重建。"""
-        builder = _make_builder()
-        with patch("os.path.exists", return_value=False):
-            assert builder._should_rebuild(force_rebuild=True) is True
 
 
 def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> None:
@@ -375,10 +342,11 @@ def test_build_rag_does_not_modify_config(tmp_path: Path) -> None:
     target = RAGTarget("nculab", str(tmp_path / "web"), str(tmp_path / "milvus.db"))
 
     with (
+        patch("website_copilot.retrieval.factory.load_source"),
         patch("website_copilot.retrieval.factory.IndexBuilder") as index_builder,
         patch("website_copilot.retrieval.factory.RAG"),
     ):
-        build_rag(config, target, force_rebuild=True, build_query_engine=False)
+        build_rag(config, target)
 
     index_builder.assert_called_once_with(config, target)
     assert config.model_dump() == before
@@ -465,12 +433,11 @@ class TestReturnStyleBuild:
     def test_rebuild_reads_source_before_cleaning(self, tmp_path: Any) -> None:
         """results.json 不存在 → 在清除既有向量庫前就失敗。"""
         target = RAGTarget("demo", str(tmp_path / "missing"), str(tmp_path / "db"))
-        builder = IndexBuilder(RAGConfig(), target)
         with (
-            patch.object(builder, "clean") as mock_clean,
+            patch.object(IndexBuilder, "clean") as mock_clean,
             pytest.raises(FileNotFoundError, match="results.json"),
         ):
-            builder.build_or_load(force_rebuild=True)
+            build_rag(RAGConfig(), target)
         mock_clean.assert_not_called()
 
 

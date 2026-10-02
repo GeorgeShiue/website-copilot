@@ -61,9 +61,7 @@ class _Env:
         self.write_store = True
         self.build_error: Exception | None = None
 
-    def fake_build_rag(
-        self, config: RAGConfig, target: RAGTarget, **_kwargs
-    ) -> _FakeRAG:
+    def fake_build_rag(self, config: RAGConfig, target: RAGTarget) -> _FakeRAG:
         self.configs.append(config)
         self.targets.append(target)
         if self.build_error is not None:

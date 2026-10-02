@@ -25,7 +25,7 @@ from website_copilot.ingestion.crawling.html_date_extractor import (
 )
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.schemas import GenerationResult
-from website_copilot.utils.text_helper import clean_description
+from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN, clean_description
 from website_copilot.utils.log_helper import log_session, print_log, record_cost
 
 logger = logging.getLogger(__name__)
@@ -38,9 +38,6 @@ PAGE_TYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"/blog"), "blog"),
     (re.compile(r"/events"), "event"),
 ]
-
-# Markdown 內的影像 URL 擷取
-MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 
 
 class WebsiteCrawler:

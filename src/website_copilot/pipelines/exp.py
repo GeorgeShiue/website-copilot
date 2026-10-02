@@ -173,7 +173,6 @@ def run_rag_query(
         except Exception as e:
             log_session("RAG Query Failed", style="red")
             print_log(f"Error: {e}")
-            rag.close()
             raise
         finally:
             rag.close()
@@ -203,7 +202,6 @@ def run_agent_query(
         run_manager, run_title = create_run_no_site_context(
             module="agent",
             config_name=run_config.config_name,
-            base_folder="runs",
         )
 
         with run_workflow_context(run_title, run_manager=run_manager):

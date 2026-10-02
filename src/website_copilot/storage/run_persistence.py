@@ -22,13 +22,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def is_run_folder(name: str) -> bool:
+    """資料夾名稱是否為 run 時間戳資料夾（如 20260830_172330：以 20 開頭、共 15 字元）。"""
+    return name.startswith("20") and len(name) == 15
+
+
 def _filter_run_folders(base_folder: str) -> list[str]:
     """篩選出符合實驗資料夾命名規則的資料夾名稱列表。"""
-    folder_names = os.listdir(base_folder)
-    run_folder_names = []
-    for folder_name in folder_names:
-        if folder_name.startswith("20") and len(folder_name) == 15:
-            run_folder_names.append(folder_name)
+    run_folder_names = [name for name in os.listdir(base_folder) if is_run_folder(name)]
     if not run_folder_names:
         raise FileNotFoundError(f"No run folders found in {base_folder}.")
     return run_folder_names
@@ -141,23 +142,15 @@ def save_results_as_md(
     results: dict[str, dict],
     folder_path: str,
     markdown_type: str,
-    save_images: bool = False,
 ) -> None:
     """將爬取結果寫入 Markdown 檔案。"""
     for page_title, result in results.items():
         md_file_path = page_title + ".md"
         markdown_file_path = os.path.join(folder_path, md_file_path)
         markdown = result[markdown_type]
-        images = result["images"]
 
         with open(markdown_file_path, "w", encoding="utf-8") as f:
             f.write(markdown)
-            if images and save_images:
-                f.write("\n" + "-" * 5 + "\n")
-                f.write("Images:\n\n")
-                for image in images:
-                    f.write(f"![]({image['src']})\n")
-                f.write("\n" + "-" * 5 + "\n")
 
 
 def save_generated_exclude_words(

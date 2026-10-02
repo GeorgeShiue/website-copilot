@@ -3,7 +3,6 @@ import base64
 import logging
 import os
 import random
-import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
@@ -18,6 +17,7 @@ from rich.text import Text
 
 from website_copilot.config.image_summarizer_config import VLM_MODEL_TO_API_KEY
 from website_copilot.utils.config_helper import EnvironmentVariableError
+from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN
 from website_copilot.utils.log_helper import (
     TaskCountProgress,
     log_session,
@@ -27,8 +27,6 @@ from website_copilot.utils.log_helper import (
 
 logger = logging.getLogger(__name__)
 
-
-MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
 
 # VLM（OpenAI）僅支援 png / jpeg / gif / webp，其他格式（如 svg、avif）直接略過
 SUPPORTED_IMAGE_CONTENT_TYPES = frozenset(

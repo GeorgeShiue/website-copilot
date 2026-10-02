@@ -51,35 +51,16 @@ def create_run_context(
 def create_run_no_site_context(
     module: str,
     config_name: str,
-    run_name: str | None = None,
     base_folder: str = "runs",
 ) -> tuple[RunManager, str]:
     """建立不需要 site_id 的 RunManager 與 run title。"""
     run_title = f"{module.replace('_', ' ').title()} ({config_name})"
     run_manager = RunManager.for_run_no_site(
         module=module,
-        run_name=run_name or config_name,
+        run_name=config_name,
         base_folder=base_folder,
     )
     return run_manager, run_title
-
-
-class _WorkflowContext:
-    """Wraps ExitStack + optional run_manager lifecycle."""
-
-    def __init__(self, stack: ExitStack, run_manager: RunManager | None) -> None:
-        self._stack = stack
-        self._run_manager = run_manager
-
-    def __enter__(self) -> "_WorkflowContext":
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        try:
-            if self._run_manager is not None and exc_type is None:
-                self._run_manager.log_run_paths("complete")
-        finally:
-            self._stack.__exit__(exc_type, exc_val, exc_tb)
 
 
 @contextmanager
@@ -106,11 +87,12 @@ def publish_log_file(run_manager: RunManager | None, publish: bool) -> Iterator[
         shutil.rmtree(folder, ignore_errors=True)
 
 
+@contextmanager
 def run_workflow_context(
     run_title: str,
     run_manager: RunManager | None,
     log_path: str = "",
-) -> _WorkflowContext:
+) -> Iterator[None]:
     """共用 logging preamble context manager。
 
     取代 run_* 函式中重複的 logging pattern：
@@ -119,15 +101,21 @@ def run_workflow_context(
     run_manager 為 None（save=False）時跳過 runs/ 相關操作；此時若指定 log_path
     （publish-only 的暫存 log，見 publish_log_file）仍會把輸出寫進該檔案。
     """
-    stack = ExitStack()
-    effective_log_path = run_manager.log_path if run_manager is not None else log_path
-    if effective_log_path:
-        stack.enter_context(save_logging_file(effective_log_path))
-    stack.enter_context(log_run_time(run_title))
-    log_session(run_title, style="purple")
+    with ExitStack() as stack:
+        effective_log_path = (
+            run_manager.log_path if run_manager is not None else log_path
+        )
+        if effective_log_path:
+            stack.enter_context(save_logging_file(effective_log_path))
+        stack.enter_context(log_run_time(run_title))
+        log_session(run_title, style="purple")
 
-    if run_manager is not None:
-        log_session("Run Paths", style="cyan")
-        run_manager.log_run_paths("init")
+        if run_manager is not None:
+            log_session("Run Paths", style="cyan")
+            run_manager.log_run_paths("init")
 
-    return _WorkflowContext(stack, run_manager)
+        yield
+
+        # 區塊正常結束才印（例外時直接傳播）；log 檔此時仍開啟
+        if run_manager is not None:
+            run_manager.log_run_paths("complete")

@@ -24,11 +24,3 @@ class Tool:
     def close(self) -> None:
         """釋放內部 RAGRegistry 資源。"""
         self._registry.close()
-
-    def __enter__(self):
-        """進入 context manager，回傳 self。"""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """離開 context manager，釋放資源。"""
-        self.close()

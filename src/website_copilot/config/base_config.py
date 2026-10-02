@@ -62,7 +62,28 @@ def format_validation_error(source: str, error: ValidationError) -> str:
     return "\n".join(lines)
 
 
-class BaseModuleConfig(ConfigModel):
+def validate_loaded[M: ConfigModel](
+    cls: type[M], data: dict[str, Any], source: str
+) -> M:
+    """驗證載入的設定 dict；失敗時轉成帶來源（設定檔路徑與繼承鏈）的 ConfigValidationError。"""
+    try:
+        return cls.model_validate(data)
+    except ValidationError as e:
+        raise ConfigValidationError(format_validation_error(source, e)) from e
+
+
+class LoadedConfigModel(ConfigModel):
+    """由 YAML loader 建立的 config 基底：記錄載入來源（不參與驗證與 model_dump）。"""
+
+    _source: str = PrivateAttr(default="")
+
+    @property
+    def source(self) -> str:
+        """載入來源描述，如 `configs/rag/test.yml (extends: default)`；未經 loader 建立時為空字串。"""
+        return self._source
+
+
+class BaseModuleConfig(LoadedConfigModel):
     """模組 config 的共用基底類。"""
 
     _CONFIG_FOLDER_PATH: ClassVar[str] = ""
@@ -71,7 +92,6 @@ class BaseModuleConfig(ConfigModel):
     _config_name: str = PrivateAttr(default="")
     # None：使用 class 的 _DEFAULT_RUN_NAME_FIELDS（設定檔未寫或未經 loader 建立）
     _run_name_fields: list[str] | None = PrivateAttr(default=None)
-    _source: str = PrivateAttr(default="")
 
     @property
     def config_name(self) -> str:
@@ -82,12 +102,6 @@ class BaseModuleConfig(ConfigModel):
         if self._run_name_fields is None:
             return list(self._DEFAULT_RUN_NAME_FIELDS)
         return self._run_name_fields
-
-    @property
-    def source(self) -> str:
-        """載入來源描述，如 `configs/rag/test.yml (extends: default)`，有套用 overrides 時
-        結尾加上 ` + overrides`；未經 loader 建立時為空字串。"""
-        return self._source
 
     @classmethod
     def from_yaml(
@@ -108,10 +122,7 @@ class BaseModuleConfig(ConfigModel):
             data = deep_merge(data, overrides)
             source = f"{source} + overrides"
 
-        try:
-            config = cls.model_validate(data)
-        except ValidationError as e:
-            raise ConfigValidationError(format_validation_error(source, e)) from e
+        config = validate_loaded(cls, data, source)
         config._config_name = config_name
         config._run_name_fields = run_name_fields
         config._source = source
@@ -175,27 +186,22 @@ class BaseModuleConfig(ConfigModel):
         return run_name
 
 
-def _section_model(cls: type[BaseModel], name: str) -> type[ConfigModel]:
-    annotation = cls.model_fields[name].annotation
-    assert isinstance(annotation, type) and issubclass(annotation, ConfigModel)
-    return annotation
-
-
-def _is_section(cls: type[BaseModel], name: str) -> bool:
-    """欄位型別為 ConfigModel 子類即為 section（對應 YAML 的巢狀 mapping）。"""
-    annotation = cls.model_fields[name].annotation
-    return isinstance(annotation, type) and issubclass(annotation, ConfigModel)
-
-
 def _has_field_path(cls: type[BaseModel], dotted_path: str) -> bool:
-    """dotted path 的每一段都是模型欄位（中間段必須是 section）。"""
+    """dotted path 的每一段都是模型欄位（中間段必須是 section）。
+
+    section 為欄位型別恰為 ConfigModel 子類者（對應 YAML 的巢狀 mapping）；
+    可選 section（`Model | None`）可能是 None，不能作為路徑中段。
+    """
     parts = dotted_path.split(".")
     model: type[BaseModel] = cls
     for i, part in enumerate(parts):
         if part not in model.model_fields:
             return False
         if i < len(parts) - 1:
-            if not _is_section(model, part):
+            annotation = model.model_fields[part].annotation
+            if not (
+                isinstance(annotation, type) and issubclass(annotation, ConfigModel)
+            ):
                 return False
-            model = _section_model(model, part)
+            model = annotation
     return True

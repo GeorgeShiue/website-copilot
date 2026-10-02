@@ -1,4 +1,3 @@
-import logging
 from typing import Any, ClassVar, Literal
 
 from pydantic import Field, NonNegativeInt, PositiveFloat, PositiveInt
@@ -9,8 +8,6 @@ from website_copilot.config.base_config import (
     NonEmptyStr,
 )
 from website_copilot.config.prompts import IMAGE_SUMMARY_PROMPT
-
-logger = logging.getLogger(__name__)
 
 VLM_MODEL_TO_API_KEY: dict[str, str] = {
     "gpt": "OPENAI_API_KEY",

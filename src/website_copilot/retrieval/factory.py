@@ -21,6 +21,7 @@ from website_copilot.ingestion.indexing.index import (
     IndexHandle,
     RAGTarget,
 )
+from website_copilot.ingestion.indexing.source import load_source
 from website_copilot.retrieval.llama_index_helpers import build_filters, create_llm
 from website_copilot.retrieval.rag import RAG
 from website_copilot.storage.run_persistence import load_latest_run_path
@@ -188,36 +189,26 @@ def log_target(target: RAGTarget) -> None:
     print_log(f"milvus_uri: {target.milvus_uri}")
 
 
-def build_rag(
-    config: RAGConfig,
-    target: RAGTarget,
-    force_rebuild: bool = False,
-    build_query_engine: bool = True,
-) -> RAG:
-    """建立並建構 RAG 實例。僅執行建構流程，不包含 query 步驟；不會改寫 config。
+def build_rag(config: RAGConfig, target: RAGTarget) -> RAG:
+    """重建向量庫並回傳 RAG（只建到 vector store／index 層級，不含 retriever）。
+
+    一律重建：先讀取 target.aug_webpages_dir 的來源，成功後才清除既有向量庫並建庫。
+    不會改寫 config；查詢請以 load_rag 載入已建好的向量庫。
 
     Args:
         config: RAG 參數。
-        target: 站點、資料來源與向量庫位置（見 published_target／build_target）。
-        force_rebuild: 是否強制重建向量庫。
-        build_query_engine: 是否建到 retriever／query engine 層級；
-            False 時僅建到 vector store／index 層級（不含 retriever）。
+        target: 站點、資料來源與向量庫位置（見 build_target）。
 
     Returns:
         已建構的 RAG 實例（呼叫端負責 close）。
+
+    Raises:
+        FileNotFoundError: 資料來源缺少 results.json 時（此時不會清除既有向量庫）。
     """
     log_target(target)
-    index_builder = IndexBuilder(config, target)
-    if build_query_engine:
-        log_session("Building RAG to Query Engine", style="cyan")
-        index_handle = index_builder.build_or_load(force_rebuild=force_rebuild)
-        rag = RAGBuilder(config).build(index_handle)
-    else:
-        log_session("Building RAG to Vector Store", style="cyan")
-        index_handle = index_builder.build_or_load(force_rebuild=force_rebuild)
-        rag = RAG(index_handle)
-
-    return rag
+    log_session("Building RAG to Vector Store", style="cyan")
+    source = load_source(target.aug_webpages_dir)
+    return RAG(IndexBuilder(config, target).build(source))
 
 
 def load_rag(

@@ -7,15 +7,12 @@ retriever 的 top-k 等檢索參數由 RAG config 管理，Agent 不覆寫。
 Agent 不綁定特定 site_id：多站管理由 RAGRegistry 在工具層級處理。
 """
 
-import logging
 from typing import ClassVar
 
 from pydantic import Field
 
 from website_copilot.config.base_config import BaseModuleConfig, NonEmptyStr
 from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
-
-logger = logging.getLogger(__name__)
 
 
 class AgentConfig(BaseModuleConfig):

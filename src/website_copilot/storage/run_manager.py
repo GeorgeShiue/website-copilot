@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import time
 from pathlib import Path
@@ -9,23 +8,20 @@ from rich import box
 from rich.table import Table
 
 from website_copilot.config.agent_config import AgentConfig
+from website_copilot.storage.run_persistence import RESULTS_JSON_NAME, is_run_folder
 from website_copilot.utils.log_helper import print_log
-
-RESULTS_JSON_NAME = "results.json"
-
-logger = logging.getLogger(__name__)
 
 
 class RunManager:
     def __init__(
         self,
-        module_name: str = "",
+        module_name: str,
         base_folder: str = "runs",
     ) -> None:
         """初始化 RunManager。
 
         Args:
-            module_name: 模組名稱（可選，之後由 for_run / for_run_no_site 設定）。
+            module_name: 模組名稱（由 for_run / for_run_no_site 傳入）。
             base_folder: 執行結果的根資料夾（預設 runs/）。
         """
         self.timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -33,8 +29,10 @@ class RunManager:
         self.base_path = os.path.join(self.base_folder, self.timestamp)
         os.makedirs(self.base_path, exist_ok=True)
 
-        self.module_name: str = ""
-        self.module_path: str = ""
+        self.module_name = module_name
+        self.module_path = os.path.join(self.base_path, module_name)
+        os.makedirs(self.module_path, exist_ok=True)
+
         self.site_id: str = ""
         self.site_path: str = ""
         self.run_name: str = ""
@@ -46,11 +44,6 @@ class RunManager:
         self.run_config_path: str = ""
         self.site_config_path: str = ""
         self.log_path: str = ""
-
-        if module_name:
-            self.module_name = module_name
-            self.module_path = os.path.join(self.base_path, module_name)
-            os.makedirs(self.module_path, exist_ok=True)
 
     @classmethod
     def for_run(
@@ -87,8 +80,6 @@ class RunManager:
         return rm
 
     def init_module_run_paths(self) -> None:
-        if not self.module_name:
-            raise ValueError("Module name must be set to initialize module run paths.")
         if not self.run_name:
             raise ValueError("Run name must be set to initialize module run paths.")
 
@@ -263,8 +254,7 @@ class RunManager:
             entry_path = os.path.join(base_folder, entry)
             if not os.path.isdir(entry_path):
                 continue
-            # timestamped folder: 20260830_172330 (15 chars, starts with 20)
-            if not (entry.startswith("20") and len(entry) == 15):
+            if not is_run_folder(entry):
                 continue
             module_path = os.path.join(entry_path, module_name)
             if not os.path.isdir(module_path):

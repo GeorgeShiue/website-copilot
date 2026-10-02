@@ -17,7 +17,6 @@ import time
 from typing import Any, AsyncIterator, Callable
 
 from langchain.agents import create_agent as langchain_create_agent
-from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from rich.table import Table
 
@@ -40,7 +39,6 @@ class Agent:
     Attributes:
         graph: LangGraph CompiledStateGraph（create_agent 回傳）。
         tool: Tool 實例（管理 RAGRegistry 等資源）。
-        tools: 綁定的 StructuredTool 列表（向後相容，回傳 tool.tools）。
         config: Agent 設定。
         checkpointer: InMemorySaver 實例（多輪記憶，thread_id 區分 session）。
     """
@@ -50,27 +48,16 @@ class Agent:
         graph: Any,
         tool: Tool,
         config: AgentConfig,
-        checkpointer: InMemorySaver | None = None,
+        checkpointer: InMemorySaver,
     ) -> None:
         self.graph = graph
         self.tool = tool
         self.config = config
-        self.checkpointer = checkpointer or InMemorySaver()
-
-    @property
-    def tools(self) -> list[StructuredTool]:
-        """向後相容：回傳 Tool 內的 StructuredTool 列表。"""
-        return self.tool.tools
+        self.checkpointer = checkpointer
 
     def close(self) -> None:
         """釋放 Tool 管理的資源（RAGRegistry 等）。"""
         self.tool.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
 
     def ask(self, query: str, thread_id: str | None = None) -> dict[str, Any]:
         """單輪/多輪問答：回傳回答與來源。

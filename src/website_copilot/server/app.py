@@ -2,7 +2,7 @@
 
 提供：
 - ChatApp：聊天服務應用（create() 工廠方法、close() 資源釋放、context manager）
-- _build_fastapi_app()：建立 FastAPI app（lifespan 綁定 agent / run_manager、CORS、路由、static mount）
+- _build_fastapi_app()：建立 FastAPI app（路由以 closure 持有 agent / run_manager、CORS、static mount）
 - POST /api/chat：SSE 串流問答（事件協定：token / done / error）
 - GET /api/health：健康檢查
 - GET /：redirect 至 /static/demo.html（嵌入示範）
@@ -15,7 +15,7 @@ SSE 事件協定（M3 定案，M4a 前端依此實作）：
 - {"type": "error", "message": "..."}：失敗
 
 資源生命週期：agent 與 run_manager 皆由呼叫端建立後透過 ChatApp.create() 注入，
-lifespan 啟動時綁定至 app.state；ChatApp.close() 僅釋放 agent（run_manager 無需釋放資源）。
+由 _build_fastapi_app 的 closure 持有；ChatApp.close() 僅釋放 agent（run_manager 無需釋放資源）。
 """
 
 import json
@@ -23,11 +23,10 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -160,19 +159,13 @@ class ChatApp:
         """釋放 Agent 資源（run_manager 無需釋放）。"""
         self.agent.close()
 
-    def __enter__(self) -> "ChatApp":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self.close()
-
 
 def _build_fastapi_app(
     agent: Agent,
     run_manager: RunManager,
     allowed_origins: list[str] | None = None,
 ) -> FastAPI:
-    """建立 FastAPI 應用程式，注入 Agent 與 RunManager 到 lifespan（內部函式）。
+    """建立 FastAPI 應用程式，路由以 closure 持有 Agent 與 RunManager（內部函式）。
 
     一般由 ChatApp.create() 呼叫；直接使用時呼叫端需自行管理資源生命週期。
 
@@ -185,13 +178,7 @@ def _build_fastapi_app(
         FastAPI：含 /api/chat（SSE）、/api/health 與 CORS。
     """
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.agent = agent
-        app.state.run_manager = run_manager
-        yield
-
-    app = FastAPI(title="Website Copilot Chat", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Website Copilot Chat", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
         # 預設 demo 全開放；自有網站部署時可限縮（如 ["https://lab.example.edu.tw"]）
@@ -204,12 +191,6 @@ def _build_fastapi_app(
     static_dir = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    def get_agent(request: Request) -> Agent:
-        return request.app.state.agent
-
-    def get_run_manager(request: Request) -> RunManager:
-        return request.app.state.run_manager
-
     @app.get("/")
     async def index() -> RedirectResponse:
         """入口：redirect 至嵌入示範頁。"""
@@ -221,11 +202,7 @@ def _build_fastapi_app(
         return {"status": "ok"}
 
     @app.post("/api/chat")
-    async def chat(
-        req: ChatRequest,
-        agent: Agent = Depends(get_agent),
-        run_manager: RunManager = Depends(get_run_manager),
-    ) -> StreamingResponse:
+    async def chat(req: ChatRequest) -> StreamingResponse:
         """SSE 串流問答。
 
         thread_id 為 None 時自動產生（auto-{uuid}）並於 done 事件回傳，

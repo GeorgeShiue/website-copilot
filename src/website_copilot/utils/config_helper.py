@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -11,8 +10,6 @@ from website_copilot.utils.log_helper import log_session, print_log
 if TYPE_CHECKING:
     from website_copilot.config.base_config import BaseModuleConfig
     from website_copilot.config.site_config import SiteConfig
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigValidationError(ValueError):

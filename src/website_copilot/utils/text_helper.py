@@ -7,6 +7,9 @@ import re
 # （SentenceSplitter 要求 metadata 長度小於 chunk_size）。
 MAX_DESCRIPTION_CHARS = 300
 
+# Markdown 內的圖片連結（只取 http(s) 網址），爬蟲萃取 images 與圖片摘要共用
+MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[.*?\]\((https?://[^\s)]+)\)")
+
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 _WHITESPACE_RE = re.compile(r"\s+")
 

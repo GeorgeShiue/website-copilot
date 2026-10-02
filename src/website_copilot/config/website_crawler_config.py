@@ -1,4 +1,3 @@
-import logging
 from typing import ClassVar
 
 from pydantic import (
@@ -13,9 +12,6 @@ from website_copilot.config.base_config import (
     NonEmptyStr,
 )
 
-logger = logging.getLogger(__name__)
-
-KEEP_TITLE_CONTENT_THRESHOLD = 0.45
 KEEP_IMAGE_CONTENT_THRESHOLD = 0.25
 
 

@@ -84,7 +84,6 @@ def run_server_build(agent: Agent, run_config: ServeRunConfig) -> ChatServer:
     run_manager, _ = create_run_no_site_context(
         module="server",
         config_name=agent.config.config_name,
-        base_folder="runs",
     )
 
     # 標題註明僅為初始化：耗時訊息不應被誤讀成 server 的執行時間

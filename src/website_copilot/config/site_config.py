@@ -9,12 +9,13 @@ import re
 from pathlib import Path
 from typing import Annotated, ClassVar, Self
 
-from pydantic import Field, PrivateAttr, ValidationError, field_validator
+from pydantic import Field, field_validator
 
 from website_copilot.config.base_config import (
     ConfigModel,
+    LoadedConfigModel,
     NonEmptyStr,
-    format_validation_error,
+    validate_loaded,
 )
 from website_copilot.config.yaml_helper import CONFIG_SUFFIX, load_config_dict
 from website_copilot.utils.config_helper import ConfigValidationError
@@ -44,7 +45,7 @@ class SiteCrawlConfig(ConfigModel):
         return value
 
 
-class SiteConfig(ConfigModel):
+class SiteConfig(LoadedConfigModel):
     """站點身分：site_id 同時作為 data/ 與 runs/ 的資料夾名稱及 Milvus collection 名稱。"""
 
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/sites"
@@ -55,8 +56,6 @@ class SiteConfig(ConfigModel):
     )
     crawl: SiteCrawlConfig
 
-    _source: str = PrivateAttr(default="")
-
     @field_validator("site_id")
     @classmethod
     def _check_site_id(cls, value: str) -> str:
@@ -65,11 +64,6 @@ class SiteConfig(ConfigModel):
                 "site_id 只能包含英數字與底線，且不可以數字開頭（Milvus collection 名稱規則）"
             )
         return value
-
-    @property
-    def source(self) -> str:
-        """載入來源描述（設定檔路徑與繼承鏈）；未經 loader 建立時為空字串。"""
-        return self._source
 
     @classmethod
     def available_sites(cls) -> list[str]:
@@ -90,12 +84,7 @@ class SiteConfig(ConfigModel):
             )
 
         loaded = load_config_dict(cls._CONFIG_FOLDER_PATH, site_id)
-        try:
-            site = cls.model_validate(loaded.data)
-        except ValidationError as e:
-            raise ConfigValidationError(
-                format_validation_error(loaded.source, e)
-            ) from e
+        site = validate_loaded(cls, loaded.data, loaded.source)
         if site.site_id != site_id:
             raise ConfigValidationError(
                 f"{loaded.source}: site_id 必須與檔名一致（{site.site_id} ≠ {site_id}）"

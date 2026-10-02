@@ -325,9 +325,7 @@ def run_rag_build(
                     else "runs",
                     data_folder=data_manager.base_folder,
                 )
-                rag = build_rag(
-                    config, target, force_rebuild=True, build_query_engine=False
-                )
+                rag = build_rag(config, target)
                 rag.close()
 
                 # ----- 輸出完成訊息 -----

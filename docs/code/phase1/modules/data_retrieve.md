@@ -44,16 +44,15 @@ IndexBuilder(config)                  # ingestion/indexing/index.py，回傳 Ind
 │   ├── build_nodes()        # (1) 讀取 Markdown（load_source）→ Pipeline 產出節點
 │   ├── build_vector_store() # (2) 建立向量儲存（Milvus，支援 Hybrid）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
-├── load()                   # (3a) 既有向量庫直接載入（不讀 aug_webpages、不建 nodes）
-└── build_or_load()          # 依 force_rebuild / 向量庫是否存在選擇 build 或 load（僅 rag-build／prepare 使用；rag-query 與 serve 走 load_rag，不建庫）
+└── load()                   # (3a) 既有向量庫直接載入（不讀 aug_webpages、不建 nodes；由 load_rag 使用）
 
 RAGBuilder(config)                    # retrieval/factory.py
 ├── build_retriever(index)   # (4) 建立檢索器（支援 filter_dict 動態過濾）
 ├── build_query_engine(retriever)  # (5) 建立查詢引擎
 └── build(index_handle)      # (4) + (5) → RAG；失敗時關閉 index_handle
 
-build_rag(config, target)    # 建置入口（run_rag_build 只建到 index；run_rag_query 建到 query engine）
-load_rag(config, target)     # 只載入已 publish 的向量庫到 retriever，不存在時拋錯（RAGRegistry／serve 階段使用）
+build_rag(config, target)    # 建置入口（只有 run_rag_build 使用）：先 load_source 讀來源，再 IndexBuilder.build() 重建，只建到 index 層級
+load_rag(config, target)     # 只載入既有向量庫（預設到 retriever；build_query_engine=True 時含 query engine），不存在時拋錯（RAGRegistry／serve／rag-query 使用）
 
 RAG（runtime）
 ├── query()                  # (6) 執行查詢（評估見 evaluation.evaluate_response）

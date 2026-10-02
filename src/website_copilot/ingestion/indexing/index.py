@@ -17,7 +17,7 @@ from rich.table import Table
 
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.ingestion.indexing.node_pipeline import NodePipelineBuilder
-from website_copilot.ingestion.indexing.source import Source, load_source
+from website_copilot.ingestion.indexing.source import Source
 from website_copilot.ingestion.indexing.vector_store import (
     VectorStoreBuilder,
 )
@@ -33,18 +33,17 @@ def _close_vector_store(vector_store: MilvusVectorStore, milvus_uri: str) -> Non
     publish 前若 server 還開著，搬移資料夾後 flush 會寫回原路徑，已發布的向量庫只剩
     未 flush 的 WAL（且原路徑留下殘骸）。因此關閉時必須一併 release server。
     """
-    if isinstance(vector_store, MilvusVectorStore):
+    try:
+        vector_store._milvusclient.close()
+    except Exception:
+        logger.warning("Milvus client close() failed", exc_info=True)
+    if milvus_uri.endswith(".db") and "://" not in milvus_uri:
         try:
-            vector_store._milvusclient.close()
-        except Exception:
-            logger.warning("Milvus client close() failed", exc_info=True)
-        if milvus_uri.endswith(".db") and "://" not in milvus_uri:
-            try:
-                from milvus_lite.server_manager import server_manager_instance
+            from milvus_lite.server_manager import server_manager_instance
 
-                server_manager_instance.release_server(milvus_uri)
-            except Exception:
-                logger.warning("Milvus Lite server release failed", exc_info=True)
+            server_manager_instance.release_server(milvus_uri)
+        except Exception:
+            logger.warning("Milvus Lite server release failed", exc_info=True)
 
 
 # 所有站點的 Milvus collection 名稱：向量庫已是每站一份（data/vector_db/{site_id}.db），
@@ -92,17 +91,6 @@ class IndexBuilder:
         self.target = target
         self._build_stats: dict[str, str] = {}
 
-    def build_or_load(self, force_rebuild: bool = False) -> IndexHandle:
-        """建到 index 層級，視情況重建或載入既有 index。不含 retriever／query engine。
-
-        - force_rebuild=True 或 store 路徑不存在時重建（讀取 aug_webpages 來源）。
-        - 否則載入既有向量庫（不讀取 aug_webpages）。
-        """
-        if self._should_rebuild(force_rebuild):
-            source = load_source(self.target.aug_webpages_dir)
-            return self.build(source)
-        return self.load()
-
     def build(self, source: Source) -> IndexHandle:
         """重建：clean（整檔刪除）→ nodes → vector store → index。"""
         self._build_stats = {}
@@ -128,8 +116,7 @@ class IndexBuilder:
         vector_store = self.build_vector_store()
         try:
             # Milvus 重用既有 collection 時，需手動載入（ released → loaded ）
-            if self.config.vector_store.vector_store_type == "milvus":
-                vector_store.client.load_collection(vector_store.collection_name)
+            vector_store.client.load_collection(vector_store.collection_name)
             index = self.load_index(vector_store)
         except BaseException:
             _close_vector_store(vector_store, self.target.milvus_uri)
@@ -154,15 +141,6 @@ class IndexBuilder:
         for metric, value in self._build_stats.items():
             table.add_row(metric, value)
         print_log(table)
-
-    def _should_rebuild(self, force_rebuild: bool) -> bool:
-        """決定是否需要重建 vector store / index。
-
-        force_rebuild=True 或 store 路徑不存在時重建。
-        """
-        if force_rebuild:
-            return True
-        return not os.path.exists(self.target.milvus_uri)
 
     def clean(self) -> None:
         """整檔刪除既有向量庫（重建前呼叫）。"""

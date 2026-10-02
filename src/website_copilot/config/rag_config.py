@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import Field, PositiveInt, model_validator
@@ -8,8 +7,6 @@ from website_copilot.config.base_config import (
     ConfigModel,
     NonEmptyStr,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class NodesConfig(ConfigModel):
