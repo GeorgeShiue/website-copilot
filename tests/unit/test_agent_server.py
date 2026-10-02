@@ -11,13 +11,15 @@
 因此替身 RunManager 只記錄呼叫內容，不做任何 I/O。
 """
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, cast
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
-from website_copilot.agent.agent import Agent
+from website_copilot.agent.agent import Agent, build_result, state_messages
 from website_copilot.server.app import (
     ChatApp,
     resolve_site_id,
@@ -26,6 +28,8 @@ from website_copilot.storage.run_manager import RunManager
 from website_copilot.agent.langchain_helper import (
     _message_content_to_text,
     extract_sources_from_messages,
+    new_thread_id,
+    thread_config,
 )
 
 # ---------------------------------------------------------------------------
@@ -192,6 +196,87 @@ def test_extract_sources_skips_non_string_content():
 
 
 # ---------- _message_content_to_text ----------
+
+
+def test_new_thread_id_format_and_uniqueness():
+    first, second = new_thread_id(), new_thread_id()
+    assert first.startswith("auto-") and len(first) == len("auto-") + 8
+    assert first != second
+
+
+def test_thread_config_generates_id_only_when_missing():
+    assert thread_config("demo") == {"configurable": {"thread_id": "demo"}}
+    auto = thread_config(None)["configurable"]["thread_id"]
+    assert auto.startswith("auto-")
+
+
+# ---------------------------------------------------------------------------
+# 問答結果組裝：build_result／state_messages／Agent.ask／Agent.astream_result
+# ---------------------------------------------------------------------------
+
+_RESULT_KEYS = ["query", "response", "sources", "timestamp"]
+
+
+def test_build_result_fields_and_sources():
+    messages = [_Message(content="來源：\nURL: https://example.com/a")]
+
+    result = build_result("Q", "A", messages)
+
+    assert list(result) == _RESULT_KEYS
+    assert result["query"] == "Q" and result["response"] == "A"
+    assert result["sources"] == ["https://example.com/a"]
+    assert result["timestamp"]
+
+
+def test_state_messages_returns_messages_or_empty():
+    assert [m.content for m in state_messages(_FakeGraph(), {})] == [
+        "來源：\nURL: https://example.com/page"
+    ]
+
+    class _EmptyGraph:
+        def get_state(self, config):
+            return _GraphState(values={})
+
+    assert state_messages(_EmptyGraph(), {}) == []
+
+
+class _InvokeGraph(_FakeGraph):
+    """替身 graph：invoke 回傳 [工具訊息, 最終回答]。"""
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None):
+        return {
+            "messages": [
+                _Message(content="來源：\nURL: https://example.com/page"),
+                _Message(content="最終回答"),
+            ]
+        }
+
+
+def _make_agent(graph: _FakeGraph) -> Agent:
+    return Agent(
+        graph=graph, tool=MagicMock(), config=MagicMock(), checkpointer=MagicMock()
+    )
+
+
+def test_agent_ask_returns_built_result():
+    result = _make_agent(_InvokeGraph()).ask("Q", "t1")
+
+    assert list(result) == _RESULT_KEYS
+    assert result["response"] == "最終回答"
+    assert result["sources"] == ["https://example.com/page"]
+
+
+def test_agent_astream_result_collects_tokens_and_sources():
+    tokens: list[str] = []
+
+    result = asyncio.run(
+        _make_agent(_FakeGraph()).astream_result("Q", "t1", on_token=tokens.append)
+    )
+
+    assert tokens == ["你", "好"]
+    assert list(result) == _RESULT_KEYS
+    assert result["response"] == "你好"
+    assert result["sources"] == ["https://example.com/page"]
 
 
 def test_message_content_to_text_list_of_dicts():

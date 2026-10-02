@@ -128,7 +128,8 @@ def test_run_agent_query_auto_generates_thread_id(
     """thread_id 為 None 時自動產生 auto-{uuid} 並用於落盤。"""
     from website_copilot.pipelines.exp import run_agent_query
 
-    mock_run_agent_build.return_value = FakeAgentStub()
+    fake_agent = FakeAgentStub()
+    mock_run_agent_build.return_value = fake_agent
     mock_rm = setup_mock_run_manager(mock_rm_cls)
 
     run_agent_query(AgentRunConfig(config_name="test", query="hello"))
@@ -136,6 +137,8 @@ def test_run_agent_query_auto_generates_thread_id(
     thread_id = mock_rm.save_agent_results_as_json.call_args.kwargs["thread_id"]
     assert thread_id is not None
     assert thread_id.startswith("auto-")
+    # 實際對話使用的 id 與落盤的 id 相同（可用該 id 續接對話）
+    assert fake_agent.asked[0]["thread_id"] == thread_id
 
 
 @patch("website_copilot.pipelines.exp.run_agent_build")

@@ -12,6 +12,11 @@ from collections import OrderedDict
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.retrieval.factory import load_rag, published_target
 from website_copilot.retrieval.rag import RAG
+from website_copilot.storage.data_paths import (
+    site_id_from_vector_store_name,
+    vector_db_folder,
+    vector_store_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,25 +44,22 @@ class RAGRegistry:
 
     def _site_exists(self, site_id: str) -> bool:
         """檢查指定 site_id 是否已 publish 向量庫（data/vector_db/{site_id}.db 資料夾）。"""
-        return os.path.isdir(
-            os.path.join(self.base_folder, "vector_db", f"{site_id}.db")
-        )
+        return os.path.isdir(vector_store_path(site_id, self.base_folder))
 
     def list_sites(self) -> list[str]:
         """回傳所有可查詢的 site_id 列表（掃描 data/vector_db/ 下已 publish 向量庫的站點）。
 
         以向量庫而非 data/aug_webpages/ 判斷，避免列出 prepare 尚未完成 RAG 建置的站點。
         """
-        rag_path = os.path.join(self.base_folder, "vector_db")
-        if not os.path.isdir(rag_path):
+        vector_db_path = vector_db_folder(self.base_folder)
+        if not os.path.isdir(vector_db_path):
             return []
         # 只認 {site_id}.db；.staging-*／.db.tmp／.db.old 等 publish 中間產物不是站點
+        site_ids = (
+            site_id_from_vector_store_name(item) for item in os.listdir(vector_db_path)
+        )
         return sorted(
-            item.removesuffix(".db")
-            for item in os.listdir(rag_path)
-            if item.endswith(".db")
-            and not item.startswith(".")
-            and self._site_exists(item.removesuffix(".db"))
+            site_id for site_id in site_ids if site_id and self._site_exists(site_id)
         )
 
     def get(self, site_id: str) -> RAG:

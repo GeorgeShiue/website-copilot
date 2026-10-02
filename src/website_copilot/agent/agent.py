@@ -31,6 +31,26 @@ from website_copilot.config.agent_config import AgentConfig
 from website_copilot.utils.log_helper import log_session, print_log
 
 
+def state_messages(graph: Any, config: dict[str, dict[str, str]]) -> list[Any]:
+    """取得 thread 目前的對話 messages（thread 尚無 state 時為空 list）。"""
+    state = graph.get_state(config)
+    return state.values.get("messages", []) if state.values else []
+
+
+def build_result(query: str, response: str, messages: list[Any]) -> dict[str, Any]:
+    """組出一輪問答結果：query、response、sources（messages 中檢索工具回傳的來源 URL）、timestamp。
+
+    Agent.ask／Agent.astream_result 與 server 的 SSE 串流共用，落盤格式
+    （RunManager.save_agent_results_as_json）依賴這四個欄位與順序。
+    """
+    return {
+        "query": query,
+        "response": response,
+        "sources": extract_sources_from_messages(messages),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 class Agent:
     """包裝 LangGraph Agent 與其綁定資源。
 
@@ -74,12 +94,7 @@ class Agent:
         messages = response["messages"]
         final_message = messages[-1]
         answer = _message_content_to_text(final_message.content)
-        return {
-            "query": query,
-            "response": answer,
-            "sources": extract_sources_from_messages(messages),
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+        return build_result(query, answer, messages)
 
     async def astream_text(
         self, query: str, config: dict[str, dict[str, str]]
@@ -108,14 +123,8 @@ class Agent:
             chunks.append(text)
             if on_token is not None:
                 on_token(text)
-        state = self.graph.get_state(config)
-        messages = state.values.get("messages", []) if state.values else []
-        return {
-            "query": query,
-            "response": "".join(chunks),
-            "sources": extract_sources_from_messages(messages),
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+        messages = state_messages(self.graph, config)
+        return build_result(query, "".join(chunks), messages)
 
 
 def create_agent(config: AgentConfig) -> Agent:

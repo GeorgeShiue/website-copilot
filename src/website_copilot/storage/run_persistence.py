@@ -8,6 +8,7 @@ parameters instead of relying on RunManager instance state.
 import json
 import logging
 import os
+from collections.abc import Iterator
 
 from website_copilot.schemas import GenerationResult
 
@@ -35,6 +36,28 @@ def _filter_run_folders(base_folder: str) -> list[str]:
     return run_folder_names
 
 
+def _iter_site_run_folders(
+    base_folder: str, module_name: str, site_id: str
+) -> Iterator[str]:
+    """由新到舊列出存在的 runs/<ts>/<module>/<site_id>/（只認時間戳資料夾）。
+
+    Raises:
+        FileNotFoundError: base_folder 內沒有任何時間戳資料夾時。
+    """
+    for folder_name in sorted(_filter_run_folders(base_folder), reverse=True):
+        site_folder = os.path.join(base_folder, folder_name, module_name, site_id)
+        if os.path.isdir(site_folder):
+            yield site_folder
+
+
+def _walk_sorted(folder: str) -> Iterator[tuple[str, list[str]]]:
+    """以固定順序（目錄與檔名排序）由上而下走訪，yield (目前資料夾, 其中的檔名)。"""
+    for root, dirs, files in os.walk(folder):
+        dirs.sort()
+        files.sort()
+        yield root, files
+
+
 def load_latest_results(
     base_folder: str,
     module_name: str,
@@ -43,6 +66,7 @@ def load_latest_results(
     """從 JSON 檔案讀取指定站點最新一次模組執行的結果。
 
     只搜尋 runs/<ts>/<module>/<site_id>/；找不到該站點的結果時報錯，不退回其他站點。
+    較新的 run 有該站點資料夾但沒有 results.json（失敗的 run）時，改用較舊的 run。
 
     Args:
         base_folder: runs/ 根目錄。
@@ -55,82 +79,41 @@ def load_latest_results(
     logger.info(
         "Looking for %s results of %s in %s...", module_name, site_id, base_folder
     )
-    run_folder_names = _filter_run_folders(base_folder)
-
-    latest_results_json_path = ""
-    for folder_name in sorted(run_folder_names, reverse=True):
-        module_folder_path = os.path.join(
-            base_folder, folder_name, module_name, site_id
-        )
-        if not os.path.isdir(module_folder_path):
-            continue
-
-        for root, dirs, files in os.walk(module_folder_path):
-            dirs.sort()
-            files.sort()
+    for site_folder in _iter_site_run_folders(base_folder, module_name, site_id):
+        for root, files in _walk_sorted(site_folder):
             if RESULTS_JSON_NAME in files:
-                latest_results_json_path = os.path.join(root, RESULTS_JSON_NAME)
-                break
+                results_json_path = os.path.join(root, RESULTS_JSON_NAME)
+                logger.info("Latest results found at: %s", results_json_path)
+                with open(results_json_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
 
-        if latest_results_json_path:
-            break
-
-    if not latest_results_json_path:
-        raise FileNotFoundError(
-            f"No {module_name} results of site '{site_id}' found in {base_folder}."
-        )
-
-    if not os.path.isfile(latest_results_json_path):
-        raise FileNotFoundError(
-            f"Failed to load results from {latest_results_json_path}."
-        )
-
-    logger.info("Latest results found at: %s", latest_results_json_path)
-    with open(latest_results_json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    raise FileNotFoundError(
+        f"No {module_name} results of site '{site_id}' found in {base_folder}."
+    )
 
 
-def load_latest_run_path(
-    base_folder: str,
-    module_name: str = "image_summarizer",
-    site_id: str | None = None,
-) -> str:
-    """回傳最新指定模組的 run path（results 的上一層）。
+def load_latest_run_path(base_folder: str, module_name: str, site_id: str) -> str:
+    """回傳指定站點最新一次模組執行的 run path（results/ 的上一層）。
+
+    只搜尋 runs/<ts>/<module>/<site_id>/；規則與 load_latest_results 相同。
 
     Args:
         base_folder: runs/ 根目錄。
-        module_name: 模組資料夾名稱。
-        site_id: 只搜尋該 site 的 run（runs/<ts>/<module>/<site_id>/）；None 時不限。
+        module_name: 模組資料夾名稱（如 "image_summarizer"）。
+        site_id: 站點識別碼。
 
     Returns:
         最新一份包含 results/ 的 run path。
     """
     logger.info("Looking for %s run path in %s...", module_name, base_folder)
-    run_folder_names = _filter_run_folders(base_folder)
-
-    latest_run_path = ""
-    for folder_name in sorted(run_folder_names, reverse=True):
-        module_folder_path = os.path.join(base_folder, folder_name, module_name)
-        if site_id is not None:
-            module_folder_path = os.path.join(module_folder_path, site_id)
-        if not os.path.isdir(module_folder_path):
-            continue
-
-        for root, dirs, files in os.walk(module_folder_path):
-            dirs.sort()
-            files.sort()
+    for site_folder in _iter_site_run_folders(base_folder, module_name, site_id):
+        for root, _files in _walk_sorted(site_folder):
             if os.path.basename(root) == "results":
-                latest_run_path = os.path.dirname(root)
-                break
+                run_path = os.path.dirname(root)
+                logger.info("Found latest run path at: %s", run_path)
+                return run_path
 
-        if latest_run_path:
-            break
-
-    if not latest_run_path:
-        raise FileNotFoundError(f"No {module_name} run path found in {base_folder}.")
-
-    logger.info("Found latest run path at: %s", latest_run_path)
-    return latest_run_path
+    raise FileNotFoundError(f"No {module_name} run path found in {base_folder}.")
 
 
 # ---------------------------------------------------------------------------

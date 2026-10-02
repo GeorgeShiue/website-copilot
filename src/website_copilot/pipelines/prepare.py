@@ -25,6 +25,11 @@ from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownC
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
 from website_copilot.retrieval.factory import build_rag, build_target
 from website_copilot.storage.data_manager import DataManager
+from website_copilot.storage.data_paths import (
+    AUG_WEBPAGES,
+    RAW_WEBPAGES,
+    vector_store_name,
+)
 from website_copilot.storage.run_context import (
     create_run_context,
     publish_log_file,
@@ -150,7 +155,7 @@ def run_website_crawler(
         if publish:
             data_manager.publish_run_metadata(
                 site_id=site.site_id,
-                category="raw_webpages",
+                category=RAW_WEBPAGES,
                 config=config,
                 site=site,
                 run_config=run_config,
@@ -254,7 +259,7 @@ def run_image_summarizer(
         if publish:
             data_manager.publish_run_metadata(
                 site_id=site.site_id,
-                category="aug_webpages",
+                category=AUG_WEBPAGES,
                 config=config,
                 site=site,
                 run_config=run_config,
@@ -306,7 +311,7 @@ def run_rag_build(
             if publish
             else tempfile.mkdtemp(prefix="rag_build_")
         )
-        milvus_uri = os.path.join(staging_dir, f"{site.site_id}.db")
+        milvus_uri = os.path.join(staging_dir, vector_store_name(site.site_id))
 
     try:
         with publish_log_file(run_manager, publish) as log_path:

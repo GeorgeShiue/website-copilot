@@ -74,7 +74,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── agent.py             # LangGraph Agent（Agent / create_agent / ask / astream_text / astream_result / close）
 │   │   ├── langchain_helper.py  # LangChain 輔助（create_llm / thread_config / extract_sources）
 │   │   └── tools/               # webpage_retriever（多站路由）/ site_discovery（list_knowledge_bases）
-│   ├── storage/                 # DataManager（publish_*）/ RunManager / run_persistence / run_context
+│   ├── storage/                 # DataManager（publish_*）/ data_paths（data/ 路徑規則）/ RunManager / run_persistence / run_context
 │   ├── server/
 │   │   ├── app.py               # FastAPI + SSE + DOMAIN_SITE_MAP + resolve_site_id
 │   │   ├── server.py            # ChatServer（uvicorn.Server 子類，持有 ChatApp，結束時自動關閉）

@@ -20,8 +20,6 @@ SSE 事件協定（M3 定案，M4a 前端依此實作）：
 
 import json
 import logging
-import time
-import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -32,11 +30,8 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from website_copilot.agent.agent import Agent
-from website_copilot.agent.langchain_helper import (
-    extract_sources_from_messages,
-    thread_config,
-)
+from website_copilot.agent.agent import Agent, build_result, state_messages
+from website_copilot.agent.langchain_helper import new_thread_id, thread_config
 from website_copilot.storage.run_manager import RunManager
 
 logger = logging.getLogger(__name__)
@@ -103,16 +98,10 @@ async def _event_stream(
         async for text in agent.astream_text(enriched_query, config):
             chunks.append(text)
             yield _sse({"type": "token", "content": text})
-        state = agent.graph.get_state(config)
-        messages = state.values.get("messages", []) if state.values else []
-        sources = extract_sources_from_messages(messages)
-        # 落盤：以 thread_id 分檔保留完整多輪對話歷史
-        result = {
-            "query": query,
-            "response": "".join(chunks),
-            "sources": sources,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+        # 落盤：以 thread_id 分檔保留完整多輪對話歷史（query 為使用者原始問題，非加上站點前綴的版本）
+        result = build_result(
+            query, "".join(chunks), state_messages(agent.graph, config)
+        )
         run_manager.save_agent_results_as_json(
             thread_id=thread_id,
             results=[result],
@@ -213,7 +202,7 @@ def _build_fastapi_app(
                 [_sse({"type": "error", "message": "query must not be empty"})],
                 media_type="text/event-stream",
             )
-        thread_id = req.thread_id or f"auto-{uuid.uuid4().hex[:8]}"
+        thread_id = req.thread_id or new_thread_id()
         site_id = resolve_site_id(req.page_url)
         return StreamingResponse(
             _event_stream(agent, run_manager, req.query, thread_id, site_id=site_id),

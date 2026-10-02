@@ -24,6 +24,7 @@ from website_copilot.ingestion.indexing.index import (
 from website_copilot.ingestion.indexing.source import load_source
 from website_copilot.retrieval.llama_index_helpers import build_filters, create_llm
 from website_copilot.retrieval.rag import RAG
+from website_copilot.storage.data_paths import aug_webpages_path, vector_store_path
 from website_copilot.storage.run_persistence import load_latest_run_path
 from website_copilot.utils.log_helper import log_session, print_log
 
@@ -98,8 +99,8 @@ def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
     """
     return RAGTarget(
         site_id=site_id,
-        aug_webpages_dir=os.path.join(data_folder, "aug_webpages", site_id),
-        milvus_uri=os.path.join(data_folder, "vector_db", f"{site_id}.db"),
+        aug_webpages_dir=aug_webpages_path(site_id, data_folder),
+        milvus_uri=vector_store_path(site_id, data_folder),
     )
 
 
@@ -133,7 +134,7 @@ def vector_store_run_target(
     print_log(f"vector_store_run: {run_path}（建庫設定 {_run_source(run_path)}）")
     return RAGTarget(
         site_id=site_id,
-        aug_webpages_dir=os.path.join(data_folder, "aug_webpages", site_id),
+        aug_webpages_dir=aug_webpages_path(site_id, data_folder),
         milvus_uri=milvus_uri,
     )
 
@@ -175,7 +176,7 @@ def build_target(
             runs_folder, "image_summarizer", site_id=site_id
         )
     else:
-        aug_webpages_dir = os.path.join(data_folder, "aug_webpages", site_id)
+        aug_webpages_dir = aug_webpages_path(site_id, data_folder)
     return RAGTarget(
         site_id=site_id, aug_webpages_dir=aug_webpages_dir, milvus_uri=milvus_uri
     )

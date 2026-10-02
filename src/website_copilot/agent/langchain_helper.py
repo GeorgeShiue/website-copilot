@@ -2,6 +2,7 @@
 
 提供：
 - create_llm()：建立 LangChain ChatModel（Gemini 或 OpenAI，依 model name 自動路由）
+- new_thread_id()：產生自動編號的 thread_id（auto-{uuid}）
 - thread_config()：建立 LangGraph 多輪對話執行設定
 - extract_sources_from_messages()：從 messages 解析工具檢索回的來源 URL
 - _message_content_to_text()：將 AIMessage content 轉為純文字
@@ -24,6 +25,11 @@ from pydantic import SecretStr
 SOURCE_URL_PATTERN = re.compile(r"URL: (\S+)")
 
 
+def new_thread_id() -> str:
+    """產生自動編號的 thread_id（auto-{uuid 前 8 碼}）。"""
+    return f"auto-{uuid.uuid4().hex[:8]}"
+
+
 def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
     """建立 LangGraph 多輪對話的執行設定（thread_id 區分 session）。
 
@@ -31,7 +37,7 @@ def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
     相同 thread_id 保留對話記憶（M2 多輪）。
     """
     if thread_id is None:
-        thread_id = f"auto-{uuid.uuid4().hex[:8]}"
+        thread_id = new_thread_id()
     return {"configurable": {"thread_id": thread_id}}
 
 

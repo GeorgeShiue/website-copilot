@@ -64,3 +64,66 @@
 
 - `check.sh`（371 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
 - 手動確認 `run_workflow_context`：區塊內 `return`、區塊內拋例外兩種結束方式——return 時 log 含 complete 路徑表、例外時沒有，兩者皆記錄耗時並還原 stdout。
+
+---
+
+# B 組
+
+> B 組基準點：`754a8de`（A 組合併 commit；與先前的 `0ea5012` 內容相同，僅 commit 訊息被改寫）。
+
+## B1：`storage/data_paths.py`
+
+### 變更
+
+- 新增 `storage/data_paths.py`（只 import `os`，不存取檔案系統）：`RAW_WEBPAGES`／`AUG_WEBPAGES`／`VECTOR_DB` 常數，`site_data_path`、`aug_webpages_path`、`vector_db_folder`、`vector_store_name`、`vector_store_path`、`site_id_from_vector_store_name`（`{site_id}.db` → site_id，`.staging-*`／`.db.tmp`／`.db.old`／隱藏檔回傳 None）。
+- `DataManager`、`retrieval.factory`（`published_target`／`vector_store_run_target`／`build_target`）、`RAGRegistry`（`_site_exists`／`list_sites`）、`pipelines/prepare`（`category` 常數與 staging 內的 `{site_id}.db`）改用上述函式與常數；src 內不再有 `"vector_db"`／`"aug_webpages"`／`"raw_webpages"` 的路徑字串。
+- 新增 `tests/unit/test_data_paths.py`（10 個）：佈局、無檔案系統副作用、`site_id_from_vector_store_name` 各種名稱。
+- README 檔案結構補上 `data_paths`。
+
+### 驗證
+
+- `check.sh`（381 passed，較 A 組多 10 個新測試）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+- `test_published_target`、`test_vector_store_path`、`TestListSites`、`test_serve_rag_loading`、`test_pipeline_prepare`、`test_imports`（serve 路徑不載入爬蟲）不修改即通過。
+
+## B2：共用 runs/ 走訪
+
+### 變更
+
+- `storage/run_persistence.py` 新增 `_iter_site_run_folders(base_folder, module_name, site_id)`（由新到舊 yield 存在的 `runs/<ts>/<module>/<site_id>/`，沒有任何時間戳資料夾時報 `FileNotFoundError`）與 `_walk_sorted(folder)`（排序後由上而下走訪）；`load_latest_results`、`load_latest_run_path` 只保留各自的判斷（找 `results.json`／找 `results/` 資料夾），找到即回傳。
+- `load_latest_run_path` 的 `site_id` 改為必填（`module_name` 因而也改為必填；唯一呼叫端 `build_target` 本來就傳 `"image_summarizer"` 與 `site_id`）；刪除「`site_id is None` 時不限站點」分支。
+- 刪除 `load_latest_results` 中走不到的 `if not os.path.isfile(...)` 檢查（路徑來自 `os.walk` 的檔名清單）。
+- 測試：重構前先補特徵測試並在舊程式碼上確認通過，再重構（新增 9 個，`test_run_persistence.py` 共 12 個）：較新的 run 缺 `results.json`／`results/` 時退回較舊的 run、不退回其他站點、忽略非時間戳資料夾、無任何 run 資料夾報錯、`is_run_folder`。
+
+### 驗證
+
+- `check.sh`（391 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+- `test_build_target_uses_latest_summarizer_run_of_same_site`、`test_image_summarizer_loads_latest_results_of_same_site` 不修改即通過。
+
+## B3：`new_thread_id()`
+
+### 變更
+
+- `agent/langchain_helper.py` 新增 `new_thread_id()`（`auto-{uuid 前 8 碼}`）；`thread_config(None)`、`run_agent_query`、server `/api/chat` 共用，`exp.py`／`app.py` 不再各自 `import uuid`。
+- `run_agent_query` 改為問答**前**決定 thread_id（`run_config.thread_id` 為 None 時才產生），同一個 id 傳給 `ask`／`astream_result` 並用於落盤。原本是問答後才另外產生，落盤檔 `results_auto-xxx.json` 的 id 與實際對話 id 不同，無法以該 id 續接對話。
+- 判斷語意維持各處原樣：`run_agent_query` 以 `is None` 判斷、server 以 `or`（空字串視為未提供）。
+- 測試：`test_run_agent_query_auto_generates_thread_id` 增加斷言「`ask` 收到的 thread_id 與落盤的相同」（已確認在舊程式碼上失敗）；`test_agent_server` 新增 `new_thread_id`／`thread_config` 測試（2 個）。
+
+### 驗證
+
+- `check.sh`（393 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+- `test_chat_sse_streams_tokens_and_done` 不修改即通過。
+- 此項為行為修正（落盤 id），付費整合測試待 B 組合併後執行。
+
+## B4：模組層級 helper
+
+### 變更
+
+- `agent/agent.py` 新增模組函式 `state_messages(graph, config)`（`graph.get_state` 取 messages，無 state 時為 `[]`）與 `build_result(query, response, messages)`（組 `{query, response, sources, timestamp}`）。
+- `Agent.ask`、`Agent.astream_result`、server `_event_stream` 改用上述兩者；欄位與順序不變（`save_agent_results_as_json` 落盤格式不變），server 的 `query` 仍是使用者原始問題（非加站點前綴的版本）、仍逐 token yield。`app.py` 不再直接使用 `extract_sources_from_messages`、`time`。
+- 因 helper 是模組函式、直接接收 `graph`，`test_agent_server` 的 `_FakeAgent`（只有 `graph`／`config`／`astream_text`）不必修改。
+- 測試：新增 `build_result`、`state_messages`（含空 state）、`Agent.ask`、`Agent.astream_result` 共 4 個（`ask`／`astream_result` 原本沒有單元測試）；這兩個測試已用重構前的實作確認通過（結果欄位與順序相同）。
+
+### 驗證
+
+- `check.sh`（397 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+- `test_chat_sse_streams_tokens_and_done`、`test_chat_delegates_save_to_run_manager_with_agent_config`、`test_pipeline_exp` 不修改即通過。

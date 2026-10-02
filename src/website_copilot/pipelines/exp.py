@@ -2,9 +2,9 @@
 
 import asyncio
 import time
-import uuid
 from typing import Any
 
+from website_copilot.agent.langchain_helper import new_thread_id
 from website_copilot.config.pipeline_config import AgentRunConfig, RAGQueryRunConfig
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.site_config import SiteConfig
@@ -193,7 +193,11 @@ def run_agent_query(
             thread_id 為 session 識別，None 時自動產生 auto-{uuid}；stream 是否逐 token 串流輸出）。
         overrides: AgentConfig 的巢狀覆寫值（llm_name / system_prompt）。
     """
-    query, thread_id = run_config.query, run_config.thread_id
+    query = run_config.query
+    # 問答前就決定 thread_id：落盤檔名（results_<thread_id>.json）與實際對話使用同一個 id
+    thread_id = (
+        run_config.thread_id if run_config.thread_id is not None else new_thread_id()
+    )
 
     # ---- 建構 Agent（獨立的 agent_build run context）-----
     agent = run_agent_build(run_config, overrides)
@@ -233,8 +237,6 @@ def run_agent_query(
                 save_run_config(run_config, run_manager.run_config_path)
 
                 # ---- 儲存結果 -----
-                if thread_id is None:
-                    thread_id = f"auto-{uuid.uuid4().hex[:8]}"
                 run_manager.save_agent_results_as_json(
                     thread_id=thread_id,
                     results=[result],

@@ -16,6 +16,13 @@ from typing import Any
 from website_copilot.config.base_config import BaseModuleConfig
 from website_copilot.config.site_config import SiteConfig
 from website_copilot.schemas import GenerationResult
+from website_copilot.storage.data_paths import (
+    AUG_WEBPAGES,
+    RAW_WEBPAGES,
+    site_data_path,
+    vector_db_folder,
+    vector_store_path,
+)
 from website_copilot.storage.run_persistence import save_generated_exclude_words
 from website_copilot.utils.config_helper import (
     save_module_config,
@@ -66,7 +73,7 @@ class DataManager:
         Returns:
             發布後的 raw_webpages 資料夾路徑。
         """
-        return self._publish_results(site_id, "raw_webpages", results, "fit_markdown")
+        return self._publish_results(site_id, RAW_WEBPAGES, results, "fit_markdown")
 
     def publish_markdown(self, site_id: str, enhanced_results: dict[str, dict]) -> str:
         """發布增強後的結果到 data/aug_webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
@@ -86,7 +93,7 @@ class DataManager:
             發布後的 aug_webpages 資料夾路徑。
         """
         return self._publish_results(
-            site_id, "aug_webpages", enhanced_results, "enhanced_markdown"
+            site_id, AUG_WEBPAGES, enhanced_results, "enhanced_markdown"
         )
 
     def _publish_results(
@@ -98,7 +105,7 @@ class DataManager:
     ) -> str:
         """把 results 發布成 data/{category}/{site_id}/ 的 results.json 與 results/*.md
         （publish_crawl_results／publish_markdown 共用，兩者只差資料夾與 markdown 欄位）。"""
-        site_path = os.path.join(self.base_folder, category, site_id)
+        site_path = site_data_path(category, site_id, self.base_folder)
         os.makedirs(site_path, exist_ok=True)
 
         results_json_path = os.path.join(site_path, "results.json")
@@ -148,7 +155,7 @@ class DataManager:
         Returns:
             發布後的 raw_webpages 資料夾路徑。
         """
-        raw_webpages_path = os.path.join(self.base_folder, "raw_webpages", site_id)
+        raw_webpages_path = site_data_path(RAW_WEBPAGES, site_id, self.base_folder)
         os.makedirs(raw_webpages_path, exist_ok=True)
         save_generated_exclude_words(generation_result, raw_pages, raw_webpages_path)
         return raw_webpages_path
@@ -158,7 +165,7 @@ class DataManager:
 
         向量庫資料與設定紀錄（meta/）都在這個資料夾內，publish 時一起原子替換。
         """
-        return os.path.join(self.base_folder, "vector_db", f"{site_id}.db")
+        return vector_store_path(site_id, self.base_folder)
 
     def create_vector_store_staging(self, site_id: str) -> str:
         """在 data/vector_db/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
@@ -166,9 +173,9 @@ class DataManager:
         與正式向量庫位於同一檔案系統，publish 時可直接以 rename 移入；
         呼叫端負責在結束時刪除（無論成功或失敗）。向量庫應建在其中的 {site_id}.db。
         """
-        rag_path = os.path.join(self.base_folder, "vector_db")
-        os.makedirs(rag_path, exist_ok=True)
-        return tempfile.mkdtemp(prefix=".staging-", dir=rag_path)
+        vector_db_path = vector_db_folder(self.base_folder)
+        os.makedirs(vector_db_path, exist_ok=True)
+        return tempfile.mkdtemp(prefix=".staging-", dir=vector_db_path)
 
     def publish_vector_store(
         self,
@@ -195,7 +202,7 @@ class DataManager:
         Returns:
             發布後的向量庫資料夾路徑。
         """
-        os.makedirs(os.path.join(self.base_folder, "vector_db"), exist_ok=True)
+        os.makedirs(vector_db_folder(self.base_folder), exist_ok=True)
         dest_path = self.vector_store_path(site_id)
 
         # source == dest 時跳過，避免清掉 dest 時連同 source 一起刪除
@@ -277,7 +284,7 @@ class DataManager:
         Returns:
             發布後的目標資料夾路徑。
         """
-        dest_folder = os.path.join(self.base_folder, category, site_id)
+        dest_folder = site_data_path(category, site_id, self.base_folder)
         os.makedirs(dest_folder, exist_ok=True)
         self.write_run_metadata(dest_folder, config, site, run_config, log_path)
         return dest_folder
