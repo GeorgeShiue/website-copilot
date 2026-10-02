@@ -1,0 +1,5 @@
+site: ncucsie
+config_name: default
+run_name_use_config_name: false
+publish: true
+save: false

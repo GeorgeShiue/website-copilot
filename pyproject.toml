@@ -26,12 +26,16 @@ dependencies = [
     "mdformat-gfm>=1.0.0",
     "milvus-lite==3.2.0",
     "playwright>=1.58.0",
+    "pydantic>=2.12.5",
     "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.3",
     "rich>=14.3.2",
-    "tomlkit>=0.14.0",
     "tyro>=1.0.13",
     "uvicorn>=0.52.1",
 ]
+
+[project.scripts]
+website-copilot = "website_copilot.cli:main"
 
 [dependency-groups]
 dev = [
@@ -50,25 +54,31 @@ dev = [
 exclude-dependencies = ["unclecode-litellm"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app", "src/utils"]
+packages = ["src/website_copilot"]
 
 [tool.ruff]
-exclude = ["dev/**", ".venv"]
+# extend-exclude 保留 ruff 內建的預設排除（.git / build / dist / node_modules 等），
+# 另外排除執行產物、資料與非 Python 原始碼目錄
+extend-exclude = [
+    ".venv",
+    "runs",       # run 產物
+    "chats",      # 對話紀錄
+    "data",       # prepare 階段 publish 的資料
+    "docs",       # 文件與實驗紀錄
+    "extension",  # Chrome Extension（JS）
+]
 
 [tool.pyright]
-exclude = ["dev/**", "**/node_modules", "**/__pycache__", ".venv", "**/.*"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", "**/.*"]
 typeCheckingMode = "basic"
-
-[tool.pyright.typeEvaluation]
 deprecateTypingAliases = true
 strictDictionaryInference = true
 strictListInference = true
 strictSetInference = true
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["src/test"]
+testpaths = ["tests"]
 addopts = "-s -v"
 markers = [
-    "slow: 端到端測試（真實爬蟲 / LLM / 建庫），預設略過。執行完整測試用 -m slow",
+    "cost: 會呼叫 LLM / VLM / embedding API 而產生費用的測試，可用 -m \"not cost\" 略過",
 ]

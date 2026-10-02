@@ -1,0 +1,9 @@
+# 站點身分與爬取範圍（SiteConfig）；site_id 須與檔名一致
+site_id: ncucsie
+sample_query: 介紹資工系課程
+
+crawl:
+  url: https://www.csie.ncu.edu.tw/
+  url_patterns: ["*csie.ncu.edu.tw*"]
+  allowed_domains: [www.csie.ncu.edu.tw]
+  path_prefix: /

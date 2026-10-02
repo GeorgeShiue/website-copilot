@@ -1,16 +1,19 @@
-- [ ] 網頁清理自動化
-  - [x] 測試 crawl4ai 模組 (失敗)
-  - [x] 加強頁面網址去重機制
-  - [x] 測試 winnow-md 模組 (失敗)
-  - [x] 測試 LLM 方案 (失敗)
-  - [x] 實作 LLM 方案
-  - [x] 重新走過完整流程 （ncucsie、nculab）
-- [ ] 更新 workflow log 內容
+# 功能進度
+
+- [ ] 讀取網站文件
+- [ ] 網站知識庫版本控制
+- [ ] 站點檔加入顯示名稱與描述，供 list_knowledge_bases 回傳給 LLM
+
+# 技術債
+
+## 模組重構
+
 - [ ] Webpage Markdown Cleaner 獨立成一個模組
+- [ ] 包裝 log_helper.py（含約 6 處 Rich「Metric／Value」統計表格，見 code cleanup plan C3）
+- [ ] 客製化模組 RunManager
 
----
+## 效能優化
 
-- [ ] 客製化 RunManager
-- [ ] 使用者登入機制
-- [ ] iframe, script 偵測網站
-- [ ] 實驗支援 cli 控制
+- [ ] 優化模組 import 策略
+- [ ] 圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次（ncucsie 有 10 頁；`_collect_cached_items` 未對頁內 URL 去重），第一個失敗會取走 `_download_failure_reasons`，使 log 的失敗原因可能顯示為 `download failed` 而非實際的 `HTTP Error 404`（見 `docs/exp/memo/webpage_image_summarizer/download_concurrency/results.md`）
+- [ ] 平行處理圖片摘要（目前頁面依序處理，VLM 並行上限只在單頁內生效；改為所有頁的圖共用一個上限，見 code cleanup plan C2）

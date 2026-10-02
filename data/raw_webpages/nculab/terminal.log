@@ -1,0 +1,113 @@
+────────────────────── Website Crawler (nculab, default) ───────────────────────
+───────────────────────── SiteConfig Loaded from yaml ──────────────────────────
+               SiteConfig
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config       ┃ Value                  ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ site_id      │ nculab                 │
+│ sample_query │ 實驗室的成員有哪些人？ │
+└──────────────┴────────────────────────┘
+                               crawl
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                         ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ url             │ https://sites.google.com/site/nculab/labintro │
+│ url_patterns    │ ['*nculab*']                                  │
+│ allowed_domains │ ['sites.google.com']                          │
+│ path_prefix     │ /site/nculab                                  │
+└─────────────────┴───────────────────────────────────────────────┘
+──────────────────── WebsiteCrawlerConfig Loaded from yaml ─────────────────────
+            init
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config            ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ max_depth         │ 2     │
+│ max_pages         │ None  │
+│ content_threshold │ 0.25  │
+│ light_mode        │ True  │
+│ wait_for_images   │ True  │
+└───────────────────┴───────┘
+               clean
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Config            ┃ Value        ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ llm_model         │ gpt-5.6-luna │
+│ sample_ratio      │ 0.1          │
+│ repeat            │ 5            │
+│ max_prompt_tokens │ 500000       │
+│ seed              │ None         │
+└───────────────────┴──────────────┘
+─────────────────────────────── Website Crawling ───────────────────────────────
+[INIT].... → Crawl4AI 0.9.2
+INFO     Skip https://sites.google.com/site/nculab/labintro (duplicate of
+         labintro)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/人工智慧浪潮下之資訊科學與數
+         位學習之變革與挑戰論壇 (error: status code 404)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/恭喜張嘉惠老師指導-許耀文-陳
+         冠蓉同學 (error: status code 404)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/恭喜-張嘉惠老師指導-黃懷萱同
+         學論文-獲選-rocling-2024-best-paper-award (error: status code 404)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/恭喜張嘉惠老師指導-葉展維同學
+         (error: status code 404)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/2024-法律x-法遵科技黑客松-law
+         snote (error: status code 404)
+INFO     Skip https://sites.google.com/site/nculab/news/page-4?authuser=0
+         (error: status code 404)
+INFO     Skip https://sites.google.com/site/nculab/news/國科會大專生專題研究計畫
+         (duplicate of news_國科會大專生專題研究計畫)
+INFO     Skip https://sites.google.com/site/nculab/news/校內奬項 (duplicate of
+         news_校內奬項)
+INFO     Skip https://sites.google.com/site/nculab/news/校外奬項 (duplicate of
+         news_校外奬項)
+INFO     Skip https://sites.google.com/site/nculab/news/研討會 (duplicate of
+         news_研討會)
+INFO     Skip https://sites.google.com/site/nculab/news/國科會大專生專題研究計畫
+         (duplicate of news_國科會大專生專題研究計畫)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/恭喜專題生參與113年專題競賽全
+         部獲奬 (error: status code 404)
+INFO     Skip https://sites.google.com/site/nculab/news/研討會 (duplicate of
+         news_研討會)
+INFO     Skip https://sites.google.com/site/nculab/news/校外奬項 (duplicate of
+         news_校外奬項)
+INFO     Skip https://sites.google.com/site/nculab/news/校內奬項 (duplicate of
+         news_校內奬項)
+INFO     Skip https://sites.google.com/site/nculab/news/碩論口試 (duplicate of
+         news_碩論口試)
+INFO     Skip
+         https://sites.google.com/site/nculab/news/113年資電院大學部專題競賽獲獎
+         名單 (error: status code 404)
+─────────────────────────── Generating exclude_words ───────────────────────────
+Run 1/5: sampled 5 pages, proposed 4 exclude_words (cost $0.0013)
+Run 2/5: sampled 5 pages, proposed 6 exclude_words (cost $0.0064)
+Run 3/5: sampled 5 pages, proposed 6 exclude_words (cost $0.0020)
+Run 4/5: sampled 5 pages, proposed 6 exclude_words (cost $0.0006)
+Run 5/5: sampled 5 pages, proposed 6 exclude_words (cost $0.0027)
+──────────────────────── Generating exclude_words Stats ────────────────────────
+Total 5 calls, cost: $0.0130
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Word                 ┃ Votes ┃ Hit lines ┃ Low-occ ratio ┃ Status ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ Search this site     │ 5     │ 47        │ 0.0%          │ Kept   │
+│ Embedded Files       │ 5     │ 47        │ 0.0%          │ Kept   │
+│ Google Sites         │ 5     │ 47        │ 0.0%          │ Kept   │
+│ Report abuse         │ 5     │ 47        │ 0.0%          │ Kept   │
+│ Skip to main content │ 4     │ 47        │ 0.0%          │ Kept   │
+│ Skip to navigation   │ 4     │ 47        │ 0.0%          │ Kept   │
+└──────────────────────┴───────┴───────────┴───────────────┴────────┘
+──────────────────────────── Website Crawling Stats ────────────────────────────
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Metric            ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ success_pages     │ 47    │
+│ error_404         │ 8     │
+│ error_no_markdown │ 0     │
+│ repeat_pages      │ 10    │
+└───────────────────┴───────┘
+────────────────────────── Website Crawling Completed ──────────────────────────
+INFO     Website Crawler (nculab, default) Completed in 36.029 seconds

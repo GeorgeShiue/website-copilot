@@ -1,0 +1,7 @@
+# 測試用設定：目前與 ImageSummarizerConfig 的預設值相同（image_summarizer_config.py）
+#
+# litellm_kwargs 為直接傳給 litellm 的額外參數，例：
+# litellm_kwargs:
+#   temperature: 0.2 # gpt-5 系列不支援
+#   timeout: 10
+#   max_tokens: 300

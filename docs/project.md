@@ -12,6 +12,10 @@
 
 ## Phase 2/3 MVP
 
+* 0921
+
+  > [docs/progress_report/2026_0921/2026_0921_marp.md](progress_report/2026_0921/2026_0921_marp.md)
+  >
 * 0826
 
   > [docs/progress_report/2026_0826/2026_0826_discussion.md](progress_report/2026_0826/2026_0826_discussion.md)
@@ -57,13 +61,13 @@
 > **支援多資料類型、改進檢索品質**
 
 - 簡介
-  - **資料獲取** — 非同步爬取網站並將網頁轉為結構化內容，支援網域限制、路徑過濾與雜訊清洗。自動從 URL 解析頁面類型（論文、公告、成員等），為後續檢索提供分類標籤。
+  - **資料獲取** — 非同步爬取網站並將網頁轉為結構化內容，支援網域限制與路徑過濾。雜訊清洗改由 LLM 對全站抽樣頁面自動產生排除詞（多次重跑取聯集，再以全站行覆蓋率驗證剔除誤傷正文的詞），取代原本的人工詞表。自動從 URL 解析頁面類型（論文、公告、成員等），為後續檢索提供分類標籤。
   - **資料前處理** — 對網頁中的圖片進行 VLM 自動摘要，支援多種模型、可自訂提示詞、自動重試與快取機制，產出含圖片說明的增強內容。
   - **向量索引與混合檢索** — 將處理後的內容建立向量索引，同時以語意比對與關鍵字比對雙軌檢索，再將兩者結果融合排序，補回單一策略的不足。
   - **Metadata 過濾** — 利用爬蟲階段賦予的分類標籤，在檢索前隔離不相關的頁面類型（如查論文時排除公告與人員頁面），減少跨類別雜訊造成的幻覺。
   - **RAG Retriever Tool** — 將檢索能力包裝為可供 Agent 直接呼叫的工具，支援動態調整過濾條件與檢索數量，讓上層應用能靈活運用。
   - **查詢引擎與評估** — 串接 LLM 生成回答，並以忠實度與相關性兩項指標進行自動化成效評估，確保回答品質。
-  - **結果落盤** — 每次執行將 query 結果以結構化 JSON（`results.json`）與逐筆 Markdown（`results/query_{index}.md`）保存；RAG 建置可選擇將向量庫存至該次 run 內（`save_vector_store_to_runs`），避免實驗互相覆寫。
+  - **結果落盤** — 每次執行將 query 結果以結構化 JSON（`results.json`）與逐筆 Markdown（`results/query_{index}.md`）保存；RAG 建置的向量庫位置依 `save`／`publish` 決定（`save=True` 存於該次 run 內），publish 時以原子替換更新 `data/vector_db/`，避免實驗互相覆寫、也不影響執行中的 server。
 
 ## Phase 2/3 MVP（完成）
 
@@ -73,10 +77,10 @@
 
 - 簡介
   - **AI Agent** — 以 LangGraph `create_agent` 包裝 RAG 檢索工具，由 LLM 推理迴圈自行決定呼叫，回答附引用來源 URL；支援多輪記憶（`InMemorySaver` + `thread_id`）與 SSE 逐 token 串流。
-  - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy + LRU 快取）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
-  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 由呼叫端（`run_app()`）建立後注入 `ChatApp`，lifespan 僅綁定至 `app.state`、關閉由 `ChatApp.close()` 負責；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
+  - **多站 RAG 路由** — `RAGRegistry` 管理多個 `site_id` 對應的 RAG 實例（lazy 載入 + LRU 快取；只讀取 prepare 階段已 publish 的向量庫）；`webpage_retriever` 接受 `site_id` 參數路由至對應知識庫；`list_knowledge_bases` 供 LLM 確認可用站點。
+  - **聊天伺服器** — FastAPI + SSE（`POST /api/chat`，事件協定 token / done / error）；agent 由 `serve()` 經 `run_agent_build()` 建立後注入 `run_server_build()` / `ChatApp`，lifespan 僅綁定至 `app.state`、關閉由 `ChatServer` 結束時呼叫 `ChatApp.close()` 負責；CORS 可限縮（`allowed_origins`）；`DOMAIN_SITE_MAP` + `resolve_site_id()` 自動偵測來源站點。
   - **嵌入表面** — iframe / script widget / Chrome Extension 三種方式共用同一後端；widget 以 shadow DOM 隔離樣式並提供 mount factory（transport 抽象），Extension 以 background 代理繞過 CSP/CORS，支援站點偵測（`hostname` → `page_url`）、Service Worker Keepalive（`chrome.alarms`）、跨頁面 session 共享（`chrome.storage.session`）、Typing Indicator。
-  - **對話落盤** — `runs/<ts>/agent/<config>/results_<thread_id>.json`（依 thread_id 分檔，讀取既有分檔 → 合併本輪 → 覆寫）。
+  - **對話落盤** — `runs/<ts>/server/<config>/results_<thread_id>.json`（CLI `run agent` 為 `runs/<ts>/agent/<config>/`）（依 thread_id 分檔，讀取既有分檔 → 合併本輪 → 覆寫）。
 
 ## Phase 2：AI Agent
 

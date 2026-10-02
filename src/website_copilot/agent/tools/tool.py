@@ -1,0 +1,26 @@
+from langchain_core.tools import StructuredTool
+
+from website_copilot.retrieval.registry import RAGRegistry
+from website_copilot.agent.tools.site_discovery import create_site_discovery_tool
+from website_copilot.agent.tools.webpage_retriever import create_webpage_retriever_tool
+
+
+class Tool:
+    """Agent 工具層：自行建立並管理 RAGRegistry。"""
+
+    def __init__(self, config_name: str = "default") -> None:
+        self._registry = RAGRegistry(config_name=config_name)
+        site_discovery_tool = create_site_discovery_tool(self._registry)
+        webpage_retriever_tool = create_webpage_retriever_tool(self._registry)
+        self.tools: list[StructuredTool] = [
+            site_discovery_tool,
+            webpage_retriever_tool,
+        ]
+
+    def list_sites(self) -> list[str]:
+        """回傳所有可用的 site_id 列表。"""
+        return self._registry.list_sites()
+
+    def close(self) -> None:
+        """釋放內部 RAGRegistry 資源。"""
+        self._registry.close()

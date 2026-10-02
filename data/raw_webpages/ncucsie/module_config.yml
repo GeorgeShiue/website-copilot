@@ -1,0 +1,14 @@
+# source: WebsiteCrawlerConfig 預設值（configs/website_crawler/default.yml 不存在）
+# run_name_fields: [init.max_depth]
+init:
+  max_depth: 2
+  max_pages: null
+  content_threshold: 0.25
+  light_mode: true
+  wait_for_images: true
+clean:
+  llm_model: gpt-5.6-luna
+  sample_ratio: 0.1
+  repeat: 5
+  max_prompt_tokens: 500000
+  seed: null

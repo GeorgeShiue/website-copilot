@@ -1,0 +1,111 @@
+────────────────────── Image Summarizer (nculab, default) ──────────────────────
+──────────────────── ImageSummarizerConfig Loaded from yaml ────────────────────
+  ImageSummarizerConfig
+┏━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config         ┃ Value ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ litellm_kwargs │ {}    │
+└────────────────┴───────┘
+              init
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config                ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ download_timeout      │ 10.0  │
+│ success_threshold     │ 0.8   │
+│ max_retries           │ 6     │
+│ cache_download_images │ True  │
+│ cache_image_captions  │ True  │
+└───────────────────────┴───────┘
+                                   summarize
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config          ┃ Value                                                      ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ model           │ gpt-5.6-luna                                               │
+│ prompt          │ 你是網頁圖片資訊萃取器。目標是為 RAG                       │
+│                 │ 產生精確、可檢索的圖片摘要。\n\n【核心規則】\n1.           │
+│                 │ 先在內部過濾低資訊字與重複內容，再進行圖片摘要與           │
+│                 │ OCR；低資訊字不得出現在最終輸出。\n2. 僅描…                │
+│ image_source    │ markdown                                                   │
+│ vlm_max_workers │ 20                                                         │
+└─────────────────┴────────────────────────────────────────────────────────────┘
+───────────────────────────── Image Summarization ──────────────────────────────
+────────────────────────────────── [labintro] ──────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 6.796s
+────────────────────────────────── [advisor] ───────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 3.661s
+───────────────────────────── [members_activities] ─────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16/16 15.722s
+────────────────────────────────── [members] ───────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 17/17 8.895s
+──────────────────────────────── [news_研討會] ─────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 15.538s
+──────────────────────────────── [news_page-3] ─────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 9.217s
+────────────────────────────────── [projects] ──────────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 6.628s
+────────────────────────────── [projects_eventgo] ──────────────────────────────
+WARNING  Image download failed - HTTP Error 403: Forbidden
+         (url=https://sites.google.com/sitesv-images-rt/AMxu72tkpqE4NESV8Sawi6iU
+         GYmlnEL34qD4SEGBLm3NE6SaDh9OxlTIxQ5Dnl4Wtg1V3Pf6BmRszYA5lOCVMt8flOE0is4
+         yjIIRiWR7nlWVW5Th2U3mS-QMnlJdreVkmPNCUkMB3f9E3USqqBfRk5OjzCtPB_wuGT9A0f
+         MKqEBt1oWrsBA51PpsCr0_07-1B8zLfZjwj2Of8ris=w1280)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
+─ [projects_past-projects_ncufree-mobileadvertisingplatformbasedoncampuswirel… ─
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 7.981s
+────────────────────── [projects_past-projects_wifipass] ───────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 8.529s
+───────────────────────────── [projects_powerpoi] ──────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 9.381s
+─ [news_校內奬項_hezhangjiahuilaoshizhidaoxueshengyu103xueniandudiqijiedaxueb… ─
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 12.321s
+───────────────────────────── [news_校外奬項_page] ─────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 16.311s
+──────────────────────────── [news_校外奬項_page-1] ────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 10.671s
+──────────────────────────── [news_校外奬項_page-2] ────────────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 7.568s
+─────── [news_校外奬項_賀-碩士在職專班學生廖勳-榮獲tanet-2021佳作論文奬] ───────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 18.128s
+─ [news_研討會_jiaoyubu4gxingdongkuanpinchuangxinyingyongfuwuyantaohuixianggu… ─
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 18.247s
+─ [news_校外奬項_賀邱威誠同學獲科技部108年度產學合作計畫成果發表暨績效考評會 … ─
+WARNING  Image download failed - HTTP Error 403: Forbidden
+         (url=https://sites.google.com/sitesv-images-rt/AMxu72tZ79P9gDGdLZsIAuk7
+         QBJ_jV8nSNC2O0fXMkzZ2Q09eMokMSbI-zOxmeNzdANc9T8pUkzr8px0VROAwMBuynxkBmv
+         4y64k6T-RMvf4SDue1xSErHhVLS4e4NINMRGuJ5qX5dctGlKrvqAbHSBCMVL9MfxgqEycOZ
+         3vzVkVuSu0XUOmBObpIsTbK5d6jksStQT0xMkWYNiMpf4Cno0=w1280)
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 14.583s
+───────────────────── [news_碩論口試_widmlabtutorial2016] ──────────────────────
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 9.522s
+────────────────────────── All Image Summarize Stats ───────────────────────────
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┓
+┃ Page                                ┃ cost… ┃ succ… ┃ down… ┃ summ… ┃ cache… ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━┩
+│ labintro                            │ $0.0… │ 5     │ 0     │ 0     │ 0      │
+│ advisor                             │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ members_activities                  │ $0.0… │ 16    │ 0     │ 0     │ 0      │
+│ members                             │ $0.0… │ 17    │ 0     │ 0     │ 0      │
+│ news_研討會                         │ $0.0… │ 4     │ 0     │ 0     │ 0      │
+│ news_page-3                         │ $0.0… │ 2     │ 0     │ 0     │ 0      │
+│ projects                            │ $0.0… │ 5     │ 0     │ 0     │ 1      │
+│ projects_eventgo                    │ $0.0… │ 0     │ 1     │ 0     │ 0      │
+│ projects_past-projec…               │ $0.0… │ 3     │ 0     │ 0     │ 0      │
+│ projects_past-projec…               │ $0.0… │ 2     │ 0     │ 0     │ 0      │
+│ projects_powerpoi                   │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ news_校內奬項_hezhangjia…           │ $0.0… │ 5     │ 0     │ 0     │ 0      │
+│ news_校外奬項_page                  │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ news_校外奬項_page-1                │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ news_校外奬項_page-2                │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ news_校外奬項_賀-碩士在職專班學生…  │ $0.0… │ 2     │ 0     │ 0     │ 0      │
+│ news_研討會_jiaoyubu4gx…            │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+│ news_校外奬項_賀邱威誠同學獲科技部… │ $0.0… │ 3     │ 1     │ 0     │ 0      │
+│ news_碩論口試_widmlabtut…           │ $0.0… │ 1     │ 0     │ 0     │ 0      │
+├─────────────────────────────────────┼───────┼───────┼───────┼───────┼────────┤
+│ Total                               │ $0.0… │ 71    │ 2     │ 0     │ 1      │
+└─────────────────────────────────────┴───────┴───────┴───────┴───────┴────────┘
+────────────────────────────── Failed Images (2) ───────────────────────────────
+[projects_eventgo] HTTP Error 403: Forbidden: https://sites.google.com/sitesv-images-rt/AMxu72tkpqE4NESV8Sawi6iUGYmlnEL34qD4SEGBLm3NE6SaDh9OxlTIxQ5Dnl4Wtg1V3Pf6BmRszYA5lOCVMt8flOE0is4yjIIRiWR7nlWVW5Th2U3mS-QMnlJdreVkmPNCUkMB3f9E3USqqBfRk5OjzCtPB_wuGT9A0fMKqEBt1oWrsBA51PpsCr0_07-1B8zLfZjwj2Of8ris=w1280
+[news_校外奬項_賀邱威誠同學獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎] HTTP Error 403: Forbidden: https://sites.google.com/sitesv-images-rt/AMxu72tZ79P9gDGdLZsIAuk7QBJ_jV8nSNC2O0fXMkzZ2Q09eMokMSbI-zOxmeNzdANc9T8pUkzr8px0VROAwMBuynxkBmv4y64k6T-RMvf4SDue1xSErHhVLS4e4NINMRGuJ5qX5dctGlKrvqAbHSBCMVL9MfxgqEycOZ3vzVkVuSu0XUOmBObpIsTbK5d6jksStQT0xMkWYNiMpf4Cno0=w1280
+──────────────────────── Image Summarization Completed ─────────────────────────
+INFO     Published enhanced markdown to data/aug_webpages/nculab/results
+INFO     Image Summarizer (nculab, default) Completed in 202.326 seconds

@@ -12,19 +12,20 @@
 與此並行的尚有**知識圖譜檢索（網站結構）**、**資料庫檢索（多欄位資料）** 兩條策略路徑，依資料類型分流選用。
 
 - **模組實作**
-	- `src/app/engines/rag.py`（**runtime 執行**：`query`、`retrieve`、`evaluate` 與資源釋放）
-	- `src/app/engines/rag/rag_factory.py`（**建構流程**：`RAGBuilder` 編排 + `NodePipelineBuilder` / `VectorStoreBuilder`）
-	- `src/app/engines/rag/rag_eval_prompts.py`（**評估 Prompt 模板**：Faithfulness / Relevancy 的 eval 與 refine）
-	- `src/app/configs/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
-	- `src/utils/rag_helper.py`（**自訂 Markdown Parser**、**圖片萃取**、**格式化工具**、共用 `build_filters` / `create_llm`，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
-	- `src/app/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由）
-	- `src/app/tools/rag_registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy + LRU 快取）
-	- `src/app/tools/site_discovery.py`（**Site Discovery** — `list_knowledge_bases` 工具，回傳可用站點列表）
+	- `src/website_copilot/retrieval/rag.py`（**runtime 執行**：`query`、`retrieve` 與資源釋放；由 `IndexHandle` + retriever + query engine 組成）
+	- `src/website_copilot/ingestion/indexing/`（**建庫**：`source.py` 載入 aug_webpages 來源、`transforms.py` 自訂 Markdown Parser / 圖片與日期萃取、`node_pipeline.py` 產出 nodes、`vector_store.py` 建立 Milvus、`index.py` 的 `IndexBuilder` 建置或載入並回傳 `IndexHandle`）
+	- `src/website_copilot/retrieval/factory.py`（**組裝**：`RAGBuilder` 在 `IndexHandle` 上建 retriever / query engine；`build_rag()` 建置、`load_rag()` 供 serve 載入）
+	- `src/website_copilot/retrieval/evaluation.py`（**評估**：`build_evaluators` / `evaluate_response`、Faithfulness / Relevancy 的 Prompt 模板，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
+	- `src/website_copilot/config/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
+	- `src/website_copilot/retrieval/llama_index_helpers.py`（共用 `build_filters` / `create_llm` / `extract_sources_info` / `log_source_nodes`）
+	- `src/website_copilot/agent/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由）
+	- `src/website_copilot/retrieval/registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy 載入 + LRU 快取；唯讀）
+	- `src/website_copilot/agent/tools/site_discovery.py`（**Site Discovery** — `list_knowledge_bases` 工具，回傳可用站點列表）
 
 - **模組設定**
-	- `./configs/rag/{name}.toml`（**檢索設定檔**，透過 `src/app/configs/rag_config.py` 載入）
+	- `./configs/rag/{name}.yml`（**檢索設定檔**，只寫與 class 預設值不同的部分，透過 `src/website_copilot/config/rag_config.py` 載入）
 	- 可在 `RagConfig` 或執行參數中覆寫 **embedding**、**vector store 類型**、**hybrid ranker**、**chunk 參數**、**檢索設定**與 **LLM 模型**
-	- API key 依用途分為三組獨立環境變數：`OPENAI_RAG_EMBEDDING_API_KEY`（Embedding）、`OPENAI_API_KEY` / `GEMINI_RAG_QUERY_ENGINE_API_KEY`（查詢引擎）、`OPENAI_API_KEY` / `GEMINI_RAG_EVALUATOR_API_KEY`（評估）
+	- API key 依 model name 的供應商選用：Embedding 固定用 `OPENAI_API_KEY`；查詢引擎與評估的 `gpt-*` 用 `OPENAI_API_KEY`、`gemini-*` 用 `GEMINI_API_KEY`
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用**現代型別語法**如 `Sequence[BaseNode]`）
@@ -38,19 +39,25 @@
 ### 使用流程總覽
 
 ```
-RAGBuilder(config)
-├── build_nodes()            # (1) 讀取 Markdown → Pipeline 產出節點
-├── build_vector_store()     # (2) 建立向量儲存（Milvus，支援 Hybrid）
-│   └── load_index()         # (3a) 既有向量庫直接載入（跳過 build_nodes/build_index）
+IndexBuilder(config)                  # ingestion/indexing/index.py，回傳 IndexHandle
+├── build(source)            # (1)–(3b) 重建：clean → build_nodes → build_vector_store → build_index
+│   ├── build_nodes()        # (1) 讀取 Markdown（load_source）→ Pipeline 產出節點
+│   ├── build_vector_store() # (2) 建立向量儲存（Milvus，支援 Hybrid）
 │   └── build_index()        # (3b) 從 nodes 新建索引並寫入向量庫
-├── build_retriever()        # (4) 建立檢索器（支援 filter_dict 動態過濾）
-├── build_query_engine()     # (5) 建立查詢引擎
-└── build_reusable()         # 依需求自動選擇「重建」或「載入」路徑（run_rag_query 使用）
+└── load()                   # (3a) 既有向量庫直接載入（不讀 aug_webpages、不建 nodes；由 load_rag 使用）
+
+RAGBuilder(config)                    # retrieval/factory.py
+├── build_retriever(index)   # (4) 建立檢索器（支援 filter_dict 動態過濾）
+├── build_query_engine(retriever)  # (5) 建立查詢引擎
+└── build(index_handle)      # (4) + (5) → RAG；失敗時關閉 index_handle
+
+build_rag(config, target)    # 建置入口（只有 run_rag_build 使用）：先 load_source 讀來源，再 IndexBuilder.build() 重建，只建到 index 層級
+load_rag(config, target)     # 只載入既有向量庫（預設到 retriever；build_query_engine=True 時含 query engine），不存在時拋錯（RAGRegistry／serve／rag-query 使用）
 
 RAG（runtime）
-├── query() / evaluate()     # (6) 執行查詢與評估
+├── query()                  # (6) 執行查詢（評估見 evaluation.evaluate_response）
 ├── retrieve()               # (7) 僅檢索不回覆（回傳結構化 dict，供 Tool 使用）
-└── close()                  # (8) 釋放資源
+└── close()                  # (8) 釋放資源（關閉 IndexHandle）
 ```
 
 其中 (1) → (3b) 用於首次建立索引，(3a) 則用於後續重複使用。
@@ -60,11 +67,11 @@ RAG（runtime）
 ### 1. 載入資料
 
 #### 初始化與 results.json
-- 建構子會自動讀取 `{webpages_data_folder_path}/results.json`（由爬蟲產生的網頁清單），若檔案不存在則直接拋出 `FileNotFoundError`。
+- 重建時由 `load_source()`（`ingestion/indexing/source.py`）讀取 `{target.aug_webpages_dir}/results.json`（由爬蟲產生的網頁清單），若檔案不存在則在清除舊向量庫前直接拋出 `FileNotFoundError`；載入既有向量庫（serve）時不讀取。
 - `results.json` 的 key 為網頁標題（去除 `.md` 副檔名），value 包含 `url`、`metadata`（含 `page_type`、`description`）、`images`、`crawl_info` 等資訊。
 
 #### 讀取 Markdown 文件
-- `RAGBuilder.build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{webpages_data_folder_path}/results`。
+- `IndexBuilder.build_nodes()` 使用 LlamaIndex 的 `SimpleDirectoryReader` 讀取 `{target.aug_webpages_dir}/results`。
 - 只處理副檔名為 `.md` 的檔案，確保輸入內容來自爬蟲生成的 Markdown 成果。
 - 透過 `NodePipelineBuilder._build_file_metadata()` 回呼函式，根據 `results.json` 為每份文件注入以下 metadata：
   - `page_title` — 頁面標題
@@ -73,13 +80,13 @@ RAG（runtime）
   - `description` — 頁面描述
   - `year` / `month` / `day` — 由管線中的 `MarkdownDateExtractor` 依內容萃取，支援時間範圍過濾（見下方「轉換資料」）
 
-這些 metadata 在 `RAGBuilder.build_nodes()` 階段即寫入每個 LlamaIndex Document，後續經由 IngestionPipeline 傳遞給 child nodes，最終持久化到向量儲存中，同時供 **pre-filtering**（檢索前過濾）與 **LLM context**（檢索後附加上下文）使用。
+這些 metadata 在 `IndexBuilder.build_nodes()` 階段即寫入每個 LlamaIndex Document，後續經由 IngestionPipeline 傳遞給 child nodes，最終持久化到向量儲存中，同時供 **pre-filtering**（檢索前過濾）與 **LLM context**（檢索後附加上下文）使用。
 
 ---
 
 ### 2. 轉換資料
 
-`RAGBuilder.build_nodes()` 內部使用 `IngestionPipeline` 依序執行以下轉換：
+`IndexBuilder.build_nodes()`（經 `NodePipelineBuilder`）內部使用 `IngestionPipeline` 依序執行以下轉換：
 
 1. **`MarkdownNodeParser`** — 解析 Markdown 結構，保留標題路徑 metadata。
 2. **`MarkdownDateExtractor`**（自訂）— 從節點內容萃取 `year` / `month` / `day` 寫入 metadata（四層遞減優先：section heading 年份 → `Post date` 行 → 列表結尾日期標記 → 內容年份回落），需置於 `SentenceSplitter` 之前讓 child chunks 繼承日期 metadata。
@@ -94,10 +101,10 @@ RAG（runtime）
 ### 3. 建立索引
 
 #### 3a. 建立向量儲存（必要前驟）
-`RAGBuilder.build_vector_store()` 以 Milvus 為向量儲存後端：
+`IndexBuilder.build_vector_store()`（經 `VectorStoreBuilder`）以 Milvus 為向量儲存後端：
 
 **Milvus（BGE-M3 Hybrid）**
-- 以 `MilvusVectorStore(milvus_uri, collection_name, enable_sparse=True, sparse_embedding_function=BGEM3SparseEmbeddingFunction())` 初始化。
+- 以 `MilvusVectorStore(target.milvus_uri, collection_name, enable_sparse=True, sparse_embedding_function=BGEM3SparseEmbeddingFunction())` 初始化。
 - Sparse 編碼使用 `BAAI/bge-m3` 神經稀疏模型，**原生支援中文**。
 - 融合演算法可選：
   - `RRFRanker`（預設參數 `k=60`）：只看排名 `score = 1/(k+rank_dense) + 1/(k+rank_sparse)`
@@ -105,11 +112,11 @@ RAG（runtime）
 - 須明確指定 `output_fields=["_node_content", "_node_type"]` 確保節點完整回傳。
 
 #### 3b. 載入或新建索引
-- **既有資料庫載入**：`RAGBuilder.load_index()` 使用 `VectorStoreIndex.from_vector_store(vector_store, embed_model)`，僅需提供 embedding 模型。
-- **新建索引**：`RAGBuilder.build_index()` 需先完成 `build_nodes()` 產出 `rag.nodes`，再以 `VectorStoreIndex(nodes, storage_context, embed_model)` 寫入向量庫。
+- **既有資料庫載入**：`IndexBuilder.load_index()` 使用 `VectorStoreIndex.from_vector_store(vector_store, embed_model)`，僅需提供 embedding 模型。
+- **新建索引**：`IndexBuilder.build_index()` 需先完成 `build_nodes()` 產出 nodes，再以 `VectorStoreIndex(nodes, storage_context, embed_model)` 寫入向量庫。
 
 #### Embedding 設定
-- 使用 `OpenAIEmbedding(model="text-embedding-3-small", embed_batch_size=256)`，並透過 `.env` 讀取 `OPENAI_RAG_EMBEDDING_API_KEY`。
+- 使用 `OpenAIEmbedding(model="text-embedding-3-small", embed_batch_size=256)`，並透過 `.env` 讀取 `OPENAI_API_KEY`（由 `IndexBuilder._create_embed_model()` 建立）。
 
 ---
 
@@ -134,12 +141,12 @@ RAG（runtime）
 
 - **Hybrid 模式**：跳過 `SimilarityPostprocessor`，因為 hybrid 分數已由 ranker 融合，不再適用 similarity cutoff。
 - **Dense 模式**：加入 `SimilarityPostprocessor(similarity_cutoff=cutoff)`（預設 `cutoff=0.0`，通常設定 `0.4`）。
-- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_RAG_QUERY_ENGINE_API_KEY`（對應表見 `utils/rag_helper.LLM_API_KEY_ENV_VARS`）。
+- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_API_KEY`（對應表見 `utils/llm_provider.PROVIDERS`，不分大小寫；無法判斷供應商或未設定 API key 時於建立 LLM 時報錯）。
 - 回答生成器使用 `get_response_synthesizer(llm=llm)`。
 
 #### 執行查詢
 - `query(query, log_sources=False)` 將字串查詢送入查詢引擎，回傳 `Response` 物件。
-- 設 `log_sources=True` 時以 `_log_sources()` 輸出檢索到的來源節點摘要（含 `page_title`、`score`、`page_type`、內容片段）。
+- 設 `log_sources=True` 時以 `log_source_nodes()`（`retrieval/llama_index_helpers.py`）輸出檢索到的來源節點摘要（含 `page_title`、`score`、`page_type`、內容片段）。
 
 #### 僅檢索不回覆
 - `retrieve(query, filter_dict=None, similarity_top_k=None)` 是 `query()` 的輕量版，不回傳 LLM 生成結果。
@@ -150,7 +157,7 @@ RAG（runtime）
 
 ### 5. 成效評估
 
-`evaluate(query, response)` 使用兩項指標評估查詢結果（Prompt 模板定義於 `app/engines/rag_eval_prompts.py`）：
+`evaluate_response(evaluators, query, response)`（`evaluators` 由 `build_evaluators(config)` 建立）使用兩項指標評估查詢結果（Prompt 模板定義於 `retrieval/evaluation.py`）：
 
 #### Faithfulness（忠實度）
 - `FaithfulnessEvaluator` 搭配自訂 `FAITHFULNESS_EVAL_TEMPLATE` 與 `FAITHFULNESS_REFINE_TEMPLATE`。
@@ -162,7 +169,7 @@ RAG（runtime）
 
 #### Evaluator LLM
 - 預設使用 `gpt-5.6-terra`（`OpenAI`）；`RAGConfig.evaluator_llm_name` 可覆寫。
-- API key 一律來自 `OPENAI_API_KEY`；若切回 Gemini model，則改用 `GEMINI_RAG_EVALUATOR_API_KEY`。
+- API key 一律來自 `OPENAI_API_KEY`；若切回 Gemini model，則改用 `GEMINI_API_KEY`。
 
 ---
 
@@ -208,7 +215,7 @@ Pydantic v2 schema，定義四個參數供 LLM 填寫：
 
 ### create_webpage_retriever_tool()
 工具工廠，接受 `registry: RAGRegistry`，流程：
-1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 建構 + LRU 快取；內部以 `RAGBuilder(config).build_reusable(rag)` 建立 Nodes → Vector Store → Index → Retriever）
+1. `registry.get(site_id)` 取得對應站點的 `RAG` 實例（lazy 載入 + LRU 快取；內部以 `load_rag(config, published_target(site_id, ...))` 載入已 publish 的 `data/vector_db/{site_id}.db` 到 Retriever 層級，**不建置**；向量庫不存在時拋 `FileNotFoundError`）。可用站點（`list_sites()`）以 `data/vector_db/{site_id}.db` 資料夾是否存在判斷（忽略 `.staging-*`／`.tmp`／`.old`）
 2. 包裝為 `StructuredTool(name="webpage_retriever")`，執行期以 `rag.retrieve(...)` 檢索
 3. 回傳格式化後的檢索結果（含 `URL:` 行，供 `extract_sources_from_messages()` 解析來源）
 4. RAG 資源生命週期由 `RAGRegistry` 管理（`registry.close()` 統一釋放），工具本身不負責關閉

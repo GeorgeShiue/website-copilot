@@ -7,9 +7,10 @@
 ## 實作進度
 - [x] **網站爬蟲**
     - [x] **網頁轉Markdown**
-    - [x] **篩選網域**、**雜訊**
+    - [x] **篩選網域**
     - [x] **平行處理**
 - [x] **HTML 日期擷取**（`utils/html_date_extractor.py`：JSON-LD → OG → `<time>` → Generic meta → Dublin Core → HTTP Last-Modified）
+- [x] **Markdown 雜訊清洗**（`ingestion/crawling/markdown_cleaner.py`：LLM 對全站抽樣頁面自動產生排除詞，多次重跑取聯集後以全站行覆蓋率驗證，取代人工 `exclude_words` 詞表）
 
 ## 已知問題
 - [ ] **HTML** 可包含更多**結構化資訊**
@@ -57,7 +58,7 @@
     - [x] **RAG Retriever Tool**（LangChain `StructuredTool` 封裝，供 Agent 動態呼叫）
     - [x] **成效評估**（FaithfulnessEvaluator + RelevancyEvaluator）
     - [x] **Query 結果落盤**（結構化 `results.json` + 每次 query 一份 `results/query_{index}.md`）
-    - [x] **向量庫存至 run 內**（`save_vector_store_to_runs`，避免實驗互相覆寫 `data/rag/results/`）
+    - [x] **向量庫存至 run 內**（`save_vector_store_to_runs`，避免實驗互相覆寫 `data/vector_db/results/`；該參數已移除，現由 `save`／`publish` 決定建庫位置）
 - [ ] **知識圖譜檢索（網站結構）** — 規劃中
 - [ ] **資料庫檢索（多欄位資料）** — 規劃中
 
