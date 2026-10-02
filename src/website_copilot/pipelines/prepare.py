@@ -40,12 +40,7 @@ from website_copilot.storage.run_persistence import (
     save_generated_exclude_words,
     save_results_as_md,
 )
-from website_copilot.utils.config_helper import (
-    log_config,
-    save_module_config,
-    save_run_config,
-    save_site_config,
-)
+from website_copilot.utils.config_helper import log_config, save_run_configs
 from website_copilot.utils.log_helper import (
     log_run_summary,
     log_run_time,
@@ -134,9 +129,7 @@ def run_website_crawler(
                 save_results_as_md(
                     crawl_results, run_manager.results_folder_path, "fit_markdown"
                 )
-                save_module_config(config, run_manager.module_config_path)
-                save_site_config(site, run_manager.site_config_path)
-                save_run_config(run_config, run_manager.run_config_path)
+                save_run_configs(run_manager.run_path, config, site, run_config)
 
             # ----- Publish（publish 到 data/） -----
             if publish:
@@ -205,8 +198,6 @@ def run_image_summarizer(
                 download_timeout=config.init.download_timeout,
                 success_threshold=config.init.success_threshold,
                 max_retries=config.init.max_retries,
-                cache_download_images=config.init.cache_download_images,
-                cache_image_captions=config.init.cache_image_captions,
             )
 
             # ----- 獲取最近一次結果 -----
@@ -244,9 +235,7 @@ def run_image_summarizer(
                     run_manager.results_folder_path,
                     "enhanced_markdown",
                 )
-                save_module_config(config, run_manager.module_config_path)
-                save_site_config(site, run_manager.site_config_path)
-                save_run_config(run_config, run_manager.run_config_path)
+                save_run_configs(run_manager.run_path, config, site, run_config)
 
             # ----- Publish（publish 到 data/） -----
             if publish:
@@ -339,9 +328,7 @@ def run_rag_build(
                 # ----- Save（存到 runs/；向量庫已建在本次 run 的 results/） -----
                 if save:
                     assert run_manager is not None
-                    save_module_config(config, run_manager.module_config_path)
-                    save_site_config(site, run_manager.site_config_path)
-                    save_run_config(run_config, run_manager.run_config_path)
+                    save_run_configs(run_manager.run_path, config, site, run_config)
 
             # ----- Publish（原子替換到 data/）：log 要在 workflow context 結束後才完整，
             # 並隨 meta/ 一起替換 -----

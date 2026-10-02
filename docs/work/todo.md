@@ -9,10 +9,10 @@
 ## 模組重構
 
 - [ ] Webpage Markdown Cleaner 獨立成一個模組
-- [ ] 包裝 log_helper.py
+- [ ] 包裝 log_helper.py（含約 6 處 Rich「Metric／Value」統計表格，見 code cleanup plan C3）
 - [ ] 客製化模組 RunManager
 
 ## 效能優化
 
 - [ ] 優化模組 import 策略
-- [ ] 平行處理圖片摘要
+- [ ] 平行處理圖片摘要（目前頁面依序處理，VLM 並行上限只在單頁內生效；改為所有頁的圖共用一個上限，見 code cleanup plan C2）

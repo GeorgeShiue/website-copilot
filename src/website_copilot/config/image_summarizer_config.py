@@ -9,11 +9,6 @@ from website_copilot.config.base_config import (
 )
 from website_copilot.config.prompts import IMAGE_SUMMARY_PROMPT
 
-VLM_MODEL_TO_API_KEY: dict[str, str] = {
-    "gpt": "OPENAI_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-}
-
 
 class SummarizerInitConfig(ConfigModel):
     download_timeout: PositiveFloat = Field(
@@ -24,12 +19,6 @@ class SummarizerInitConfig(ConfigModel):
     )
     max_retries: NonNegativeInt = Field(
         default=6, description="最大重試次數，對應指數退避的長度 + 最後一次用 cap"
-    )
-    cache_download_images: bool = Field(
-        default=True, description="快取已下載圖片，適用於同一批網頁重複實驗"
-    )
-    cache_image_captions: bool = Field(
-        default=True, description="快取圖片摘要，適用於同一批網頁重複實驗"
     )
 
 

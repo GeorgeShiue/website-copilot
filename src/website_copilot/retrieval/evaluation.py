@@ -12,7 +12,7 @@ from llama_index.core.schema import NodeWithScore
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.retrieval.llama_index_helpers import (
     create_llm,
-    extract_sources_info,
+    source_dict,
 )
 from website_copilot.utils.log_helper import log_session
 
@@ -112,25 +112,10 @@ def extract_sources_list(
         max_content_length: 內容片段最大字元數；None 表示不截斷。
 
     Returns:
-        每個 dict 包含 page_title / score / page_type / url / content，
-        與 Rag.retrieve() 的回傳形狀一致。
+        每個 dict 包含 page_title / score / page_type / url / content（見 source_dict），
+        與 RAG.retrieve() 的回傳形狀相同。
     """
-    sources = []
-    for source_node in source_nodes:
-        page_title, score, page_type = extract_sources_info(source_node)
-        raw_content = source_node.node.get_content()
-        if max_content_length is not None:
-            raw_content = raw_content[:max_content_length]
-        sources.append(
-            {
-                "page_title": page_title,
-                "score": score,
-                "page_type": page_type,
-                "url": source_node.node.metadata.get("page_url", ""),
-                "content": raw_content,
-            }
-        )
-    return sources
+    return [source_dict(node, max_content_length) for node in source_nodes]
 
 
 def evaluation_result_to_dict(result: EvaluationResult) -> dict[str, Any]:

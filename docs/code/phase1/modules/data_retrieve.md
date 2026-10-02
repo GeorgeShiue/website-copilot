@@ -141,7 +141,7 @@ RAG（runtime）
 
 - **Hybrid 模式**：跳過 `SimilarityPostprocessor`，因為 hybrid 分數已由 ranker 融合，不再適用 similarity cutoff。
 - **Dense 模式**：加入 `SimilarityPostprocessor(similarity_cutoff=cutoff)`（預設 `cutoff=0.0`，通常設定 `0.4`）。
-- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_API_KEY`（對應表見 `retrieval/llama_index_helpers.LLM_API_KEY_ENV_VARS`）。
+- 查詢 LLM 預設使用 `gpt-5.6-luna`（`OpenAI`），API key 來自 `OPENAI_API_KEY`；若 model name 含 `gemini` 則改用 `GoogleGenAI`，API key 來自 `GEMINI_API_KEY`（對應表見 `utils/llm_provider.PROVIDERS`，不分大小寫；無法判斷供應商或未設定 API key 時於建立 LLM 時報錯）。
 - 回答生成器使用 `get_response_synthesizer(llm=llm)`。
 
 #### 執行查詢

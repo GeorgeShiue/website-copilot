@@ -16,7 +16,7 @@
 |---|---|---|
 | A ✅ | 無需設計取捨、不改變任何輸出（落盤檔案格式、runs/ 資料夾名稱、log），且 `check.sh` 可驗證 | 本次實作 |
 | B ⚠️ | 測試可覆蓋，但需先做設計決策 | 決策後本次實作（見「待決策」） |
-| C ❌ | 現有驗證無法覆蓋，或會改變輸出 | 本次不做；列出前置條件 |
+| C ⚠️ | 現有驗證無法覆蓋（需先補測試），或會改變輸出 | A／B 合併後另行實作（見「C 組」）；不適合清理者移出 |
 
 純刪除類變更主要由 pyright 把關：被刪除的名稱若仍有引用，型別檢查直接失敗。
 
@@ -108,20 +108,141 @@
 - `Agent.ask`、`Agent.astream_result`、server `_event_stream` 改用上述兩者；dict 欄位與順序不變（`save_agent_results_as_json` 落盤格式不變）。
 - 驗證：`test_agent_server`、`test_pipeline_exp` 不修改即通過。
 
-## C 組：本次不做
+## C 組：已確認決策
 
-| 項目 | 不做的原因 | 前置條件 |
+原 C 組 10 項依性質重新分類：bug 修正（C2）、先補測試再重構（C1／C4／C6）、改變輸出格式（C5／C8／C10）、移出本計畫（C3／C7／C9）。
+
+| # | 項目 | 決策 |
 |---|---|---|
-| `ImageSummarizer` 三份快取（`_image_cache`／`_downloaded_images`／`_image_captions`）與三種統計 dict 合併 | 模組無單元測試 | 先補單元測試（mock `urlopen`／`acompletion`） |
-| `ImageSummarizer._agenerate_image_caption_task` 每個 task 各建一個 `Semaphore`（**bug**：`vlm_max_workers` 無法限制並行數） | 屬修正而非清理；無測試 | 補並行數測試後單獨一個 commit 修正 |
-| Rich「Metric／Value」表格抽成 `log_helper` helper（約 6 處） | 無 log 輸出測試，只能目測 | 併入 todo「包裝 log_helper.py」 |
-| LLM 供應商路由（關鍵字 → API key 環境變數 → litellm 前綴）收斂為一張表 | 兩個 `create_llm` 與 `_get_api_key` 無測試 | 先補單元測試 |
-| `evaluation.extract_sources_list` 與 `RAG.retrieve` 的來源 dict 共用 | 無測試；key 順序不同，合併會改變 results.json 欄位順序 | 確認可接受格式變動 |
-| prepare pipeline 樣板（`save_*_config` 三行 ×4）改用 `write_run_metadata`（`log_path` 三元式已由 `9614b38` 的 `publish_log_file` 取代） | crawler／summarizer 的 save 路徑無單元測試；且 `RunManager.log_path` 即 `run_path/terminal.log`，`shutil.copy2` 複製到同一檔案會拋 `SameFileError`，不能直接替換 | 補測試，`write_run_metadata` 處理同檔案情況 |
-| `VectorStoreBuilder.default_hybrid_ranker_params` | 非真正重複：設定檔寫 `null` 時依此補內建值 | — |
-| `run_rag_query` 結果的 `config` 改用 `model_dump()`、移除只 log 後 re-raise 的 `except` | 改變 results.json 格式與失敗 log | 確認可接受格式變動 |
-| 刪除空殼 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig` | 影響 tyro `--help` 與 `run_config.yml`；13 處測試引用 | — |
-| `RAGConfig._post_process_run_name` 的 `-gemini` 特例 | 改變 runs/ 資料夾名稱；`test_run_name` 未涵蓋 gemini | 確認可接受命名變動 |
+| C1 | `ImageSummarizer` 快取與統計 | 合併成單一快取；**刪除** `cache_download_images`／`cache_image_captions`（現行無作用） |
+| C2 | `vlm_max_workers` 未限制 VLM 並行數（**bug**） | 單獨 `fix:` commit；不單獨跑付費測試，由 C4 的付費測試涵蓋 |
+| C4 | LLM 供應商路由 | 收斂為一張表；統一為不分大小寫、**未知模型報錯**、缺 key 在建構時報錯 |
+| C5 | 來源 dict 共用 | 共用；接受 results.json sources 的 key 順序改變 |
+| C6 | runs/ 存檔樣板 | 抽出 `save_run_configs`（不處理 log），不讓 `_copy_single_file` 跳過同一檔案 |
+| C8 | `run_rag_query` 的 `config` 與 `except` | **維持現狀**；`except` 為唯一失敗標記，保留 |
+| C10 | RAG run_name 的 `-gemini` 特例 | 刪除 |
+| C3／C7／C9 | — | 移出本計畫（見「移出項目」） |
+
+### C2：VLM 並行數限制（bug 修正）
+
+- 現況：每頁以 `asyncio.run(_agenerate_image_captions(...))` 為該頁每張圖各建一個 task；`_agenerate_image_caption_task` 在每個 task 內新建 `asyncio.Semaphore(vlm_max_workers)`，每個 semaphore 只有一個使用者，永遠不會阻擋。下載階段的 `ThreadPoolExecutor(max_workers=vlm_max_workers)` 則有正確限制。
+- 影響：單頁 VLM 並行數等於該頁圖片數；圖多的頁面可能觸發供應商 rate limit（429）→ `summarize_failure` → 成功率低於門檻 → 指數退避重試，run 變慢且原因誤判為「被擋」。
+- 根因：`semaphore` 是 `_agenerate_image_caption_task` 的區域變數，每次呼叫各建一個；N 個 task 各自持有一個 `Semaphore(vlm_max_workers)`，`async with` 永遠不需等待。限制並行須讓同一批 task 共用同一個 semaphore（在 task 外建立、在 task 內使用）。
+- 實測：scratchpad 以 fake 取代 VLM 呼叫，`vlm_max_workers=3`、10 張圖，最高並行數 10。
+- 實際資料：nculab 單頁最多 17 張（未超過 20）；ncucsie 有 5 頁超過 20 張（52、45、30、30、26），該 run 的 terminal.log 無 `Image summarization failed`（8 張失敗圖皆為下載失敗），目前帳號額度撐得住 52 並行，bug 尚未造成實際損害。
+
+#### 決策
+
+| # | 討論點 | 決策 |
+|---|---|---|
+| 1 | 並行範圍 | 只修**單頁內**的並行限制；頁面仍依序處理。跨頁並行（所有頁的圖共用一個上限）屬效能優化，記於 todo「平行處理圖片摘要」，後續再調整 |
+| 2 | `vlm_max_workers` 同時控制下載執行緒與 VLM 並行 | **(a) 維持共用**，C2 只修 semaphore |
+| 3 | 預設值 20 | 先實測 OpenAI 並行上限（見「並行上限實驗」），依結果決定是否調整 |
+| 4 | 時機 | 立即在 `dev-tech-debt` 上進行 |
+
+#### 修法
+
+- `_agenerate_image_captions` 內建立 `asyncio.Semaphore(self.vlm_max_workers)`，以參數傳給 `_agenerate_image_caption_task`。
+- 不可存為 `self` 屬性跨頁共用：每頁的 `asyncio.run` 建立新 event loop，semaphore 首次使用時綁定 loop，第二頁會拋 `RuntimeError`（... bound to a different event loop）。
+- 刪除 `max(1, ...)`（`vlm_max_workers` 為 `PositiveInt`）。
+- `_agenerate_image_caption_task` 包裝層的去留留給 C1，C2 的 diff 保持最小。
+
+#### 測試
+
+- 新增 `tests/unit/test_image_summarizer.py`（C1 的測試之後也放這裡）。
+- 直接 `asyncio.run(summarizer._agenerate_image_captions(images))`，以 `await asyncio.sleep` 的 fake 取代 `_agenerate_image_caption`，記錄同時進行中的最大數；不走 `_generate_image_captions`（需預先準備 `_image_cache`，屬 C1 範圍）。
+- 參數化：`(workers=3, images=10) → peak == 3`、`(workers=20, images=5) → peak == 5`；以 `==` 斷言，同時抓「未限制」與「過度限制」。
+- 先確認測試在現行實作上失敗，再修正；測試與修正同一個 commit：`fix: limit concurrent VLM requests to vlm_max_workers`。
+
+#### 並行上限實驗（付費，需使用者確認後執行）
+
+目的：找出目前帳號下 `gpt-5.6-luna` 不出現 rate limit 的並行上限，作為 `vlm_max_workers` 預設值的依據。於付費整合測試通過、使用者確認後執行（兩者共用同一份帳號額度，不可同時跑）。
+
+- 實際效果的範圍：目前頁面依序處理、semaphore 只在單頁內生效，實際並行數不超過單頁圖片數（ncucsie 最多 52 張）；超過約 50 的設定要等跨頁並行（todo「平行處理圖片摘要」）實作後才有效果。測到 100 是為該功能預先取得數據。
+- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/vlm_concurrency/`（`probe.py`、`results.md` 摘要表、`raw.jsonl` 每請求一行）。
+- 呼叫路徑：使用正式的 `ImageSummarizer`；先以空爬取結果呼叫 `summarize_crawl_results_images` 完成 model／API key 解析，再直接呼叫 `_agenerate_image_captions`，並行數由修正後的 semaphore 控制。
+- 模型與 prompt：正式預設值（`gpt-5.6-luna`、`IMAGE_SUMMARY_PROMPT`）。
+- 圖片：從 `data/aug_webpages/ncucsie/results.json` 取一張可下載的代表性 png／jpeg，下載一次後重複使用（key 為 `url#i`），讓每個請求的 token 數相近、成本可預估。
+- 關閉自動重試：`litellm_kwargs={"max_retries": 0}`；OpenAI SDK 預設會自動重試 429，會把 rate limit 藏成延遲。
+- 量測：以包裝函式取代模組的 `acompletion`，記錄每個請求的開始／結束時間、成功或失敗、例外類型與 HTTP status（429 或其他）、`completion_cost`，以及 `response._hidden_params["additional_headers"]` 中的 `x-ratelimit-*`（RPM／TPM 上限與剩餘額度）。
+- 階梯：`vlm_max_workers` = 20、30、40、50、60、70、80、90、100；每級送出 2N 個請求（持續滿載），兩級之間間隔 60 秒讓每分鐘額度重置。
+- 每級摘要：成功／失敗數、失敗類型、延遲 p50／p95／max、總耗時、實測最高並行數、總成本、header 剩餘額度。
+- 停止條件：出現任何 429 或其他失敗，或完成 100。
+- 理論上限：若 header 可取得，以 `min(RPM, TPM ÷ 每請求 token) × 平均延遲(秒) ÷ 60` 估算，與實測對照。
+- 成本與時間（以每張約 $0.001 估算）：全部 9 級共 1,080 個請求，約 $1.1；約 20～25 分鐘。
+- 執行流程：
+  1. 以 fake `acompletion` 乾跑，確認流程、紀錄格式與並行量測正確（不花費）。
+  2. 只跑 N=20，回報實際成本、延遲與是否取得 rate limit header。
+  3. 使用者確認後跑 30～100。
+  4. 依結果決定預設值：全部無失敗時可提高到 50～60（ncucsie 圖多的 5 頁不再被限速），或維持 20 保留給低額度帳號的餘裕；出現 429 時取最後一個穩定級距並保留餘裕。預設值調整為獨立 commit。
+- 限制：結果只適用於目前的帳號等級與模型（`results.md` 記錄由 header 推得的額度與測試日期）；換帳號或改用 Gemini 需重測。
+
+### C1：`ImageSummarizer` 快取與統計
+
+- 現況：`_image_cache[url]`（`{base_64_url, download_status, caption, summarize_status}`）、`_downloaded_images[url]`、`_image_captions[url]` 三份資料，後兩者可由第一份推得；`_collect_cached_items` 主要在同步三者。
+- 快取旗標無作用：`ImageSummarizer` 只在 `prepare.py` 建立一次、每個 run 只呼叫一次 `summarize_crawl_results_images`；旗標只決定該方法開頭是否清空快取，而此時快取必為空。原用途「同一批網頁重複實驗」（同一 instance 多次呼叫）在 CLI 已不存在。快取真正的作用（同一 run 內跨頁共用同一張圖、重試輪次間只重做失敗的圖）與旗標無關。
+- 刪除旗標的前提已確認：已發布的 `data/aug_webpages/*/module_config.yml` 只有 `factory._read_config_source` 讀檔頭 `# source:`，沒有經過 `from_yaml`（`ConfigModel` 為 `extra="forbid"`，經由 `from_yaml` 讀回才會失敗）。
+- 做法：
+  - 單一 `_image_cache: dict[str, ImageEntry]`（dataclass：`base64_url`、`download_status`、`caption`、`summarize_status`）；`_downloaded_images`／`_image_captions` 改為由此讀取。
+  - 三種統計 dict 改為 dataclass，log 表格欄位與格式不變。
+  - 刪除 `SummarizerInitConfig.cache_download_images`／`cache_image_captions`、`ImageSummarizer` 對應參數與 `prepare.py` 的傳入；更新 `docs/code/phase1/modules/data_preprocess.md`、`docs/code/runs/config.md`。
+- 先補單元測試（mock `urlopen`／`acompletion`／`completion_cost`／`time.sleep`），通過現行實作後再重構：
+  1. 同一 url 出現在多頁時只下載、摘要各一次。
+  2. 下載失敗的圖不送 VLM，caption 為空，記錄在 `_failed_images`。
+  3. 不支援的 content-type 視為下載失敗，原因字串正確。
+  4. 成功率低於門檻時重試，只重做失敗的 url；重試成功後從 `_failed_images` 移除。
+  5. `enhanced_markdown` 的 caption 插入格式（`> # Image-N`）。
+  6. success／download_failure／summarize_failure／cache_reuse／cost 的累加。
+
+### C4：LLM 供應商路由
+
+- 現況：三份實作、兩張相同的對照表（`LLM_API_KEY_ENV_VARS`、`VLM_MODEL_TO_API_KEY`），行為不一致：
+
+  | 位置 | 比對 | 未知模型 | 缺 key | `load_dotenv` |
+  |---|---|---|---|---|
+  | `llama_index_helpers.create_llm`（RAG query／評估） | 區分大小寫 | `ValueError` | `api_key=None` 傳下去 | 否 |
+  | `langchain_helper.create_llm`（Agent） | `lower()` | 預設 OpenAI | `ValueError` | 是 |
+  | `ImageSummarizer._get_api_key` + litellm 前綴（VLM） | `lower()` | `EnvironmentVariableError` | `EnvironmentVariableError` | 是（每張圖一次） |
+
+- 做法：新增共用模組，提供 `PROVIDERS`（`gemini`／`gpt` → `env_var`、`litellm_prefix`）、`resolve_provider(model_name)`（不分大小寫，未知則報錯）、`get_api_key(spec)`（呼叫 `load_dotenv`，缺 key 則報錯）。三處改為「`resolve_provider` → `get_api_key` → 各自建構 client」，client 建構參數不變；VLM 改為在 `summarize_crawl_results_images` 開頭取一次 key。
+- 行為改變：Agent 的未知模型由「預設 OpenAI」改為報錯。已確認所有預設值（`gpt-5.6-luna`／`gpt-5.6-terra`）與 `configs/` 皆不受影響。
+- 測試：`resolve_provider`（大小寫、未知模型）、`get_api_key`（monkeypatch 環境變數）。
+- 行為統一後跑一次付費整合測試（涵蓋 rag-query、agent、image-summarizer，也一併驗證 C2）。
+
+### C6：runs/ 存檔樣板
+
+- 現況：「`save_module_config` → `save_site_config` → `save_run_config`」在 prepare（3）、exp（2）、serve（1，無 site）與 `DataManager.write_run_metadata` 各寫一次。
+- 不直接改用 `write_run_metadata` 的原因：runs/ 存檔時 `dest` 為 `run_path`，`log_path` 即 `run_path/terminal.log`，`shutil.copy2` 會拋 `SameFileError`；runs/ 存檔本來就不需要複製 log。
+- 做法：抽出 `save_run_configs(dest_folder, config, site=None, run_config=None)`；`write_run_metadata` 改為呼叫它再複製 log。檔名常數與 `RunManager` 的 `module_config_path` 等共用，確保 runs/ 下的檔名不變。
+- 範圍（實作時確定）：prepare 3 處、`run_rag_query`、`write_run_metadata`；serve 的 `run_agent_build`（module＋run 兩行、無 site）與只存 run_config 的一行呼叫不屬重複樣板，不改。
+- 測試：`test_pipeline_prepare` 補「save=True 時 crawler／summarizer／rag-build 在 run_path 下的三個 yml 皆存在」；exp、serve 同。
+
+### C5：來源 dict 共用
+
+- 現況：`RAG.retrieve`（Agent retriever tool）的 key 順序為 `page_title, score, page_type, content, url`，content 不截斷；`evaluation.extract_sources_list`（rag-query results.json）的順序為 `..., url, content`，截斷 800 字。docstring 稱兩者「形狀一致」，實際順序不同。
+- 做法：新增 `source_dict(node, max_content_length=None)`，兩處共用，統一為 `url` 在前、`content` 在後；截斷長度保留為參數。
+- 實作前確認 Agent retriever tool（`agent/tools/webpage_retriever.py`）依 key 取值格式化，順序改變不影響 LLM 看到的內容。
+- 輸出變動（實作後確認）：統一的順序即 rag-query results.json 原本的順序，results.json 不變；只有不落盤的 `RAG.retrieve` 結果由 `content, url` 改為 `url, content`。
+
+### C10：刪除 RAG run_name 的 `-gemini` 特例
+
+- 現況：`RAGConfig._post_process_run_name` 在 run_name 第 2 字元之後出現 `-gemini` 時刪除第一個 `-gemini`。
+- 預設 run_name_fields 為 `[vector_store.vector_store_type]`（固定為 `vector_store_type-milvus`），`configs/rag` 未覆寫，特例目前不會觸發；只有自訂 run_name_fields 含 `query_engine.query_llm_name` 時才觸發，且效果是 `query_llm_name-gemini-2.5-flash` → `query_llm_name-2.5-flash`，刪掉了模型名稱的關鍵部分。應為舊命名規則的殘留。
+- 做法：只保留 `/` → `-`（與 `ImageSummarizerConfig` 一致）；`test_run_name` 補 gemini 參數化案例。
+- 輸出變動：現有 runs/ 資料夾名稱皆不受影響。
+
+### C8：維持現狀
+
+- `config` 欄位：手動挑選的扁平欄位可與舊 run 直接比較；完整設定已在同資料夾的 `module_config.yml`。
+- `except`：`run_workflow_context` 在例外時不印任何失敗訊息，`log_session("RAG Query Failed")` 是 terminal.log 中唯一的失敗標記，保留（`run_agent_query` 同）。
+
+### 移出項目
+
+| 項目 | 處理 |
+|---|---|
+| C3 Rich「Metric／Value」表格抽成 helper（約 6 處） | 併入 todo「包裝 log_helper.py」，與 log API 一起設計 |
+| C7 `VectorStoreBuilder.default_hybrid_ranker_params` | 非重複（設定檔寫 `null` 時補內建值），不需處理 |
+| C9 空殼 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig` | 設計上保留：每個子命令各有型別，未來加專屬參數不必改簽名（如 `RAGBuildRunConfig`） |
 
 ## 執行順序
 
@@ -137,6 +258,11 @@
 | 6 | B2 共用 runs/ 走訪 | A3（`is_run_folder()`） |
 | 7 | B3 `new_thread_id()` | — |
 | 8 | B4 模組層級 helper | B3（同檔案，避免衝突） |
+| 9 | C2 VLM 並行數修正（含測試）；之後執行並行上限實驗，依結果調整預設值 | — |
+| 10 | C1 `ImageSummarizer` 測試 → 快取合併、刪除旗標 | C2（同檔案；C1 的測試以修正後的並行行為為準） |
+| 11 | C6 `save_run_configs` | — |
+| 12 | C4 測試 → LLM 供應商路由表 | C1（同檔案 `image_summarizer.py`；C4 改動 `_get_api_key` 時有 C1 的測試保護） |
+| 13 | C5 來源 dict 共用、C10 刪除 `-gemini` 特例 | — |
 
 ## Commit 策略
 
@@ -147,6 +273,7 @@
 3. 合併後再跑一次共同關卡（確認內容與合併前的 A4 commit 相同：`git diff <A4 commit> HEAD` 應為空）。
 4. **B 組**：以合併後的 A commit 為基準點，B1～B4 依序各自 commit，流程同 1～3；合併後的訊息為 `refactor: centralize data paths, share runs/ lookup and agent result helpers (code cleanup B)`。
 5. 付費整合測試於 B 組合併後執行一次（見「付費整合測試」）。
+6. **C 組**：C1／C4 各分「補測試」與「重構」兩個 commit（測試 commit 須通過現行實作）。依使用者指示，C2（bug 修正）也一併合併：C2～C10 全部完成後以 `git reset --soft <B 組合併 commit>` 合併為單一 commit `refactor: fix VLM concurrency, unify image summarizer cache, LLM provider routing and run config saving (code cleanup C)`。
 
 注意：
 
@@ -172,3 +299,29 @@
 ### 付費整合測試
 
 A 組與 B1／B2／B4 不改變行為，不需要付費測試。B3 修正了落盤的 thread_id，全部完成後跑一次 `uv run pytest tests/integration`（需使用者確認），涵蓋 `test_agent_query` 與 `test_serve`。
+
+C 組合併後跑一次（同時涵蓋 B3），於並行上限實驗之前執行：
+
+| C 組改動 | 涵蓋的測試 |
+|---|---|
+| C2 並行修正、C1 快取與統計、C4 的 VLM 路由 | `test_image_summarizer`、`test_prepare` |
+| C6 runs/ 存檔 | `test_website_crawler`、`test_image_summarizer`、`test_rag_build`（save=True） |
+| C4 Agent 路由、C5 `RAG.retrieve`、B3 thread_id | `test_agent_query` |
+| C4 RAG 路由（llama_index `create_llm`）、C5 `extract_sources_list` | 手動 rag-query（`tests/integration` 未涵蓋：rag-build 不建立 LLM） |
+
+步驟：
+
+1. 確認 `.env` 有 `OPENAI_API_KEY`。
+2. `uv run pytest tests/integration`（保留 `test_prepare`：與 `test_module` 前三項重複，但多驗證各階段在記憶體中傳遞結果的路徑）。
+3. `uv run website-copilot run rag-query nculab --run.config test`（查詢 data/ 中已發布的 nculab 向量庫，使用站點的 sample_query）。
+
+整合測試皆為 `publish=False`，只寫入 runs/，不覆寫 data/。估計約 $0.15～0.20、6～8 分鐘。
+
+通過條件（除不拋例外外）：
+
+1. image_summarizer 的 terminal.log：成功數與舊紀錄相近（nculab 57 張、0 失敗），無 `task failed unexpectedly`，統計表格欄位與格式不變。
+2. crawler／summarizer／rag_build 的 run 資料夾皆有三個 yml，`module_config.yml` 檔頭有 `# source:`；image_summarizer 的 config 不含兩個快取旗標。
+3. agent_query：`results_<thread_id>.json` 的 id 與 log 中實際對話的 thread_id 相同（B3），sources 正常。
+4. rag-query 的 results.json：sources 的 key 順序為 `page_title, score, page_type, url, content`（與舊 run 相同）。
+
+結果記錄於 `dev.md`「付費整合測試」。

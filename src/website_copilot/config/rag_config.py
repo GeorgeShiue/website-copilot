@@ -99,7 +99,4 @@ class RAGConfig(BaseModuleConfig):
     query_engine: QueryEngineConfig = Field(default_factory=QueryEngineConfig)
 
     def _post_process_run_name(self, run_name: str) -> str:
-        run_name = run_name.replace("/", "-")
-        if run_name.find("-gemini") > 1:
-            run_name = run_name.replace("-gemini", "", 1)
-        return run_name
+        return run_name.replace("/", "-")

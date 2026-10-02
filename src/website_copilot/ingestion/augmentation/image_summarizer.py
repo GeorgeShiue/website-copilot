@@ -1,22 +1,20 @@
 import asyncio
 import base64
 import logging
-import os
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, astuple, dataclass, fields
 from typing import Any, Literal
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from dotenv import load_dotenv
 from litellm import acompletion, completion_cost
 from rich.table import Table
 from rich.text import Text
 
-from website_copilot.config.image_summarizer_config import VLM_MODEL_TO_API_KEY
-from website_copilot.utils.config_helper import EnvironmentVariableError
+from website_copilot.utils.llm_provider import get_api_key, resolve_provider
 from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN
 from website_copilot.utils.log_helper import (
     TaskCountProgress,
@@ -35,6 +33,46 @@ SUPPORTED_IMAGE_CONTENT_TYPES = frozenset(
 UNSUPPORTED_IMAGE_SUFFIXES = (".svg", ".avif", ".bmp", ".ico", ".tif", ".tiff")
 
 
+@dataclass
+class ImageEntry:
+    """單張圖片的下載與摘要結果（status 為 "success"／"failed"，尚未進行時為空字串）。"""
+
+    base64_url: str = ""
+    download_status: str = ""
+    caption: str = ""
+    summarize_status: str = ""
+
+
+@dataclass
+class PageStats:
+    """單頁統計；欄位順序即 log 表格的欄位順序。"""
+
+    cost_usd: float = 0.0
+    success: int = 0
+    download_failure: int = 0
+    summarize_failure: int = 0
+    cache_reuse: int = 0
+
+    @property
+    def failure(self) -> int:
+        return self.download_failure + self.summarize_failure
+
+    def __add__(self, other: "PageStats") -> "PageStats":
+        return PageStats(
+            *(a + b for a, b in zip(astuple(self), astuple(other), strict=True))
+        )
+
+
+@dataclass
+class RoundStats:
+    """所有輪次的累計統計（retries 為已執行的輪數）。"""
+
+    cost_usd: float = 0.0
+    success: int = 0
+    failure: int = 0
+    retries: int = 0
+
+
 class ImageSummarizer:
     def __init__(
         self,
@@ -42,16 +80,12 @@ class ImageSummarizer:
         download_timeout: float,
         success_threshold: float,  # 圖片下載成功率低於此值則啟動重試機制
         max_retries: int,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
-        cache_download_images: bool,  # 適用於同一批網頁重複實驗的情況
-        cache_image_captions: bool,  # 適用於同一批網頁重複實驗的情況
     ) -> None:
         """參數皆由 ImageSummarizerConfig.init 傳入（預設值見 config）。"""
         # ===== init args =====
         self.download_timeout = download_timeout
         self.success_threshold = success_threshold
         self.max_retries = max_retries
-        self.cache_download_image = cache_download_images
-        self.cache_image_captions = cache_image_captions
 
         # ===== summarize args =====
         self.model: str = ""
@@ -59,16 +93,15 @@ class ImageSummarizer:
         self.vlm_max_workers: int = 0
         self.image_source: str = ""
         self.litellm_kwargs: dict[str, Any] = {}
+        self._litellm_model: str = ""  # 加上供應商前綴（如 openai/）的模型名稱
+        self._api_key: str = ""
 
         # ===== internal state =====
-        # url -> {"base_64_url": ..., "caption": ..., "download_status": ..., "summarize_status": ...}
-        self._image_cache: dict[str, dict[str, str]] = {}
-        self._downloaded_images: dict[str, str] = {}
-        self._image_captions: dict[str, str] = {}
-        self._page_stats: dict[str, int | float] = self._new_page_stats()
-        self._page_stats_by_page: list[tuple[str, dict[str, int | float]]] = []
-        self._all_page_stats: dict[str, int | float] = self._new_all_page_stats()
-        self._all_round_stats: dict[str, int | float] = self._new_all_round_stats()
+        # 同一 run 內跨頁共用（同一張圖只下載、摘要一次）；重試時移除失敗的圖
+        self._image_cache: dict[str, ImageEntry] = {}
+        self._page_stats = PageStats()
+        self._page_stats_by_page: list[tuple[str, PageStats]] = []
+        self._all_round_stats = RoundStats()
         # 最終仍失敗的圖片：url -> (頁面, 原因)；重試成功時移除
         self._failed_images: dict[str, tuple[str, str]] = {}
         self._download_failure_reasons: dict[str, str] = {}
@@ -96,34 +129,31 @@ class ImageSummarizer:
         self.vlm_max_workers = vlm_max_workers
         self.image_source = image_source
         self.litellm_kwargs = litellm_kwargs
+        # 開始前解析一次：無法判斷供應商或缺 API key 時直接失敗，不逐張圖報錯
+        provider = resolve_provider(model)
+        self._litellm_model = f"{provider.litellm_prefix}{model}"
+        self._api_key = get_api_key(provider)
 
-        if not self.cache_download_image:
-            self._downloaded_images = {}
-        if not self.cache_image_captions:
-            self._image_captions = {}
-        if not self.cache_download_image and not self.cache_image_captions:
-            self._image_cache = {}
-
-        self._all_round_stats = self._new_all_round_stats()
+        self._all_round_stats = RoundStats()
         self._failed_images = {}
         self._download_failure_reasons = {}
 
         target_urls: set[str] | None = None
         enhanced_crawl_results = crawl_results
         while True:
-            self._all_page_stats = self._new_all_page_stats()
             self._page_stats_by_page = []
             enhanced_crawl_results = self._summarize_crawl_results_images(
                 crawl_results, target_urls
             )
 
-            self._log_page_stats_table("All Image Summarize Stats")
-            self._all_round_stats["cost_usd"] += self._all_page_stats["cost_usd"]
-            self._all_round_stats["success"] += self._all_page_stats["success"]
-            self._all_round_stats["failure"] += self._all_page_stats["failure"]
-            self._all_round_stats["retries"] += 1
+            round_total = self._round_total()
+            self._log_page_stats_table("All Image Summarize Stats", round_total)
+            self._all_round_stats.cost_usd += round_total.cost_usd
+            self._all_round_stats.success += round_total.success
+            self._all_round_stats.failure += round_total.failure
+            self._all_round_stats.retries += 1
 
-            retry_context = self._retrieve_retry_context()
+            retry_context = self._retrieve_retry_context(round_total)
             if retry_context is None:
                 break
 
@@ -131,8 +161,10 @@ class ImageSummarizer:
             self._prepare_retry_urls(failed_urls, success_rate)
             target_urls = failed_urls
 
-        if self._all_round_stats["retries"] > 1:
-            self._log_stats(self._all_round_stats, "All Rounds Image Summarize Stats")
+        if self._all_round_stats.retries > 1:
+            self._log_stats(
+                asdict(self._all_round_stats), "All Rounds Image Summarize Stats"
+            )
 
         self._log_failed_images()
 
@@ -157,7 +189,7 @@ class ImageSummarizer:
             )
 
             fit_markdown, image_urls = crawl_result_content
-            self._page_stats = self._new_page_stats()
+            self._page_stats = PageStats()
             self._current_page = page_title
 
             image_uncached_urls, caption_uncached_urls = self._collect_cached_items(
@@ -169,55 +201,41 @@ class ImageSummarizer:
                 fit_markdown, image_urls
             )
             for image in crawl_result.get("images", []):
-                url = image.get("url", "")
-                if url in self._image_captions:
-                    image["caption"] = self._image_captions[url]
+                entry = self._image_cache.get(image.get("url", ""))
+                if entry is not None and entry.summarize_status:
+                    image["caption"] = entry.caption
 
-            self._page_stats_by_page.append((page_title, dict(self._page_stats)))
-            self._all_page_stats["success"] += self._page_stats["success"]
-            self._all_page_stats["failure"] += (
-                self._page_stats["download_failure"]
-                + self._page_stats["summarize_failure"]
-            )
-            self._all_page_stats["cost_usd"] += self._page_stats["cost_usd"]
-            record_cost(self._page_stats["cost_usd"])
+            self._page_stats_by_page.append((page_title, self._page_stats))
+            record_cost(self._page_stats.cost_usd)
 
         return crawl_results
+
+    def _round_total(self) -> PageStats:
+        """本輪所有處理過的頁面統計加總。"""
+        return sum((stats for _, stats in self._page_stats_by_page), PageStats())
 
     def _collect_cached_items(
         self,
         image_urls: list[str],
     ) -> tuple[list[str], list[str]]:
-        """收集快取並回傳未命中的 URL。"""
-        cached_urls = set(self._image_cache.keys())
-
+        """回傳需下載與需摘要（快取未命中或先前失敗）的 URL。"""
         image_uncached_urls = []
         caption_uncached_urls = []
         for image_url in image_urls:
-            if image_url in cached_urls:
-                cache_reused = False
-
-                if self._image_cache[image_url]["download_status"] == "success":
-                    self._downloaded_images[image_url] = self._image_cache[image_url][
-                        "base_64_url"
-                    ]
-                    cache_reused = True
-                else:
-                    image_uncached_urls.append(image_url)
-
-                if self._image_cache[image_url]["summarize_status"] == "success":
-                    self._image_captions[image_url] = self._image_cache[image_url][
-                        "caption"
-                    ]
-                    cache_reused = True
-                else:
-                    caption_uncached_urls.append(image_url)
-
-                if cache_reused:
-                    self._page_stats["cache_reuse"] += 1
-            else:
+            entry = self._image_cache.get(image_url)
+            if entry is None:
                 image_uncached_urls.append(image_url)
                 caption_uncached_urls.append(image_url)
+                continue
+
+            download_reused = entry.download_status == "success"
+            caption_reused = entry.summarize_status == "success"
+            if not download_reused:
+                image_uncached_urls.append(image_url)
+            if not caption_reused:
+                caption_uncached_urls.append(image_url)
+            if download_reused or caption_reused:
+                self._page_stats.cache_reuse += 1
 
         if len(image_urls) - len(image_uncached_urls) > 0:
             logger.debug(
@@ -282,18 +300,13 @@ class ImageSummarizer:
 
                 for future in as_completed(futures):
                     image_url = future_to_image_url[future]
-                    image_base64_url, download_status = future.result()
+                    image_base64_url = future.result()
 
-                    if "failure" in download_status or image_base64_url is None:
-                        self._page_stats["download_failure"] += 1
-                        self._image_cache[image_url] = {
-                            "base_64_url": "",
-                            "download_status": download_status,
-                            "caption": "",
-                            "summarize_status": "failed",
-                        }
-                        self._downloaded_images[image_url] = ""
-                        self._image_captions[image_url] = ""
+                    if image_base64_url is None:
+                        self._page_stats.download_failure += 1
+                        self._image_cache[image_url] = ImageEntry(
+                            download_status="failed", summarize_status="failed"
+                        )
                         self._failed_images[image_url] = (
                             self._current_page,
                             self._download_failure_reasons.pop(
@@ -302,21 +315,17 @@ class ImageSummarizer:
                         )
                     else:
                         self._failed_images.pop(image_url, None)
-                        self._downloaded_images[image_url] = image_base64_url
-                        self._image_cache[image_url] = {
-                            "base_64_url": image_base64_url,
-                            "download_status": "success",
-                            "caption": "",
-                            "summarize_status": "",
-                        }
+                        self._image_cache[image_url] = ImageEntry(
+                            base64_url=image_base64_url, download_status="success"
+                        )
 
                     progress.update(task_id, advance=1)
 
     def _download_image(
         self,
         url: str,
-    ) -> tuple[str | None, str]:
-        """下載圖片並轉成 image url(base64)，供 VLM 使用。"""
+    ) -> str | None:
+        """下載圖片並轉成 image url(base64)，供 VLM 使用；失敗時回傳 None（原因記於 _download_failure_reasons）。"""
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -330,7 +339,7 @@ class ImageSummarizer:
         except (URLError, TimeoutError, OSError) as e:
             logger.warning("Image download failed - %s (url=%s)", str(e), url)
             self._download_failure_reasons[url] = str(e)
-            return None, "failed"
+            return None
 
         content_type: str = raw_content_type.split(";")[0].strip()
         if content_type not in SUPPORTED_IMAGE_CONTENT_TYPES:
@@ -342,13 +351,13 @@ class ImageSummarizer:
             self._download_failure_reasons[url] = (
                 f"unsupported content-type {content_type or '<empty>'}"
             )
-            return None, "failed"
+            return None
 
         b64 = base64.standard_b64encode(data).decode("ascii")
         data_url = f"data:{content_type};base64,{b64}"
         logger.debug("Image download succeeded (url=%s)", url)
 
-        return data_url, "success"
+        return data_url
 
     def _generate_image_captions(
         self,
@@ -358,13 +367,11 @@ class ImageSummarizer:
         if not image_urls:
             return
 
-        images = {}
-        for url in image_urls:
-            if (
-                self._downloaded_images.get(url) is not None
-                and self._downloaded_images[url] != ""
-            ):
-                images[url] = self._downloaded_images[url]
+        images = {
+            url: self._image_cache[url].base64_url
+            for url in image_urls
+            if url in self._image_cache and self._image_cache[url].base64_url
+        }
 
         caption_results = asyncio.run(self._agenerate_image_captions(images))
         # logger.debug(
@@ -375,29 +382,34 @@ class ImageSummarizer:
 
         for image_url, image_caption, summarize_status, cost_usd in caption_results:
             if summarize_status == "success":
-                self._page_stats["success"] += 1
-                self._page_stats["cost_usd"] += cost_usd
+                self._page_stats.success += 1
+                self._page_stats.cost_usd += cost_usd
                 self._failed_images.pop(image_url, None)
             else:
-                self._page_stats["summarize_failure"] += 1
+                self._page_stats.summarize_failure += 1
                 self._failed_images[image_url] = (
                     self._current_page,
                     "caption generation failed",
                 )
 
-            self._image_cache[image_url]["caption"] = image_caption
-            self._image_cache[image_url]["summarize_status"] = summarize_status
-            self._image_captions[image_url] = image_caption
+            entry = self._image_cache[image_url]
+            entry.caption = image_caption
+            entry.summarize_status = summarize_status
 
     async def _agenerate_image_captions(
         self,
         images: dict[str, str],
     ) -> list[tuple[str, str, str, float]]:
         """對圖片批次平行摘要，回傳 (url, caption, status, cost)。"""
+        # 同一批 task 共用一個 semaphore 才能限制並行數；
+        # 每頁的 asyncio.run 為新 event loop，故不可存成屬性跨頁共用
+        semaphore = asyncio.Semaphore(self.vlm_max_workers)
         tasks: list[asyncio.Task[tuple[str, str, str, float]]] = []
         for image_url, image_base64_url in images.items():
             task = asyncio.create_task(
-                self._agenerate_image_caption_task(image_url, image_base64_url)
+                self._agenerate_image_caption_task(
+                    semaphore, image_url, image_base64_url
+                )
             )
             tasks.append(task)
 
@@ -435,10 +447,10 @@ class ImageSummarizer:
 
     async def _agenerate_image_caption_task(
         self,
+        semaphore: asyncio.Semaphore,
         image_url: str,
         image_base64_url: str,
     ) -> tuple[str, str, str, float]:
-        semaphore = asyncio.Semaphore(max(1, self.vlm_max_workers))
         async with semaphore:
             (
                 image_caption,
@@ -452,14 +464,6 @@ class ImageSummarizer:
         image_base64_url: str,
     ) -> tuple[str, str, float]:
         """呼叫 VLM 取得圖片描述。"""
-        model = self.model
-        if (
-            "gemini" in self.model.lower()
-        ):  # lite llm 使用 gemini 模型要加上 "gemini/" 前綴
-            model = f"gemini/{model}"
-        elif "gpt" in self.model.lower():  # lite llm 使用 gpt 模型要加上 "openai/" 前綴
-            model = f"openai/{model}"
-
         messages = [
             {
                 "role": "user",
@@ -472,15 +476,13 @@ class ImageSummarizer:
                 ],
             }
         ]
-        api_key = self._get_api_key()
-        litellm_kwargs: dict[str, Any] = {}
-        litellm_kwargs["api_key"] = api_key  # 避免 api key 洩漏
+        litellm_kwargs: dict[str, Any] = {"api_key": self._api_key}  # 避免 api key 洩漏
         litellm_kwargs.update(self.litellm_kwargs)
         image_caption = ""
 
         try:
             response = await acompletion(
-                model=model,
+                model=self._litellm_model,
                 messages=messages,
                 stream=False,
                 **litellm_kwargs,
@@ -503,39 +505,12 @@ class ImageSummarizer:
 
         return image_caption, "success", cost_usd
 
-    def _get_api_key(self) -> str:
-        """根據模型名稱推斷環境變數，並傳回有效的 API 金鑰。"""
-        api_key_name: str | None = None
-        for keyword, key_var in VLM_MODEL_TO_API_KEY.items():
-            if keyword.lower() in self.model.lower():
-                api_key_name = key_var
-                break
-
-        if api_key_name is None:
-            raise EnvironmentVariableError(
-                f"無法根據模型名稱 '{self.model}' 推斷 API key 變數。"
-                f"請確保模型名稱包含 {list(VLM_MODEL_TO_API_KEY.keys())}"
-            )
-
-        load_dotenv()
-        api_key = os.getenv(api_key_name)
-        if api_key is None:
-            raise EnvironmentVariableError(
-                f"環境變數 {api_key_name} 未設定。請檢查 .env 或系統環境變數。"
-            )
-
-        return api_key
-
     def _enhance_markdown(
         self,
         markdown: str,
         image_urls: list[str],
     ) -> str:
         """將圖片說明以適當格式插入原 markdown 中。"""
-        if not self._image_captions:
-            return markdown
-
-        enhanced_markdown = ""
         lines = markdown.splitlines(keepends=True)
         enhanced_parts: list[str] = []
         index = 0
@@ -548,27 +523,24 @@ class ImageSummarizer:
 
                 url = image_urls[index]
                 index += 1
-                caption = self._image_captions.get(url, "")
+                entry = self._image_cache.get(url)
+                caption = entry.caption if entry is not None else ""
                 if caption:
                     enhanced_parts.append(
                         f"> # Image-{index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
                     )
 
-        enhanced_markdown = "".join(enhanced_parts).rstrip()
-
-        return enhanced_markdown
+        return "".join(enhanced_parts).rstrip()
 
     def _retrieve_retry_context(
         self,
+        round_total: PageStats,
     ) -> tuple[set[str], float] | None:
         """回傳重試所需資料（需重試的 URL 集合、成功率）"""
-        if self._all_round_stats["retries"] >= self.max_retries:
+        if self._all_round_stats.retries >= self.max_retries:
             return None
 
-        success, failure = (
-            self._all_page_stats["success"],
-            self._all_page_stats["failure"],
-        )
+        success, failure = round_total.success, round_total.failure
         total = success + failure
         if total == 0:
             return None
@@ -578,17 +550,14 @@ class ImageSummarizer:
 
         failed_urls = {
             url
-            for url, cache_item in self._image_cache.items()
-            if cache_item["download_status"] == "failed"
-            or cache_item["summarize_status"] == "failed"
+            for url, entry in self._image_cache.items()
+            if entry.download_status == "failed" or entry.summarize_status == "failed"
         }
         if not failed_urls:
             return None
 
         for failed_url in failed_urls:
             self._image_cache.pop(failed_url, None)
-            self._downloaded_images.pop(failed_url, None)
-            # self._image_captions.pop(failed_url, None)
 
         return failed_urls, success_rate
 
@@ -603,9 +572,7 @@ class ImageSummarizer:
         # 指數退避秒數：第 1 次 30s、第 2 次 60s、第 3 次 2min，之後 5～10min，上限 15min
         bases = (30, 60, 120, 300, 600)
         base = (
-            bases[min(int(self._all_round_stats["retries"]), len(bases) - 1)]
-            if bases
-            else 30
+            bases[min(self._all_round_stats.retries, len(bases) - 1)] if bases else 30
         )
         backoff_cap_seconds = 900.0  # 15 分鐘
         backoff_jitter_fraction = 0.2  # ±20% 隨機
@@ -621,7 +588,7 @@ class ImageSummarizer:
             self.success_threshold * 100,
             len(failed_urls),
             wait_sec,
-            self._all_round_stats["retries"] + 1,
+            self._all_round_stats.retries + 1,
         )
         logger.warning("-" * 30)
         time.sleep(wait_sec)
@@ -638,70 +605,32 @@ class ImageSummarizer:
             print_log(Text(f"[{page}] {reason}: {url}"), soft_wrap=True)
 
     @staticmethod
-    def _new_page_stats() -> dict[str, int | float]:
-        return {
-            "cost_usd": 0.0,
-            "success": 0,
-            "download_failure": 0,
-            "summarize_failure": 0,
-            "cache_reuse": 0,
-        }
-
-    @staticmethod
-    def _new_all_page_stats() -> dict[str, int | float]:
-        return {
-            "cost_usd": 0.0,
-            "success": 0,
-            "failure": 0,
-        }
-
-    @staticmethod
-    def _new_all_round_stats() -> dict[str, int | float]:
-        return {
-            "cost_usd": 0.0,
-            "success": 0,
-            "failure": 0,
-            "retries": 0,
-        }
-
-    @staticmethod
     def _truncate_page_title(title: str, max_len: int = 20) -> str:
         """裁剪過長的頁面名稱，避免壓縮表格其餘欄位的可讀性。"""
         if len(title) <= max_len:
             return title
         return title[:max_len] + "…"
 
-    def _log_page_stats_table(self, title: str) -> None:
+    def _log_page_stats_table(self, title: str, total: PageStats) -> None:
         """彙整逐頁統計為單一表格（取代逐頁各自的 Rule + 表格）。"""
         log_session(title, style="green")
 
+        def cells(stats: PageStats) -> list[str]:
+            return [
+                f"${value:.6f}" if key == "cost_usd" else str(value)
+                for key, value in asdict(stats).items()
+            ]
+
         table = Table(show_header=True, header_style="bold green")
         table.add_column("Page", style="green", no_wrap=True)
-        for key in self._new_page_stats():
-            table.add_column(key, style="white")
+        for f in fields(PageStats):
+            table.add_column(f.name, style="white")
 
         for page_title, stats in self._page_stats_by_page:
-            table.add_row(
-                self._truncate_page_title(page_title),
-                *(
-                    f"${value:.6f}" if key == "cost_usd" else str(value)
-                    for key, value in stats.items()
-                ),
-            )
-
-        total = self._new_page_stats()
-        for _, stats in self._page_stats_by_page:
-            for key, value in stats.items():
-                total[key] += value
+            table.add_row(self._truncate_page_title(page_title), *cells(stats))
 
         table.add_section()
-        table.add_row(
-            "Total",
-            *(
-                f"${value:.6f}" if key == "cost_usd" else str(value)
-                for key, value in total.items()
-            ),
-        )
+        table.add_row("Total", *cells(total))
         print_log(table)
 
     @staticmethod

@@ -440,6 +440,22 @@ def test_run_name_skips_none_value() -> None:
     assert config.run_name == "max_depth-2"
 
 
+def test_rag_run_name_keeps_gemini_model_name() -> None:
+    """RAG run name 只把 "/" 換成 "-"，不刪除模型名稱中的 "-gemini"。"""
+    config = RAGConfig.from_yaml(
+        "test", {"query_engine": {"query_llm_name": "models/gemini-2.5-flash"}}
+    )
+    config._run_name_fields = [
+        "vector_store.vector_store_type",
+        "query_engine.query_llm_name",
+    ]
+
+    assert (
+        config.run_name
+        == "vector_store_type-milvus_query_llm_name-models-gemini-2.5-flash"
+    )
+
+
 @pytest.mark.parametrize(
     ("fields", "match"),
     [

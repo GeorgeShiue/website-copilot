@@ -28,9 +28,8 @@ from website_copilot.storage.run_context import (
 from website_copilot.storage.run_persistence import save_query_results_as_md
 from website_copilot.utils.config_helper import (
     log_config,
-    save_module_config,
     save_run_config,
-    save_site_config,
+    save_run_configs,
 )
 from website_copilot.utils.log_helper import log_session, print_log
 
@@ -167,9 +166,7 @@ def run_rag_query(
             )
 
             # ---- 儲存設定 -----
-            save_module_config(config, run_manager.module_config_path)
-            save_site_config(site, run_manager.site_config_path)
-            save_run_config(run_config, run_manager.run_config_path)
+            save_run_configs(run_manager.run_path, config, site, run_config)
         except Exception as e:
             log_session("RAG Query Failed", style="red")
             print_log(f"Error: {e}")

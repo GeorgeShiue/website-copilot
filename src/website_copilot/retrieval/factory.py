@@ -26,6 +26,7 @@ from website_copilot.retrieval.llama_index_helpers import build_filters, create_
 from website_copilot.retrieval.rag import RAG
 from website_copilot.storage.data_paths import aug_webpages_path, vector_store_path
 from website_copilot.storage.run_persistence import load_latest_run_path
+from website_copilot.utils.config_helper import MODULE_CONFIG_FILE, SITE_CONFIG_FILE
 from website_copilot.utils.log_helper import log_session, print_log
 
 logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ def vector_store_run_target(
         raise FileNotFoundError(
             f"找不到向量庫: {milvus_uri}（vector_store_run 應為 rag-build 的 run 資料夾）"
         )
-    site_config_path = os.path.join(run_path, "site_config.yml")
+    site_config_path = os.path.join(run_path, SITE_CONFIG_FILE)
     if not os.path.isfile(site_config_path):
         raise FileNotFoundError(f"找不到 {site_config_path}，無法核對站點")
     with open(site_config_path, encoding="utf-8") as f:
@@ -142,7 +143,7 @@ def vector_store_run_target(
 def _run_source(run_path: str) -> str:
     """讀取 run 的 module_config.yml 檔頭的 `# source:`；讀不到時回傳 unknown。"""
     try:
-        with open(os.path.join(run_path, "module_config.yml"), encoding="utf-8") as f:
+        with open(os.path.join(run_path, MODULE_CONFIG_FILE), encoding="utf-8") as f:
             for line in f:
                 if line.startswith("# source:"):
                     return line.removeprefix("# source:").strip()

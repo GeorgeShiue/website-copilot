@@ -9,8 +9,8 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from website_copilot.ingestion.indexing.index import IndexHandle
 from website_copilot.retrieval.llama_index_helpers import (
     build_filters,
-    extract_sources_info,
     log_source_nodes,
+    source_dict,
 )
 
 logger = logging.getLogger(__name__)
@@ -106,17 +106,4 @@ class RAG:
             self.retriever._filters = original_filters
             self.retriever.similarity_top_k = original_top_k
 
-        results = []
-        for node in nodes:
-            page_title, score, page_type = extract_sources_info(node)
-            results.append(
-                {
-                    "page_title": page_title,
-                    "score": score,
-                    "page_type": page_type,
-                    "content": node.node.get_content(),
-                    "url": node.node.metadata.get("page_url", ""),
-                }
-            )
-
-        return results
+        return [source_dict(node) for node in nodes]

@@ -45,9 +45,7 @@ def mocks(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(f"{MODULE}.build_evaluators", MagicMock())
     monkeypatch.setattr(f"{MODULE}.evaluate_response", m["evaluate"])
     monkeypatch.setattr(f"{MODULE}.response_to_dict", MagicMock(return_value={}))
-    monkeypatch.setattr(f"{MODULE}.save_run_config", MagicMock())
-    monkeypatch.setattr(f"{MODULE}.save_module_config", MagicMock())
-    monkeypatch.setattr(f"{MODULE}.save_site_config", MagicMock())
+    monkeypatch.setattr(f"{MODULE}.save_run_configs", MagicMock())
     monkeypatch.setattr(f"{MODULE}.save_query_results_as_md", MagicMock())
     return m
 

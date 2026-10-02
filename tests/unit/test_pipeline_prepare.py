@@ -167,6 +167,63 @@ def test_save_only_writes_runs_not_data(env):
         assert yaml.safe_load(f)["site_id"] == env.site_id
 
 
+def _assert_run_configs_saved(run_path: Path, module_key: str) -> None:
+    """run 資料夾含三個設定紀錄：module_config.yml（含檔頭）、site_config.yml、run_config.yml。"""
+    module_text = (run_path / "module_config.yml").read_text(encoding="utf-8")
+    assert module_text.startswith("# source: ")
+    assert module_key in yaml.safe_load(module_text)
+    with open(run_path / "site_config.yml", encoding="utf-8") as f:
+        assert yaml.safe_load(f)["site_id"] == SiteConfig.from_yaml(SITE).site_id
+    with open(run_path / "run_config.yml", encoding="utf-8") as f:
+        assert yaml.safe_load(f)["site"] == SITE
+
+
+def test_rag_build_save_writes_run_configs(env):
+    run_rag_build(_run_config(save=True, publish=False))
+
+    (run_path,) = env.runs.glob(f"*/rag_build/{env.site_id}/r1")
+    _assert_run_configs_saved(run_path, "vector_store")
+
+
+def test_website_crawler_save_writes_results_and_run_configs(env):
+    from website_copilot.pipelines import prepare
+
+    with (
+        patch.object(prepare, "WebsiteCrawler") as crawler_cls,
+        patch.object(prepare, "WebpageMarkdownCleaner"),
+    ):
+        crawler = crawler_cls.return_value
+        crawler.crawl_website.return_value = {"p": {"fit_markdown": "md"}}
+        crawler.generation_result = None
+        prepare.run_website_crawler(
+            WebsiteCrawlerRunConfig(site=SITE, config_name="test", save=True)
+        )
+
+    (run_path,) = env.runs.glob(f"*/website_crawler/{env.site_id}/r1")
+    _assert_run_configs_saved(run_path, "init")
+    assert (run_path / "results" / "p.md").read_text(encoding="utf-8") == "md"
+    assert list(env.data.iterdir()) == []  # 未 publish
+
+
+def test_image_summarizer_save_writes_results_and_run_configs(env):
+    from website_copilot.pipelines import prepare
+
+    with patch.object(prepare, "ImageSummarizer") as summarizer_cls:
+        summarizer = summarizer_cls.return_value
+        summarizer.summarize_crawl_results_images.return_value = {
+            "p": {"enhanced_markdown": "enhanced"}
+        }
+        prepare.run_image_summarizer(
+            ImageSummarizerRunConfig(site=SITE, config_name="test", save=True),
+            crawl_results={"p": {"fit_markdown": "md"}},
+        )
+
+    (run_path,) = env.runs.glob(f"*/image_summarizer/{env.site_id}/r1")
+    _assert_run_configs_saved(run_path, "summarize")
+    assert (run_path / "results" / "p.md").read_text(encoding="utf-8") == "enhanced"
+    assert list(env.data.iterdir()) == []  # 未 publish
+
+
 def test_publish_only_moves_staging_into_place(env):
     run_rag_build(_run_config(save=False, publish=True))
 

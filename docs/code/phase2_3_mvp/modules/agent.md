@@ -24,7 +24,7 @@
 - **模組設定**
 	- `./configs/agent/{name}.yml`（**Agent 設定檔**：`llm_name` / `system_prompt`，只寫與 class 預設值不同的部分；`default` 無檔案時等於 class 預設，system prompt 預設值在 `config/prompts.py`）
 	- `llm_name` 與 RAG 檢索 LLM（`RAGConfig.query_llm_name`）**解耦**，可獨立更換不影響檢索
-	- API key 依 model name 自動路由：含 `gemini` → `GEMINI_API_KEY`；其他（`gpt*` 等，預設）→ `OPENAI_API_KEY`
+	- API key 依 model name 自動路由（`utils/llm_provider.py`，不分大小寫）：含 `gemini` → `GEMINI_API_KEY`；含 `gpt` → `OPENAI_API_KEY`；兩者皆不含時報錯（`UnsupportedModelError`）
 
 - **模組環境**
 	- `Python >= 3.13`（程式使用現代型別語法）
@@ -65,7 +65,7 @@
 
 - **`extract_sources_from_messages(messages)`** — 以正則 `URL: (\S+)` 從 ToolMessage 解析來源 URL（依序去重）
 
-- **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_API_KEY`）；其他（`gpt*` 等）→ `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `retrieval.llama_index_helpers.create_llm`（LlamaIndex 版）對稱
+- **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由（`utils/llm_provider.resolve_provider`）：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_API_KEY`）；含 `gpt` → `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `retrieval.llama_index_helpers.create_llm`（LlamaIndex 版）對稱
 
 - **`_message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
 

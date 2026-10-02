@@ -9,6 +9,11 @@ from rich.table import Table
 
 from website_copilot.config.agent_config import AgentConfig
 from website_copilot.storage.run_persistence import RESULTS_JSON_NAME, is_run_folder
+from website_copilot.utils.config_helper import (
+    MODULE_CONFIG_FILE,
+    RUN_CONFIG_FILE,
+    SITE_CONFIG_FILE,
+)
 from website_copilot.utils.log_helper import print_log
 
 
@@ -86,9 +91,9 @@ class RunManager:
         self.results_json_path = os.path.join(self.run_path, RESULTS_JSON_NAME)
         self.results_folder_path = os.path.join(self.run_path, "results")
         os.makedirs(self.results_folder_path, exist_ok=True)
-        self.module_config_path = os.path.join(self.run_path, "module_config.yml")
-        self.run_config_path = os.path.join(self.run_path, "run_config.yml")
-        self.site_config_path = os.path.join(self.run_path, "site_config.yml")
+        self.module_config_path = os.path.join(self.run_path, MODULE_CONFIG_FILE)
+        self.run_config_path = os.path.join(self.run_path, RUN_CONFIG_FILE)
+        self.site_config_path = os.path.join(self.run_path, SITE_CONFIG_FILE)
         self.log_path = os.path.join(self.run_path, "terminal.log")
 
     def log_run_paths(self, usage: str) -> None:

@@ -11,15 +11,15 @@
 與 retrieval.llama_index_helpers.create_llm（LlamaIndex 版，回傳 GoogleGenAI | OpenAI）對稱。
 """
 
-import os
 import re
 import uuid
 from typing import Any
 
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
+
+from website_copilot.utils.llm_provider import get_api_key, resolve_provider
 
 # ToolMessage content 中來源 URL 行的格式（見 webpage_retriever._format_retrieval_results）
 SOURCE_URL_PATTERN = re.compile(r"URL: (\S+)")
@@ -44,33 +44,16 @@ def thread_config(thread_id: str | None) -> dict[str, dict[str, str]]:
 def create_llm(llm_name: str) -> ChatGoogleGenerativeAI | ChatOpenAI:
     """建立 Agent 使用的 LangChain ChatModel（Gemini 或 OpenAI，依 model name 自動路由）。
 
-    - model name 含 "gemini"：使用 ChatGoogleGenerativeAI，
-      使用 GEMINI_API_KEY 環境變數。
-    - 其他（含 "gpt" 等）：使用 ChatOpenAI，
-      使用 OPENAI_API_KEY 環境變數。
-
-    與 retrieval.llama_index_helpers.create_llm 的 gemini / openai 分支對稱。
+    供應商與 API key 由 utils.llm_provider 決定（不分大小寫；無法判斷供應商或
+    未設定 API key 時報錯），與 retrieval.llama_index_helpers.create_llm 共用。
     """
-    load_dotenv()
-    if "gemini" in llm_name.lower():
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "GEMINI_API_KEY is not set. "
-                "Please set it in .env before running the agent."
-            )
+    provider = resolve_provider(llm_name)
+    api_key = get_api_key(provider)
+    if provider.keyword == "gemini":
         return ChatGoogleGenerativeAI(model=llm_name, api_key=api_key)
-    else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "OPENAI_API_KEY is not set. "
-                "Please set it in .env before running the agent."
-            )
-        api_key_secret = SecretStr(api_key)
-        return ChatOpenAI(
-            model=llm_name, api_key=api_key_secret, use_responses_api=True
-        )
+    return ChatOpenAI(
+        model=llm_name, api_key=SecretStr(api_key), use_responses_api=True
+    )
 
 
 def extract_sources_from_messages(messages: list[Any]) -> list[str]:

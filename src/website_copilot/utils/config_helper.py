@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -49,6 +50,25 @@ def dump_yaml(
     )
     comments = "".join(f"# {line}\n" for line in header or [])
     Path(path).write_text(comments + text, encoding="utf-8")
+
+
+MODULE_CONFIG_FILE = "module_config.yml"
+SITE_CONFIG_FILE = "site_config.yml"
+RUN_CONFIG_FILE = "run_config.yml"
+
+
+def save_run_configs(
+    dest_folder: str,
+    config: "BaseModuleConfig",
+    site: "SiteConfig | None" = None,
+    run_config: object | None = None,
+) -> None:
+    """把 module_config.yml／site_config.yml／run_config.yml 寫入 dest_folder（site、run_config 為 None 時略過）。"""
+    save_module_config(config, os.path.join(dest_folder, MODULE_CONFIG_FILE))
+    if site is not None:
+        save_site_config(site, os.path.join(dest_folder, SITE_CONFIG_FILE))
+    if run_config is not None:
+        save_run_config(run_config, os.path.join(dest_folder, RUN_CONFIG_FILE))
 
 
 def save_module_config(config: "BaseModuleConfig", file_path: str) -> None:

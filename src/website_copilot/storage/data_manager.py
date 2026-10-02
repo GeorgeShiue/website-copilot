@@ -24,11 +24,7 @@ from website_copilot.storage.data_paths import (
     vector_store_path,
 )
 from website_copilot.storage.run_persistence import save_generated_exclude_words
-from website_copilot.utils.config_helper import (
-    save_module_config,
-    save_run_config,
-    save_site_config,
-)
+from website_copilot.utils.config_helper import save_run_configs
 
 logger = logging.getLogger(__name__)
 
@@ -298,8 +294,5 @@ class DataManager:
         log_path: str | None = None,
     ) -> None:
         """把 module_config.yml／site_config.yml／run_config.yml／terminal.log 寫入 dest_folder。"""
-        save_module_config(config, os.path.join(dest_folder, "module_config.yml"))
-        save_site_config(site, os.path.join(dest_folder, "site_config.yml"))
-        if run_config is not None:
-            save_run_config(run_config, os.path.join(dest_folder, "run_config.yml"))
+        save_run_configs(dest_folder, config, site, run_config)
         self._copy_single_file(log_path, dest_folder, "terminal.log")
