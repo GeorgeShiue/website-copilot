@@ -95,14 +95,17 @@ def test_image_summarizer_routes_by_model_name(
     monkeypatch.setattr(image_summarizer, "acompletion", fake_acompletion)
     monkeypatch.setattr(image_summarizer, "completion_cost", lambda **_: 0.0)
     summarizer = ImageSummarizer(
-        download_timeout=1.0, success_threshold=0.8, max_retries=0
+        download_timeout=1.0,
+        download_max_workers=1,
+        success_threshold=0.8,
+        max_retries=0,
     )
     # 以空的爬取結果走一次公開流程，完成供應商與 API key 的解析
     summarizer.summarize_crawl_results_images(
         {},
         model=model,
         prompt="describe",
-        vlm_max_workers=1,
+        summary_max_workers=1,
         image_source="markdown",
         timeout=5,
     )
@@ -184,7 +187,10 @@ def test_image_summarizer_fails_fast_on_unknown_model(
     """原本每張圖各自報錯（被當成摘要失敗）；現在開始前就失敗，不下載任何圖片。"""
     monkeypatch.setattr(image_summarizer, "urlopen", _fail_if_called)
     summarizer = ImageSummarizer(
-        download_timeout=1.0, success_threshold=0.8, max_retries=0
+        download_timeout=1.0,
+        download_max_workers=1,
+        success_threshold=0.8,
+        max_retries=0,
     )
 
     with pytest.raises(UnsupportedModelError):
@@ -192,7 +198,7 @@ def test_image_summarizer_fails_fast_on_unknown_model(
             {"page": {"fit_markdown": "![a](https://ex.com/a.png)"}},
             model="claude-x",
             prompt="describe",
-            vlm_max_workers=1,
+            summary_max_workers=1,
             image_source="markdown",
         )
 

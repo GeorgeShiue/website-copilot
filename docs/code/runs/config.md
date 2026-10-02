@@ -73,8 +73,8 @@
 ### Image summarizer
 
 - Config model: `ImageSummarizerConfig`（`src/website_copilot/config/image_summarizer_config.py`），設定檔 `configs/image_summarizer/{config_name}.yml`。
-- `init`：`download_timeout`（> 0）、`success_threshold`（0～1）、`max_retries`（≥ 0）。
-- `summarize`：`model`、`prompt`、`image_source`（`images` 或 `markdown`）、`vlm_max_workers`（> 0）。
+- `init`：`download_timeout`（> 0）、`download_max_workers`（> 0，預設 40；同時下載圖片的執行緒數）、`success_threshold`（0～1）、`max_retries`（≥ 0）。
+- `summarize`：`model`、`prompt`、`image_source`（`images` 或 `markdown`）、`summary_max_workers`（> 0，預設 50；同時呼叫 VLM 的請求數）。兩個並行上限皆為每頁各自計算（頁面依序處理）。
 - `litellm_kwargs`：任意 key，原樣傳給 litellm（預設為空）。
 - run name 預設為 `[summarize.model]`。
 - 未傳入爬蟲結果時，只讀取 runs/ 中同站點最新的爬蟲結果（找不到時報錯，不退回其他站點）。

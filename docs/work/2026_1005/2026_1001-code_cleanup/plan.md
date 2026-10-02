@@ -136,8 +136,8 @@
 | # | 討論點 | 決策 |
 |---|---|---|
 | 1 | 並行範圍 | 只修**單頁內**的並行限制；頁面仍依序處理。跨頁並行（所有頁的圖共用一個上限）屬效能優化，記於 todo「平行處理圖片摘要」，後續再調整 |
-| 2 | `vlm_max_workers` 同時控制下載執行緒與 VLM 並行 | **(a) 維持共用**，C2 只修 semaphore |
-| 3 | 預設值 20 | 先實測 OpenAI 並行上限（見「並行上限實驗」），依結果決定是否調整 |
+| 2 | `vlm_max_workers` 同時控制下載執行緒與 VLM 並行 | **(a) 維持共用**，C2 只修 semaphore（C 組合併後的並行實驗結果出來後已推翻，見「後續：拆分 `vlm_max_workers`」） |
+| 3 | 預設值 20 | 先實測 OpenAI 並行上限（見「並行上限實驗」），依結果決定是否調整（結果：摘要端改 50，見「後續：拆分 `vlm_max_workers`」） |
 | 4 | 時機 | 立即在 `dev-tech-debt` 上進行 |
 
 #### 修法
@@ -176,6 +176,80 @@
   3. 使用者確認後跑 30～100。
   4. 依結果決定預設值：全部無失敗時可提高到 50～60（ncucsie 圖多的 5 頁不再被限速），或維持 20 保留給低額度帳號的餘裕；出現 429 時取最後一個穩定級距並保留餘裕。預設值調整為獨立 commit。
 - 限制：結果只適用於目前的帳號等級與模型（`results.md` 記錄由 header 推得的額度與測試日期）；換帳號或改用 Gemini 需重測。
+
+#### 後續：拆分 `vlm_max_workers`（C 組合併後的獨立 commit）
+
+並行實驗（`docs/exp/memo/webpage_image_summarizer/vlm_concurrency/results.md`）顯示 VLM 端到 100 並行都沒有 rate limit，但 `vlm_max_workers` 同時控制下載執行緒數，提高它會對被爬網站開更多連線（下載端未測），故推翻決策 2，拆成兩個參數：
+
+- `download_max_workers`：放 `init` 區塊（與 `download_timeout` 同組，建構子參數），預設最初為 20（行為不變），並行實驗後改為 **40**（見「後續：下載並行上限實驗」）。
+- `summary_max_workers`：放 `summarize` 區塊，預設 **50**（ncucsie 單頁實際需要摘要的圖片＝未快取圖片數，最多 45 張，見「後續：下載並行上限實驗」；50 已涵蓋，再高要等跨頁並行才有效果）。這是唯一改變行為的地方：圖超過 20 張的頁面（ncucsie 5 頁）摘要並行數由 20 提高到 50。
+- 不保留 `vlm_max_workers` 別名（`ConfigModel` 為 `extra="forbid"`，與刪除 `cache_*` 旗標的作法一致）；`configs/` 沒有檔案使用它，`data/` 中已發布的 `module_config.yml` 只被讀檔頭，不經 `from_yaml`。
+- CLI：`--module.summarize.vlm-max-workers` 由 `--module.init.download-max-workers` 與 `--module.summarize.summary-max-workers` 取代。
+- 測試：下載與摘要各自受控的並行測試、兩者獨立（下載 2、摘要 5）的測試；先確認在拆分前的實作上失敗。
+- 此 commit 同時收入並行實驗的腳本與結果（`probe.py`、`results.md`、`raw.jsonl`、`summary.jsonl`）。
+
+#### 後續：下載並行上限實驗（ncucsie；拆分 commit 之後）
+
+目的：找出 `download_max_workers` 在 ncucsie（學校系網站伺服器）不被限流的並行上限，作為其預設值（目前 20）的依據。拆分後 `download_max_workers` 只控制對被爬網站的連線數，可獨立於 VLM 端調整。
+
+**ncucsie 的實際條件**（來自 `data/aug_webpages/ncucsie/results.json` 與其 terminal.log）：
+
+- 149 頁，124 頁有圖片；圖片出現 620 次、不重複 169 張（166 張在 `www.csie.ncu.edu.tw`，另有 `placehold.co` 2 張、`fbcdn.net` 1 張）；robots.txt 為 `Allow: /`。
+- **真正的下載並行需求只有 45**：正式流程有跨頁快取，每頁只下載「尚未下載過的圖片」。依爬取順序，未快取數最多的是 `p_412-1013-1849`（45）、`-1901`（30）、`-1096`（26），其餘 ≤ 8；單頁圖片總數最多的 `-2076`（52 張）只有 7 張未快取。因此 `download_max_workers` 超過 45 在 ncucsie 沒有效果，有意義的範圍是 20～45。
+- 過去的完整執行（下載並行 20）：8 個最終失敗皆為固定錯誤，與限流無關——6 個 `HTTP 404`（`pdf.gif%20`、`doc.gif%20`、「請替換」資料夾下 4 張地圖）、2 個 `image/svg+xml`（`placehold.co`，不支援格式）；沒有 429、403 或逾時。20 以上是未測過的區間。
+- 可用於實驗的 URL：排除上述 8 個固定失敗與第三方主機後，剩 **160 個確定可下載的不重複 URL**（`www.csie.ncu.edu.tw`），實驗中的失敗即可判定為限流或伺服器壓力，而非圖片本身問題。
+
+**決策（使用者）**：
+
+| # | 項目 | 決策 |
+|---|---|---|
+| 1 | 級距 | 以 20 為基準往上加：**20、30、40、50**（上限 50；45 為實際需求上限，50 用來看多餘並行有無壞處）；不另設 N=5 基準 |
+| 2 | 停止條件 | 容許失敗，對齊 `success_threshold` 預設值 0.8：某一級的失敗率 **> 20%**（成功率 < 80%）即停止，不再往上加 |
+| 3 | 風險 | 接受（學校伺服器，最多 50 並行、共 280 個請求；IP 被暫時封鎖時會連帶影響瀏覽系網站） |
+| 4 | 完整驗證 | 若實驗沒有問題，直接以 ncucsie 做一遍完整驗證（見下方） |
+
+**設計**：
+
+- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/download_concurrency/`（`probe.py`、`results.md`、`raw.jsonl`、`summary.jsonl`），結構與 `vlm_concurrency/` 一致。
+- 呼叫路徑：正式的 `ImageSummarizer._download_images`，一次傳入 2N 個 URL 以繞過「每頁各自一個執行緒池」的限制（正式流程單頁最多 45 條，不繞過就無法測到 N=50；nculab 單頁最多 17 張，故不採用）。每級開始前重設 `_image_cache`／`_failed_images`／`_download_failure_reasons`／`_page_stats`。
+- 量測：包裝 `_download_image`（量得到含讀取內容的完整時間），每個請求記錄開始／結束時間、成功或失敗、失敗原因（取自 `_download_failure_reasons`，如 `HTTP Error 429`、`timed out`）、下載位元組數。
+- 每級摘要：成功／失敗數與失敗率、失敗原因統計（區分限流類：429／403／503／逾時／連線被重置，與其他）、延遲 p50／p95／max、總耗時、實測最高並行數、吞吐量（張／秒、MB／秒）。吞吐量（MB／秒）不再增加但延遲上升時，判定為本機頻寬飽和而非對方限流。
+- URL：從 160 個可用 URL 中每級以固定隨機種子打亂後取 2N 個；同一級內不重複（最大 2N=100 < 160），不同級之間會重複，伺服器端快取可能使後面的級距偏快，故以失敗與否為主要判斷、延遲為輔。
+- 級距間隔 60 秒；2N 個請求會形成兩波連續下載，比正式流程（單頁一波）嚴苛，結果偏保守。
+- 成本與時間：下載不呼叫付費 API，$0；耗時約 4～6 分鐘（4 級＋3 個間隔）。資料量依 7 張樣本估計 40～130 MB，以實測位元組數為準。
+
+**執行流程**：
+
+1. 以假的 `_download_image` 乾跑（不連網，輸出到暫存資料夾）：確認紀錄格式與並行量測。
+2. 正式跑 20→50（使用者已接受風險，不再逐級暫停）；遇到停止條件（失敗率 > 20%）即停止，不進入完整驗證，回報後再決定。
+3. 判斷預設值：
+
+   | 結果 | 結論 |
+   |---|---|
+   | 各級皆無限流類失敗，且延遲沒有明顯上升（p95 ≤ 20 並行的 2 倍） | 伺服器承受得住；預設值取到 45 以內的最高級距 |
+   | 某級出現限流類失敗但失敗率 ≤ 20% | 列出結果，預設值取前一級並保留餘裕，由使用者確認 |
+   | 失敗率 > 20% | 停止；預設值取前一級再保留餘裕（約一半到八成），由使用者確認 |
+   | 無失敗但延遲或逾時明顯變差 | 提高並行沒有好處，維持 20 |
+
+4. 預設值若要調整，原規劃為獨立 commit；實際結果見下方「結果與決策」。
+
+**完整驗證（實驗沒有問題時）**：
+
+- 方式：runs/ 中**沒有** ncucsie 的爬蟲結果（`runs/*/website_crawler/ncucsie` 不存在），`run image-summarizer ncucsie` 會因找不到最新爬蟲結果而失敗；改以 Python 腳本載入 `data/aug_webpages/ncucsie/results.json`（含 `fit_markdown`、`images`，結構同爬蟲結果）當輸入，呼叫 `run_image_summarizer(ImageSummarizerRunConfig(site="ncucsie", config_name="default", save=True, publish=False), overrides={"init": {"download_max_workers": X}}, crawl_results=...)`，X 為實驗得出的候選值（驗證不依賴是否已 commit 預設值）。走正式流程（跨頁快取、單頁並行、統計表格），含 ncucsie 的 45／30／26 張大頁；`save=True`、`publish=False`：只寫入 runs/，不覆寫 `data/`。
+- 費用與耗時：圖片出現 620 次但不重複僅 169 張（快取去重），舊紀錄 161 張摘要成功、$0.1569，估計約 **$0.16**（先前「約 $0.7」的估算未計入快取，偏高）；舊紀錄耗時 422.955 秒。
+- 通過條件：
+  1. 摘要成功數與舊紀錄相同（161）；最終失敗的圖片仍是同樣 8 張固定錯誤（6 個 404、2 個 svg），沒有 429、逾時或其他新失敗。
+  2. 沒有出現 `retrying`（重試退避）：舊紀錄成功率為 161／(161＋33)＝83%，只高於 `success_threshold` 0.8 約 3 個百分點（8 個固定失敗 URL 在多頁重複出現而被累計 33 次），再多約 8 次下載失敗就會觸發 30 秒以上的退避；這也是實驗要排除固定失敗 URL 的原因。
+  3. 統計表格欄位與格式不變；耗時不長於舊紀錄（圖多的頁面摘要並行由 20 提高到 50）。
+  4. 摘要費用約 $0.16；`data/` 未被修改（`git status` 無變動）。
+- 結果記錄於 `dev.md`。
+
+**結果與決策**（詳見 `docs/exp/memo/webpage_image_summarizer/download_concurrency/results.md`）：
+
+- 實驗 20／30／40／50 共 280 個請求 0 失敗，無限流類錯誤，p95 皆在 N=20 的 2 倍內；吞吐量從 N=20 起固定約 10 MB/s（頻寬飽和），更高並行只增加延遲，對耗時沒有可量測的好處（下載約占整次執行的 2%）。
+- 完整驗證（下載 40、摘要 50）：摘要成功 161、同樣 8 張最終失敗、無 429／逾時／重試；耗時 465.4 秒對舊紀錄 422.9 秒，差異在單次執行的自然波動內（通過條件 3「耗時不長於舊紀錄」過於樂觀，未達成，如實記錄）。
+- **決策（使用者）：`download_max_workers` 預設改為 40**（依 plan 判斷規則：45 以內的最高級距；實驗與完整驗證皆在 40 通過）。這是唯一的行為變動：圖片較多的頁面（ncucsie 3 頁未快取下載數為 45／30／26）下載並行數由 20 提高到 40，頁面較小者不受影響。
+- 意外發現（既有問題）：頁內重複的圖片 URL 會被同時下載多次，失敗原因文字可能顯示為 `download failed`；已記入 todo「效能優化」，不在本次處理。
 
 ### C1：`ImageSummarizer` 快取與統計
 
@@ -263,6 +337,8 @@
 | 11 | C6 `save_run_configs` | — |
 | 12 | C4 測試 → LLM 供應商路由表 | C1（同檔案 `image_summarizer.py`；C4 改動 `_get_api_key` 時有 C1 的測試保護） |
 | 13 | C5 來源 dict 共用、C10 刪除 `-gemini` 特例 | — |
+| 14 | 拆分 `vlm_max_workers`（已完成，獨立 commit `7354db5`，含 VLM 並行實驗） | C 組合併 commit |
+| 15 | 下載並行上限實驗（ncucsie）→ 完整驗證 → 預設值調整（若需要） | 14 |
 
 ## Commit 策略
 
@@ -274,6 +350,8 @@
 4. **B 組**：以合併後的 A commit 為基準點，B1～B4 依序各自 commit，流程同 1～3；合併後的訊息為 `refactor: centralize data paths, share runs/ lookup and agent result helpers (code cleanup B)`。
 5. 付費整合測試於 B 組合併後執行一次（見「付費整合測試」）。
 6. **C 組**：C1／C4 各分「補測試」與「重構」兩個 commit（測試 commit 須通過現行實作）。依使用者指示，C2（bug 修正）也一併合併：C2～C10 全部完成後以 `git reset --soft <B 組合併 commit>` 合併為單一 commit `refactor: fix VLM concurrency, unify image summarizer cache, LLM provider routing and run config saving (code cleanup C)`。
+
+7. **C 組之後**：拆分 `vlm_max_workers`（連同 VLM 並行實驗）為獨立 commit，不併入 C 組合併 commit；下載並行實驗的紀錄（腳本、結果、plan／dev）另一個 commit；`download_max_workers` 預設值調整原規劃為再一個 commit，依使用者指示併入下載並行實驗的 commit（amend，尚未推送）。
 
 注意：
 

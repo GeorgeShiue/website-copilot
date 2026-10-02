@@ -78,19 +78,21 @@ class ImageSummarizer:
         self,
         *,
         download_timeout: float,
+        download_max_workers: int,  # 同時下載圖片的執行緒數
         success_threshold: float,  # 圖片下載成功率低於此值則啟動重試機制
         max_retries: int,  # 最大重試次數，對應指數退避的長度 + 最後一次用 cap
     ) -> None:
         """參數皆由 ImageSummarizerConfig.init 傳入（預設值見 config）。"""
         # ===== init args =====
         self.download_timeout = download_timeout
+        self.download_max_workers = download_max_workers
         self.success_threshold = success_threshold
         self.max_retries = max_retries
 
         # ===== summarize args =====
         self.model: str = ""
         self.prompt: str = ""
-        self.vlm_max_workers: int = 0
+        self.summary_max_workers: int = 0
         self.image_source: str = ""
         self.litellm_kwargs: dict[str, Any] = {}
         self._litellm_model: str = ""  # 加上供應商前綴（如 openai/）的模型名稱
@@ -114,7 +116,7 @@ class ImageSummarizer:
         *,
         model: str,
         prompt: str,
-        vlm_max_workers: int,
+        summary_max_workers: int,
         image_source: Literal["images", "markdown"],
         **litellm_kwargs: Any,
     ) -> dict[str, dict[str, Any]]:
@@ -126,7 +128,7 @@ class ImageSummarizer:
         """
         self.model = model
         self.prompt = prompt
-        self.vlm_max_workers = vlm_max_workers
+        self.summary_max_workers = summary_max_workers
         self.image_source = image_source
         self.litellm_kwargs = litellm_kwargs
         # 開始前解析一次：無法判斷供應商或缺 API key 時直接失敗，不逐張圖報錯
@@ -288,8 +290,7 @@ class ImageSummarizer:
         image_urls: list[str],
     ) -> None:
         """平行下載圖片，回傳成功下載圖片。"""
-        max_workers = self.vlm_max_workers
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=self.download_max_workers) as executor:
             future_to_image_url = {
                 executor.submit(self._download_image, url): url for url in image_urls
             }
@@ -403,7 +404,7 @@ class ImageSummarizer:
         """對圖片批次平行摘要，回傳 (url, caption, status, cost)。"""
         # 同一批 task 共用一個 semaphore 才能限制並行數；
         # 每頁的 asyncio.run 為新 event loop，故不可存成屬性跨頁共用
-        semaphore = asyncio.Semaphore(self.vlm_max_workers)
+        semaphore = asyncio.Semaphore(self.summary_max_workers)
         tasks: list[asyncio.Task[tuple[str, str, str, float]]] = []
         for image_url, image_base64_url in images.items():
             task = asyncio.create_task(

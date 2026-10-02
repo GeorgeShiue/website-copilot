@@ -234,3 +234,34 @@
 
 - log 有記錄的部分：website_crawler $0.0078＋$0.0173、image_summarizer $0.0619＋$0.0558，合計約 $0.143。
 - agent_query、rag-query、embedding 的成本未記錄在 log，估計合計數美分；總計約 $0.15～0.20，與估算相符。
+
+## C2：並行上限實驗
+
+- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/vlm_concurrency/`（`probe.py`、`results.md`、`raw.jsonl`、`summary.jsonl`）。先以 `--dry-run`（fake VLM，輸出到暫存資料夾）確認流程與並行量測，再正式執行。
+- 級距：N=20 後，rate limit header 顯示 RPM 30,000／TPM 1.8 億（理論可承受並行約 4,000），依使用者決定只再跑 60、100（plan 原訂 20～100 每 10 一級）。
+- 結果：20／60／100 共 360 個請求、0 失敗，實測最高並行數皆等於 N；延遲 p50 7.95 → 9.39 秒，吞吐量 1.54 → 5.24 req/s；成本 $0.402。
+- 結論：目前帳號下 VLM 端不是瓶頸；`vlm_max_workers` 同時控制下載執行緒數，提高預設值的風險在下載端（未涵蓋）。預設值待使用者決定。
+
+## 拆分 `vlm_max_workers`（C 組合併後的獨立 commit）
+
+### 變更
+
+- `SummarizerInitConfig.download_max_workers`（`PositiveInt`，初始預設 20，下載並行實驗後改為 40，`init` 區塊）與 `SummarizeConfig.summary_max_workers`（`PositiveInt`，預設 50，`summarize` 區塊）取代 `vlm_max_workers`；兩者皆附欄位說明（CLI `--help` 顯示）。
+- `ImageSummarizer`：`download_max_workers` 為建構子參數，用於下載的 `ThreadPoolExecutor`；`summary_max_workers` 為 `summarize_crawl_results_images` 參數，用於摘要的 `asyncio.Semaphore`。`prepare.py` 分別傳入。
+- 行為變動：只有 `summary_max_workers` 預設值（20 → 50）；單頁圖片超過 20 張的頁面（ncucsie 5 頁：52、45、30、30、26）摘要並行數提高。
+- 文件：`docs/code/runs/config.md`、`docs/code/phase1/modules/data_preprocess.md`；並行實驗的 `probe.py`（改用新參數名）與 `results.md`（註記實驗當時的舊名稱）。
+- 測試：`test_image_summarizer.py` 新增下載並行數測試（`(2, 8) → 2`、`(20, 5) → 5`）與兩者獨立測試（下載 2、摘要 5）；摘要並行測試改名；`test_llm_provider.py` 改用新參數。新測試先以舊實作確認失敗。注意 `fakes` fixture 會把全域 `time.sleep` 換成 no-op，下載端測試改用 `threading.Event().wait()` 製造延遲。
+
+## 下載並行上限實驗（ncucsie）與完整驗證
+
+- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/download_concurrency/`（`probe.py`、`validate.py`、`results.md`、`raw.jsonl`、`summary.jsonl`）。
+- 實驗：先以 `--dry-run`（fake 下載，輸出到暫存資料夾）確認紀錄格式、並行量測，以及模擬限流時在失敗率 > 20% 的那一級停止；再正式跑 20／30／40／50 共 280 個請求，**0 失敗**，無限流類錯誤；吞吐量從 N=20 起固定約 10 MB/s（頻寬飽和），更高並行只讓延遲變長（p50 ×1.00／1.67／2.19／2.62）。
+- 完整驗證（下載 40、摘要 50，輸入為已發布的 ncucsie 結果，`save=True`／`publish=False`，`data/` 無變動）：run `runs/20261002_215918/...`。
+  1. 摘要成功 161、最終失敗仍為同樣 8 張，無 429／逾時：✅
+  2. 無 `retrying`（下載失敗累計 33，成功率 83%，仍高於門檻 0.8）：✅
+  3. 統計表格欄位與格式不變：✅；耗時 465.4 秒，**未達「不長於舊紀錄 422.9 秒」**：差異在單次執行的自然波動內（nculab 相同設定三次為 109.6／142.5／122.9 秒），預期的並行增益（3 個大頁，合計估計 < 40 秒）小於雜訊，此條件過於樂觀。⚠️
+  4. 費用 $0.1676（估計 $0.16）；`data/` 無變動：✅
+- 意外發現（既有問題）：同一頁內重複的圖片 URL（全站 10 頁）會被同時下載多次，失敗原因可能顯示為 `download failed` 而非實際的 `HTTP Error 404`（`doc.gif%20` 在本次出現）。未修正，細節見 `results.md`。
+- 預設值：機械套用規則為 40，但吞吐量在 20 並行即飽和，我建議維持 20；**使用者決定改為 40**。`SummarizerInitConfig.download_max_workers` 預設 20 → 40，`docs/code/runs/config.md` 同步；依使用者指示與實驗紀錄一併 amend 到同一個 commit。
+- 行為變動：圖片較多的頁面（ncucsie 3 頁未快取下載數 45／30／26）下載並行數 20 → 40；其餘頁面不受影響。完整驗證即以 40 執行並通過。
+- todo：新增「圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次」（`docs/work/todo.md` 效能優化）。

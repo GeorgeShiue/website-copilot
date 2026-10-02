@@ -17,6 +17,9 @@ class SummarizerInitConfig(ConfigModel):
     success_threshold: float = Field(
         default=0.8, ge=0, le=1, description="圖片下載成功率低於此值則啟動重試機制"
     )
+    download_max_workers: PositiveInt = Field(
+        default=40, description="同時下載圖片的執行緒數（每頁各自計算）"
+    )
     max_retries: NonNegativeInt = Field(
         default=6, description="最大重試次數，對應指數退避的長度 + 最後一次用 cap"
     )
@@ -32,7 +35,9 @@ class SummarizeConfig(ConfigModel):
         default="markdown",
         description="圖片來源：爬蟲結果的 images 欄位或 markdown 中的圖片連結",
     )
-    vlm_max_workers: PositiveInt = 20
+    summary_max_workers: PositiveInt = Field(
+        default=50, description="同時呼叫 VLM 摘要圖片的請求數（每頁各自計算）"
+    )
 
 
 class ImageSummarizerConfig(BaseModuleConfig):

@@ -196,6 +196,7 @@ def run_image_summarizer(
             log_config(f"{config.__class__.__name__} Loaded from yaml", config)
             image_summarizer = ImageSummarizer(
                 download_timeout=config.init.download_timeout,
+                download_max_workers=config.init.download_max_workers,
                 success_threshold=config.init.success_threshold,
                 max_retries=config.init.max_retries,
             )
@@ -215,7 +216,7 @@ def run_image_summarizer(
                 crawl_results,
                 model=config.summarize.model,
                 prompt=config.summarize.prompt,
-                vlm_max_workers=config.summarize.vlm_max_workers,
+                summary_max_workers=config.summarize.summary_max_workers,
                 image_source=config.summarize.image_source,
                 **config.litellm_kwargs,
             )

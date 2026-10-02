@@ -10,7 +10,7 @@
 
 - **模組設定**
 	- `./configs/image_summarizer/{name}.yml`（**摘要設定檔**，只寫與 class 預設值不同的部分，透過 `src/website_copilot/config/image_summarizer_config.py` 載入）
-	- 可在 `ImageSummarizerConfig` 或執行參數中覆寫 **model**、**prompt**、**image_source**、**vlm_max_workers** 與 **litellm_kwargs**
+	- 可在 `ImageSummarizerConfig` 或執行參數中覆寫 **model**、**prompt**、**image_source**、**summary_max_workers** 與 **litellm_kwargs**（下載並行數 **download_max_workers** 在 `init` 區塊）
 	- 開始摘要前以 `utils/llm_provider` 依模型名稱解析供應商（litellm 前綴與 API key 環境變數），並從 `.env` 或系統環境讀取 API key；無法判斷供應商或缺 key 時直接失敗
 
 - **模組環境**
@@ -27,7 +27,7 @@
 
 ### 2. 下載與摘要處理
 - 擷取到的圖片 URL 會先依副檔名（`.svg`／`.avif`／`.bmp`／`.ico`／`.tif`／`.tiff`）過濾掉 VLM 不支援的格式，再進入下載流程。
-- 使用 `ThreadPoolExecutor(max_workers=vlm_max_workers)` 併行下載圖片。
+- 使用 `ThreadPoolExecutor(max_workers=download_max_workers)` 併行下載圖片。
 - 下載時會檢查 `Content-Type` 是否屬於 `SUPPORTED_IMAGE_CONTENT_TYPES`（`image/png`／`image/jpeg`／`image/gif`／`image/webp`），非此範圍一律視為下載失敗，再轉成 base64 data URL。
 - 下載完成後呼叫 `LiteLLM` 的 `acompletion()` 產生圖片摘要與 caption。
 
@@ -44,8 +44,8 @@
 - `from_yaml(config_name, overrides=None)` 會在建立物件時載入、疊上 overrides 並以 pydantic 驗證一次。
 
 ### 2. 可驗證設定
-- 驗證 `download_timeout`、`success_threshold`、`max_retries`。
-- 驗證 `model`、`prompt`、`image_source`、`vlm_max_workers`、`litellm_kwargs`。
+- 驗證 `download_timeout`、`download_max_workers`、`success_threshold`、`max_retries`。
+- 驗證 `model`、`prompt`、`image_source`、`summary_max_workers`、`litellm_kwargs`。
 - 覆寫值（CLI `--module.*`）為巢狀 dict，與設定檔同一個 deep merge 合併後統一驗證。
 
 ### 3. API key 與 run name

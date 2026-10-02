@@ -6,6 +6,8 @@ fake 圖片內容即其 url，fake caption 為 "caption of <url>"，可由 capti
 
 import asyncio
 import base64
+import threading
+import time
 from dataclasses import asdict
 from types import SimpleNamespace
 from typing import Any
@@ -21,10 +23,13 @@ DOWNLOAD_ERROR = str(URLError("connection refused"))
 
 
 def _make_summarizer(
-    success_threshold: float = 0.8, max_retries: int = 0
+    success_threshold: float = 0.8,
+    max_retries: int = 0,
+    download_max_workers: int = 4,
 ) -> ImageSummarizer:
     return ImageSummarizer(
         download_timeout=1.0,
+        download_max_workers=download_max_workers,
         success_threshold=success_threshold,
         max_retries=max_retries,
     )
@@ -111,7 +116,7 @@ def _summarize(
         crawl_results,
         model="gpt-test",
         prompt="describe",
-        vlm_max_workers=4,
+        summary_max_workers=4,
         image_source="markdown",
     )
 
@@ -131,11 +136,11 @@ def _page_stats(summarizer: ImageSummarizer) -> dict[str, dict[str, Any]]:
     ("workers", "n_images", "expected_peak"),
     [(3, 10, 3), (20, 5, 5)],
 )
-def test_caption_concurrency_is_limited_by_vlm_max_workers(
+def test_caption_concurrency_is_limited_by_summary_max_workers(
     monkeypatch: pytest.MonkeyPatch, workers: int, n_images: int, expected_peak: int
 ) -> None:
     summarizer = _make_summarizer()
-    summarizer.vlm_max_workers = workers
+    summarizer.summary_max_workers = workers
     in_flight = 0
     peak = 0
 
@@ -154,6 +159,81 @@ def test_caption_concurrency_is_limited_by_vlm_max_workers(
 
     assert peak == expected_peak
     assert len(results) == n_images
+
+
+@pytest.mark.parametrize(
+    ("workers", "n_images", "expected_peak"),
+    [(2, 8, 2), (20, 5, 5)],
+)
+def test_download_concurrency_is_limited_by_download_max_workers(
+    monkeypatch: pytest.MonkeyPatch, workers: int, n_images: int, expected_peak: int
+) -> None:
+    summarizer = _make_summarizer(download_max_workers=workers)
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+
+    def fake_download(_url: str) -> str:
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        time.sleep(0.05)
+        with lock:
+            in_flight -= 1
+        return "data:image/png;base64,AA=="
+
+    monkeypatch.setattr(summarizer, "_download_image", fake_download)
+
+    summarizer._download_images(
+        [f"https://example.com/{i}.png" for i in range(n_images)]
+    )
+
+    assert peak == expected_peak
+
+
+def test_download_and_summary_concurrency_are_independent(
+    fakes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """下載 2 條、摘要 5 條：兩個上限各自生效，互不影響。"""
+    web, vlm, _ = fakes
+    lock = threading.Lock()
+    counters = {"download": 0, "download_peak": 0, "summary": 0, "summary_peak": 0}
+    real_urlopen, real_acompletion = web.urlopen, vlm.acompletion
+
+    def slow_urlopen(req: Any, timeout: float) -> Any:
+        with lock:
+            counters["download"] += 1
+            counters["download_peak"] = max(
+                counters["download_peak"], counters["download"]
+            )
+        threading.Event().wait(0.05)  # fakes 已把 time.sleep 換成 no-op
+        with lock:
+            counters["download"] -= 1
+        return real_urlopen(req, timeout)
+
+    async def slow_acompletion(**kwargs: Any) -> Any:
+        counters["summary"] += 1
+        counters["summary_peak"] = max(counters["summary_peak"], counters["summary"])
+        await asyncio.sleep(0.05)
+        counters["summary"] -= 1
+        return await real_acompletion(**kwargs)
+
+    monkeypatch.setattr(module, "urlopen", slow_urlopen)
+    monkeypatch.setattr(module, "acompletion", slow_acompletion)
+
+    summarizer = _make_summarizer(download_max_workers=2)
+    urls = [f"https://ex.com/{i}.png" for i in range(10)]
+    summarizer.summarize_crawl_results_images(
+        {"page": _page(*urls)},
+        model="gpt-test",
+        prompt="describe",
+        summary_max_workers=5,
+        image_source="markdown",
+    )
+
+    assert counters["download_peak"] == 2
+    assert counters["summary_peak"] == 5
 
 
 # ----- 快取 -----
