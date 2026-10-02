@@ -59,4 +59,4 @@
 - `_extract_metadata()` 根據 URL sub-path 匹配 `PAGE_TYPE_PATTERNS` 規則（如 `/news` → `announcement`、`/publication` → `paper`），產出 `page_type` 與 `description` 供下游 metadata filter 使用。
 - `_extract_crawl_results_data()` 產出最終結構，每個頁面包含 `url`、`fit_markdown`、`images`、`metadata` 與 `crawl_info` 五個子字典。
 - `WebsiteCrawlerConfig.from_yaml(config_name, overrides=None)` 載入 `init` 與 `clean` 設定（extends 展開 → 疊上 CLI overrides → pydantic 驗證一次）；`default` 無檔案時等於 class 預設值。
-- `run_name` 依 YAML 的 `run_name_fields` 組成，未寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`（`init.max_depth`）。
+- `run_name` 依 YAML 的 `run_name_fields` 組成，未寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`（`init.max_depth`）。- `init.content_threshold`（`PruningContentFilter` 的門檻，越高過濾越多內容）預設 `0.25`。曾有一組「保留標題」的對照值 `0.45`（原常數 `KEEP_TITLE_CONTENT_THRESHOLD`），程式中無人引用而已刪除；需要時以設定檔覆寫 `init.content_threshold` 即可。
