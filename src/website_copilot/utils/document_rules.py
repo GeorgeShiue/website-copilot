@@ -6,6 +6,7 @@
 import re
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
+from urllib.parse import urlsplit, urlunsplit
 
 DOCUMENT_EXTENSIONS: tuple[str, ...] = (
     "pdf",
@@ -31,3 +32,12 @@ def is_document_url(url: str, site_patterns: Iterable[str] = ()) -> bool:
     if DOCUMENT_EXTENSION_PATTERN.match(url):
         return True
     return any(fnmatchcase(url, pattern) for pattern in site_patterns)
+
+
+def normalize_url(url: str) -> str:
+    """文件 URL 的去重鍵：scheme／host 轉小寫、去掉 fragment；path 與 query 原樣保留
+    （站點的下載 API 以 query 區分檔案）。"""
+    parts = urlsplit(url.strip())
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path, parts.query, "")
+    )

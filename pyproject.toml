@@ -11,7 +11,9 @@ requires-python = ">=3.13.12"
 dependencies = [
     "beautifulsoup4>=4.14.3",
     "crawl4ai>=0.9.2",
+    "docling>=2.133.0",
     "fastapi>=0.141.1",
+    "firecrawl-anydoc>=0.2.4",
     "flagembedding>=1.4.2",
     "httpx>=0.28.1",
     "langchain>=1.4.0",

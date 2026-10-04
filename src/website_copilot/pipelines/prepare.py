@@ -19,12 +19,14 @@ from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.site_config import SiteConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
 from website_copilot.ingestion.augmentation.augmenter import Augmenter
+from website_copilot.ingestion.augmentation.documents import DocumentOptions
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
 from website_copilot.retrieval.factory import build_rag, build_target
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.data_paths import (
     AUG_WEBPAGES,
+    FILES_FOLDER,
     RAW_WEBPAGES,
     vector_store_name,
 )
@@ -35,6 +37,7 @@ from website_copilot.storage.run_context import (
 )
 from website_copilot.storage.run_persistence import (
     load_latest_results,
+    save_document_files,
     save_generated_exclude_words,
     save_results_as_md,
 )
@@ -214,7 +217,21 @@ def run_augmenter(
                     site_id=site.site_id,
                 )
 
-            # ---- 執行圖片摘要 -----
+            # ---- 執行擴充（圖片摘要、文件）-----
+            documents = (
+                DocumentOptions(
+                    formats=tuple(config.documents.formats),
+                    caption_images=config.documents.caption_images,
+                    url_patterns=tuple(site.documents.url_patterns),
+                    allowed_domains=(
+                        None
+                        if site.crawl.allowed_domains is None
+                        else tuple(site.crawl.allowed_domains)
+                    ),
+                )
+                if config.documents.enabled
+                else None
+            )
             log_session("Augmentation", style="cyan")
             enhanced_results = augmenter.augment(
                 crawl_results,
@@ -223,6 +240,8 @@ def run_augmenter(
                 image_max_concurrency=config.images.max_concurrency,
                 image_source=config.images.source,
                 image_min_size=config.images.min_size,
+                images_enabled=config.images.enabled,
+                documents=documents,
                 **config.litellm_kwargs,
             )
 
@@ -241,6 +260,10 @@ def run_augmenter(
                     run_manager.results_folder_path,
                     "enhanced_markdown",
                 )
+                save_document_files(
+                    augmenter.document_files,
+                    os.path.join(run_manager.run_path, FILES_FOLDER),
+                )
                 save_run_configs(run_manager.run_path, config, site, run_config)
 
             # ----- Publish（publish 到 data/） -----
@@ -248,6 +271,7 @@ def run_augmenter(
                 data_manager.publish_markdown(
                     site_id=site.site_id,
                     enhanced_results=enhanced_results,
+                    document_files=augmenter.document_files,
                 )
 
         # ----- Publish run metadata：log 要在 workflow context 結束後才完整 -----

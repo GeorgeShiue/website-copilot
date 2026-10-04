@@ -14,6 +14,7 @@ from website_copilot.ingestion.indexing.transforms import (
     MarkdownDateExtractor,
     MarkdownHeadingMergeParser,
     MarkdownImageExtractor,
+    SourcePagesInjector,
 )
 from website_copilot.utils.text_helper import clean_description
 
@@ -38,18 +39,22 @@ class NodePipelineBuilder:
     def _build_file_metadata(
         results_json: dict[str, Any], file_path: str, site_id: str
     ) -> dict[str, Any]:
-        page_title = os.path.basename(file_path).replace(".md", "")
-        page_info = results_json.get(page_title, {})
+        key = os.path.basename(file_path).replace(".md", "")
+        page_info = results_json.get(key, {})
         page_metadata: dict[str, Any] = page_info.get("metadata", {})
 
         file_metadata: dict[str, Any] = {
-            "page_title": page_title,
+            # 文件 entry 的鍵是 doc_<hash>，顯示用標題在 entry 的 title
+            "page_title": page_info.get("title") or key,
             "page_url": page_info.get("url", ""),
             "page_type": page_metadata.get("page_type", "general"),
             "published_date": page_metadata.get("published_date", ""),
             "description": clean_description(page_metadata.get("description")),
             "site_id": site_id,
         }
+        if page_metadata.get("file_format"):
+            file_metadata["file_format"] = page_metadata["file_format"]
+            file_metadata["file_name"] = page_metadata.get("file_name", "")
 
         return file_metadata
 
@@ -93,6 +98,13 @@ class NodePipelineBuilder:
                 ),
                 MarkdownHeadingMergeParser(),
                 MarkdownImageExtractor(),
+                SourcePagesInjector(
+                    source_pages_by_url={
+                        entry["url"]: entry["metadata"]["source_pages"]
+                        for entry in results_json.values()
+                        if entry.get("metadata", {}).get("source_pages")
+                    }
+                ),
             ]
         )
         nodes = pipeline.run(documents=md_docs, show_progress=True)

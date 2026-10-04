@@ -62,7 +62,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；site_config.py（SiteConfig）；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）、prompts.py（長 prompt 預設值）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
-│   │   ├── augmentation/        # augmenter（篩選 → 下載 → 解析 → 回寫）/ assets / collectors / processors（image_captioner：VLM 圖片摘要）
+│   │   ├── augmentation/        # augmenter（篩選 → 下載 → 解析 → 回寫）/ assets / collectors / documents（文件階段）/ document_format / titles / processors（image_captioner：VLM 圖片摘要；document_parser／pdf_parser／office_parser：文件解析與內嵌圖片抽出）
 │   │   └── indexing/            # source / transforms / node_pipeline / vector_store / index（IndexBuilder → IndexHandle）
 │   ├── retrieval/
 │   │   ├── rag.py               # RAG（index_handle + retriever + query engine）
@@ -108,7 +108,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   └── agent/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
 │   ├── raw_webpages/<site_id>/  # 爬蟲原始輸出（fit_markdown）
-│   ├── aug_webpages/<site_id>/  # 圖片摘要後的最終結果（enhanced_markdown，RAG 建庫讀這份）
+│   ├── aug_webpages/<site_id>/  # augmenter 處理後的最終結果（RAG 建庫讀這份）：results.json、results/*.md（enhanced_markdown；文件為 doc_ 開頭的獨立 entry）、files/（文件原檔）
 │   └── rag/<site_id>.db/        # 向量資料庫（Milvus Lite 資料夾）；建庫設定備份在其中的 meta/
 ├── docs/
 │   ├── project.md               # 專案總覽與路線圖

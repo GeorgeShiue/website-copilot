@@ -32,6 +32,8 @@ ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 PROGRESS_LINE_PREFIXES = (
     "Downloading images...",
     "Generating captions...",
+    "Downloading documents...",
+    "Parsing documents...",
 )
 # 無害的第三方雜訊：logger 名稱 → 最低放行等級
 NOISY_LOGGER_LEVELS = {

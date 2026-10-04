@@ -8,7 +8,8 @@ parameters instead of relying on RunManager instance state.
 import json
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from typing import Any
 
 from website_copilot.schemas import GenerationResult
 
@@ -210,6 +211,21 @@ def save_results_as_md(
 
         with open(markdown_file_path, "w", encoding="utf-8") as f:
             f.write(markdown)
+
+
+def save_document_files(files: Mapping[str, Any], folder_path: str) -> None:
+    """把文件原檔寫入 folder_path（檔名為 file.file_name），並清掉資料夾內已不屬於本次結果的舊檔。
+
+    files 的值需有 file_name 與 content 屬性（見 DocumentFile）；沒有文件時資料夾內容一併清空。
+    """
+    os.makedirs(folder_path, exist_ok=True)
+    keep = {file.file_name for file in files.values()}
+    for name in os.listdir(folder_path):
+        if name not in keep:
+            os.remove(os.path.join(folder_path, name))
+    for file in files.values():
+        with open(os.path.join(folder_path, file.file_name), "wb") as f:
+            f.write(file.content)
 
 
 def save_generated_exclude_words(

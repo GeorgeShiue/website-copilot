@@ -34,17 +34,23 @@ def image_key(content: bytes) -> str:
         with Image.open(io.BytesIO(content)) as image:
             return str(image.info["key"])
     except (OSError, KeyError):
-        return content.decode()
+        try:
+            return content.decode()
+        except UnicodeDecodeError:  # 沒有 key 的真實圖片：以內容雜湊代表
+            return hashlib.sha1(content).hexdigest()[:8]
 
 
 def ok_result(
-    url: str, content_type: str = "image/png", content: bytes | None = None
+    url: str,
+    content_type: str = "image/png",
+    content: bytes | None = None,
+    headers: dict[str, str] | None = None,
 ) -> DownloadResult:
     return DownloadResult(
         url=url,
         final_url=url,
         status_code=200,
-        headers={"content-type": content_type},
+        headers={"content-type": content_type, **(headers or {})},
         content=url.encode() if content is None else content,
         error=None,
         attempts=1,
@@ -72,6 +78,7 @@ class FakeDownloader:
     - errors[url]：(error, status_code)，如 ("HTTP 404", 404)。
     - content_types[url]：回應的 Content-Type。
     - contents[url]：回應內容（預設為 url 的位元組，不是有效圖片）。
+    - headers[url]：額外的回應標頭（如 content-disposition）。
     """
 
     def __init__(
@@ -80,11 +87,13 @@ class FakeDownloader:
         content_types: dict[str, str] | None = None,
         errors: dict[str, tuple[str, int | None]] | None = None,
         contents: dict[str, bytes] | None = None,
+        headers: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self.failures = dict(failures or {})
         self.content_types = content_types or {}
         self.errors = errors or {}
         self.contents = contents or {}
+        self.headers = headers or {}
         self.downloads: list[str] = []
 
     def download(
@@ -106,6 +115,7 @@ class FakeDownloader:
                     url,
                     self.content_types.get(url, "image/png"),
                     self.contents.get(url),
+                    self.headers.get(url),
                 )
             results[url] = result
             if on_complete is not None:

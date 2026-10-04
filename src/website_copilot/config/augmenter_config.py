@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, NonNegativeInt, PositiveFloat, PositiveInt
 
@@ -39,6 +39,9 @@ class RetryConfig(ConfigModel):
 
 
 class ImagesConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True, description="是否處理頁面圖片；false 時不呼叫 VLM（不產生費用）"
+    )
     model: NonEmptyStr = Field(default="gpt-5.6-luna", description="VLM 模型名稱")
     prompt: NonEmptyStr = Field(
         default=IMAGE_SUMMARY_PROMPT,
@@ -57,6 +60,20 @@ class ImagesConfig(ConfigModel):
     )
 
 
+class DocumentsConfig(ConfigModel):
+    enabled: bool = Field(default=True, description="是否處理網站連結的文件")
+    caption_images: bool = Field(
+        default=True,
+        description="文件內嵌圖片是否交給 VLM 描述並插回文件內容（需 images.enabled）",
+    )
+    formats: Annotated[
+        list[Literal["pdf", "docx", "doc", "odt"]], Field(min_length=1)
+    ] = Field(
+        default_factory=lambda: ["pdf", "docx", "doc", "odt"],
+        description="要下載並解析的文件格式；其餘格式只記統計，不下載（或下載後略過）",
+    )
+
+
 class AugmenterConfig(BaseModuleConfig):
     _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/augmenter"
     _DEFAULT_RUN_NAME_FIELDS: ClassVar[tuple[str, ...]] = ("images.model",)
@@ -64,6 +81,7 @@ class AugmenterConfig(BaseModuleConfig):
     download: DownloadConfig = Field(default_factory=DownloadConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
     images: ImagesConfig = Field(default_factory=ImagesConfig)
+    documents: DocumentsConfig = Field(default_factory=DocumentsConfig)
     litellm_kwargs: dict[str, Any] = Field(
         default_factory=dict, description="直接傳給 litellm 的額外參數"
     )

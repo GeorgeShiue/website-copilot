@@ -17,8 +17,15 @@ from rich.text import Text
 
 from website_copilot.ingestion.augmentation.assets import Asset
 from website_copilot.ingestion.augmentation.collectors import ImageCollector
+from website_copilot.ingestion.augmentation.documents import (
+    DocumentFile,
+    DocumentOptions,
+    DocumentStage,
+)
 from website_copilot.ingestion.augmentation.processors.image_captioner import (
     ImageCaptioner,
+    caption_block,
+    to_data_url,
     to_image_data_url,
 )
 from website_copilot.ingestion.augmentation.processors.image_filter import (
@@ -35,9 +42,6 @@ from website_copilot.utils.log_helper import (
 from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN
 
 logger = logging.getLogger(__name__)
-
-# 403／429 常為封鎖或限流，與逾時、連線錯誤、5xx 同屬可恢復；其餘 4xx 為永久錯誤
-RECOVERABLE_STATUS_CODES = frozenset({403, 429})
 
 
 class Downloader(Protocol):
@@ -122,6 +126,13 @@ class Augmenter:
         self._all_round_stats = RoundStats()
         # 最終仍失敗的圖片：url -> (第一個引用頁面, 原因)
         self._failed_images: dict[str, tuple[str, str]] = {}
+        self._failed_documents: dict[str, tuple[str, str]] = {}
+        self._documents: DocumentStage | None = None
+
+    @property
+    def document_files(self) -> dict[str, DocumentFile]:
+        """文件 entry 的原檔（鍵同 results 中的文件 entry），供呼叫端存檔與發布。"""
+        return self._documents.files if self._documents is not None else {}
 
     def augment(
         self,
@@ -132,9 +143,14 @@ class Augmenter:
         image_max_concurrency: int,
         image_source: Literal["images", "markdown"],
         image_min_size: int,
+        images_enabled: bool = True,
+        documents: DocumentOptions | None = None,
         **litellm_kwargs: Any,
     ) -> dict[str, dict[str, Any]]:
-        """使用 VLM 描述所有爬取頁面中的圖片，並寫回各頁（就地修改後回傳）。
+        """擴充爬取結果：以 VLM 描述頁面圖片並寫回各頁，文件（documents 不為 None 時）成為獨立 entry。
+        就地修改後回傳；文件的原檔見 document_files。
+
+        images_enabled 為 False 時不處理圖片（也不需要 VLM 的 API key）。
 
         送 VLM 前過濾：長邊小於 image_min_size 的圖片略過（不產生描述；0 為不過濾）；
         內容（sha1）相同的圖片只描述一次、共用描述。
@@ -143,32 +159,53 @@ class Augmenter:
 
         - crawl_results: 爬取結果，每個元素為 dict，包含 "fit_markdown"與 "images"。
         """
-        # 開始前建立：無法判斷供應商或缺 API key 時直接失敗，不下載任何圖片
-        captioner = ImageCaptioner(
-            model=model,
-            prompt=prompt,
-            max_concurrency=image_max_concurrency,
-            litellm_kwargs=litellm_kwargs,
+        # 開始前建立：無法判斷供應商或缺 API key 時直接失敗，不下載任何資源
+        captioner = (
+            ImageCaptioner(
+                model=model,
+                prompt=prompt,
+                max_concurrency=image_max_concurrency,
+                litellm_kwargs=litellm_kwargs,
+            )
+            if images_enabled
+            else None
         )
-        assets = ImageCollector(image_source).collect(crawl_results)
+        assets = (
+            ImageCollector(image_source).collect(crawl_results)
+            if images_enabled
+            else []
+        )
+        self._documents = (
+            DocumentStage(documents, self.downloader) if documents is not None else None
+        )
+        if self._documents is not None:
+            # 文件內嵌圖片只在 VLM 可用（images.enabled）且 documents.caption_images 時抽出
+            self._documents.extract_images = (
+                captioner is not None and documents.caption_images  # type: ignore[union-attr]
+            )
+        document_assets = (
+            self._documents.collect(crawl_results) if self._documents else []
+        )
 
         self._image_cache = {}
         self._content_reps = {}
         self._image_min_size = image_min_size
         self._all_round_stats = RoundStats()
 
-        pending = assets
-        while pending:
-            round_stats = self._process_round(crawl_results, assets, pending, captioner)
+        pending, pending_documents = assets, document_assets
+        while pending or pending_documents:
+            round_stats = self._process_round(
+                crawl_results, assets, pending, captioner, pending_documents
+            )
             self._all_round_stats.cost_usd += round_stats.cost_usd
             self._all_round_stats.success += round_stats.success
             self._all_round_stats.failure += round_stats.failure
             self._all_round_stats.retries += 1
 
-            failed_assets = self._retrieve_retry_targets(pending)
-            if failed_assets is None:
+            retry_targets = self._retrieve_retry_targets(pending, pending_documents)
+            if retry_targets is None:
                 break
-            pending = failed_assets
+            pending, pending_documents = retry_targets
 
         if self._all_round_stats.retries > 1:
             self._log_stats(
@@ -177,7 +214,12 @@ class Augmenter:
 
         self._write_back(crawl_results, assets)
         self._failed_images = self._collect_failed_images(assets)
-        self._log_failed_images(self._failed_images)
+        self._failed_documents = {}
+        if self._documents is not None:
+            self._documents.write_back(crawl_results, self._caption_for)
+            self._documents.log_summary()
+            self._failed_documents = self._documents.failed_documents()
+        self._log_failed(self._failed_images, self._failed_documents)
 
         return crawl_results
 
@@ -188,17 +230,25 @@ class Augmenter:
         crawl_results: dict[str, dict[str, Any]],
         assets: list[Asset],
         pending: list[Asset],
-        captioner: ImageCaptioner,
+        captioner: ImageCaptioner | None,
+        pending_documents: list[Asset],
     ) -> PageStats:
-        """處理 pending 資源（下載、摘要）並更新快取；回傳本輪統計加總。"""
+        """處理本輪資源並更新快取：下載（圖片、文件）→ 解析文件 → 圖片摘要；回傳圖片統計加總。"""
         self._download(pending)
-        costs = self._caption(pending, captioner)
+        if self._documents is not None and pending_documents:
+            self._documents.download(pending_documents)
+            new_images = self._documents.parse()
+            self._register_document_images(new_images)
+            assets.extend(new_images)
+            pending.extend(new_images)
+        costs = self._caption(pending, captioner) if captioner is not None else {}
 
         self._page_stats_by_page = self._page_stats(
             crawl_results, assets, pending, costs
         )
         round_total = sum((stats for _, stats in self._page_stats_by_page), PageStats())
-        self._log_page_stats_table("All Image Summarize Stats", round_total)
+        if pending:
+            self._log_page_stats_table("All Image Summarize Stats", round_total)
         record_cost(round_total.cost_usd)
         return round_total
 
@@ -240,7 +290,8 @@ class Augmenter:
                 )
             else:
                 entry = ImageEntry(base64_url=data_url, download_status="success")
-                self._apply_image_filters(url, result, entry)
+                assert result.content is not None
+                self._apply_image_filters(url, result.content, entry)
                 self._image_cache[url] = entry
 
         skipped = sum(self._image_cache[url].skip_reason != "" for url in urls)
@@ -252,20 +303,38 @@ class Augmenter:
                 shared,
             )
 
-    def _apply_image_filters(
-        self, url: str, result: DownloadResult, entry: ImageEntry
-    ) -> None:
+    def _register_document_images(self, new_images: list[Asset]) -> None:
+        """文件內嵌圖片不需下載：直接建立記錄，套用與頁面圖片相同的過濾（小圖、內容去重）。"""
+        assert self._documents is not None
+        for asset in new_images:
+            image = self._documents.image_contents[asset.url]
+            data_url = to_data_url(image)
+            if data_url is None:  # 格式 VLM 不支援（svg、emf 等）：略過
+                self._image_cache[asset.url] = ImageEntry(
+                    download_status="success",
+                    skip_reason=f"unsupported image type {image.media_type}",
+                )
+                continue
+            entry = ImageEntry(base64_url=data_url, download_status="success")
+            self._apply_image_filters(asset.url, image.content, entry)
+            self._image_cache[asset.url] = entry
+
+    def _caption_for(self, url: str) -> str:
+        """圖片資源的描述（成功才有；內容相同者取代表圖片的描述）。"""
+        entry = self._resolve(url)
+        if entry is not None and entry.summarize_status == "success":
+            return entry.caption
+        return ""
+
+    def _apply_image_filters(self, url: str, content: bytes, entry: ImageEntry) -> None:
         """小圖略過（長邊 < image_min_size）；內容相同的圖片共用第一張的描述。"""
-        assert result.content is not None
-        long_edge = image_long_edge(result.content)
+        long_edge = image_long_edge(content)
         if long_edge is not None and long_edge < self._image_min_size:
             entry.skip_reason = f"too small ({long_edge}px)"
             entry.base64_url = ""
             return
 
-        representative = self._content_reps.setdefault(
-            content_sha1(result.content), url
-        )
+        representative = self._content_reps.setdefault(content_sha1(content), url)
         if representative != url:
             entry.shared_with = representative
             entry.base64_url = ""
@@ -279,15 +348,8 @@ class Augmenter:
 
     @staticmethod
     def _is_recoverable(result: DownloadResult) -> bool:
-        """失敗是否可能因重試或等待而恢復：逾時、連線錯誤、5xx、429、403。"""
-        if result.error is not None and result.error.startswith(
-            ("invalid url", "exceeds max_bytes")
-        ):
-            return False
-        status = result.status_code
-        if status is None:
-            return True
-        return status >= 500 or status in RECOVERABLE_STATUS_CODES
+        """失敗是否可能因重試或等待而恢復（見 DownloadResult.recoverable）。"""
+        return result.recoverable
 
     @staticmethod
     def _is_captionable(entry: ImageEntry) -> bool:
@@ -347,7 +409,10 @@ class Augmenter:
         """
         pending_urls = {asset.url for asset in pending}
         touched_pages = {ref.page_key for asset in pending for ref in asset.refs}
+        # 文件內嵌圖片的「頁面」是文件標籤（不在 crawl_results），排在頁面之後
         stats = {key: PageStats() for key in crawl_results if key in touched_pages}
+        for key in touched_pages - stats.keys():
+            stats[key] = PageStats()
 
         for asset in assets:
             entry = self._image_cache[asset.url]
@@ -378,10 +443,13 @@ class Augmenter:
 
     # ===== 重試 =====
 
-    def _retrieve_retry_targets(self, pending: list[Asset]) -> list[Asset] | None:
-        """成功率過低時回傳下一輪要重做的資源（並重設其失敗狀態）；不需重試回傳 None。
+    def _retrieve_retry_targets(
+        self, pending: list[Asset], pending_documents: list[Asset]
+    ) -> tuple[list[Asset], list[Asset]] | None:
+        """成功率過低時回傳下一輪要重做的 (圖片, 文件)（並重設其失敗狀態）；不需重試回傳 None。
 
-        成功率 = 成功 ÷（成功 + 可恢復失敗），以不重複資源計算；404 等永久錯誤不計入。
+        圖片與文件共用一套：成功率 = 成功 ÷（成功 + 可恢復失敗），兩種資源合併、以不重複資源計算；
+        404 等永久錯誤、格式不符、文件解析失敗不計入。
         """
         if self._all_round_stats.retries >= self.max_retries:
             return None
@@ -392,12 +460,20 @@ class Augmenter:
             if self._image_cache[asset.url].summarize_status == "failed"
             and self._image_cache[asset.url].recoverable
         ]
+        failed_documents = (
+            self._documents.recoverable_failures(pending_documents)
+            if self._documents is not None
+            else []
+        )
         success = sum(
             self._image_cache[asset.url].summarize_status == "success"
             for asset in pending
         )
-        total = success + len(failed_assets)
-        if total == 0 or not failed_assets:
+        if self._documents is not None:
+            success += sum(self._documents.is_success(a) for a in pending_documents)
+        failed_count = len(failed_assets) + len(failed_documents)
+        total = success + failed_count
+        if total == 0 or failed_count == 0:
             return None
         success_rate = success / total
         if success_rate >= self.success_threshold:
@@ -412,9 +488,11 @@ class Augmenter:
                 entry.caption = ""
                 entry.failure_reason = ""
                 entry.recoverable = False
+        if self._documents is not None:
+            self._documents.reset(failed_documents)
 
-        self._backoff(len(failed_assets), success_rate)
-        return failed_assets
+        self._backoff(failed_count, success_rate)
+        return failed_assets, failed_documents
 
     # * 重試機制根據 max retries 動態生成等待時間
     def _backoff(self, failed_count: int, success_rate: float) -> None:
@@ -474,9 +552,7 @@ class Augmenter:
                 entry = self._resolve(url)
                 caption = entry.caption if entry is not None else ""
                 if caption:
-                    enhanced_parts.append(
-                        f"> # Image-{index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
-                    )
+                    enhanced_parts.append(caption_block(index, caption))
 
         return "".join(enhanced_parts).rstrip()
 
@@ -490,16 +566,21 @@ class Augmenter:
         }
 
     @staticmethod
-    def _log_failed_images(failed_images: dict[str, tuple[str, str]]) -> None:
-        """彙整最終仍失敗的圖片（頁面 · 原因 · 完整 URL，單行不折行）。"""
-        if not failed_images:
+    def _log_failed(
+        failed_images: dict[str, tuple[str, str]],
+        failed_documents: dict[str, tuple[str, str]],
+    ) -> None:
+        """彙整最終仍失敗的資源（類型 · 頁面 · 原因 · 完整 URL，單行不折行）。"""
+        total = len(failed_images) + len(failed_documents)
+        if total == 0:
             return
 
-        log_session(f"Failed Images ({len(failed_images)})", style="yellow")
-        for url, (page, reason) in failed_images.items():
-            # soft_wrap：URL 不被 rich 硬折行，方便複製
-            # Text 而非 str：避免 "[page]" 被 rich 當成 markup 標籤吞掉
-            print_log(Text(f"[{page}] {reason}: {url}"), soft_wrap=True)
+        log_session(f"Failed Resources ({total})", style="yellow")
+        for kind, failed in (("image", failed_images), ("document", failed_documents)):
+            for url, (page, reason) in failed.items():
+                # soft_wrap：URL 不被 rich 硬折行，方便複製
+                # Text 而非 str：避免 "[page]" 被 rich 當成 markup 標籤吞掉
+                print_log(Text(f"{kind} [{page}] {reason}: {url}"), soft_wrap=True)
 
     @staticmethod
     def _truncate_page_title(title: str, max_len: int = 20) -> str:

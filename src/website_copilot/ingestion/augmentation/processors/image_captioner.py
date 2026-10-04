@@ -2,10 +2,12 @@
 
 import asyncio
 import base64
+import io
 import logging
 from typing import Any
 
 from litellm import acompletion, completion_cost
+from PIL import Image
 
 from website_copilot.utils.http_downloader import DownloadResult
 from website_copilot.utils.llm_provider import get_api_key, resolve_provider
@@ -33,6 +35,28 @@ def to_image_data_url(result: DownloadResult) -> tuple[str | None, str]:
 
     b64 = base64.standard_b64encode(result.content).decode("ascii")
     return f"data:{content_type};base64,{b64}", ""
+
+
+def to_data_url(image: Any) -> str | None:
+    """文件內嵌圖片 → VLM 用的 base64 data URL；格式不在白名單時先嘗試以 Pillow 轉成 PNG，仍不行回傳 None。"""
+    media_type = image.media_type.split(";")[0].strip().lower()
+    content = image.content
+    if media_type not in SUPPORTED_IMAGE_CONTENT_TYPES:
+        try:
+            with Image.open(io.BytesIO(content)) as converted:
+                buffer = io.BytesIO()
+                converted.convert("RGBA").save(buffer, format="PNG")
+        except Exception:
+            return None
+        media_type, content = "image/png", buffer.getvalue()
+    return (
+        f"data:{media_type};base64,{base64.standard_b64encode(content).decode('ascii')}"
+    )
+
+
+def caption_block(index: int, caption: str) -> str:
+    """圖片描述區塊（頁面圖片與文件內嵌圖片共用的格式）；index 為圖片在頁面／文件內的序號。"""
+    return f"> # Image-{index}\n>\n> {caption.replace(chr(10), chr(10) + '> ')}\n"
 
 
 class ImageCaptioner:

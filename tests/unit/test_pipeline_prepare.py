@@ -211,6 +211,7 @@ def test_augmenter_save_writes_results_and_run_configs(env):
     with patch.object(prepare, "Augmenter") as summarizer_cls:
         summarizer = summarizer_cls.return_value
         summarizer.augment.return_value = {"p": {"enhanced_markdown": "enhanced"}}
+        summarizer.document_files = {}
         prepare.run_augmenter(
             AugmenterRunConfig(site=SITE, config_name="test", save=True),
             crawl_results={"p": {"fit_markdown": "md"}},
@@ -520,3 +521,48 @@ def test_run_prepare_stops_when_crawler_returns_none() -> None:
         prepare.run_prepare(PrepareRunConfig(site="ncucsie", config_name="test"))
     image.assert_not_called()
     rag.assert_not_called()
+
+
+class _DocFile:
+    def __init__(self, file_name: str, content: bytes) -> None:
+        self.file_name = file_name
+        self.content = content
+
+
+def test_augmenter_passes_document_options_and_saves_files(env):
+    """文件選項來自 augmenter 設定與站點設定；原檔存到 run 的 files/（與 results/ 並列）。"""
+    from website_copilot.pipelines import prepare
+
+    with patch.object(prepare, "Augmenter") as augmenter_cls:
+        augmenter = augmenter_cls.return_value
+        augmenter.augment.return_value = {"doc_1": {"enhanced_markdown": "doc"}}
+        augmenter.document_files = {"doc_1": _DocFile("doc_1.odt", b"original")}
+        prepare.run_augmenter(
+            AugmenterRunConfig(site=SITE, config_name="test", save=True),
+            crawl_results={"p": {"fit_markdown": "md"}},
+        )
+
+    documents = augmenter.augment.call_args.kwargs["documents"]
+    assert documents.formats == ("pdf", "docx", "doc", "odt")
+    assert documents.url_patterns == ()
+    assert augmenter.augment.call_args.kwargs["images_enabled"] is True
+    (run_path,) = env.runs.glob(f"*/augmenter/{env.site_id}/r1")
+    assert (run_path / "files" / "doc_1.odt").read_bytes() == b"original"
+    assert (run_path / "results" / "doc_1.md").read_text(encoding="utf-8") == "doc"
+
+
+def test_augmenter_publishes_document_files(env):
+    from website_copilot.pipelines import prepare
+
+    with patch.object(prepare, "Augmenter") as augmenter_cls:
+        augmenter = augmenter_cls.return_value
+        augmenter.augment.return_value = {"doc_1": {"enhanced_markdown": "doc"}}
+        augmenter.document_files = {"doc_1": _DocFile("doc_1.odt", b"original")}
+        prepare.run_augmenter(
+            AugmenterRunConfig(site=SITE, config_name="test", save=False, publish=True),
+            crawl_results={"p": {"fit_markdown": "md"}},
+        )
+
+    published = env.data / "aug_webpages" / env.site_id
+    assert (published / "files" / "doc_1.odt").read_bytes() == b"original"
+    assert (published / "results" / "doc_1.md").exists()

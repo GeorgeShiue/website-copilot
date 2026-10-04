@@ -154,3 +154,102 @@ exclude words 的 LLM 呼叫（小額，未另行統計）。
 - 過濾前（P1c）會送 VLM 的圖片為 170 − 4 = 166 張，P1d 後為 132 張，減少 34 次（約 20%）；若以單次呼叫約 $0.0011 估算，過濾前約 $0.19（推估，未實測）。
 - 與計畫的估計不同：計畫預估 VLM 呼叫約 161 → 約 105，是將「小圖 28 張」與「內容相同 28 張」視為彼此獨立相減；實測兩者幾乎重疊（內容相同的主要就是那些圖示本身，小圖先被略過），故實際為 166 → 132。這是估計方法的差異，不是實作缺陷：29 張小圖與 5 張共用描述與計畫調查的數字（小圖 28 張）相符。
 - 依賴：`pillow` 由依賴樹成員提升為 `[project].dependencies`（版本不變，`uv.lock` 只更新依賴宣告）。
+
+## P2a：文件骨架（anydoc：docx／doc／odt）
+
+### 自動化
+
+- `scripts/check.sh`：ruff、pyright 通過；`pytest tests/unit` 594 passed。圖片相關的 14 個行為測試與快照**未更動**（逐字一致）。
+- 新增 `test_documents.py`（36 個）：
+  - 格式判斷：magic bytes 優先於誤導的 Content-Type／副檔名；退回 Content-Disposition > Content-Type > URL 副檔名的優先序；無法判斷回傳 None；Content-Disposition 的 `filename=`（百分比編碼）與 `filename*=`；
+  - 收集：Markdown 連結（含圖示圖片的連結文字、title 屬性）、正規化 URL 去重與引用記錄、依副檔名略過未啟用格式（不下載）、無副檔名的下載 API 先收進來、站點樣式只在提供時生效、`allowed_domains`（含子網域）、深度 2 頁面的連結；
+  - 標題：通用連結文字判定、最常出現的連結文字、優先序鏈（連結文字 → title 屬性 → 檔名 → heading → URL 檔名）；
+  - Augmenter：文件成為獨立 entry（鍵、title、metadata、source_pages、原檔）、doc／odt／docx 皆可解析、格式未啟用不下載、下載後才發現未啟用格式不建 entry 也不算失敗、同內容不同 URL 合併、解析失敗為永久失敗、永久下載錯誤不重試、可恢復失敗重試、**圖片與文件共用一輪重試**、`documents=None` 不處理文件、`images.enabled=false` 不需要 API key 且頁面不變。
+  - 其他：`DataManager.publish_markdown` 發布 `files/` 並移除過期檔、沒有文件時清空；`NodePipelineBuilder` 的 `page_title` 取自 `title`、`file_format`／`file_name`、長 `source_pages`（12 頁引用、chunk size 300）在切塊後寫入且排除於 embedding 與 LLM 文字；`run_augmenter` 傳遞文件選項並存／發布原檔；`AugmenterConfig` 的 `documents`／`images.enabled`。
+- 解析使用 `tests/fixtures/documents/` 的三個真實小檔（docx／doc／odt），anydoc 在本機執行，不產生費用。
+
+### 實跑（ncucsie，`--module.images.enabled False --run.no-publish`，無 VLM 費用）
+
+輸入為 P0 重爬的 146 頁。
+
+| 項目 | 數量 |
+|---|---|
+| 收集的不重複文件連結 | 58 |
+| 依副檔名略過（pdf 未啟用） | 29 |
+| 網域不在 `allowed_domains` | 6 |
+| 下載後依內容判斷為 pdf 而略過（`downloadfile`） | 16 |
+| 內容相同的 URL 合併 | 9 |
+| 解析成功（獨立 entry） | 33（odt 19、doc 9、docx 5） |
+| 下載失敗／解析失敗 | 0／0 |
+
+- 全程 1.3 秒；`results.json` 179 筆（146 頁 + 33 文件），`files/` 33 個原檔。
+- 標題：33 份皆有可讀標題（如「113研究所新生指導教授確認表」「博士班資格考申請表」）；發現並修正 `**獎學金申請表**` 殘留 Markdown 強調標記。
+- RAG 建庫（`run rag-build --run.use-latest-results --run.no-publish`）：977 nodes，建庫約 76 秒。
+- **文件檢索問題集**（`tests/integration/test_document_retrieval.py`，`cost`，只查 embedding；以 `DOCUMENT_QUESTIONS_VECTOR_STORE_RUN` 指向 runs/ 的向量庫）：10 題表單類問題全部在 top-10 命中預期文件。
+
+### 備註
+
+- 原檔資料夾放在 run／發布資料夾下與 `results/` **並列**的 `files/`（計畫原文為 `results/files`）：與 aug_webpages 的結構（`results.json` + `results/*.md`）一致，`--run.use-latest-results` 取用的 run 資料夾與 `data/aug_webpages/<site>/` 因此結構相同。
+- `source_pages` 的 `title` 為頁面鍵（與頁面的 `page_title` 一致），另附該頁的連結文字 `link_text`；爬取結果沒有保存頁面的人類可讀標題。
+- 計畫預估 ncucsie 的文件連結為 91 個；本次爬取（146 頁）共 93 個不重複文件 URL，扣掉網域不符的 6 個與重複，對應上表。
+
+## P2b：PDF 解析（Docling）
+
+### 自動化
+
+- `scripts/check.sh`：ruff、pyright 通過；`pytest tests/unit` 603 passed；免費整合測試 2 passed。
+- 新增 `test_pdf_parser.py`（以 fake converter，不載入模型）：佔位符保留、無文字層（空輸出或只有佔位符）視為失敗、轉換錯誤包成解析失敗、converter 延遲建立且只建立一次、6 個執行緒同時呼叫時被鎖序列化（同一時間只有 1 個轉換）、解析器分派（pdf → Docling、odt → anydoc）、PDF 文件流程（entry、標題、原檔、掃描檔記錄為失敗且不重試）。
+- `heavy`：`tests/integration/test_pdf_parser_heavy.py` 以真實小 PDF（`tests/fixtures/documents/lecture.pdf`）實際呼叫 Docling，通過（首次含模型載入約 10 秒）。
+- 依賴：新增 `docling`，`uv.lock` 新增 39 個套件，**torch 版本不變（2.14.0）**，既有套件只有 `requests` 2.33.1 → 2.34.2；與計畫的實測一致。
+
+### 實跑（ncucsie，`--module.images.enabled False --run.no-publish`）
+
+| 項目 | 數量 |
+|---|---|
+| 收集的不重複文件連結（扣掉網域不符的 6 個） | 87 |
+| 內容相同的 URL 合併 | 15 |
+| 解析成功（獨立 entry） | 71（pdf 38、odt 19、doc 9、docx 5） |
+| 解析失敗 | 1（掃描版 PDF，`no text layer`，記錄於 Failed Resources 並略過） |
+| 下載失敗 | 0 |
+
+- 不重複的 PDF 共 39 份：38 份有輸出、1 份為掃描檔明確記錄略過原因（計畫預估 44 份是以較早的爬取結果估計，本次爬取為 39 份）。
+- 耗時 105 秒（含 Docling 載入；GPU 可用，單份約數秒，首份含模型載入與下載約 24 秒）。
+- 抽查結構：「碩士班修業辦法」還原為標題（`##`）+ 條列的條文；「論文品質與管考準則」每條成一個條列；「TARA 公告」的條列與表格都保留，表格欄位標題有「群組 - 欄位」前綴（Docling 的多層表頭展平）；PDF 內的圖片以 `<!-- image -->` 佔位（共 80 個，P2c 處理）。
+- 模型快取位置：版面／表格模型在 `~/.cache/huggingface/hub`（`models--docling-project--*`）；RapidOCR 模型在 `.venv/lib/python3.13/site-packages/rapidocr/models`（約 62 MB，`uv sync --reinstall` 後需重新下載）。
+- RAG 建庫：1271 nodes（P2a 為 977），建庫約 85 秒。
+- **文件檢索問題集**擴充 6 題 PDF 題目（修業辦法、論文相似度、博士班畢業辦法、英文版辦法、獎學金一覽表、軟工碩士班），共 16 題，**全部在 top-10 命中**。
+
+## P2c：文件內圖片描述
+
+### 自動化
+
+- `scripts/check.sh`：ruff、pyright 通過；`pytest tests/unit` 620 passed。圖片的快照與 14 個行為測試未更動。
+- 新增 `test_document_images.py`（15 個）：
+  - anydoc 定位：真實 `.doc`（3 張內嵌圖片）的佔位符落在表格之後、結尾說明之前；未抽圖時沒有佔位符與圖片；沒有內嵌圖片的文件維持原樣；
+  - Docling 對位：圖片依佔位符順序編成 PNG、圖片數與佔位符數不一致時不回傳圖片（佔位符移除）、取不到圖片的位置保留順序；
+  - 描述插回：佔位符取代為 `> # Image-{n}` 區塊（n 為文件內序號）、小圖／VLM 失敗／格式不支援／取不到的圖片不留佔位符、同一張圖在兩份文件只描述一次、與相同內容的頁面圖片共用描述、VLM 失敗進入共用的整輪重試、`images.enabled=false` 與 `documents.caption_images=false` 時不抽圖也不呼叫 VLM、真實 `.doc` 端到端；
+- `heavy`：真實 PDF（報名流程通知，`tests/fixtures/documents/notice_with_images.pdf`）以 Docling 抽出 7 張圖，與 7 個佔位符一一對應，通過。
+
+### 實跑（ncucsie 完整，真實 VLM，`--run.no-publish`，輸入為 P0 重爬的 146 頁）
+
+| 項目 | 數量 |
+|---|---|
+| 頁面 + 文件 | 217 筆（146 頁 + 71 份文件） |
+| 不重複圖片資源 | 248（頁面圖片 170 + 文件內嵌圖片 78） |
+| 小圖略過 | 38（頁面 29 + 文件 9） |
+| 內容相同、共用描述（頁面圖片） | 5 |
+| 下載失敗（頁面圖片）／文件解析失敗 | 4（與 P1d 相同）／1（掃描檔） |
+| 送 VLM／成功／失敗 | 201／201／0（頁面 132 + 文件 69） |
+| 整輪重試 | 無 |
+
+- 耗時 185.8 秒，花費 **$0.348**（含 P1d 已有的頁面圖片 $0.149）。
+- 「115報名與繳費通知單」的 7 張圖（報名流程圖與系統截圖）全部有描述，描述含流程圖上的 OCR 文字與網址；「EMI獎勵系統操作SOP」61 個圖片位置中 56 個有描述（其餘為小圖示）；文件內共 77 個描述區塊，全部文件都沒有殘留 `<!-- image -->`。同一張圖在多份文件中的重複位置只描述一次（69 次 VLM 呼叫對應 77 個描述區塊）。
+- RAG 建庫：1643 nodes（P2b 為 1271），約 107 秒。
+- **文件檢索問題集**加入 3 題（繳費帳號在哪裡查、三小時後沒顯示已繳費要聯絡哪裡、EMI 系統操作步驟——答案只存在於圖片描述中），共 19 題，**全部在 top-10 命中**。
+- P2b 殘留的 80 個 `<!-- image -->` 佔位符現在不是被描述取代，就是被移除。
+
+### 備註
+
+- Docling 以 2 倍解析度裁切圖片，VLM 才看得清截圖中的小字；小圖示（< 100px，如 EMI SOP 的按鈕圖示）依 P1d 的門檻略過。
+- 計畫的「甄試通知 7 張截圖」與實測一致（7 張，全部有描述）；「校徽等重複圖只描述一次」由內容雜湊去重實現（資源 URL 為內容 sha1）。
+- 全部三個 P2 階段（P2a、P2b、P2c）的最終驗收與 `data/` 的正式發布（獨立資料 commit）尚未執行：本次所有實跑皆為 `--run.no-publish`。

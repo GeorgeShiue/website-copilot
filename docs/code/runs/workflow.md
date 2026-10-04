@@ -58,7 +58,7 @@
   1. 建立 [src/website_copilot/ingestion/augmentation/augmenter.py](src/website_copilot/ingestion/augmentation/augmenter.py) 的 `Augmenter`（注入以 `download` 設定建立的 `HttpDownloader`）。
   2. 載入站點與 [src/website_copilot/config/augmenter_config.py](src/website_copilot/config/augmenter_config.py) 的參數（`configs/augmenter/{config_name}.yml` 或 class 預設值）。
   3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results(..., site_id=...)` 載入 runs/ 中**同站點**最近一次的 crawler 結果（找不到時報錯，不退回其他站點）。
-  4. 執行圖片摘要後，寫出 `module_config.yml`、`site_config.yml`、`results.json` 與 `results/*.md`。
+  4. 執行擴充（圖片摘要；`documents.enabled` 時另處理網站連結的文件，每份文件成為 `results.json` 的獨立 entry `doc_<hash>`，原檔存為 `files/<key>.<ext>`）後，寫出 `module_config.yml`、`site_config.yml`、`results.json`、`results/*.md` 與 `files/`（與 `results/` 並列，publish 時同樣發布到 `data/aug_webpages/<site_id>/files/`，並移除不屬於本次結果的舊檔）。
 
 ### 3. `run_rag_build()`
 

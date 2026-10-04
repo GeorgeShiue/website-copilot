@@ -1,0 +1,46 @@
+# 文件檢索問題集：問題 → 預期出現在 top-k 的文件。
+# expected_urls：文件 URL 的片段（任一命中即可）；expected_titles：文件標題（下載 API 的連結 URL 很長，改比對標題）。
+# P2a 建立（docx／doc／odt 表單類）；P2b 加入 PDF 題目；P2c 加入文件內圖片的題目。
+site: ncucsie
+top_k: 10
+questions:
+  - question: 論文指導變更研究領域要填哪一份申請表？
+    expected_urls: ["202478975.odt"]
+  - question: 工五館門禁要怎麼申請？
+    expected_urls: ["287469826.odt"]
+  - question: 博士班資格考申請表在哪裡下載？
+    expected_urls: ["736952751.docx"]
+  - question: 研究生辦理離校需要哪一份系所同意書？
+    expected_urls: ["803563649.doc"]
+  - question: 出國加碼補助申請表要去哪裡下載？
+    expected_titles: ["出國加碼補助申請表0813"]
+  - question: 專題實驗指導老師確認表在哪裡？
+    expected_urls: ["135298698.docx", "463983590.odt"]
+  - question: 博班 TA 輔導紀錄表怎麼填？
+    expected_urls: ["893682045.doc"]
+  - question: 資工系會議室教室教學實驗室使用借用的申請單
+    expected_urls: ["506664249.odt"]
+  - question: 獎學金申請表需要填寫哪些欄位？
+    expected_urls: ["724449581.docx"]
+  - question: 預備口試申請表(new)
+    expected_urls: ["285913942.odt"]
+  # P2b：PDF（Docling）
+  - question: 碩士班研究生的修業年限與畢業學分有什麼規定？
+    expected_urls: ["212485707.pdf"]
+  - question: 論文相似度比對報告的相似度要低於多少？
+    expected_urls: ["427292357.pdf"]
+  - question: 博士班畢業辦法有哪些條件？
+    expected_urls: ["173324299.pdf"]
+  - question: Ph.D. program graduation regulations of the CS department
+    expected_urls: ["547197917.pdf"]
+  - question: 資工系各項獎學金一覽表
+    expected_titles: ["115學年度第1學期各項獎學金一覽表"]
+  - question: 軟工碩士班的修業辦法是什麼？
+    expected_urls: ["792368546.pdf"]
+  # P2c：文件內嵌圖片的描述（流程圖與系統截圖中的文字）
+  - question: 甄試報名的繳費帳號在哪裡查？
+    expected_urls: ["746569445.pdf"]
+  - question: 繳費三小時後沒有顯示已繳費要聯絡哪裡？
+    expected_urls: ["746569445.pdf"]
+  - question: EMI 獎勵系統的操作步驟
+    expected_titles: ["EMI獎勵系統操作SOP"]

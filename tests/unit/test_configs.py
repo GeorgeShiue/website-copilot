@@ -556,3 +556,24 @@ def test_saved_module_config_has_all_fields(module: str, tmp_path: Path) -> None
         annotation = config_cls.model_fields[name].annotation
         if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
             assert list(value) == list(annotation.model_fields)
+
+
+# ---------- augmenter：images／documents ----------
+
+
+def test_augmenter_images_and_documents_defaults() -> None:
+    config = AugmenterConfig()
+
+    assert config.images.enabled is True
+    assert config.documents.enabled is True
+    assert config.documents.formats == ["pdf", "docx", "doc", "odt"]
+
+
+def test_augmenter_documents_formats_validation() -> None:
+    assert AugmenterConfig.model_validate(
+        {"documents": {"formats": ["pdf", "docx"]}}
+    ).documents.formats == ["pdf", "docx"]
+    with pytest.raises(ValidationError, match="documents.formats"):
+        AugmenterConfig.model_validate({"documents": {"formats": ["xlsx"]}})
+    with pytest.raises(ValidationError, match="documents.formats"):
+        AugmenterConfig.model_validate({"documents": {"formats": []}})

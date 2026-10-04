@@ -10,7 +10,7 @@ import logging
 import os
 import shutil
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from website_copilot.config.base_config import BaseModuleConfig
@@ -18,12 +18,16 @@ from website_copilot.config.site_config import SiteConfig
 from website_copilot.schemas import GenerationResult
 from website_copilot.storage.data_paths import (
     AUG_WEBPAGES,
+    FILES_FOLDER,
     RAW_WEBPAGES,
     site_data_path,
     vector_db_folder,
     vector_store_path,
 )
-from website_copilot.storage.run_persistence import save_generated_exclude_words
+from website_copilot.storage.run_persistence import (
+    save_document_files,
+    save_generated_exclude_words,
+)
 from website_copilot.utils.config_helper import save_run_configs
 
 logger = logging.getLogger(__name__)
@@ -71,7 +75,12 @@ class DataManager:
         """
         return self._publish_results(site_id, RAW_WEBPAGES, results, "fit_markdown")
 
-    def publish_markdown(self, site_id: str, enhanced_results: dict[str, dict]) -> str:
+    def publish_markdown(
+        self,
+        site_id: str,
+        enhanced_results: dict[str, dict],
+        document_files: Mapping[str, Any] | None = None,
+    ) -> str:
         """發布增強後的結果到 data/aug_webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
 
         enhanced_results 是 augmenter 就地在 crawl_results 上疊加
@@ -83,14 +92,19 @@ class DataManager:
 
         Args:
             site_id: 站點識別碼。
-            enhanced_results: 增強後的爬取結果 dict（含原始欄位 + enhanced_markdown）。
+            enhanced_results: 增強後的爬取結果 dict（含原始欄位 + enhanced_markdown；
+                文件為 doc_ 開頭的獨立 entry）。
+            document_files: 文件原檔（見 DocumentFile），發布到 files/（與 results.json 同版）；
+                不在本次結果內的舊檔會一併移除。
 
         Returns:
             發布後的 aug_webpages 資料夾路徑。
         """
-        return self._publish_results(
+        site_path = self._publish_results(
             site_id, AUG_WEBPAGES, enhanced_results, "enhanced_markdown"
         )
+        save_document_files(document_files or {}, os.path.join(site_path, FILES_FOLDER))
+        return site_path
 
     def publish_generated_exclude_words(
         self,

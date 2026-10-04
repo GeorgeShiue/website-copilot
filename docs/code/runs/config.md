@@ -76,7 +76,8 @@
 - Config model: `AugmenterConfig`（`src/website_copilot/config/augmenter_config.py`），設定檔 `configs/augmenter/{config_name}.yml`。
 - `download`（共用下載器 `utils/http_downloader.py` 的參數）：`timeout`（> 0，單次請求逾時）、`max_concurrency`（> 0，預設 40；同時下載的請求數）、`max_retries`（≥ 0，預設 2；逾時、連線錯誤、5xx、429 的單一請求重試次數）、`max_bytes`（> 0，預設 50 MiB；單一檔案大小上限）。
 - `retry`（整輪退避重試）：`success_threshold`（0～1）、`max_retries`（≥ 0；整輪處理的最大輪數，含第一輪）。成功率 = 成功 ÷（成功 + 可恢復失敗），以不重複資源計算；404 等永久錯誤與格式不符不計入、不重試。
-- `images`：`model`、`prompt`、`source`（`images` 或 `markdown`）、`max_concurrency`（> 0，預設 50；同時呼叫 VLM 的請求數）。`min_size`（≥ 0，預設 100；圖片長邊小於此像素值不送 VLM、不產生描述，0 為不過濾）。下載與 VLM 兩個並行上限皆為所有頁面共用（整批處理）。
+- `images`：`enabled`（預設 true；false 時不處理圖片、不呼叫 VLM、不需要 API key，方便只跑文件）、`model`、`prompt`、`source`（`images` 或 `markdown`）、`max_concurrency`（> 0，預設 50；同時呼叫 VLM 的請求數）。`min_size`（≥ 0，預設 100；圖片長邊小於此像素值不送 VLM、不產生描述，0 為不過濾）。下載與 VLM 兩個並行上限皆為所有頁面共用（整批處理）。
+- `documents`：`enabled`（預設 true）、`caption_images`（預設 true；文件內嵌圖片交給 VLM 描述並插回文件內容，需 `images.enabled`）、`formats`（list，可選 `pdf`／`docx`／`doc`／`odt`，預設 `[pdf, docx, doc, odt]`）。副檔名可判斷且不在 `formats` 的連結不下載；下載 API 等無副檔名的連結下載後依內容判斷格式，不在 `formats` 的不存檔、不建 entry。
 - `litellm_kwargs`：任意 key，原樣傳給 litellm（預設為空）。
 - run name 預設為 `[images.model]`。
 - 未傳入爬蟲結果時，只讀取 runs/ 中同站點最新的爬蟲結果（找不到時報錯，不退回其他站點）。

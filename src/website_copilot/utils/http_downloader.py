@@ -20,6 +20,8 @@ DEFAULT_USER_AGENT = (
 )
 RETRY_BACKOFF_SECONDS = 0.5  # 第 n 次重試前等待 base * 2^(n-1)
 RETRYABLE_STATUS_CODES = frozenset({429})  # 另含所有 5xx
+# 403 常為封鎖：單一請求不重試，但整輪退避重試時視為可恢復
+RECOVERABLE_STATUS_CODES = frozenset({403, 429})
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,21 @@ class DownloadResult:
     @property
     def ok(self) -> bool:
         return self.error is None and self.content is not None
+
+    @property
+    def recoverable(self) -> bool:
+        """失敗是否可能因重試或等待而恢復：逾時、連線錯誤、5xx、429、403（常為封鎖或限流）。
+
+        其餘 4xx、超過大小上限與無效 URL 為永久錯誤。成功的結果回傳 False。
+        """
+        if self.ok or self.error is None:
+            return False
+        if self.error.startswith(("invalid url", "exceeds max_bytes")):
+            return False
+        status = self.status_code
+        if status is None:
+            return True
+        return status >= 500 or status in RECOVERABLE_STATUS_CODES
 
 
 class _ExceedsMaxBytes(Exception):
