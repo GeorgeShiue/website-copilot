@@ -1,4 +1,4 @@
-"""Prepare 階段 workflow：網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 data/。
+"""Prepare 階段 workflow：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置，結果 publish 到 data/。
 
 只依賴爬蟲／VLM／RAG 建置相關模組，不 import agent 與 server。
 """
@@ -8,9 +8,9 @@ import shutil
 import tempfile
 from typing import Any
 
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
+from website_copilot.config.augmenter_config import AugmenterConfig
 from website_copilot.config.pipeline_config import (
-    ImageSummarizerRunConfig,
+    AugmenterRunConfig,
     PrepareRunConfig,
     RAGBuildRunConfig,
     WebsiteCrawlerRunConfig,
@@ -18,15 +18,15 @@ from website_copilot.config.pipeline_config import (
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.site_config import SiteConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
-from website_copilot.ingestion.augmentation.image_summarizer import (
-    ImageSummarizer,
-)
+from website_copilot.ingestion.augmentation.augmenter import Augmenter
+from website_copilot.ingestion.augmentation.documents import DocumentOptions
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
 from website_copilot.retrieval.factory import build_rag, build_target
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.data_paths import (
     AUG_WEBPAGES,
+    FILES_FOLDER,
     RAW_WEBPAGES,
     vector_store_name,
 )
@@ -37,10 +37,12 @@ from website_copilot.storage.run_context import (
 )
 from website_copilot.storage.run_persistence import (
     load_latest_results,
+    save_document_files,
     save_generated_exclude_words,
     save_results_as_md,
 )
 from website_copilot.utils.config_helper import log_config, save_run_configs
+from website_copilot.utils.http_downloader import HttpDownloader
 from website_copilot.utils.log_helper import (
     log_run_summary,
     log_run_time,
@@ -108,6 +110,7 @@ def run_website_crawler(
                 url_patterns=site.crawl.url_patterns,
                 allowed_domains=site.crawl.allowed_domains,
                 path_prefix=site.crawl.path_prefix,
+                document_url_patterns=site.documents.url_patterns,
             )
 
             # ----- 輸出完成訊息 -----
@@ -158,28 +161,28 @@ def run_website_crawler(
     return crawl_results
 
 
-def run_image_summarizer(
-    run_config: ImageSummarizerRunConfig,
+def run_augmenter(
+    run_config: AugmenterRunConfig,
     overrides: dict[str, Any] | None = None,
     crawl_results: dict[str, dict] | None = None,
 ) -> dict[str, dict] | None:
-    """執行網頁圖片摘要工作流程。
+    """執行 augmenter 工作流程：頁面圖片摘要，以及網站連結的文件（轉 Markdown、含內嵌圖片摘要）。
 
     Args:
         run_config: 執行參數（site 對應 configs/sites/{site}.yml；config_name 對應
-            configs/image_summarizer/{name}.yml；save 落盤到 runs/、publish 發布到 data/）。
-        overrides: ImageSummarizerConfig 的巢狀覆寫值。
+            configs/augmenter/{name}.yml；save 落盤到 runs/、publish 發布到 data/）。
+        overrides: AugmenterConfig 的巢狀覆寫值。
         crawl_results: 爬取結果 dict（可選，None 時載入 runs/ 中同站點最新的爬蟲結果）。
 
     Returns:
-        增強後的爬取結果 dict | None。
+        增強後的爬取結果 dict（含文件的獨立 entry）| None。
     """
     # ----- 初始化設定和路徑 -----
     save, publish = run_config.save, run_config.publish
     site = SiteConfig.from_yaml(run_config.site)
-    config = ImageSummarizerConfig.from_yaml(run_config.config_name, overrides)
+    config = AugmenterConfig.from_yaml(run_config.config_name, overrides)
     run_manager, run_title = create_run_context(
-        module="image_summarizer",
+        module="augmenter",
         config_name=run_config.config_name,
         site_id=site.site_id,
         config=config,
@@ -194,11 +197,15 @@ def run_image_summarizer(
         ):
             # ----- 初始化物件 -----
             log_config(f"{config.__class__.__name__} Loaded from yaml", config)
-            image_summarizer = ImageSummarizer(
-                download_timeout=config.init.download_timeout,
-                download_max_workers=config.init.download_max_workers,
-                success_threshold=config.init.success_threshold,
-                max_retries=config.init.max_retries,
+            augmenter = Augmenter(
+                downloader=HttpDownloader(
+                    max_concurrency=config.download.max_concurrency,
+                    timeout=config.download.timeout,
+                    max_retries=config.download.max_retries,
+                    max_bytes=config.download.max_bytes,
+                ),
+                success_threshold=config.retry.success_threshold,
+                max_retries=config.retry.max_retries,
             )
 
             # ----- 獲取最近一次結果 -----
@@ -210,22 +217,39 @@ def run_image_summarizer(
                     site_id=site.site_id,
                 )
 
-            # ---- 執行圖片摘要 -----
-            log_session("Image Summarization", style="cyan")
-            enhanced_results = image_summarizer.summarize_crawl_results_images(
+            # ---- 執行擴充（圖片摘要、文件）-----
+            documents = (
+                DocumentOptions(
+                    formats=tuple(config.documents.formats),
+                    caption_images=config.documents.caption_images,
+                    url_patterns=tuple(site.documents.url_patterns),
+                    allowed_domains=(
+                        None
+                        if site.crawl.allowed_domains is None
+                        else tuple(site.crawl.allowed_domains)
+                    ),
+                )
+                if config.documents.enabled
+                else None
+            )
+            log_session("Augmentation", style="cyan")
+            enhanced_results = augmenter.augment(
                 crawl_results,
-                model=config.summarize.model,
-                prompt=config.summarize.prompt,
-                summary_max_workers=config.summarize.summary_max_workers,
-                image_source=config.summarize.image_source,
+                model=config.images.model,
+                prompt=config.images.prompt,
+                image_max_concurrency=config.images.max_concurrency,
+                image_source=config.images.source,
+                image_min_size=config.images.min_size,
+                images_enabled=config.images.enabled,
+                documents=documents,
                 **config.litellm_kwargs,
             )
 
             # ----- 輸出完成訊息 -----
             if enhanced_results is None:
-                log_session("Image Summarization Failed", style="red")
+                log_session("Augmentation Failed", style="red")
                 return None
-            log_session("Image Summarization Completed", style="cyan")
+            log_session("Augmentation Completed", style="cyan")
 
             # ----- Save（存到 runs/） -----
             if save:
@@ -236,6 +260,10 @@ def run_image_summarizer(
                     run_manager.results_folder_path,
                     "enhanced_markdown",
                 )
+                save_document_files(
+                    augmenter.document_files,
+                    os.path.join(run_manager.run_path, FILES_FOLDER),
+                )
                 save_run_configs(run_manager.run_path, config, site, run_config)
 
             # ----- Publish（publish 到 data/） -----
@@ -243,6 +271,7 @@ def run_image_summarizer(
                 data_manager.publish_markdown(
                     site_id=site.site_id,
                     enhanced_results=enhanced_results,
+                    document_files=augmenter.document_files,
                 )
 
         # ----- Publish run metadata：log 要在 workflow context 結束後才完整 -----
@@ -267,7 +296,7 @@ def run_rag_build(
 
     run_config.site 對應 configs/sites/{site}.yml、config_name 對應 configs/rag/{name}.yml；
     overrides 為 RAGConfig 的巢狀覆寫值。建庫資料來源預設為 data/aug_webpages/{site_id}，
-    run_config.aug_webpages_data_use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果。
+    run_config.use_latest_results 為 True 時改用 runs/ 中同站點最新的 augmenter 結果。
 
     一律重建向量庫，不受既有向量庫是否存在影響；建庫絕不直接寫入
     data/vector_db/{site_id}.db，只透過 publish 原子替換（設定紀錄放在其中的 meta/，一起替換）。
@@ -314,7 +343,7 @@ def run_rag_build(
                 target = build_target(
                     site.site_id,
                     milvus_uri,
-                    aug_webpages_data_use_latest_results=run_config.aug_webpages_data_use_latest_results,
+                    use_latest_results=run_config.use_latest_results,
                     runs_folder=run_manager.base_folder
                     if run_manager is not None
                     else "runs",
@@ -351,7 +380,7 @@ def run_rag_build(
 
 
 def run_prepare(run_config: PrepareRunConfig) -> None:
-    """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置。
+    """執行完整 prepare 階段：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置。
 
     與 serve 階段以 data/ 目錄為唯一介面：本階段負責寫入，serve 階段只讀取已 publish
     的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
@@ -360,7 +389,7 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
         run_config: site 與 config_name 為各階段共用的站點與 config 名稱（對應
             configs/sites/{site}.yml 與 configs/{module}/{name}.yml）；
             publish=True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
-            runs/，不寫入 data/，RAG 以 runs/ 中本次的圖片摘要結果建庫（供測試使用）。
+            runs/，不寫入 data/，RAG 以 runs/ 中本次的 augmenter 結果建庫（供測試使用）。
     """
     reset_run_summary()
     site = run_config.site
@@ -381,9 +410,9 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
             if crawl_results is None:
                 return
 
-            # ----- Image Summarizer -----
-            enhanced_results = run_image_summarizer(
-                ImageSummarizerRunConfig(
+            # ----- Augmenter -----
+            enhanced_results = run_augmenter(
+                AugmenterRunConfig(
                     site=site, config_name=config_name, save=save, publish=publish
                 ),
                 crawl_results=crawl_results,
@@ -398,7 +427,7 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
                     config_name=config_name,
                     save=save,
                     publish=publish,
-                    aug_webpages_data_use_latest_results=not publish,
+                    use_latest_results=not publish,
                 )
             )
 

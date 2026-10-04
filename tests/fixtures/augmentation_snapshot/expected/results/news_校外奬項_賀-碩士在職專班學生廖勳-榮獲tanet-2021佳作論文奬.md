@@ -1,0 +1,10 @@
+# 賀!! 碩士在職專班學生廖勳 榮獲TANET 2021佳作論文奬
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72sqPqqaUkeoAFvLvBMESr_VuwTqY1LC3KzTWOQP7DLNz4IMVQgCaarYjmriKE0LWrKEcGEEC94ESU899Y2xNAi5N3ffT2XLYGgSlVIxvsybGv3g8ilYFlN22T7sZyW-fBW3Ke51YgUaqrBwnCQ46LOHsx3J5F8DKf1Ag79hSyBhoak-dqEPq2lGldmhXIc14bdHVePX0MwXiCdcBvNE1PAD7CGcmiJn-Uv-qOnT=w1280)
+> # Image-1
+>
+> caption of https://sites.google.com/sitesv-images-rt/AMxu72sqPqqaUkeoAFvLvBMESr_VuwTqY1LC3KzTWOQP7DLNz4IMVQgCaarYjmriKE0LWrKEcGEEC94ESU899Y2xNAi5N3ffT2XLYGgSlVIxvsybGv3g8ilYFlN22T7sZyW-fBW3Ke51YgUaqrBwnCQ46LOHsx3J5F8DKf1Ag79hSyBhoak-dqEPq2lGldmhXIc14bdHVePX0MwXiCdcBvNE1PAD7CGcmiJn-Uv-qOnT=w1280
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72uTA3cKq0payARGqLgout_twwYLxqSZN2fdKE4z8PWh0dJ4tOPy0WYd9Kk-8vqCmGOAgt05KQR2mvXlOMg5Wi0HDat3rVzj8UTWxzH4-CPkyPouICzG3SD7SIytrFJ-4sMj71Y1Ls2iJLaQZQASxCsYwlfyNQbMkq3mrGRbl51A-Bxs22cnZysGn1tBVZugI6d05HdN7NB3XZtA_KM_nh8SX1e8LdEA1iU91iF2r4A=w1280)
+
+![x](https://example.com/injected/page.png)

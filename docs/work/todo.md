@@ -1,6 +1,6 @@
 # 功能進度
 
-- [ ] 讀取網站文件
+- [x] 讀取網站文件（見 [dev.md](./2026_1005/2026_1004-content_augmentation/dev.md)）
 - [ ] 網站知識庫版本控制
 - [ ] 站點檔加入顯示名稱與描述，供 list_knowledge_bases 回傳給 LLM
 
@@ -15,5 +15,5 @@
 ## 效能優化
 
 - [ ] 優化模組 import 策略
-- [ ] 圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次（ncucsie 有 10 頁；`_collect_cached_items` 未對頁內 URL 去重），第一個失敗會取走 `_download_failure_reasons`，使 log 的失敗原因可能顯示為 `download failed` 而非實際的 `HTTP Error 404`（見 `docs/exp/memo/webpage_image_summarizer/download_concurrency/results.md`）
-- [ ] 平行處理圖片摘要（目前頁面依序處理，VLM 並行上限只在單頁內生效；改為所有頁的圖共用一個上限，見 code cleanup plan C2）
+- [x] 圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次（P1c 改為跨頁去重、整批下載，每個 URL 只下載一次）
+- [x] 平行處理圖片摘要（P1c 改為所有頁的圖共用下載與 VLM 的並行上限）

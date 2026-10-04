@@ -8,7 +8,7 @@
 - **多輪對話記憶** — `InMemorySaver` + `thread_id`，相同 session 記得上下文（M2）
 - **SSE 串流** — `astream_text` 共用核心，CLI 與 server 皆可逐 token 輸出
 - **對話落盤** — `runs/<ts>/agent/<config>/results_{thread_id}.json`（CLI `run agent`）／`runs/<ts>/server/<config>/results_{thread_id}.json`（server）（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）
-- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 一律經 `run_agent_build()` 建立，呼叫端為 `run_agent_query()` 或 `serve()`：前者於 `finally` 關閉；後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉，server build 失敗時由 `serve()` 關閉
+- **資源生命週期** — `Agent.close()`（委派 `Tool.close()`）釋放 RAG 資源；agent 一律經 `run_agent_build()` 建立，呼叫端為 `run_agent_query()` 或 `run_serve()`：前者於 `finally` 關閉；後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉，server build 失敗時由 `run_serve()` 關閉
 - **落盤責任在呼叫端** — `Agent` 不再持有 `RunManager`（agent 層不依賴 workflow 層）；落盤由 `run_agent_query()` 與 `_event_stream()` 呼叫 `RunManager.save_agent_results_as_json()`
 
 - **模組實作**
@@ -16,10 +16,10 @@
 	- `src/website_copilot/retrieval/registry.py`（**RAGRegistry**：多站 RAG 實例管理，lazy 載入 + LRU 快取；只讀取已 publish 的向量庫）
 	- `src/website_copilot/agent/tools/site_discovery.py`（**Site Discovery 工具**：`create_site_discovery_tool`，回傳可用站點列表）
 	- `src/website_copilot/agent/tools/webpage_retriever.py`（**多站 Retriever Tool**：接受 `site_id` 參數路由至對應知識庫）
-	- `src/website_copilot/agent/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `_message_content_to_text`）
+	- `src/website_copilot/agent/langchain_helper.py`（**LangChain 輔助**：`create_llm` / `thread_config` / `extract_sources_from_messages` / `message_content_to_text`）
 	- `src/website_copilot/config/agent_config.py`（**設定載入**、**驗證**、**覆寫**：`from_yaml` / pydantic 驗證 / `run_name`）
 	- `src/website_copilot/pipelines/exp.py`（`run_agent_query`：`website-copilot run agent` 的執行邏輯）
-	- `src/website_copilot/pipelines/serve.py`（`run_agent_build`：agent 建構 + 落盤的程式化 API；`run_server_build` / `serve`：`website-copilot serve` 的執行邏輯）
+	- `src/website_copilot/pipelines/serve.py`（`run_agent_build`：agent 建構 + 落盤的程式化 API；`run_server_build` / `run_serve`：`website-copilot serve` 的執行邏輯）
 
 - **模組設定**
 	- `./configs/agent/{name}.yml`（**Agent 設定檔**：`llm_name` / `system_prompt`，只寫與 class 預設值不同的部分；`default` 無檔案時等於 class 預設，system prompt 預設值在 `config/prompts.py`）
@@ -47,7 +47,7 @@
   2. `create_llm(config.llm_name)`（agent.langchain_helper）建立 ChatModel（依 model name 自動路由 Gemini / OpenAI）
   3. 建立 `InMemorySaver` checkpointer
   4. 以 LangGraph `create_agent` 組裝 `tool.tools`、`system_prompt` 與 checkpointer，並包裝為 `Agent`；任一步驟失敗時 `tool.close()` 後 re-raise
-- **`run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides=None) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：一律建立自己的 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期；載入 `AgentConfig.from_yaml(run_config.config_name, overrides)` 後呼叫 `create_agent(config)`，寫出 `module_config.yml` 與 `run_config.yml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`serve()` 呼叫此函式後把 agent 注入 `run_server_build()`；`run_agent_query()` 也經由此函式建構 agent
+- **`run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides=None) -> Agent`（pipelines/serve.py）** — agent 建構 + 落盤的程式化 API：一律建立自己的 run context（`create_run_no_site_context(module="agent_build")`，路徑 `runs/<ts>/agent_build/<config>/`）並以 `with run_workflow_context(...)` 包住 logging 生命週期；載入 `AgentConfig.from_yaml(run_config.config_name, overrides)` 後呼叫 `create_agent(config)`，寫出 `module_config.yml` 與 `run_config.yml`，回傳**未關閉**的 agent（由呼叫端 `close()`）。`run_serve()` 呼叫此函式後把 agent 注入 `run_server_build()`；`run_agent_query()` 也經由此函式建構 agent
 
 - **`Agent.ask(query, thread_id)`** — 單輪/多輪問答（同步 `graph.invoke`），回傳 `{query, response, sources, timestamp}`
 
@@ -67,7 +67,7 @@
 
 - **`create_llm(llm_name)`** — 建立 LangChain ChatModel，依 model name 自動路由（`utils/llm_provider.resolve_provider`）：含 `gemini` → `ChatGoogleGenerativeAI`（`GEMINI_API_KEY`）；含 `gpt` → `ChatOpenAI`（`OPENAI_API_KEY`，`use_responses_api=True`、`api_key` 以 `SecretStr` 包裝）；與 `retrieval.llama_index_helpers.create_llm`（LlamaIndex 版）對稱
 
-- **`_message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
+- **`message_content_to_text(content)`** — 將 AIMessage content（`list[dict]`）轉為純文字
 
 ### 多輪記憶流程
 

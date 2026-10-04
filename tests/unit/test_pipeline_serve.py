@@ -147,14 +147,14 @@ def test_serve_builds_agent_then_server_and_runs(
     mock_run_agent_build, mock_run_server_build
 ):
     """serve：以同一個 run_config 建構 agent 與 server，再 run()；吞下 KeyboardInterrupt。"""
-    from website_copilot.pipelines.serve import serve
+    from website_copilot.pipelines.serve import run_serve
 
     fake_agent = FakeAgentStub()
     mock_run_agent_build.return_value = fake_agent
     mock_run_server_build.return_value.run.side_effect = KeyboardInterrupt
     run_config = ServeRunConfig(config_name="test", port=9000)
 
-    serve(run_config)
+    run_serve(run_config)
 
     mock_run_agent_build.assert_called_once_with(run_config)
     mock_run_server_build.assert_called_once_with(fake_agent, run_config)
@@ -169,14 +169,14 @@ def test_serve_closes_agent_when_server_build_fails(
     mock_run_agent_build, mock_run_server_build
 ):
     """serve：run_server_build 失敗時 agent.close() 被呼叫且例外往外拋（R4 守衛）。"""
-    from website_copilot.pipelines.serve import serve
+    from website_copilot.pipelines.serve import run_serve
 
     fake_agent = FakeAgentStub()
     mock_run_agent_build.return_value = fake_agent
     mock_run_server_build.side_effect = RuntimeError("server boom")
 
     with pytest.raises(RuntimeError):
-        serve(ServeRunConfig(config_name="test"))
+        run_serve(ServeRunConfig(config_name="test"))
 
     assert fake_agent.close_called
 

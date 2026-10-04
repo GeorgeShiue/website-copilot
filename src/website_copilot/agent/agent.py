@@ -21,9 +21,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from rich.table import Table
 
 from website_copilot.agent.langchain_helper import (
-    _message_content_to_text,
     create_llm,
     extract_sources_from_messages,
+    message_content_to_text,
     thread_config,
 )
 from website_copilot.agent.tools.tool import Tool
@@ -93,7 +93,7 @@ class Agent:
         response = self.graph.invoke({"messages": [("human", query)]}, config=config)
         messages = response["messages"]
         final_message = messages[-1]
-        answer = _message_content_to_text(final_message.content)
+        answer = message_content_to_text(final_message.content)
         return build_result(query, answer, messages)
 
     async def astream_text(
@@ -106,7 +106,7 @@ class Agent:
             stream_mode="messages",
         ):
             if metadata.get("langgraph_node") == "model":
-                text = _message_content_to_text(chunk.content)
+                text = message_content_to_text(chunk.content)
                 if text:
                     yield text
 

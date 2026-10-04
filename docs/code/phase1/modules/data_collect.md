@@ -10,7 +10,7 @@
 
 - **模組設定**
 	- `./configs/website_crawler/{name}.yml`（**爬蟲模組參數**，只寫與 class 預設值不同的部分，透過 `src/website_copilot/config/website_crawler_config.py` 載入）
-	- `./configs/sites/{site}.yml`（**站點設定**：`site_id`、`sample_query` 與 `crawl` 的 `url`／`url_patterns`／`allowed_domains`／`path_prefix`，透過 `config/site_config.py` 的 `SiteConfig` 載入）
+	- `./configs/sites/{site}.yml`（**站點設定**：`site_id`、`sample_query` 與 `crawl` 的 `url`／`url_patterns`／`allowed_domains`／`path_prefix`，以及 `documents.url_patterns`（站點專屬的文件 URL 樣式），透過 `config/site_config.py` 的 `SiteConfig` 載入）。文件 URL（通用副檔名 + `documents.url_patterns`）不進入 BFS（瀏覽器導航會觸發下載而失敗），改由 augmenter 處理；`success=False` 的頁面記錄實際錯誤訊息（統計項 `error_failed`）
 	- 可在 `src/website_copilot/ingestion/crawling/website_crawler.py` 中調整 `BrowserConfig` 與 `CrawlerRunConfig` 選項以改變**執行行為**
 
 - **模組環境**

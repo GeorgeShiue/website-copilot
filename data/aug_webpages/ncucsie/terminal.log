@@ -1,496 +1,446 @@
-───────────────────── Image Summarizer (ncucsie, default) ──────────────────────
-──────────────────── ImageSummarizerConfig Loaded from yaml ────────────────────
-  ImageSummarizerConfig
+───────────────────────── Augmenter (ncucsie, default) ─────────────────────────
+─────────────────────── AugmenterConfig Loaded from yaml ───────────────────────
+     AugmenterConfig      
 ┏━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Config         ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ litellm_kwargs │ {}    │
 └────────────────┴───────┘
-              init
-┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
-┃ Config                ┃ Value ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
-│ download_timeout      │ 10.0  │
-│ success_threshold     │ 0.8   │
-│ max_retries           │ 6     │
-│ cache_download_images │ True  │
-│ cache_image_captions  │ True  │
-└───────────────────────┴───────┘
-                                   summarize
+           download           
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Config          ┃ Value    ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ timeout         │ 10.0     │
+│ max_concurrency │ 40       │
+│ max_retries     │ 2        │
+│ max_bytes       │ 52428800 │
+└─────────────────┴──────────┘
+            retry            
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config            ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ success_threshold │ 0.8   │
+│ max_retries       │ 6     │
+└───────────────────┴───────┘
+                                     images                                     
 ┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config          ┃ Value                                                      ┃
 ┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ enabled         │ True                                                       │
 │ model           │ gpt-5.6-luna                                               │
 │ prompt          │ 你是網頁圖片資訊萃取器。目標是為 RAG                       │
 │                 │ 產生精確、可檢索的圖片摘要。\n\n【核心規則】\n1.           │
 │                 │ 先在內部過濾低資訊字與重複內容，再進行圖片摘要與           │
 │                 │ OCR；低資訊字不得出現在最終輸出。\n2. 僅描…                │
-│ image_source    │ markdown                                                   │
-│ vlm_max_workers │ 20                                                         │
+│ source          │ markdown                                                   │
+│ max_concurrency │ 50                                                         │
+│ min_size        │ 100                                                        │
 └─────────────────┴────────────────────────────────────────────────────────────┘
-───────────────────────────── Image Summarization ──────────────────────────────
-─────────────────────────────────── [index] ────────────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 7.226s
-─────────────────────────────── [app_index.php] ────────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────────────── [index.php] ──────────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_403-1013-377-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_403-1013-518-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_403-1013-378-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────────── [p_403-1013-518.php] ─────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-10486,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 3.926s
-───────────────────────── [p_406-1013-10487,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 8.018s
-───────────────────────── [p_406-1013-13006,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-10488,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 15.827s
-───────────────────────── [p_406-1013-13267,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13413,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 7.783s
-───────────────────────── [p_406-1013-13609,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13637,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13645,r339.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13705,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13744,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 25.237s
-───────────────────────── [p_406-1013-13902,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13906,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13914,r339.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 18.097s
-───────────────────────── [p_406-1013-13913,r339.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 13.276s
-───────────────────────── [p_406-1013-13918,r376.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 6.880s
-───────────────────────── [p_406-1013-13917,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13919,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 8.629s
-───────────────────────── [p_406-1013-13920,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 8.533s
-───────────────────────── [p_406-1013-13957,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13944,r518.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13967,r339.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 7.631s
-───────────────────────── [p_406-1013-14025,r518.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-14025,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-14065,r339.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 16.492s
-────────────────────────── [p_406-1013-6992,r377.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-────────────────────────── [p_406-1013-8551,r377.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-────────────────────────── [p_406-1013-6991,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-────────────────────────── [p_406-1013-6990,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-────────────────────────── [p_406-1013-8716,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_412-1013-1096.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 26/26 4.186s
-──────────────────────────── [p_412-1013-1154.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 18.008s
-──────────────────────────── [p_412-1013-1155.php] ─────────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9
-         B%BF%E6%8F%9B/map-el.png)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9
-         B%BF%E6%8F%9B/map-se.png)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9
-         B%BF%E6%8F%9B/map-ai.png)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9
-         B%BF%E6%8F%9B/map-sec.png)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 24.464s
-──────────────────────────── [p_412-1013-1812.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3/3 7.640s
-──────────────────────────── [p_412-1013-1818.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 13.381s
-──────────────────────────── [p_412-1013-1849.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45/45 18.112s
-──────────────────────────── [p_412-1013-1901.php] ─────────────────────────────
-WARNING  Unsupported image content-type
-         (url=https://placehold.co/600x400/e0e0e0/999?text=HCI+Lab,
-         content_type=image/svg+xml)
-WARNING  Unsupported image content-type
-         (url=https://placehold.co/600x400/e0e0e0/999?text=LDW+Lab,
-         content_type=image/svg+xml)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 28/28 13.458s
-──────────────────────────── [p_403-1013-374-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_403-1013-512-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_403-1013-511-1.php] ────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_404-1013-8716.php] ─────────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-10520,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 13.398s
-───────────────────────── [p_406-1013-10522,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 6.719s
-───────────────────────── [p_406-1013-10528,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 8.013s
-───────────────────────── [p_406-1013-10544,r518.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-10548,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 5.964s
-───────────────────────── [p_406-1013-10575,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 7.061s
-───────────────────────── [p_406-1013-10576,r518.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 6.500s
-───────────────────────── [p_406-1013-10579,r339.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13034,r374.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13031,r511.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-11236,r636.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13036,r512.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13083,r513.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13179,r541.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13196,r541.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13193,r513.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13201,r513.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13229,r510.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13210,r510.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13231,r510.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13233,r513.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13255,r510.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13234,r513.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13250,r510.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13265,r339.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13263,r339.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 7.800s
-───────────────────────── [p_406-1013-13268,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13266,r339.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 6.236s
-───────────────────────── [p_406-1013-13269,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13270,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13272,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13271,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13291,r375.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13273,r375.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 8.891s
-───────────────────────── [p_406-1013-13382,r637.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13412,r339.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13414,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 13.160s
-───────────────────────── [p_406-1013-13415,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 17.342s
-───────────────────────── [p_406-1013-13416,r376.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13417,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 11.572s
-───────────────────────── [p_406-1013-13418,r376.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13610,r377.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13611,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13612,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13617,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13613,r377.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13618,r377.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13650,r511.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13651,r511.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13652,r512.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13661,r374.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13662,r511.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13663,r512.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13664,r374.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13665,r511.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13667,r374.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13666,r512.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13720,r374.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13719,r512.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13835,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13903,r378.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13837,r636.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13904,r378.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13905,r378.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13907,r378.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13915,r339.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13908,r378.php] ──────────────────────────
-WARNING  Image download failed - HTTP Error 404: Not Found
-         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13921,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 19.538s
-───────────────────────── [p_406-1013-13916,r339.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-───────────────────────── [p_406-1013-13922,r376.php] ──────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 16.951s
-────────────────────────── [p_406-1013-6993,r377.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-────────────────────────── [p_406-1013-8720,r378.php] ──────────────────────────
-Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
-──────────────────────────── [p_412-1013-1830.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6/6 7.173s
-──────────────────────────── [p_412-1013-2077.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 5.734s
-──────────────────────────── [p_412-1013-2076.php] ─────────────────────────────
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7/7 7.570s
-──────────────────────────── [p_412-1013-2084.php] ─────────────────────────────
-WARNING  Unsupported image content-type
-         (url=https://placehold.co/600x400/e0e0e0/999?text=LDW+Lab,
-         content_type=image/svg+xml)
-WARNING  Unsupported image content-type
-         (url=https://placehold.co/600x400/e0e0e0/999?text=HCI+Lab,
-         content_type=image/svg+xml)
-Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0/0 0.000s
+                    documents                     
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config         ┃ Value                         ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ enabled        │ True                          │
+│ caption_images │ True                          │
+│ formats        │ ['pdf', 'docx', 'doc', 'odt'] │
+└────────────────┴───────────────────────────────┘
+───────────────────────────────── Augmentation ─────────────────────────────────
+Downloading images... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 170/170 3.557s
+WARNING  Image download failed - HTTP 404                                       
+         (url=https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20)               
+WARNING  Image download failed - HTTP 404                                       
+         (url=https://www.csie.ncu.edu.tw/images/icon/doc.gif%20)               
+WARNING  Unsupported image content-type                                         
+         (url=https://placehold.co/600x400/e0e0e0/999?text=HCI+Lab,             
+         content_type=image/svg+xml)                                            
+WARNING  Unsupported image content-type                                         
+         (url=https://placehold.co/600x400/e0e0e0/999?text=LDW+Lab,             
+         content_type=image/svg+xml)                                            
+INFO     Image filter: skipped 29 small images, 5 images share content with     
+         another                                                                
+Downloading documents... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 87/87 1.230s
+INFO     Loading Docling models (first PDF; may download models)...             
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Initializing pipeline for StandardPdfPipeline with options hash        
+         324eade4408924be0fa413473875b3a7                                       
+INFO     Loading plugin 'docling_defaults'                                      
+INFO     Registered picture descriptions: ['picture_description_vlm_engine',    
+         'vlm', 'api']                                                          
+INFO     Loading plugin 'docling_defaults'                                      
+INFO     Registered ocr engines: ['auto', 'easyocr', 'kserve_v2_ocr',           
+         'nemotron-ocr', 'ocrmac', 'rapidocr', 'tesserocr', 'tesseract']        
+INFO     Nemotron cannot be used because it is not installed.                   
+INFO     rapidocr cannot be used because onnxruntime is not installed.          
+INFO     easyocr cannot be used because it is not installed.                    
+INFO     Accelerator device: 'cuda:0'                                           
+[INFO] 2026-10-04 20:30:52,045 [RapidOCR] base.py:23: Using engine_name: torch
+[INFO] 2026-10-04 20:30:52,048 [RapidOCR] device_config.py:64: Using GPU device with ID: 0
+[INFO] 2026-10-04 20:30:52,057 [RapidOCR] download_file.py:60: File exists and is valid: /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_det_small.pth
+[INFO] 2026-10-04 20:30:52,057 [RapidOCR] main.py:50: Using /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_det_small.pth
+/home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/inference_engine/pytorch/networks/heads/multiheadAttention.py:14: SyntaxWarning: invalid escape sequence '\d'
+  \text{MultiHead}(Q, K, V) = \text{Concat}(head_1,\dots,head_h)W^O
+[INFO] 2026-10-04 20:30:52,451 [RapidOCR] base.py:23: Using engine_name: torch
+[INFO] 2026-10-04 20:30:52,451 [RapidOCR] device_config.py:64: Using GPU device with ID: 0
+[INFO] 2026-10-04 20:30:52,455 [RapidOCR] download_file.py:60: File exists and is valid: /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/ch_ptocr_mobile_v2.0_cls_mobile.pth
+[INFO] 2026-10-04 20:30:52,455 [RapidOCR] main.py:50: Using /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/ch_ptocr_mobile_v2.0_cls_mobile.pth
+[INFO] 2026-10-04 20:30:52,508 [RapidOCR] base.py:23: Using engine_name: torch
+[INFO] 2026-10-04 20:30:52,508 [RapidOCR] device_config.py:64: Using GPU device with ID: 0
+[INFO] 2026-10-04 20:30:52,524 [RapidOCR] download_file.py:60: File exists and is valid: /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_rec_small.pth
+[INFO] 2026-10-04 20:30:52,525 [RapidOCR] main.py:50: Using /home/george/website-copilot/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_rec_small.pth
+INFO     Auto OCR model selected rapidocr with torch.                           
+INFO     Loading plugin 'docling_defaults'                                      
+INFO     Registered layout engines: ['layout_object_detection',                 
+         'docling_layout_default', 'docling_experimental_table_crops_layout']   
+INFO     Initializing Transformers object-detection engine                      
+INFO     Downloading object-detection model from HuggingFace:                   
+         docling-project/docling-layout-heron@main                              
+INFO     Fetching model docling-project/docling-layout-heron (revision: main)...
+INFO     Model docling-project/docling-layout-heron already cached at           
+         /home/george/.cache/huggingface/hub/models--docling-project--docling-la
+         yout-heron/snapshots/8f39ad3c0b4c58e9c2d2c84a38465abf757272d8          
+INFO     Accelerator device: 'cuda:0'                                           
+INFO     Transformers engine ready (device=cuda:0, dtype=torch.float32)         
+INFO     Loading plugin 'docling_defaults'                                      
+INFO     Registered table structure engines: ['docling_tableformer',            
+         'docling_tableformer_v2', 'granite_vision_table']                      
+INFO     Fetching model docling-project/docling-models (revision: v2.3.0)...    
+INFO     Model docling-project/docling-models already cached at                 
+         /home/george/.cache/huggingface/hub/models--docling-project--docling-mo
+         dels/snapshots/fc0f2d45e2218ea24bce5045f58a389aed16dc23                
+INFO     Accelerator device: 'cuda:0'                                           
+INFO     Processing document document.pdf                                       
+/home/george/website-copilot/.venv/lib/python3.13/site-packages/torch/nn/modules/conv.py:560: UserWarning: Using padding='same' with even kernel lengths and odd dilation may require a zero-padded copy of the input be created (Triggered internally at /__w/pytorch/pytorch/aten/src/ATen/native/Convolution.cpp:1104.)
+  return F.conv2d(
+WARNING  217 of 252 pdf cells matched neither a row nor a column band of the 2x7
+         grid and were dropped from the table                                   
+INFO     Finished converting document document.pdf in 12.34 sec.                
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 1.15 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+[WARNING] 2026-10-04 20:31:03,692 [RapidOCR] main.py:132: The text detection result is empty
+WARNING  RapidOCR returned empty result!                                        
+INFO     Finished converting document document.pdf in 1.13 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+WARNING  RapidOCR returned empty result!                                        
+INFO     Finished converting document document.pdf in 0.78 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 1.63 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.66 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.61 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.12 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.14 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.14 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.64 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.11 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.41 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.34 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.11 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.13 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 2.17 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.09 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.98 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.12 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 9.44 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 7.38 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.29 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.40 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 1.50 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+WARNING  2 of 79 pdf cells matched neither a row nor a column band of the 26x3  
+         grid and were dropped from the table                                   
+INFO     Finished converting document document.pdf in 12.62 sec.                
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.10 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+[WARNING] 2026-10-04 20:31:43,424 [RapidOCR] main.py:132: The text detection result is empty
+WARNING  RapidOCR returned empty result!                                        
+WARNING  RapidOCR returned empty result!                                        
+INFO     Finished converting document document.pdf in 36.24 sec.                
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 2.85 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 1.39 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 2.77 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 4.49 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 1.49 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.11 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.13 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 8.80 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 4.78 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 0.52 sec.                 
+INFO     detected formats: [<InputFormat.PDF: 'pdf'>]                           
+INFO     Going to convert document batch...                                     
+INFO     Processing document document.pdf                                       
+INFO     Finished converting document document.pdf in 10.69 sec.                
+Parsing documents... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 72/72 02:15.756
+WARNING  Document parse failed - ValueError: no text layer (scanned or          
+         image-only PDF)                                                        
+Generating captions... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 201/201 52.440s
 ────────────────────────── All Image Summarize Stats ───────────────────────────
-┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓
-┃ Page                  ┃ cost_usd ┃ success ┃ downloa… ┃ summariz… ┃ cache_r… ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩
-│ index                 │ $0.0029… │ 4       │ 0        │ 0         │ 0        │
-│ app_index.php         │ $0.0000… │ 0       │ 0        │ 0         │ 5        │
-│ index.php             │ $0.0000… │ 0       │ 0        │ 0         │ 14       │
-│ p_403-1013-377-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 6        │
-│ p_403-1013-518-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 1        │
-│ p_403-1013-378-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_403-1013-518.php    │ $0.0000… │ 0       │ 0        │ 0         │ 1        │
-│ p_406-1013-10486,r51… │ $0.0013… │ 3       │ 0        │ 0         │ 0        │
-│ p_406-1013-10487,r51… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13006,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-10488,r51… │ $0.0034… │ 2       │ 0        │ 0         │ 3        │
-│ p_406-1013-13267,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13413,r37… │ $0.0012… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13609,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13637,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13645,r33… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13705,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13744,r37… │ $0.0036… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13902,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13906,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13914,r33… │ $0.0028… │ 1       │ 1        │ 0         │ 3        │
-│ p_406-1013-13913,r33… │ $0.0019… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13918,r37… │ $0.0012… │ 1       │ 1        │ 0         │ 3        │
-│ p_406-1013-13917,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13919,r37… │ $0.0015… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13920,r37… │ $0.0013… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13957,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13944,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13967,r33… │ $0.0012… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-14025,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-14025,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-14065,r33… │ $0.0026… │ 2       │ 0        │ 0         │ 3        │
-│ p_406-1013-6992,r377… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-8551,r377… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-6991,r377… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-6990,r377… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-8716,r378… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_412-1013-1096.php   │ $0.0102… │ 26      │ 0        │ 0         │ 0        │
-│ p_412-1013-1154.php   │ $0.0027… │ 1       │ 0        │ 0         │ 0        │
-│ p_412-1013-1155.php   │ $0.0109… │ 4       │ 4        │ 0         │ 0        │
-│ p_412-1013-1812.php   │ $0.0024… │ 3       │ 0        │ 0         │ 0        │
-│ p_412-1013-1818.php   │ $0.0065… │ 5       │ 0        │ 0         │ 0        │
-│ p_412-1013-1849.php   │ $0.0390… │ 45      │ 0        │ 0         │ 0        │
-│ p_412-1013-1901.php   │ $0.0247… │ 28      │ 2        │ 0         │ 0        │
-│ p_403-1013-374-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 1        │
-│ p_403-1013-512-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 1        │
-│ p_403-1013-511-1.php  │ $0.0000… │ 0       │ 0        │ 0         │ 1        │
-│ p_404-1013-8716.php   │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-10520,r51… │ $0.0032… │ 2       │ 0        │ 0         │ 3        │
-│ p_406-1013-10522,r51… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-10528,r51… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-10544,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 4        │
-│ p_406-1013-10548,r51… │ $0.0010… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-10575,r51… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-10576,r51… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-10579,r33… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13034,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13031,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-11236,r63… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13036,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13083,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13179,r54… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13196,r54… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13193,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13201,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13229,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13210,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13231,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13233,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13255,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13234,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13250,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13265,r33… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13263,r33… │ $0.0012… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13268,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13266,r33… │ $0.0011… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13269,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13270,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13272,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13271,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13291,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13273,r37… │ $0.0013… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13382,r63… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13412,r33… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13414,r37… │ $0.0019… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13415,r37… │ $0.0027… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13416,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13417,r37… │ $0.0018… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13418,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 4        │
-│ p_406-1013-13610,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13611,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13612,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13617,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13613,r37… │ $0.0000… │ 0       │ 2        │ 0         │ 3        │
-│ p_406-1013-13618,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13650,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13651,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13652,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13661,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13662,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13663,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13664,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13665,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13667,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13666,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13720,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13719,r51… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13835,r37… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13903,r37… │ $0.0000… │ 0       │ 2        │ 0         │ 3        │
-│ p_406-1013-13837,r63… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13904,r37… │ $0.0000… │ 0       │ 3        │ 0         │ 3        │
-│ p_406-1013-13905,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13907,r37… │ $0.0000… │ 0       │ 5        │ 0         │ 3        │
-│ p_406-1013-13915,r33… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13908,r37… │ $0.0000… │ 0       │ 1        │ 0         │ 3        │
-│ p_406-1013-13921,r37… │ $0.0029… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-13916,r33… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-13922,r37… │ $0.0027… │ 1       │ 0        │ 0         │ 3        │
-│ p_406-1013-6993,r377… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_406-1013-8720,r378… │ $0.0000… │ 0       │ 0        │ 0         │ 3        │
-│ p_412-1013-1830.php   │ $0.0035… │ 6       │ 0        │ 0         │ 0        │
-│ p_412-1013-2077.php   │ $0.0007… │ 1       │ 0        │ 0         │ 0        │
-│ p_412-1013-2076.php   │ $0.0042… │ 7       │ 0        │ 0         │ 45       │
-│ p_412-1013-2084.php   │ $0.0000… │ 0       │ 2        │ 0         │ 28       │
-├───────────────────────┼──────────┼─────────┼──────────┼───────────┼──────────┤
-│ Total                 │ $0.1569… │ 161     │ 33       │ 0         │ 414      │
-└───────────────────────┴──────────┴─────────┴──────────┴───────────┴──────────┘
-────────────────────────────── Failed Images (8) ───────────────────────────────
-[p_406-1013-13908,r378.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20
-[p_412-1013-1155.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9B%BF%E6%8F%9B/map-el.png
-[p_412-1013-1155.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9B%BF%E6%8F%9B/map-se.png
-[p_412-1013-1155.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9B%BF%E6%8F%9B/map-ai.png
-[p_412-1013-1155.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/static/file/13/1013/img/%E8%AB%8B%E6%9B%BF%E6%8F%9B/map-sec.png
-[p_412-1013-2084.php] unsupported content-type image/svg+xml: https://placehold.co/600x400/e0e0e0/999?text=HCI+Lab
-[p_412-1013-2084.php] unsupported content-type image/svg+xml: https://placehold.co/600x400/e0e0e0/999?text=LDW+Lab
-[p_406-1013-13907,r378.php] HTTP Error 404: Not Found: https://www.csie.ncu.edu.tw/images/icon/doc.gif%20
-──────────────────────── Image Summarization Completed ─────────────────────────
-INFO     Published enhanced markdown to data/aug_webpages/ncucsie/results
-INFO     Image Summarizer (ncucsie, default) Completed in 422.955 seconds
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+┃ Page                  ┃ cost_… ┃ succe… ┃ downl… ┃ summa… ┃ skipped ┃ cache… ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+│ index                 │ $0.00… │ 1      │ 0      │ 0      │ 1       │ 13     │
+│ app_index.php         │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 5      │
+│ index.php             │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 15     │
+│ p_403-1013-377-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 6      │
+│ p_403-1013-378-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_403-1013-518-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 1      │
+│ p_403-1013-518.php    │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 1      │
+│ p_406-1013-10486,r51… │ $0.00… │ 3      │ 0      │ 0      │ 0       │ 0      │
+│ p_406-1013-10488,r51… │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10487,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13006,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10520,r51… │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13267,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13412,r33… │ $0.00… │ 0      │ 1      │ 0      │ 0       │ 3      │
+│ p_406-1013-13413,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13609,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13637,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13705,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13645,r33… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13744,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13902,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13913,r33… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13906,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13917,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13914,r33… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13918,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13919,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13920,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13944,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13957,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13967,r33… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-14025,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13903,r37… │ $0.00… │ 0      │ 1      │ 0      │ 0       │ 4      │
+│ p_406-1013-14065,r33… │ $0.00… │ 1      │ 0      │ 0      │ 1       │ 4      │
+│ p_406-1013-14068,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-14025,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-14070,r37… │ $0.00… │ 1      │ 0      │ 0      │ 1       │ 5      │
+│ p_406-1013-6990,r377… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-6992,r377… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-6991,r377… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-6993,r377… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-8551,r377… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-8716,r378… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_412-1013-1096.php   │ $0.00… │ 0      │ 0      │ 0      │ 26      │ 0      │
+│ p_412-1013-1155.php   │ $0.00… │ 4      │ 0      │ 0      │ 0       │ 4      │
+│ p_412-1013-1812.php   │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_412-1013-1818.php   │ $0.00… │ 5      │ 0      │ 0      │ 0       │ 1      │
+│ p_412-1013-1849.php   │ $0.03… │ 53     │ 0      │ 0      │ 0       │ 0      │
+│ p_412-1013-1901.php   │ $0.02… │ 28     │ 2      │ 0      │ 0       │ 0      │
+│ p_403-1013-374-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 1      │
+│ p_403-1013-511-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 1      │
+│ p_403-1013-512-1.php  │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 1      │
+│ p_406-1013-10522,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_404-1013-8716.php   │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10528,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10544,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-10548,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10575,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10576,r51… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-10579,r33… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13034,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13031,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-11236,r63… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13036,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13083,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13193,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13179,r54… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13196,r54… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13201,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13210,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13229,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13231,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13233,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13255,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13234,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13250,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13263,r33… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13265,r33… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13266,r33… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13268,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13269,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13271,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13270,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13272,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13382,r63… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13273,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13414,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13415,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13416,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13418,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13417,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13610,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13611,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13612,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13613,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 5      │
+│ p_406-1013-13617,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13618,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13650,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13651,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13662,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13652,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13661,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13663,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13664,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13665,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13667,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13719,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13666,r51… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13835,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13720,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13905,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13837,r63… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13904,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 6      │
+│ p_406-1013-13907,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 8      │
+│ p_406-1013-13908,r37… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 4      │
+│ p_406-1013-13915,r33… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13921,r37… │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-13916,r33… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_406-1013-8720,r378… │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 3      │
+│ p_412-1013-1830.php   │ $0.00… │ 6      │ 0      │ 0      │ 0       │ 0      │
+│ p_412-1013-2077.php   │ $0.00… │ 1      │ 0      │ 0      │ 0       │ 0      │
+│ p_412-1013-2076.php   │ $0.00… │ 4      │ 0      │ 0      │ 0       │ 48     │
+│ p_412-1013-2084.php   │ $0.00… │ 0      │ 0      │ 0      │ 0       │ 30     │
+│ doc-cf79f528f684      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-ef7e8f6ae61f      │ $0.00… │ 2      │ 0      │ 0      │ 4       │ 0      │
+│ doc-5de0c64cf369      │ $0.15… │ 96     │ 0      │ 0      │ 10      │ 16     │
+│ doc-3dfbccd38460      │ $0.01… │ 14     │ 0      │ 0      │ 0       │ 0      │
+│ doc-385ee9a2f8af      │ $0.00… │ 2      │ 0      │ 0      │ 4       │ 0      │
+│ doc-2b60adf4beda      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-7a64a4e4b300      │ $0.00… │ 4      │ 0      │ 0      │ 0       │ 0      │
+│ doc-47a2202cd82a      │ $0.00… │ 6      │ 0      │ 0      │ 0       │ 0      │
+│ doc-4242c76cfc8f      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-08e188eb3f96      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-e94f83e34b70      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-6e25350b9f75      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+│ doc-5b6c1095581d      │ $0.00… │ 2      │ 0      │ 0      │ 0       │ 0      │
+├───────────────────────┼────────┼────────┼────────┼────────┼─────────┼────────┤
+│ Total                 │ $0.32… │ 270    │ 4      │ 0      │ 47      │ 484    │
+└───────────────────────┴────────┴────────┴────────┴────────┴─────────┴────────┘
+──────────────────────────────── Document Stats ────────────────────────────────
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Metric                                   ┃ Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ collected                                │ 87    │
+│ skipped (format not enabled, by URL)     │ 0     │
+│ skipped (outside allowed domains)        │ 6     │
+│ download_failure                         │ 0     │
+│ skipped (format not enabled, by content) │ 0     │
+│ parse_failure                            │ 1     │
+│ duplicate_content                        │ 15    │
+│ success                                  │ 71    │
+└──────────────────────────────────────────┴───────┘
+───────────────────────────── Failed Resources (5) ─────────────────────────────
+image [p_406-1013-13412,r339.php] HTTP 404: https://www.csie.ncu.edu.tw/images/icon/pdf.gif%20
+image [p_406-1013-13903,r378.php] HTTP 404: https://www.csie.ncu.edu.tw/images/icon/doc.gif%20
+image [p_412-1013-1901.php] unsupported content-type image/svg+xml: https://placehold.co/600x400/e0e0e0/999?text=HCI+Lab
+image [p_412-1013-1901.php] unsupported content-type image/svg+xml: https://placehold.co/600x400/e0e0e0/999?text=LDW+Lab
+document [p_406-1013-13918,r376.php] parse failed: ValueError: no text layer (scanned or image-only PDF): https://www.csie.ncu.edu.tw/app/index.php?Action=downloadfile&file=WVhSMFlXTm9MelEzTDNCMFlWOHhPRFUyWHpZeU5UQTBOVEJmT0RneE5qVXVjR1Jt&fname=WSGGKLQKSSCGCD44IG0430MOWWNK35KKYSB0SSXSNP25IGB5ROUSA001GGECZWSSRKTS45YT0024EGXSYWJGMK25DG24RKNPTXYTNKFCWSB0POVWECSWYWQKRK10CCYX20NOTXXWKKMOWSICUSRKYWNP01UXIGRKQKDCFCA4OOA4LKQKRKKK21MP2410RKJGQOJG30KKWSMOB1NOZTA1NLTS
+──────────────────────────── Augmentation Completed ────────────────────────────
+INFO     Published enhanced_markdown pages to data/aug_webpages/ncucsie/results 
+INFO     Augmenter (ncucsie, default) Completed in 193.315 seconds              

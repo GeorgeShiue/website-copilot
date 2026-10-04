@@ -124,24 +124,6 @@ class IndexBuilder:
         self._log_build_stats()
         return self._handle(vector_store, index)
 
-    def _handle(
-        self, vector_store: MilvusVectorStore, index: VectorStoreIndex
-    ) -> IndexHandle:
-        return IndexHandle(
-            vector_store=vector_store,
-            index=index,
-            milvus_uri=self.target.milvus_uri,
-        )
-
-    def _log_build_stats(self) -> None:
-        log_session("RAG Build Stats", style="green")
-        table = Table(show_header=True, header_style="bold green")
-        table.add_column("Metric", style="green", no_wrap=True)
-        table.add_column("Value", style="white")
-        for metric, value in self._build_stats.items():
-            table.add_row(metric, value)
-        print_log(table)
-
     def clean(self) -> None:
         """整檔刪除既有向量庫（重建前呼叫）。"""
         milvus_uri = self.target.milvus_uri
@@ -184,12 +166,6 @@ class IndexBuilder:
             ),
         )
 
-    def _create_embed_model(self, embedding_name: str) -> OpenAIEmbedding:
-        api_key = os.getenv("OPENAI_API_KEY")
-        return OpenAIEmbedding(
-            model=embedding_name, embed_batch_size=256, api_key=api_key
-        )
-
     def build_index(
         self, vector_store: MilvusVectorStore, nodes: Sequence[BaseNode]
     ) -> VectorStoreIndex:
@@ -216,3 +192,27 @@ class IndexBuilder:
         )
         self._build_stats["Index nodes"] = "loaded from existing vector store"
         return index
+
+    def _handle(
+        self, vector_store: MilvusVectorStore, index: VectorStoreIndex
+    ) -> IndexHandle:
+        return IndexHandle(
+            vector_store=vector_store,
+            index=index,
+            milvus_uri=self.target.milvus_uri,
+        )
+
+    def _log_build_stats(self) -> None:
+        log_session("RAG Build Stats", style="green")
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Metric", style="green", no_wrap=True)
+        table.add_column("Value", style="white")
+        for metric, value in self._build_stats.items():
+            table.add_row(metric, value)
+        print_log(table)
+
+    def _create_embed_model(self, embedding_name: str) -> OpenAIEmbedding:
+        api_key = os.getenv("OPENAI_API_KEY")
+        return OpenAIEmbedding(
+            model=embedding_name, embed_batch_size=256, api_key=api_key
+        )

@@ -1,5 +1,5 @@
 {
-  "seed": 1120437746,
+  "seed": 2019584552,
   "words": [
     {
       "word": "跳到主要內容區",
@@ -26,87 +26,51 @@
       "low_occ_ratio": 0.0
     },
     {
+      "word": "Close (Esc) Share Toggle fullscreen Zoom in/out",
+      "votes": 5,
+      "hit_lines": 145,
+      "low_occ_ratio": 0.0
+    },
+    {
+      "word": "Previous (arrow left) Next (arrow right)",
+      "votes": 5,
+      "hit_lines": 145,
+      "low_occ_ratio": 0.0
+    },
+    {
       "word": "Loading...",
       "votes": 5,
       "hit_lines": 145,
       "low_occ_ratio": 0.0
     },
     {
-      "word": "Close (Esc) Share Toggle fullscreen Zoom in/out",
-      "votes": 4,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Previous (arrow left) Next (arrow right)",
-      "votes": 4,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Jump to the main content block",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
       "word": "_分享_",
-      "votes": 3,
+      "votes": 4,
       "hit_lines": 103,
       "low_occ_ratio": 0.0
     },
     {
+      "word": "Jump to the main content block",
+      "votes": 2,
+      "hit_lines": 12,
+      "low_occ_ratio": 0.0
+    },
+    {
+      "word": "Department of Computer Science & Information Engineering, National Central University",
+      "votes": 2,
+      "hit_lines": 12,
+      "low_occ_ratio": 0.0
+    },
+    {
       "word": "Back To Top",
-      "votes": 3,
+      "votes": 2,
       "hit_lines": 12,
       "low_occ_ratio": 0.0
     },
     {
       "word": "Login Success",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Department of Computer Science &",
-      "votes": 3,
-      "hit_lines": 24,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Tel: 886-3-422-7151 ext. 35200",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Fax: 886-3-422-2681",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "E-mail: ncu4500@ncu.edu.tw",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University.",
-      "votes": 3,
-      "hit_lines": 12,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Information Engineering, National Central University",
       "votes": 2,
-      "hit_lines": 24,
+      "hit_lines": 12,
       "low_occ_ratio": 0.0
     },
     {
@@ -116,39 +80,15 @@
       "low_occ_ratio": 0.0
     },
     {
-      "word": "Close (Esc)",
+      "word": "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University.",
       "votes": 1,
-      "hit_lines": 145,
+      "hit_lines": 12,
       "low_occ_ratio": 0.0
     },
     {
-      "word": "Share",
+      "word": "Copyright © 2025",
       "votes": 1,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Toggle fullscreen",
-      "votes": 1,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Zoom in/out",
-      "votes": 1,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Previous (arrow left)",
-      "votes": 1,
-      "hit_lines": 145,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Next (arrow right)",
-      "votes": 1,
-      "hit_lines": 145,
+      "hit_lines": 12,
       "low_occ_ratio": 0.0
     }
   ],
@@ -156,142 +96,167 @@
     {
       "word": "分享至社群",
       "votes": 5,
-      "low_occ_ratio": 0.18446601941747573
+      "low_occ_ratio": 0.17475728155339806
     },
     {
-      "word": "分享",
+      "word": "原頁面開啟",
+      "votes": 4,
+      "low_occ_ratio": 1.0
+    },
+    {
+      "word": "另開新視窗",
+      "votes": 2,
+      "low_occ_ratio": 1.0
+    },
+    {
+      "word": "置頂資訊",
       "votes": 1,
-      "low_occ_ratio": 0.1382488479262673
+      "low_occ_ratio": 1.0
+    },
+    {
+      "word": "徵才訊息",
+      "votes": 1,
+      "low_occ_ratio": 0.13333333333333333
+    },
+    {
+      "word": "得獎訊息",
+      "votes": 1,
+      "low_occ_ratio": 0.2631578947368421
+    },
+    {
+      "word": "演講公告",
+      "votes": 1,
+      "low_occ_ratio": 0.13333333333333333
     }
   ],
   "samples": [
     [
-      "p_406-1013-13417,r376.php",
-      "p_406-1013-10576,r518.php",
-      "p_406-1013-13914,r339.php",
-      "p_406-1013-13412,r339.php",
-      "p_406-1013-13921,r376.php",
-      "p_406-1013-10575,r518.php",
-      "~pochyisu",
-      "p_412-1013-1154.php",
-      "p_406-1013-13291,r375.php",
-      "p_406-1013-13269,r375.php",
-      "p_406-1013-13272,r375.php",
-      "p_406-1013-10544,r518.php",
-      "p_406-1013-13719,r512.php",
+      "p_412-1013-1096.php",
+      "p_403-1013-511-1.php",
       "p_403-1013-512-1.php",
-      "p_406-1013-13907,r378.php"
-    ],
-    [
-      "p_406-1013-13418,r376.php",
-      "p_412-1013-2084.php",
-      "p_406-1013-13720,r374.php",
-      "p_406-1013-13913,r339.php",
-      "p_406-1013-13234,r513.php",
-      "p_406-1013-10548,r518.php",
-      "p_406-1013-13835,r378.php",
-      "p_406-1013-13637,r377.php",
-      "p_412-1013-1797.php",
-      "p_406-1013-13922,r376.php",
-      "p_406-1013-13610,r377.php",
-      "p_406-1013-13268,r375.php",
-      "p_406-1013-10579,r339.php",
-      "index",
-      "p_412-1013-2116.php"
-    ],
-    [
-      "p_406-1013-13270,r375.php",
-      "p_412-1013-2116.php",
-      "p_412-1013-1157.php",
-      "p_406-1013-13196,r541.php",
-      "p_406-1013-13903,r378.php",
-      "p_406-1013-10522,r518.php",
-      "p_406-1013-13650,r511.php",
-      "p_406-1013-6990,r377.php",
-      "p_406-1013-13414,r376.php",
-      "p_403-1013-376-1.php",
-      "p_406-1013-10579,r339.php",
-      "p_406-1013-13233,r513.php",
-      "p_406-1013-13271,r375.php",
-      "p_412-1013-2042.php",
-      "p_406-1013-13919,r376.php"
-    ],
-    [
-      "p_406-1013-13229,r510.php",
-      "p_406-1013-13919,r376.php",
-      "p_412-1013-2098.php",
-      "p_406-1013-13234,r513.php",
-      "p_412-1013-2077.php",
-      "p_412-1013-1813.php",
-      "p_406-1013-13944,r518.php",
-      "~ypcheng",
-      "p_406-1013-13618,r377.php",
-      "p_406-1013-13210,r510.php",
+      "p_406-1013-13382,r637.php",
+      "p_406-1013-13193,r513.php",
+      "p_406-1013-13612,r377.php",
+      "p_403-1013-510-1.php",
       "p_404-1013-8716.php",
-      "p_412-1013-2116.php",
-      "p_406-1013-8716,r378.php",
-      "p_406-1013-13034,r374.php",
-      "p_406-1013-13967,r339.php"
+      "index.php",
+      "p_406-1013-14070,r376.php",
+      "p_406-1013-13665,r511.php",
+      "p_406-1013-13210,r510.php",
+      "p_412-1013-1813.php",
+      "p_406-1013-13255,r510.php",
+      "p_406-1013-13609,r375.php"
     ],
     [
-      "static_file_13_1013_img_222010142.png",
-      "p_406-1013-13413,r376.php",
-      "p_406-1013-13906,r378.php",
-      "p_406-1013-13904,r378.php",
-      "p_406-1013-13957,r375.php",
-      "p_412-1013-2085.php",
-      "p_406-1013-6992,r377.php",
-      "p_406-1013-13915,r339.php",
-      "p_406-1013-13661,r374.php",
-      "p_412-1013-2077.php",
+      "p_406-1013-13412,r339.php",
+      "p_406-1013-13179,r541.php",
+      "p_406-1013-13263,r339.php",
+      "p_412-1013-1830.php",
+      "p_412-1013-2099.php",
       "p_403-1013-518.php",
-      "p_412-1013-2076.php",
-      "p_406-1013-13613,r377.php",
-      "p_406-1013-10548,r518.php",
-      "p_412-1013-2095.php"
+      "p_406-1013-13719,r512.php",
+      "p_406-1013-13651,r511.php",
+      "p_412-1013-2042.php",
+      "p_412-1013-1849.php",
+      "p_406-1013-13193,r513.php",
+      "p_406-1013-13957,r375.php",
+      "p_406-1013-10488,r518.php",
+      "p_406-1013-13270,r375.php",
+      "p_406-1013-13645,r339.php"
+    ],
+    [
+      "p_403-1013-518.php",
+      "p_403-1013-518-1.php",
+      "p_412-1013-2042.php",
+      "p_406-1013-6991,r377.php",
+      "p_406-1013-13418,r376.php",
+      "p_406-1013-13201,r513.php",
+      "p_412-1013-2117.php",
+      "p_404-1013-8716.php",
+      "p_406-1013-14025,r378.php",
+      "p_406-1013-13271,r375.php",
+      "p_406-1013-13210,r510.php",
+      "p_406-1013-13414,r376.php",
+      "p_412-1013-1096.php",
+      "p_406-1013-13034,r374.php",
+      "p_406-1013-13902,r378.php"
+    ],
+    [
+      "p_406-1013-13618,r377.php",
+      "p_406-1013-6991,r377.php",
+      "p_406-1013-6992,r377.php",
+      "p_403-1013-518.php",
+      "p_406-1013-13907,r378.php",
+      "p_406-1013-13661,r374.php",
+      "p_406-1013-13179,r541.php",
+      "p_412-1013-1154.php",
+      "p_412-1013-1155.php",
+      "p_406-1013-13904,r378.php",
+      "p_403-1013-339-1.php",
+      "p_404-1013-8716.php",
+      "p_406-1013-13031,r511.php",
+      "p_406-1013-13034,r374.php",
+      "p_412-1013-1096.php"
+    ],
+    [
+      "p_406-1013-13835,r378.php",
+      "p_403-1013-376-1.php",
+      "p_412-1013-2459.php",
+      "p_406-1013-13661,r374.php",
+      "p_406-1013-13229,r510.php",
+      "p_406-1013-13269,r375.php",
+      "p_412-1013-1814.php",
+      "p_406-1013-13918,r376.php",
+      "p_412-1013-2095.php",
+      "p_406-1013-13201,r513.php",
+      "app_index.php",
+      "p_412-1013-1830.php",
+      "p_406-1013-13651,r511.php",
+      "p_406-1013-13609,r375.php",
+      "p_412-1013-2096.php"
     ]
   ],
   "runs": [
     [
       "跳到主要內容區",
       "中央大學資工系Logo",
-      "_分享_",
-      "分享至社群",
       "回到頂部",
       "登入成功",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
-      "Loading..."
+      "Loading...",
+      "原頁面開啟",
+      "分享至社群",
+      "_分享_",
+      "另開新視窗",
+      "置頂資訊"
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
+      "徵才訊息",
+      "得獎訊息",
+      "演講公告",
+      "_分享_",
+      "分享至社群",
+      "回到頂部",
+      "登入成功",
+      "原頁面開啟",
+      "Close (Esc) Share Toggle fullscreen Zoom in/out",
+      "Previous (arrow left) Next (arrow right)",
+      "Loading...",
+      "Jump to the main content block",
       "NCU CSIE Dept. of Computer Science & Information Engineering",
-      "分享",
-      "分享至社群",
-      "回到頂部",
-      "登入成功",
+      "Department of Computer Science & Information Engineering, National Central University",
+      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University.",
       "Back To Top",
-      "Login Success",
-      "Close (Esc)",
-      "Share",
-      "Toggle fullscreen",
-      "Zoom in/out",
-      "Previous (arrow left)",
-      "Next (arrow right)",
-      "Loading...",
-      "Department of Computer Science &",
-      "Information Engineering, National Central University",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "Login Success"
     ],
     [
       "跳到主要內容區",
       "中央大學資工系Logo",
+      "原頁面開啟",
+      "_分享_",
       "分享至社群",
       "回到頂部",
       "登入成功",
@@ -301,87 +266,74 @@
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
       "_分享_",
       "分享至社群",
       "回到頂部",
-      "Back To Top",
       "登入成功",
-      "Login Success",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
       "Loading...",
-      "Department of Computer Science &",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "原頁面開啟",
+      "另開新視窗"
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
-      "_分享_",
       "分享至社群",
       "回到頂部",
       "登入成功",
-      "Back To Top",
-      "Login Success",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
       "Loading...",
-      "Department of Computer Science &",
-      "Information Engineering, National Central University",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "Jump to the main content block",
+      "Department of Computer Science & Information Engineering, National Central University",
+      "Copyright © 2025",
+      "Back To Top",
+      "Login Success"
     ]
   ],
   "raw_runs": [
     [
       "跳到主要內容區",
       "中央大學資工系Logo",
-      "_分享_",
-      "分享至社群",
       "回到頂部",
       "登入成功",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
-      "Loading..."
+      "Loading...",
+      "原頁面開啟",
+      "分享至社群",
+      "_分享_",
+      "另開新視窗",
+      "置頂資訊"
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
+      "徵才訊息",
+      "得獎訊息",
+      "演講公告",
+      "_分享_",
+      "分享至社群",
+      "回到頂部",
+      "登入成功",
+      "原頁面開啟",
+      "Close (Esc) Share Toggle fullscreen Zoom in/out",
+      "Previous (arrow left) Next (arrow right)",
+      "Loading...",
+      "Jump to the main content block",
       "NCU CSIE Dept. of Computer Science & Information Engineering",
-      "分享",
-      "分享至社群",
-      "回到頂部",
-      "登入成功",
+      "Department of Computer Science & Information Engineering, National Central University",
+      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University.",
       "Back To Top",
-      "Login Success",
-      "Close (Esc)",
-      "Share",
-      "Toggle fullscreen",
-      "Zoom in/out",
-      "Previous (arrow left)",
-      "Next (arrow right)",
-      "Loading...",
-      "Department of Computer Science &",
-      "Information Engineering, National Central University",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "Login Success"
     ],
     [
       "跳到主要內容區",
       "中央大學資工系Logo",
+      "原頁面開啟",
+      "_分享_",
       "分享至社群",
       "回到頂部",
       "登入成功",
@@ -391,72 +343,59 @@
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
       "_分享_",
       "分享至社群",
       "回到頂部",
-      "Back To Top",
       "登入成功",
-      "Login Success",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
       "Loading...",
-      "Department of Computer Science &",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "原頁面開啟",
+      "另開新視窗"
     ],
     [
       "跳到主要內容區",
-      "Jump to the main content block",
       "中央大學資工系Logo",
-      "_分享_",
       "分享至社群",
       "回到頂部",
       "登入成功",
-      "Back To Top",
-      "Login Success",
       "Close (Esc) Share Toggle fullscreen Zoom in/out",
       "Previous (arrow left) Next (arrow right)",
       "Loading...",
-      "Department of Computer Science &",
-      "Information Engineering, National Central University",
-      "Address: No. 300, Zhongda Rd, Zhongli District, Taoyuan City, 320",
-      "Tel: 886-3-422-7151 ext. 35200",
-      "Fax: 886-3-422-2681",
-      "E-mail: ncu4500@ncu.edu.tw",
-      "Copyright © 2025 - Department of Computer Science & Information Engineering, National Central University."
+      "Jump to the main content block",
+      "Department of Computer Science & Information Engineering, National Central University",
+      "Copyright © 2025",
+      "Back To Top",
+      "Login Success"
     ]
   ],
   "usages": [
     {
-      "prompt_tokens": 23636,
-      "completion_tokens": 585,
-      "cost_usd": 0.00661085
+      "prompt_tokens": 26033,
+      "completion_tokens": 602,
+      "cost_usd": 0.007230499999999999
     },
     {
-      "prompt_tokens": 26186,
-      "completion_tokens": 1228,
-      "cost_usd": 0.00801995
+      "prompt_tokens": 29918,
+      "completion_tokens": 1701,
+      "cost_usd": 0.00952055
     },
     {
-      "prompt_tokens": 20439,
-      "completion_tokens": 581,
-      "cost_usd": 0.0058068
+      "prompt_tokens": 21555,
+      "completion_tokens": 592,
+      "cost_usd": 0.006098999999999999
     },
     {
-      "prompt_tokens": 18204,
-      "completion_tokens": 1206,
-      "cost_usd": 0.0059980499999999996
+      "prompt_tokens": 25892,
+      "completion_tokens": 598,
+      "cost_usd": 0.007190449999999999
     },
     {
-      "prompt_tokens": 25796,
-      "completion_tokens": 1213,
-      "cost_usd": 0.00790445
+      "prompt_tokens": 22567,
+      "completion_tokens": 1131,
+      "cost_usd": 0.0069987999999999995
     }
   ],
-  "total_cost_usd": 0.0343401
+  "total_cost_usd": 0.0370393
 }

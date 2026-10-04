@@ -9,7 +9,7 @@
 configs/
 ├── sites/             # SiteConfig：nculab.yml / ncucsie.yml
 ├── website_crawler/   # WebsiteCrawlerConfig：test.yml
-├── image_summarizer/  # ImageSummarizerConfig：test.yml
+├── augmenter/  # AugmenterConfig：test.yml
 ├── rag/               # RAGConfig：test.yml
 └── agent/             # AgentConfig：test.yml
 ```
@@ -34,6 +34,8 @@ crawl:
   url_patterns: ["*csie.ncu.edu.tw*"]   # null 為不過濾
   allowed_domains: [www.csie.ncu.edu.tw] # null 為不限制
   path_prefix: /                        # null 時取起始網址的父路徑
+documents:                              # 選填
+  url_patterns: ["*Action=downloadfile*"] # 站點專屬的文件 URL 樣式（glob，如無副檔名的下載 API）；預設 []
 ```
 
 `site_id` 同時決定 `data/{category}/{site_id}/`、`runs/<ts>/<module>/{site_id}/` 與向量庫的 collection 名稱。每次執行會把站點設定另存為 `site_config.yml`（runs/ 與 data/ 皆有）。
@@ -52,7 +54,7 @@ crawl:
 | key | 說明 |
 |---|---|
 | `extends` | 繼承同資料夾的設定，值為設定名稱（不含副檔名），如 `extends: test`。處理後移除，不會被繼承 |
-| `run_name_fields` | 決定 run 名稱（`runs/` 資料夾名稱）的欄位，dotted path 的 list，如 `[init.max_pages]`；run 名稱以最後一段欄位名組成（`max_pages-40`）。整條繼承鏈都沒寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`（website_crawler 為 `[init.max_depth]`、image_summarizer 為 `[summarize.model]`、rag 為 `[vector_store.vector_store_type]`、agent 為 `[]`）；寫 `[]` 明確清空，run 名稱為 `default`。和一般欄位一樣會被繼承，子檔寫了就整個取代 |
+| `run_name_fields` | 決定 run 名稱（`runs/` 資料夾名稱）的欄位，dotted path 的 list，如 `[init.max_pages]`；run 名稱以最後一段欄位名組成（`max_pages-40`）。整條繼承鏈都沒寫時使用 class 的 `_DEFAULT_RUN_NAME_FIELDS`（website_crawler 為 `[init.max_depth]`、augmenter 為 `[images.model]`、rag 為 `[vector_store.vector_store_type]`、agent 為 `[]`）；寫 `[]` 明確清空，run 名稱為 `default`。和一般欄位一樣會被繼承，子檔寫了就整個取代 |
 
 其他層級出現同名 key 視為一般欄位，會被拒絕。
 

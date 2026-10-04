@@ -1,12 +1,15 @@
-# source: ImageSummarizerConfig 預設值（configs/image_summarizer/default.yml 不存在）
-# run_name_fields: [summarize.model]
-init:
-  download_timeout: 10.0
+# source: AugmenterConfig 預設值（configs/augmenter/default.yml 不存在）
+# run_name_fields: [images.model]
+download:
+  timeout: 10.0
+  max_concurrency: 40
+  max_retries: 2
+  max_bytes: 52428800
+retry:
   success_threshold: 0.8
   max_retries: 6
-  cache_download_images: true
-  cache_image_captions: true
-summarize:
+images:
+  enabled: true
   model: gpt-5.6-luna
   prompt: |
     你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。
@@ -43,6 +46,15 @@ summarize:
     - 多行文字按出現順序分行列出，並保留特殊符號、數字與日期等原始格式
     - 所有欄位均不使用括號，直接列出內容
     - 低資訊字只在內部過濾，不列入最終輸出
-  image_source: markdown
-  vlm_max_workers: 20
+  source: markdown
+  max_concurrency: 50
+  min_size: 100
+documents:
+  enabled: true
+  caption_images: true
+  formats:
+  - pdf
+  - docx
+  - doc
+  - odt
 litellm_kwargs: {}

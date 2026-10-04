@@ -159,7 +159,7 @@ def test_agent_command() -> None:
     [
         ["run", "rag-query", "nculab", "--module.retriever.similarity-top-k", "abc"],
         ["run", "rag-query", "nculab", "--module.retriever.query-mode", "dense"],
-        ["run", "image-summarizer", "nculab", "--module.litellm-kwargs", "{}"],
+        ["run", "augmenter", "nculab", "--module.litellm-kwargs", "{}"],
         # 站點資訊不再是模組參數（Phase C 過渡期的參數已消失）
         ["run", "rag-query", "nculab", "--module.site-id", "x"],
         ["run", "rag-query", "nculab", "--module.query-engine.query", "q"],
@@ -215,7 +215,7 @@ def test_rag_query_query_argument() -> None:
 def test_serve_command() -> None:
     mock = _run(
         ["serve", "--run.config", "test", "--run.port", "9000"],
-        "website_copilot.pipelines.serve.serve",
+        "website_copilot.pipelines.serve.run_serve",
     )
 
     mock.assert_called_once_with(ServeRunConfig(config_name="test", port=9000))

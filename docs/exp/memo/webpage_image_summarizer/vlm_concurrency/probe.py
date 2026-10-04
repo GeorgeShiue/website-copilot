@@ -1,6 +1,6 @@
 """VLM 並行上限實驗（code cleanup plan C2「並行上限實驗」）。
 
-以正式的 ImageSummarizer 呼叫路徑（修正後的 semaphore 控制並行數），
+以正式的 Augmenter 呼叫路徑（修正後的 semaphore 控制並行數），
 對同一張圖片送出 2N 個摘要請求，逐級提高 summary_max_workers=N，直到出現失敗或跑完所有級距。
 
 - 關閉自動重試（litellm_kwargs max_retries=0），讓 429 直接以失敗呈現。
@@ -24,9 +24,9 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
 
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
-from website_copilot.ingestion.augmentation import image_summarizer as module
-from website_copilot.ingestion.augmentation.image_summarizer import ImageSummarizer
+from website_copilot.config.augmenter_config import AugmenterConfig
+from website_copilot.ingestion.augmentation import augmenter as module
+from website_copilot.ingestion.augmentation.augmenter import Augmenter
 
 IMAGE_URL = "https://www.csie.ncu.edu.tw/static/file/13/1013/img/NCU_WASN_Lab.png"
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -99,7 +99,7 @@ def _percentile(values: list[float], q: float) -> float:
 
 
 def run_level(
-    summarizer: ImageSummarizer,
+    summarizer: Augmenter,
     image_base64_url: str,
     workers: int,
     dry_run: bool,
@@ -181,27 +181,27 @@ def main() -> None:
     parser.add_argument("--out", default=OUT_DIR, help="raw／summary 輸出資料夾")
     args = parser.parse_args()
 
-    config = ImageSummarizerConfig.from_yaml("default")
-    summarizer = ImageSummarizer(
-        download_timeout=config.init.download_timeout,
-        download_max_workers=config.init.download_max_workers,
-        success_threshold=config.init.success_threshold,
+    config = AugmenterConfig.from_yaml("default")
+    summarizer = Augmenter(
+        download_timeout=config.download.timeout,
+        download_max_workers=config.download.max_concurrency,
+        success_threshold=config.retry.success_threshold,
         max_retries=0,
     )
     # 以空爬取結果走一次公開流程：完成 model／API key 解析並設定 prompt 與 litellm 參數
     summarizer.summarize_crawl_results_images(
         {},
-        model=config.summarize.model,
-        prompt=config.summarize.prompt,
+        model=config.images.model,
+        prompt=config.images.prompt,
         summary_max_workers=args.levels[0],
-        image_source=config.summarize.image_source,
+        image_source=config.images.source,
         **{**config.litellm_kwargs, "max_retries": 0},
     )
     image_base64_url = summarizer._download_image(IMAGE_URL)
     if image_base64_url is None:
         raise SystemExit(f"圖片下載失敗：{IMAGE_URL}")
 
-    print(f"model={config.summarize.model} image={IMAGE_URL} dry_run={args.dry_run}")
+    print(f"model={config.images.model} image={IMAGE_URL} dry_run={args.dry_run}")
     for index, workers in enumerate(args.levels):
         if index > 0:
             print(f"等待 {args.gap:.0f} 秒讓每分鐘額度重置…")

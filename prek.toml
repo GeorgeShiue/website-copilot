@@ -2,9 +2,11 @@
 repo = "builtin"
 hooks = [
     # code style
-    { id = "end-of-file-fixer", exclude = '\.md$' },
-    { id = "mixed-line-ending" },
-    { id = "trailing-whitespace" },
+    # tests/fixtures 為逐字比對的快照基準、data/ 為已發布的資料（md、json、原檔、向量庫），
+    # 不可被 hook 改寫
+    { id = "end-of-file-fixer", exclude = '(\.md$|^tests/fixtures/|^data/)' },
+    { id = "mixed-line-ending", exclude = '^(tests/fixtures|data)/' },
+    { id = "trailing-whitespace", exclude = '^(tests/fixtures|data)/' },
     # git safety
     { id = "check-added-large-files", args = ["--maxkb=30720"] },
     { id = "check-merge-conflict" },

@@ -1,13 +1,13 @@
 ───────────────────────── Rag Build (ncucsie, default) ─────────────────────────
 ───────────────────────── SiteConfig Loaded from yaml ──────────────────────────
-           SiteConfig
+           SiteConfig            
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
 ┃ Config       ┃ Value          ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
 │ site_id      │ ncucsie        │
 │ sample_query │ 介紹資工系課程 │
 └──────────────┴────────────────┘
-                      crawl
+                      crawl                       
 ┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config          ┃ Value                        ┃
 ┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -16,8 +16,14 @@
 │ allowed_domains │ ['www.csie.ncu.edu.tw']      │
 │ path_prefix     │ /                            │
 └─────────────────┴──────────────────────────────┘
+                 documents                  
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Config       ┃ Value                     ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ url_patterns │ ['*Action=downloadfile*'] │
+└──────────────┴───────────────────────────┘
 ────────────────────────── RAGConfig Loaded from yaml ──────────────────────────
-             nodes
+             nodes             
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Config              ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
@@ -25,7 +31,7 @@
 │ chunk_overlap       │ 100   │
 │ paragraph_separator │ \n\n  │
 └─────────────────────┴───────┘
-                   vector_store
+                   vector_store                   
 ┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config               ┃ Value                   ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -33,13 +39,13 @@
 │ hybrid_ranker        │ WeightedRanker          │
 │ hybrid_ranker_params │ {'weights': [1.0, 0.5]} │
 └──────────────────────┴─────────────────────────┘
-                   index
+                   index                   
 ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config         ┃ Value                  ┃
 ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ embedding_name │ text-embedding-3-small │
 └────────────────┴────────────────────────┘
-          retriever
+          retriever          
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
 ┃ Config           ┃ Value  ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
@@ -48,7 +54,7 @@
 │ hybrid_top_k     │ 10     │
 │ alpha            │ 0.5    │
 └──────────────────┴────────┘
-             query_engine
+             query_engine             
 ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
 ┃ Config             ┃ Value         ┃
 ┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
@@ -59,56 +65,44 @@
 ────────────────────────────────── RAG Target ──────────────────────────────────
 site_id: ncucsie
 aug_webpages_dir: data/aug_webpages/ncucsie
-milvus_uri:
-/home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.db
+milvus_uri: 
+/home/george/website-copilot/data/vector_db/.staging-zbzmiapd/ncucsie.db
 ───────────────────────── Building RAG to Vector Store ─────────────────────────
-INFO     Clean vector store Completed in 0.000 seconds
-
-Loading files:   0%|          | 0/147 [00:00<?, ?it/s]
-Loading files: 100%|##########| 147/147 [00:00<00:00, 16795.50it/s]
-INFO     Loading 147 Markdown Documents
-
-Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
-Applying transformations:  60%|######    | 3/5 [00:01<00:00,  2.37it/s]
-Applying transformations: 100%|##########| 5/5 [00:01<00:00,  3.76it/s]
-INFO     Pipeline produced 1211 nodes
-INFO     Build nodes Completed in 1.346 seconds
-INFO     Building Milvus vector store (sparse embedding: BGE-M3,
-         hybrid_ranker=WeightedRanker)
-INFO     loading existing colbert_linear and sparse_linear---------
-INFO     Loading faiss with AVX512 support.
-INFO     Could not load library with AVX512 support due to:
-         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
-INFO     Loading faiss with AVX2 support.
-INFO     Could not load library with AVX2 support due to:
-         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
-INFO     Loading faiss.
-INFO     Successfully loaded faiss.
-INFO     MilvusLite server started for
-         /home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.d
-         b on port 37617
-INFO     Build vector store Completed in 7.921 seconds
-INFO     Building index (dense embedding: text-embedding-3-small, nodes=1211)
-
-Generating embeddings:   0%|          | 0/1211 [00:00<?, ?it/s]
-Generating embeddings:  21%|##1       | 256/1211 [00:01<00:06, 148.04it/s]
-Generating embeddings:  42%|####2     | 512/1211 [00:02<00:03, 231.73it/s]
-Generating embeddings:  63%|######3   | 768/1211 [00:05<00:03, 138.56it/s]
-Generating embeddings:  85%|########4 | 1024/1211 [00:05<00:01, 184.81it/s]
-Generating embeddings: 100%|##########| 1211/1211 [00:06<00:00, 216.96it/s]
-Generating embeddings: 100%|##########| 1211/1211 [00:06<00:00, 192.14it/s]
-INFO     Build index Completed in 68.276 seconds
+INFO     Clean vector store Completed in 0.000 seconds                          
+Loading files:   0%|          | 0/217 [00:00<?, ?it/s]Loading files: 100%|##########| 217/217 [00:00<00:00, 14327.20it/s]
+INFO     Loading 217 Markdown Documents                                         
+Applying transformations:   0%|          | 0/6 [00:00<?, ?it/s]Applying transformations:  33%|###3      | 2/6 [00:00<00:00, 13.54it/s]Applying transformations:  67%|######6   | 4/6 [00:01<00:00,  2.87it/s]Applying transformations: 100%|##########| 6/6 [00:01<00:00,  4.53it/s]
+INFO     Pipeline produced 1634 nodes                                           
+INFO     Build nodes Completed in 1.347 seconds                                 
+INFO     Building Milvus vector store (sparse embedding: BGE-M3,                
+         hybrid_ranker=WeightedRanker)                                          
+INFO     loading existing colbert_linear and sparse_linear---------             
+INFO     Loading faiss with AVX512 support.                                     
+INFO     Could not load library with AVX512 support due to:                     
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")        
+INFO     Loading faiss with AVX2 support.                                       
+INFO     Could not load library with AVX2 support due to:                       
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")          
+INFO     Loading faiss.                                                         
+INFO     Successfully loaded faiss.                                             
+INFO     MilvusLite server started for                                          
+         /home/george/website-copilot/data/vector_db/.staging-zbzmiapd/ncucsie.d
+         b on port 42053                                                        
+INFO     Build vector store Completed in 4.932 seconds                          
+INFO     Building index (dense embedding: text-embedding-3-small, nodes=1634)   
+Generating embeddings:   0%|          | 0/1634 [00:00<?, ?it/s]Generating embeddings:  16%|#5        | 256/1634 [00:03<00:18, 74.36it/s]Generating embeddings:  31%|###1      | 512/1634 [00:04<00:09, 114.86it/s]Generating embeddings:  47%|####7     | 768/1634 [00:05<00:05, 158.68it/s]Generating embeddings:  94%|#########4| 1536/1634 [00:05<00:00, 441.24it/s]Generating embeddings: 100%|##########| 1634/1634 [00:06<00:00, 260.74it/s]
+INFO     Build index Completed in 97.258 seconds                                
 ─────────────────────────────── RAG Build Stats ────────────────────────────────
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Metric           ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
-│ Documents loaded │ 147   │
-│ Nodes produced   │ 1211  │
-│ Index nodes      │ 1211  │
+│ Documents loaded │ 217   │
+│ Nodes produced   │ 1634  │
+│ Index nodes      │ 1634  │
 └──────────────────┴───────┘
-INFO     bg: built 2 segment indexes in 0.01s
-INFO     MilvusLite server stopped for
-         /home/george/website-copilot/data/vector_db/.staging-t3a1jfj8/ncucsie.d
-         b (port 37617)
+INFO     bg: built 2 segment indexes in 0.01s                                   
+INFO     MilvusLite server stopped for                                          
+         /home/george/website-copilot/data/vector_db/.staging-zbzmiapd/ncucsie.d
+         b (port 42053)                                                         
 ───────────────────────────── RAG Build Completed ──────────────────────────────
-INFO     Rag Build (ncucsie, default) Completed in 78.456 seconds
+INFO     Rag Build (ncucsie, default) Completed in 105.054 seconds              

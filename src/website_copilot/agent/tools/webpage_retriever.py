@@ -31,6 +31,7 @@ class RetrieverInputSchema(BaseModel):
             '- {"page_type": "paper"} — 只回傳論文頁面\n'
             '- {"page_type": "paper", "year": (2024, ">=")} — 論文且年份 ≥ 2024\n'
             '- {"page_type": (["paper", "announcement"], "in")} — 論文或公告\n'
+            '- {"page_type": "document"} — 只回傳網站附件文件（申請表、辦法、公告檔案）\n'
             "傳 None 則不過濾。"
         ),
     )

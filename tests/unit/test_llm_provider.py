@@ -1,19 +1,22 @@
 """LLM 供應商路由：依模型名稱選擇 client 類別、API key 環境變數與 litellm 前綴。
 
 三個呼叫端（RAG 的 llama_index create_llm、Agent 的 langchain create_llm、
-ImageSummarizer 的 litellm 呼叫）皆以 mock 取代 client，不連網、不產生費用。
+Augmenter 的 litellm 呼叫）皆以 mock 取代 client，不連網、不產生費用。
 """
 
 import asyncio
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from website_copilot.agent import langchain_helper
-from website_copilot.ingestion.augmentation import image_summarizer
-from website_copilot.ingestion.augmentation.image_summarizer import ImageSummarizer
+from website_copilot.ingestion.augmentation.augmenter import Augmenter
+from website_copilot.ingestion.augmentation.processors import image_captioner
+from website_copilot.ingestion.augmentation.processors.image_captioner import (
+    ImageCaptioner,
+)
 from website_copilot.retrieval import llama_index_helpers
 from website_copilot.utils import llm_provider
 from website_copilot.utils.config_helper import EnvironmentVariableError
@@ -72,7 +75,7 @@ def test_langchain_create_llm_routes_gemini_to_google() -> None:
     client_cls.assert_called_once_with(model="gemini-2.5-flash", api_key="gemini-key")
 
 
-# ----- ImageSummarizer（litellm） -----
+# ----- Augmenter（litellm） -----
 
 
 @pytest.mark.parametrize(
@@ -82,7 +85,7 @@ def test_langchain_create_llm_routes_gemini_to_google() -> None:
         ("gemini-2.5-flash", "gemini/gemini-2.5-flash", "gemini-key"),
     ],
 )
-def test_image_summarizer_routes_by_model_name(
+def test_augmenter_routes_by_model_name(
     monkeypatch: pytest.MonkeyPatch, model: str, litellm_model: str, key: str
 ) -> None:
     calls: list[dict[str, Any]] = []
@@ -92,25 +95,16 @@ def test_image_summarizer_routes_by_model_name(
         message = SimpleNamespace(content="caption")
         return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=None)
 
-    monkeypatch.setattr(image_summarizer, "acompletion", fake_acompletion)
-    monkeypatch.setattr(image_summarizer, "completion_cost", lambda **_: 0.0)
-    summarizer = ImageSummarizer(
-        download_timeout=1.0,
-        download_max_workers=1,
-        success_threshold=0.8,
-        max_retries=0,
-    )
-    # 以空的爬取結果走一次公開流程，完成供應商與 API key 的解析
-    summarizer.summarize_crawl_results_images(
-        {},
+    monkeypatch.setattr(image_captioner, "acompletion", fake_acompletion)
+    monkeypatch.setattr(image_captioner, "completion_cost", lambda **_: 0.0)
+    captioner = ImageCaptioner(
         model=model,
         prompt="describe",
-        summary_max_workers=1,
-        image_source="markdown",
-        timeout=5,
+        max_concurrency=1,
+        litellm_kwargs={"timeout": 5},
     )
 
-    caption, status, _ = asyncio.run(summarizer._agenerate_image_caption("data"))
+    caption, status, _ = asyncio.run(captioner._agenerate_image_caption("data"))
 
     assert (caption, status) == ("caption", "success")
     assert calls[0]["model"] == litellm_model
@@ -181,27 +175,22 @@ def test_create_llm_rejects_missing_key(
         create_llm("gemini-2.5-flash")
 
 
-def test_image_summarizer_fails_fast_on_unknown_model(
+def test_augmenter_fails_fast_on_unknown_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """原本每張圖各自報錯（被當成摘要失敗）；現在開始前就失敗，不下載任何圖片。"""
-    monkeypatch.setattr(image_summarizer, "urlopen", _fail_if_called)
-    summarizer = ImageSummarizer(
-        download_timeout=1.0,
-        download_max_workers=1,
-        success_threshold=0.8,
-        max_retries=0,
-    )
+    downloader = MagicMock()
+    downloader.download.side_effect = AssertionError("should not download")
+    summarizer = Augmenter(downloader=downloader, success_threshold=0.8, max_retries=0)
 
     with pytest.raises(UnsupportedModelError):
-        summarizer.summarize_crawl_results_images(
+        summarizer.augment(
             {"page": {"fit_markdown": "![a](https://ex.com/a.png)"}},
             model="claude-x",
             prompt="describe",
-            summary_max_workers=1,
+            image_max_concurrency=1,
             image_source="markdown",
+            image_min_size=100,
         )
 
-
-def _fail_if_called(*_args: Any, **_kwargs: Any) -> Any:
-    raise AssertionError("should not download")
+    downloader.download.assert_not_called()

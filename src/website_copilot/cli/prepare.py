@@ -1,4 +1,4 @@
-"""`website-copilot prepare`：網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 data/。"""
+"""`website-copilot prepare`：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置，結果 publish 到 data/。"""
 
 from dataclasses import dataclass
 

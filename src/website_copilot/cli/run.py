@@ -1,4 +1,4 @@
-"""`website-copilot run <module>`：單模組執行（爬蟲／圖片摘要／RAG 建置／RAG 查詢／Agent）。
+"""`website-copilot run <module>`：單模組執行（爬蟲／augmenter／RAG 建置／RAG 查詢／Agent）。
 
 `--run.*` 為執行參數（RunConfig）；`--module.*` 為 module config 的覆寫值，由
 `make_overrides_model()` 從各 module config 自動產生，巢狀結構與設定檔相同，如
@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Annotated
 import tyro
 
 from website_copilot.config.agent_config import AgentConfig
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
+from website_copilot.config.augmenter_config import AugmenterConfig
 from website_copilot.config.overrides import make_overrides_model, overrides_to_dict
 from website_copilot.config.pipeline_config import (
     AgentRunConfig,
-    ImageSummarizerRunConfig,
+    AugmenterRunConfig,
     RAGBuildRunConfig,
     RAGQueryRunConfig,
     WebsiteCrawlerRunConfig,
@@ -28,12 +28,12 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     WebsiteCrawlerOverrides = BaseModel
-    ImageSummarizerOverrides = BaseModel
+    AugmenterOverrides = BaseModel
     RAGOverrides = BaseModel
     AgentOverrides = BaseModel
 else:
     WebsiteCrawlerOverrides = make_overrides_model(WebsiteCrawlerConfig)
-    ImageSummarizerOverrides = make_overrides_model(ImageSummarizerConfig)
+    AugmenterOverrides = make_overrides_model(AugmenterConfig)
     RAGOverrides = make_overrides_model(RAGConfig)
     AgentOverrides = make_overrides_model(AgentConfig)
 
@@ -46,10 +46,10 @@ class WebsiteCrawlerCLI:
 
 
 @dataclass
-class ImageSummarizerCLI:
-    run: ImageSummarizerRunConfig
-    module: ImageSummarizerOverrides
-    """覆寫 configs/image_summarizer/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
+class AugmenterCLI:
+    run: AugmenterRunConfig
+    module: AugmenterOverrides
+    """覆寫 configs/augmenter/<config>.yml 的設定值；(default: ...) 為 config class 的預設值，--run.config 設定檔的值優先"""
 
 
 @dataclass
@@ -75,7 +75,7 @@ class AgentCLI:
 
 ModuleCommand = (
     Annotated[WebsiteCrawlerCLI, tyro.conf.subcommand("website-crawler")]
-    | Annotated[ImageSummarizerCLI, tyro.conf.subcommand("image-summarizer")]
+    | Annotated[AugmenterCLI, tyro.conf.subcommand("augmenter")]
     | Annotated[RAGBuildCLI, tyro.conf.subcommand("rag-build")]
     | Annotated[RAGQueryCLI, tyro.conf.subcommand("rag-query")]
     | Annotated[AgentCLI, tyro.conf.subcommand("agent")]
@@ -100,10 +100,10 @@ def main(cli: RunCLI) -> None:
         from website_copilot.pipelines.prepare import run_website_crawler
 
         run_website_crawler(command.run, overrides)
-    elif isinstance(command, ImageSummarizerCLI):
-        from website_copilot.pipelines.prepare import run_image_summarizer
+    elif isinstance(command, AugmenterCLI):
+        from website_copilot.pipelines.prepare import run_augmenter
 
-        run_image_summarizer(command.run, overrides)
+        run_augmenter(command.run, overrides)
     elif isinstance(command, RAGBuildCLI):
         from website_copilot.pipelines.prepare import run_rag_build
 

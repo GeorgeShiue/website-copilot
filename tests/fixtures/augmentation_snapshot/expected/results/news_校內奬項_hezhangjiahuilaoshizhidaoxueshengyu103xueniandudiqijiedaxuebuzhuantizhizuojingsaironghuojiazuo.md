@@ -1,0 +1,35 @@
+## 賀！張嘉惠老師指導學生於103學年度第七屆大學部專題製作競賽榮獲佳作
+
+Post date: Sep 23, 2015 11:27:02 AM
+
+- 賀！張嘉惠教授指導大學部學生郭泰麟、何驊益、劉至咸、及張國斌。榮獲『第七屆大學部專題製作競賽榮獲佳作』。
+- 行動中大： 何驊益、劉至咸、及張國斌
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72tVzJTfE83m3DpG7vgGa4EtYwt1hUknQ1RSDg4B3MJwm9mNTsYp8Z4rtJ41_dDvi4KTKFtITpR8P0CoRuguTFxcDd-D_zOVN6SZs_VMljx5_zr1g5FLeJ7FpfcxbmjDQ_Wy6yihVZ1HXeiR-fCixFgyT4teKxINCyAqiItStTrZL6hpEgq3vw02P5KGY2TSkPqi1Mi1DQ=w1280)
+> # Image-1
+>
+> caption of https://sites.google.com/sitesv-images-rt/AMxu72tVzJTfE83m3DpG7vgGa4EtYwt1hUknQ1RSDg4B3MJwm9mNTsYp8Z4rtJ41_dDvi4KTKFtITpR8P0CoRuguTFxcDd-D_zOVN6SZs_VMljx5_zr1g5FLeJ7FpfcxbmjDQ_Wy6yihVZ1HXeiR-fCixFgyT4teKxINCyAqiItStTrZL6hpEgq3vw02P5KGY2TSkPqi1Mi1DQ=w1280
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72v_1HUM2cBeEcBR5uVNzv5zh4r2uKrrMdOM19FTVMY3DkOLKig-cdwMFxDqhbYAtoVwzAqvrjaqX0rk1geHbIvr4T7h6mWwK-3KdxS3SB1qktUcdB0wHAzIjt5QnriPI1v5sh-fEuctudAMtibkRmEmnwDGFBr8S3KiZr-IljO3nDGskF10KaT16ZD83Cc27DmEDZJVJUFt=w1280)
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72sEMNtzSatU30wTncSmPtAd3FIHTiSba3Ixs4jDwFblCKTPsRcrsmYBcisNBK2vg1sHioPtx8gHfZxoDWvgp93g9F_TNQXWgRxXR7lPBQYv_luAjTj0BnBzeEgoNukY5Pu6FdbmVeaigp0EBZZk14Rq1pgRh3Ruj8SjJL_hNwcl7oOhV7HTMTUIfItu_Mbgfk9tGzZMg8X5=w1280)
+> # Image-3
+>
+> caption of https://sites.google.com/sitesv-images-rt/AMxu72sEMNtzSatU30wTncSmPtAd3FIHTiSba3Ixs4jDwFblCKTPsRcrsmYBcisNBK2vg1sHioPtx8gHfZxoDWvgp93g9F_TNQXWgRxXR7lPBQYv_luAjTj0BnBzeEgoNukY5Pu6FdbmVeaigp0EBZZk14Rq1pgRh3Ruj8SjJL_hNwcl7oOhV7HTMTUIfItu_Mbgfk9tGzZMg8X5=w1280
+- 聖劍語錄：郭泰麟
+
+- 疾疾店家現身：
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72vWj1_kCJy0nldmOOCYyYkfHVLZIjFbKfOOl7pEzYl9vIT6TPgVIJl-En1Ga8q41yDzu3WyyB6B-oFP8IAZbUYNLk2LMV5MisE34dPgQC-AtI5_yQwe34eSWY9nnQGO_9Ps_CE3cZ0GBwCHseoO71sfQ_1mnxIWY9jmySKNeOmtrab9Ixk0t69O7fi9kCCEmhlGopsOJz6V=w1280)
+
+![](https://sites.google.com/sitesv-images-rt/AMxu72ue-YZMcgTRjB_we4eDB23VgvWdmAbcpAIv8SChqjMdW4hBMsKD4EbyNt7KAx81d5fT_cqWeYbhJc6oCy4guutpxuy_w-dnkjZRqArY4CqcRYLdg78rUIjBKyI2yQCnxKb__tOVVaSkv3uB99SAXYP0amrSqq6ZQ3_RR4RS0lZpx3Nm9z2Ic38MNl_1shryr7XTRJPrqw=w1280)
+> # Image-5
+>
+> caption of https://sites.google.com/sitesv-images-rt/AMxu72ue-YZMcgTRjB_we4eDB23VgvWdmAbcpAIv8SChqjMdW4hBMsKD4EbyNt7KAx81d5fT_cqWeYbhJc6oCy4guutpxuy_w-dnkjZRqArY4CqcRYLdg78rUIjBKyI2yQCnxKb__tOVVaSkv3uB99SAXYP0amrSqq6ZQ3_RR4RS0lZpx3Nm9z2Ic38MNl_1shryr7XTRJPrqw=w1280
+
+![x](https://example.com/injected/shared.png)
+> # Image-6
+>
+> caption of https://example.com/injected/shared.png
+
+![x](https://example.com/injected/gone.png)

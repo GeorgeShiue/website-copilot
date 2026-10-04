@@ -15,9 +15,9 @@
 	- `src/website_copilot/retrieval/rag.py`（**runtime 執行**：`query`、`retrieve` 與資源釋放；由 `IndexHandle` + retriever + query engine 組成）
 	- `src/website_copilot/ingestion/indexing/`（**建庫**：`source.py` 載入 aug_webpages 來源、`transforms.py` 自訂 Markdown Parser / 圖片與日期萃取、`node_pipeline.py` 產出 nodes、`vector_store.py` 建立 Milvus、`index.py` 的 `IndexBuilder` 建置或載入並回傳 `IndexHandle`）
 	- `src/website_copilot/retrieval/factory.py`（**組裝**：`RAGBuilder` 在 `IndexHandle` 上建 retriever / query engine；`build_rag()` 建置、`load_rag()` 供 serve 載入）
-	- `src/website_copilot/retrieval/evaluation.py`（**評估**：`build_evaluators` / `evaluate_response`、Faithfulness / Relevancy 的 Prompt 模板，與 **Query 結果序列化** `extract_sources_list` / `evaluation_result_to_dict` / `response_to_dict`）
+	- `src/website_copilot/retrieval/evaluation.py`（**評估**：`build_evaluators` / `evaluate_response`、Faithfulness / Relevancy 的 Prompt 模板，與 **Query 結果序列化** `extract_sources_list` / `response_to_dict`）
 	- `src/website_copilot/config/rag_config.py`（**設定載入**、**驗證**、**覆寫**與 **API key 推斷**）
-	- `src/website_copilot/retrieval/llama_index_helpers.py`（共用 `build_filters` / `create_llm` / `extract_sources_info` / `log_source_nodes`）
+	- `src/website_copilot/retrieval/llama_index_helpers.py`（共用 `build_filters` / `create_llm` / `log_source_nodes`）
 	- `src/website_copilot/agent/tools/webpage_retriever.py`（**RAG Retriever Tool** — 將 retriever 包裝為 LangChain `StructuredTool`，支援 `site_id` 多站路由）
 	- `src/website_copilot/retrieval/registry.py`（**RAGRegistry** — 多站 RAG 實例管理，lazy 載入 + LRU 快取；唯讀）
 	- `src/website_copilot/agent/tools/site_discovery.py`（**Site Discovery** — `list_knowledge_bases` 工具，回傳可用站點列表）

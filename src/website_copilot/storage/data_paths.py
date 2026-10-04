@@ -6,7 +6,8 @@ DataManager（寫入）、retrieval.factory（RAGTarget）、RAGRegistry（serve
 
 佈局：
     data/raw_webpages/{site_id}/    爬蟲原始輸出
-    data/aug_webpages/{site_id}/    圖片摘要後的最終結果（RAG 建庫讀這份）
+    data/aug_webpages/{site_id}/    augmenter 處理後的最終結果（RAG 建庫讀這份）：
+                                    results.json、results/*.md，以及文件原檔 files/
     data/vector_db/{site_id}.db/    向量庫（Milvus Lite 要求資料夾名稱以 .db 結尾）
 """
 
@@ -17,6 +18,9 @@ DEFAULT_DATA_FOLDER = "data"
 RAW_WEBPAGES = "raw_webpages"
 AUG_WEBPAGES = "aug_webpages"
 VECTOR_DB = "vector_db"
+
+# aug_webpages（及 runs/ 的 augmenter 結果）內存放文件原檔的資料夾，與 results/ 並列
+FILES_FOLDER = "files"
 
 VECTOR_STORE_SUFFIX = ".db"
 

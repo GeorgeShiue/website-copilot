@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Dict, List, Sequence
 from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.node_parser.interface import NodeParser
-from llama_index.core.schema import BaseNode
+from llama_index.core.schema import BaseNode, TransformComponent
 
 HEADING_ONLY_RE = re.compile(r"^#{1,6}\s+.+$")
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -207,3 +207,31 @@ class MarkdownDateExtractor(BaseExtractor):
             return {"year": int(match.group(0))}
 
         return {}
+
+
+class SourcePagesInjector(TransformComponent):
+    """文件 node 附上引用頁面（source_pages）。
+
+    source_pages 可能很長（一份文件最多被十多頁引用），放進文件 metadata 會讓 SentenceSplitter
+    的 metadata 長度超過 chunk size 而失敗，所以在切塊之後才寫入，並排除於 embedding 與 LLM 文字之外。
+    """
+
+    source_pages_by_url: Dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "SourcePagesInjector"
+
+    def __call__(self, nodes: Sequence[BaseNode], **kwargs: Any) -> Sequence[BaseNode]:
+        for node in nodes:
+            pages = self.source_pages_by_url.get(node.metadata.get("page_url", ""))
+            if not pages:
+                continue
+            node.metadata["source_pages"] = pages
+            for excluded in (
+                node.excluded_embed_metadata_keys,
+                node.excluded_llm_metadata_keys,
+            ):
+                if "source_pages" not in excluded:
+                    excluded.append("source_pages")
+        return nodes

@@ -20,7 +20,7 @@ from pydantic import PositiveInt, ValidationError
 
 from website_copilot.config.agent_config import AgentConfig
 from website_copilot.config.base_config import BaseModuleConfig, ConfigModel
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
+from website_copilot.config.augmenter_config import AugmenterConfig
 from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
 from website_copilot.config.rag_config import RAGConfig, RetrieverConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
@@ -33,7 +33,7 @@ from website_copilot.utils.config_helper import (
 
 MODULE_CONFIGS: dict[str, type[BaseModuleConfig]] = {
     "website_crawler": WebsiteCrawlerConfig,
-    "image_summarizer": ImageSummarizerConfig,
+    "augmenter": AugmenterConfig,
     "rag": RAGConfig,
     "agent": AgentConfig,
 }
@@ -88,7 +88,7 @@ def test_build_without_config_file(module: str) -> None:
     assert config.run_name
 
 
-@pytest.mark.parametrize("module", ["website_crawler", "image_summarizer", "rag"])
+@pytest.mark.parametrize("module", ["website_crawler", "augmenter", "rag"])
 def test_module_config_has_no_site_fields(module: str) -> None:
     """站點資訊在 SiteConfig，模組 config 不含 site_id／crawl／query 等站點欄位。"""
     fields = MODULE_CONFIGS[module].model_fields
@@ -171,20 +171,20 @@ def test_bool_rejected_for_int_field() -> None:
 
 
 def test_numeric_string_rejected() -> None:
-    data = _load_dict("image_summarizer")
-    data["init"]["max_retries"] = "6"
+    data = _load_dict("augmenter")
+    data["retry"]["max_retries"] = "6"
 
-    with pytest.raises(ValidationError, match="init.max_retries"):
-        ImageSummarizerConfig.model_validate(data)
+    with pytest.raises(ValidationError, match="retry.max_retries"):
+        AugmenterConfig.model_validate(data)
 
 
 def test_int_accepted_for_float_field() -> None:
-    data = _load_dict("image_summarizer")
-    data["init"]["download_timeout"] = 10
+    data = _load_dict("augmenter")
+    data["download"]["timeout"] = 10
 
-    config = ImageSummarizerConfig.model_validate(data)
+    config = AugmenterConfig.model_validate(data)
 
-    assert config.init.download_timeout == 10.0
+    assert config.download.timeout == 10.0
 
 
 @pytest.mark.parametrize("section", [None, "retriever"])
@@ -206,12 +206,12 @@ def test_blank_string_rejected() -> None:
 
 def test_non_empty_str_keeps_whitespace() -> None:
     """NonEmptyStr 只檢查不改寫：prompt 的前後換行原樣保留。"""
-    data = _load_dict("image_summarizer")
-    data["summarize"]["prompt"] = "\nprompt\n"
+    data = _load_dict("augmenter")
+    data["images"]["prompt"] = "\nprompt\n"
 
-    config = ImageSummarizerConfig.model_validate(data)
+    config = AugmenterConfig.model_validate(data)
 
-    assert config.summarize.prompt == "\nprompt\n"
+    assert config.images.prompt == "\nprompt\n"
 
 
 # ---------- 跨欄位規則 ----------
@@ -420,8 +420,8 @@ def test_override_triggers_cross_field_rule() -> None:
     [
         ("website_crawler", "default", "max_depth-2"),
         ("website_crawler", "test", "max_pages-40"),
-        ("image_summarizer", "default", "model-gpt-5.6-luna"),
-        ("image_summarizer", "test", "model-gpt-5.6-luna"),
+        ("augmenter", "default", "model-gpt-5.6-luna"),
+        ("augmenter", "test", "model-gpt-5.6-luna"),
         ("rag", "test", "vector_store_type-milvus"),
         ("agent", "test", "default"),
     ],
@@ -536,7 +536,7 @@ def test_saved_module_config_header(tmp_path: Path) -> None:
 
 def test_saved_multiline_prompt_is_block_scalar(tmp_path: Path) -> None:
     path = tmp_path / "module_config.yml"
-    config = ImageSummarizerConfig.from_yaml("test")
+    config = AugmenterConfig.from_yaml("test")
     save_module_config(config, str(path))
 
     assert "  prompt: |\n" in path.read_text(encoding="utf-8")
@@ -556,3 +556,24 @@ def test_saved_module_config_has_all_fields(module: str, tmp_path: Path) -> None
         annotation = config_cls.model_fields[name].annotation
         if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
             assert list(value) == list(annotation.model_fields)
+
+
+# ---------- augmenter：images／documents ----------
+
+
+def test_augmenter_images_and_documents_defaults() -> None:
+    config = AugmenterConfig()
+
+    assert config.images.enabled is True
+    assert config.documents.enabled is True
+    assert config.documents.formats == ["pdf", "docx", "doc", "odt"]
+
+
+def test_augmenter_documents_formats_validation() -> None:
+    assert AugmenterConfig.model_validate(
+        {"documents": {"formats": ["pdf", "docx"]}}
+    ).documents.formats == ["pdf", "docx"]
+    with pytest.raises(ValidationError, match="documents.formats"):
+        AugmenterConfig.model_validate({"documents": {"formats": ["xlsx"]}})
+    with pytest.raises(ValidationError, match="documents.formats"):
+        AugmenterConfig.model_validate({"documents": {"formats": []}})

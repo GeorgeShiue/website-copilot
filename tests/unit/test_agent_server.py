@@ -17,20 +17,21 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, cast
 from unittest.mock import MagicMock
+
 from fastapi.testclient import TestClient
 
 from website_copilot.agent.agent import Agent, build_result, state_messages
+from website_copilot.agent.langchain_helper import (
+    extract_sources_from_messages,
+    message_content_to_text,
+    new_thread_id,
+    thread_config,
+)
 from website_copilot.server.app import (
     ChatApp,
     resolve_site_id,
 )
 from website_copilot.storage.run_manager import RunManager
-from website_copilot.agent.langchain_helper import (
-    _message_content_to_text,
-    extract_sources_from_messages,
-    new_thread_id,
-    thread_config,
-)
 
 # ---------------------------------------------------------------------------
 # 替身基礎設施
@@ -135,7 +136,7 @@ class _FakeAgent:
             stream_mode="messages",
         ):
             if metadata.get("langgraph_node") == "model":
-                text = _message_content_to_text(chunk.content)
+                text = message_content_to_text(chunk.content)
                 if text:
                     yield text
 
@@ -282,12 +283,12 @@ def test_agent_astream_result_collects_tokens_and_sources():
 def test_message_content_to_text_list_of_dicts():
     """Gemini 常見的 list[dict]（含 text 欄位）串接回傳。"""
     content = [{"type": "text", "text": "第一段"}, {"text": "第二段"}, {"type": "x"}]
-    assert _message_content_to_text(content) == "第一段\n第二段"
+    assert message_content_to_text(content) == "第一段\n第二段"
 
 
 def test_message_content_to_text_mixed_list():
     """list 內混字串與 dict 皆處理。"""
-    assert _message_content_to_text(["a", {"text": "b"}]) == "a\nb"
+    assert message_content_to_text(["a", {"text": "b"}]) == "a\nb"
 
 
 # ---------- 落盤委派（server → RunManager） ----------

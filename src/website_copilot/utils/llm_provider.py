@@ -1,6 +1,6 @@
 """LLM 供應商路由：依模型名稱（不分大小寫）決定 API key 環境變數與 litellm 前綴。
 
-RAG（llama_index）、Agent（langchain）與 ImageSummarizer（litellm）共用；
+RAG（llama_index）、Agent（langchain）與 Augmenter（litellm）共用；
 各呼叫端只負責建構自己的 client。
 """
 

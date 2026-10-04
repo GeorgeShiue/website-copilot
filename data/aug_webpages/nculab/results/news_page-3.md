@@ -2,46 +2,49 @@
 
 Post date: Dec 4, 2015 2:23:10 PM
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tPfu72GQH-ManmWOOGk2oUnm8yTHXZJ8wF3IyLOkw5UOzVtaXZBHUH5A1LWZruVI_ux804zBYLjIS7xuUszC6RAAFqlr1KjfLwqFn5UfDNPsxiIMw3ha96Rs4hdYBhqtw2t7qqNcF9Zj2Na2lCrHLnWWv0y2vR6NA_dMaW5FDfB699Fgs6O6GflXEXaHzzmUOdUhu5pEa5=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vUOU4ql1MOUoTbP058ULzIf1CDVqWqegQy1VDbPkTrVPMr_GcYFzY5JAcUYc0HaaSkV_WhrjVPkfb-YW8ThVEDsih04irTqDDHRJfTC933PHmYTiuwL4GQNM3WaqTptsbVGjxxP0Sjg68IxUeGtBPSMXuYQhxwM6TWUS8sgYeUIcMmo0WKMBvF8A81raUmLaBCc3-277mO=w1280)
 > # Image-1
 >
-> **圖片摘要：**
-> 國立中央大學致贈廣盛科技股份有限公司的捐資感謝狀，附校長周景揚署名與印章。
->
-> **主要元素：**
-> 1. 實體: 廣盛科技股份有限公司, 國立中央大學, 感謝狀, 周景揚, 捐資教研用儀器
-> 2. OCR文字:
-> 國立中央大學
-> 感謝狀
-> 中央核字第01192號
-> 茲感謝 廣盛科技股份有限公司
-> 捐資本校教研用儀器，折合新台幣
-> 為參拾柒萬捌仟伍佰伍拾元整，
-> 義舉高風，芳揚杏壇。特頒此
-> 狀以表謝忱。
-> 國立中央大學
-> 校長
-> 周景揚
-> 中華民國104年12月
-> 3. 主題標籤: 國立中央大學, 捐資, 感謝狀, 教研用儀器, 校長
->
-> **頁面關聯：**
-> 國立中央大學捐資表揚文件，錨點為廣盛科技股份有限公司與周景揚
+> **圖片摘要：**  
+> 廣盛科技股份有限公司捐贈教研儀器的國立中央大學感謝狀，含校長簽名與印章。
+> 
+> **主要元素：**  
+> 1. 實體: 捐贈感謝狀, 教育研究儀器, 校長簽名, 篆刻印章, 木質相框  
+> 2. OCR文字:  
+> 國立中央大學  
+> 感謝狀  
+> 中大校字第01192號  
+> 
+> 茲感謝 廣盛科技股份有限公司  
+> 捐資本校教研用儀器，折合新台幣  
+> 為參拾柒萬捌仟伍佰伍拾元整，  
+> 義行可風，芳揚杏壇。特頒此  
+> 狀，以表謝忱。  
+> 
+> 國立中央大學  
+> 校長  
+> 周守揚  
+> 
+> 中華民國104年12月  
+> 3. 主題標籤: 捐資, 教育研究, 感謝狀, 國立中央大學
+> 
+> **頁面關聯：**  
+> 國立中央大學感謝狀，廣盛科技股份有限公司捐資教研儀器。
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72t_v4aAXMx81eQoLWFWDYYbQewGh1k9-TZ-7A8rHA4Q9IIXu-k7anGBLGCSy954iUxXS4Auukg4A64b9BS06Wt9g6FkVs1teKULlV2_T4tXk8pT1cHemsB8mGmw0YDIdcqdLZLN1wBhZa_2Z2Fq28uiD_Y9nJ5swzxdrT5LCInlKA0Dw8Lxg9kLx_GRcQovh6xO_fZtkA=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72uOSR-R_YqI74fa-AoGL1TXxXpejf0C9-e-z_wM4yeyO5EA_yU3WmtkZTps6nMcgnOlvDE_ktVtiBnGeieGSofysgpSGSsYBTxrmqZbq4jDgfpxNvQXVElnvVTEvyZTkDAklyZNoUeuxEZsN_Nkuo0r-3vJNWgAjJDNSH09t_pmjzQ6HhA6WV49n5w7Wh3MldThag0NDg=w1280)
 > # Image-2
 >
-> **圖片摘要：**
-> Qsan標誌位於上方，三台黑色機架式儲存設備排列於下方。
->
-> **主要元素：**
-> 1. 實體: 機架式儲存設備, 儲存系統, 設備前面板
-> 2. OCR文字:
-> Qsan
-> Secure
-> Optimise
-> Scale
-> 3. 主題標籤: 資料儲存, 儲存設備, 資訊安全, 系統最佳化, 擴充
->
-> **頁面關聯：**
-> Qsan儲存設備頁面；錨點 Qsan 豪泰
+> **圖片摘要：**  
+> Qsan三台機架式儲存設備並列，下方標示Secure、Optimise、Scale。
+> 
+> **主要元素：**  
+> 1. 實體: Qsan品牌、機架式儲存設備、前置面板、狀態指示燈  
+> 2. OCR文字:  
+> Qsan  
+> Secure  
+> Optimise  
+> Scale  
+> 3. 主題標籤: 儲存設備、資料安全、儲存最佳化、儲存擴充
+> 
+> **頁面關聯：**  
+> Qsan儲存設備產品頁，錨點：Secure、Optimise、Scale

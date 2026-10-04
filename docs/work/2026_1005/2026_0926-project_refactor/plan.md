@@ -1,191 +1,204 @@
-# 專案結構重構計畫：改為標準 src layout 並依管線階段分模組
+# 專案結構重構：實作規劃
 
 ## Context
 
-目前 `src/` 下有兩個頂層套件 `app`、`utils`，入口檔（`cli.py`、`prepare.py`、`serve.py`、`exp.py`）散落在 `src/` 根目錄，測試放在 `src/test/`，而且要靠 pytest 的 `pythonpath = ["src"]` 才能 import。模組依「技術角色」命名（`engines/`、`tools/`、`workflow/`），造成幾個問題：
-- `rag_factory.py` 同時負責建庫與 serve 載入。
-- RAG 反向依賴 `workflow/` 的 `DataManager` / `RunManager`。
-- `storage` 類模組依賴 cleaner 的型別。
-- 兩份 `widget.js` 已經分岔。
+對應 [todo.md](../../todo.md)「技術債 → 專案結構重構」。從 prepare／serve 兩階段拆分開始，依序經過 src layout 重組與四輪調整，最後重整測試，合併於此，實作紀錄見 [dev.md](./dev.md)。
 
-目標是改成常見的 `src/website_copilot/` 單一套件，依管線階段分模組，依賴方向單一，並提供單一 CLI。**除一項刻意的變更外，執行行為不變**（config 路徑、`data/`、`runs/` 位置不動）。那項刻意變更是：serve 不再需要 `data/webpages/`。
+| 階段 | 日期 | 主題 | 狀態 |
+|---|---|---|---|
+| 0 | 09-26 | Prepare／Serve 兩階段拆分 | ✅ |
+| 1 | 09-26 | 改為標準 src layout，依管線階段分模組（Phase A–E） | ✅ |
+| 2 | 09-27 | serve 生命週期收斂與開發工具整理 | ✅ |
+| 3 | 09-28／29 | agent build 與 server build 分離、統一 agent 建構 | ✅ |
+| 4 | 09-29 | 刪除多餘檔案與 ImageSummarizer 更名 | ✅ |
+| 5 | 09-29 | 測試新專案結構 | ✅ |
 
-已確認的決策：
-- 套件改名為 `src/website_copilot/`，這一輪完成全部模組重組。
-- `ingestion/` 下分 `crawling/`、`augmentation/`、`indexing/`。凡是建置或載入 index 的程式碼都放在 `indexing/`；`retrieval/factory.py` 負責組裝查詢物件，並提供 `build_rag`（建置）與 `load_rag`（serve 載入）兩個入口。
-- RAG 容器改為回傳式建構：builder 回傳物件，不再從外部寫入欄位。
-- `workflow/` 改名為 `pipelines/`，檔名去掉後綴；server 啟動移到 `server/`。
-- `DataManager`、`RunManager`、run context 移到 `storage/`；跨層共用型別放在 `schemas.py`。
-- 單一 CLI 指令 `website-copilot`（`cli/` 子套件、tyro 子命令），`scripts/` 只放一次性腳本。
-- `data/` 維持在版控，不變動。
-- `widget.js` 以 `server/static/` 為來源，兩份都進版控，用 `make sync-widget` 同步，並由 CI 比對。
-- 刪除 `dev/legacy`、`dev/crawl4ai`、`dev/llama_index`；`dev/marp` 只保留 `2026_0518_marp_v3.md`，改名為 `docs/progress_report/2026_0518/2026_0518_marp.md`，其餘草稿刪除。
-- 測試分為 `tests/unit`、`tests/integration`。新增 `.env.example` 與 `Makefile`。
+---
 
-在 `dev-tech-debt` 上開新分支 `refactor/project-layout`，每個 phase 一個 commit，詳見「執行步驟」。**每個 phase 的 commit 完成並通過檢查後都先暫停，回報結果（diff 摘要、測試數字、里程碑檢查輸出），等使用者確認後才進行下一個 phase。**
+## 0. Prepare／Serve 兩階段拆分
 
-## 目標結構
+目標：把系統拆成兩個獨立執行的階段，唯一介面是 `data/`。
+
+| 階段 | 入口 | 職責 |
+|---|---|---|
+| Prepare | `src/prepare.py` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
+| Serve | `src/serve.py` | 啟動 Chat Server，只讀取 `data/` 已 publish 的向量庫 |
+
+「執行」上已分開，但「階段邊界」有 4 個耦合點：
+
+1. **Server 可能在執行期偷做 prepare 的工作**：`RAGRegistry.get()` 在 `milvus.db` 不存在時會直接重建，等於在第一個 request 跑 BGE-M3 embedding。
+2. **Server 用 prepare 的中間產物判斷站點是否可用**：`list_sites()` 掃描 `data/webpages/`，RAG 還沒建好的站點也會被列出。
+3. **Prepare 直接覆寫 server 正在讀的向量庫**：`save=False` 時原地 `force_rebuild`；即使 `save=True`，`publish_vector_store` 也是先 `rmtree` 再 `copytree`，不是原子的。
+4. **兩個階段的 import 綁在一起**：`workflow.py` 頂層同時 import crawl4ai／Playwright、VLM、uvicorn、agent。
+
+實作順序：步驟 3 → 1 → 4 → 2（先處理語意邊界，再處理結構整理）。
+
+| 步驟 | 設計 |
+|---|---|
+| 1. 入口拆分 | `main.py` 改名 `prepare.py`（`PrepareCLI`／`PrepareRunConfig`）並刪除註解掉的 server 程式碼；新增 `serve.py`，搬移 `cli.py` 的 server 分支；`cli.py` 移除 `ServerCLI`，server 只有一個入口 |
+| 2. workflow 拆分 | `prepare_workflow.py`（crawler、summarizer、`run_rag_build`）、`serve_workflow.py`（`run_app`、`run_agent_build`、`run_agent_query`）、`eval_workflow.py`（`run_rag_query`）；`cli.py` 在各分支內才 import。驗證：獨立 process 中 `import serve` 不載入 crawl4ai／playwright，`import prepare` 不載入 agent／server |
+| 3. Server 唯讀 | `RAGBuilder.load_to_retriever()`：`milvus_uri` 不存在時拋 `FileNotFoundError`；`RAGRegistry.get()` 改呼叫它；`_site_exists()`／`list_sites()` 改以 `data/rag/{site}/milvus.db` 是否存在判斷 |
+| 4. 向量庫原子替換 | 規則（使用者修正後）：`save=False` 不在 `runs/` 留下任何東西，`save` 與 `publish` 皆 `False` 時不留下任何檔案。建庫位置由 `save`／`publish` 決定（見下表）；`publish_vector_store` 改為 `.tmp` → 舊版改名 `.old` → 新版改名 → 刪 `.old`；暫存以 `try/finally` 保證清除，建庫失敗時舊庫不受影響。選配 `manifest.json` 未實作 |
+
+| save | publish | 建庫位置 | 結束後留下 |
+|---|---|---|---|
+| True | True | `runs/.../results/milvus.db` | runs/ 一份；複製到 data/ 並替換 |
+| True | False | `runs/.../results/milvus.db` | 只有 runs/ |
+| False | True | `data/rag/{site}/.staging-*/milvus.db` | rename 到正式位置，只有 data/ |
+| False | False | 系統暫存資料夾 | 無 |
+
+---
+
+## 1. 標準 src layout（plan 1）
+
+### 背景與決策
+
+原本 `src/` 下有兩個頂層套件 `app`、`utils`，入口檔散落在根目錄，要靠 `pythonpath = ["src"]` 才能 import；模組依技術角色命名，造成 `rag_factory.py` 同時負責建庫與 serve 載入、RAG 反向依賴 `workflow/`、storage 依賴 cleaner 型別、兩份 `widget.js` 分岔。
+
+**除一項刻意變更外，執行行為不變**（config 路徑、`data/`、`runs/` 不動）；刻意變更是 serve 不再需要 `data/webpages/`。
+
+- 套件改名 `src/website_copilot/`，一輪完成全部模組重組。
+- `ingestion/` 下分 `crawling/`、`augmentation/`、`indexing/`；凡建置或載入 index 的程式碼放 `indexing/`；`retrieval/factory.py` 提供 `build_rag`（建置）與 `load_rag`（serve 載入）。
+- RAG 容器改為**回傳式建構**，builder 回傳物件，不再從外部寫入欄位。
+- `workflow/` 改名 `pipelines/`，server 啟動移到 `server/`；`DataManager`／`RunManager`／run context 移到 `storage/`；跨層共用型別放 `schemas.py`。
+- 單一 CLI `website-copilot`（`cli/` 子套件、tyro 子命令），`scripts/` 只放一次性腳本。
+- `data/` 維持在版控；`widget.js` 以 `server/static/` 為唯一來源，用 sync 腳本同步並由 CI 比對。
+- 刪除 `dev/legacy`、`dev/crawl4ai`、`dev/llama_index`；`dev/marp` 只保留 `2026_0518_marp_v3.md`，改名為 `docs/progress_report/2026_0518/2026_0518_marp.md`。
+- 測試分 `tests/unit`、`tests/integration`；新增 `.env.example`。
+- 每個 phase 一個 commit，完成並通過檢查後先暫停回報，使用者確認才進下一個 phase。
+
+### 目標結構
 
 ```text
 src/website_copilot/
-├── __init__.py
-├── schemas.py                     # 跨層共用資料型別（GenerationResult ← webpage_markdown_cleaner）
-├── cli/                           # `website-copilot <subcommand>`
-│   ├── __init__.py  __main__.py   # main()：tyro 子命令分派
-│   ├── prepare.py                 # ← src/prepare.py 的 PrepareCLI（只解析參數）
-│   ├── serve.py                   # ← src/serve.py 的 ServeCLI
-│   ├── run.py                     # ← src/cli.py（`run website-crawler | image-summarizer | rag-build | rag-query | agent`）
-│   └── exp.py                     # ← src/exp.py（`exp <name>`，只留參數；實驗定義在 pipelines/exp.py 的 EXPERIMENTS）
-├── config/                        # ← app/configs/*；workflow_config.py → pipeline_config.py
+├── schemas.py        # 跨層共用型別（GenerationResult）
+├── cli/              # prepare / serve / run / exp 子命令（只解析參數）
+├── config/           # ← app/configs；workflow_config → pipeline_config
 ├── ingestion/
-│   ├── crawling/                  # 網站爬蟲
-│   │   ├── website_crawler.py         # ← app/engines/website_crawler.py
-│   │   ├── markdown_cleaner.py        # ← app/engines/webpage_markdown_cleaner.py
-│   │   └── html_date_extractor.py     # ← utils/html_date_extractor.py
-│   ├── augmentation/              # 資料加強
-│   │   └── image_summarizer.py        # ← app/engines/webpage_image_summarizer.py
-│   └── indexing/                  # RAG 建置
-│       ├── source.py                  # ← 原 RAG 容器的 results.json / md 目錄載入（Source / load_source）
-│       ├── transforms.py              # ← rag_helper: MarkdownHeadingMergeParser / ImageExtractor / DateExtractor
-│       ├── node_pipeline.py           # ← rag_factory: NodePipelineBuilder
-│       ├── vector_store.py            # ← VectorStoreBuilder、EMBEDDING_DIM_MAP
-│       └── index.py                   # ← IndexBuilder：clean / build / load（含 embedding 模型建立），回傳 IndexHandle
-├── retrieval/
-│   ├── rag.py                     # ← app/engines/rag/rag.py（由建構子接收查詢物件）
-│   ├── factory.py                 # ← RAGBuilder（build_retriever / build_query_engine）+ build_rag（原 create_rag）+ load_rag（serve 載入入口，絕不建置）
-│   ├── evaluation.py              # ← build_evaluators / evaluate_response + eval prompts + response_to_dict 等
-│   ├── registry.py                # ← app/tools/rag_registry.py
-│   └── llama_index_helpers.py     # ← rag_helper: build_filters / create_llm / extract_sources_info + log_source_nodes
-├── agent/
-│   ├── agent.py                   # ← app/agent/agent.py
-│   ├── langchain_helper.py        # ← utils/langchain_helper.py
-│   └── tools/                     # ← app/tools/{tool,webpage_retriever,site_discovery}.py
-├── storage/
-│   ├── data_manager.py  run_manager.py  run_persistence.py   # ← app/workflow/*
-│   └── run_context.py             # ← app/workflow/workflow_helper.py
-├── server/                        # ← app/server/*（含 static/）
-│   └── bootstrap.py               # ← serve_workflow.run_app + serve_forever（src/serve.py 的生命週期：run → close）
-├── pipelines/                     # 離線批次流程
-│   ├── prepare.py                 # ← prepare_workflow.py + src/prepare.py 的三階段串接（run_prepare）
-│   ├── agent.py                   # ← serve_workflow 中的 run_agent_build / run_agent_query
-│   └── exp.py                     # ← eval_workflow.py（run_rag_query）+ src/exp.py 的實驗（EXPERIMENTS / run_experiment）
-└── utils/                         # ← utils/{log_helper,config_helper}.py
-tests/
-├── unit/                          # ← src/test/dev/*（含 _helpers.py）
-└── integration/                   # ← src/test/test_module.py、test_main.py（slow marker）
+│   ├── crawling/     # website_crawler、markdown_cleaner、html_date_extractor
+│   ├── augmentation/ # image_summarizer
+│   └── indexing/     # source、transforms、node_pipeline、vector_store、index
+├── retrieval/        # rag、factory、evaluation、registry、llama_index_helpers
+├── agent/            # agent、langchain_helper、tools/
+├── storage/          # data_manager、run_manager、run_persistence、run_context
+├── server/           # app、static/
+├── pipelines/        # prepare、agent、exp
+└── utils/            # log_helper、config_helper
+tests/{unit,integration}
 ```
 
-**依賴方向**（箭頭表示「可 import」）：
-`cli` → `pipelines` / `server` → `agent` → `retrieval` → `indexing` → `augmentation` → `crawling` → `storage` → `config` / `utils` / `schemas`
-- 所有層都可以依賴 `schemas`、`config`、`utils`。
-- `storage` 不依賴任何 `ingestion` 模組，因為它需要的 `GenerationResult` 放在 `schemas`。
-- `indexing` 不 import `retrieval`（回傳式建構，不需要知道 `RAG`），因此不會有循環 import。
-- `server/bootstrap.py` 使用 `storage.run_context`，不依賴 `pipelines`。
-- `__init__.py` 只做輕量的重新匯出，不在套件層級 import 重型依賴，避免 serve 間接載入 crawl4ai 或 playwright。
+**依賴方向**：`cli` → `pipelines`／`server` → `agent` → `retrieval` → `indexing` → `augmentation` → `crawling` → `storage` → `config`／`utils`／`schemas`。`storage` 不依賴任何 `ingestion`；`indexing` 不 import `retrieval`（回傳式建構）；`__init__.py` 只做輕量重新匯出，避免 serve 間接載入 crawl4ai／playwright。
 
+### 執行步驟
 
-## 執行步驟
+原則：**搬移與邏輯變更絕不放在同一個 commit**。Phase B 只做搬移（`git show -M --stat` 應顯示高相似度 rename），邏輯變更集中在 C、D。大量 import 替換以腳本完成，並把指令寫進 commit message，方便重做。
 
-原則：
-- 每個 phase 一個 commit；phase 內的每一步完成後仍先跑「每步檢查」（見驗證一節），全部通過後才在 phase 結束時 commit。
-- **搬移與邏輯變更絕不放在同一個 commit**：Phase B 只做搬移，其 commit 應在 `git show -M --stat` 中顯示高相似度的 rename，審閱時只需檢查 import 行；邏輯變更集中在 Phase C、D。
-- 大量 import 替換以腳本（`sed` 或 `ruff`）完成，並把各步驟的指令依序寫進該 phase 的 commit message，方便重做。
-- 出問題時，對單一 phase `git revert`，或用 `git bisect run make check` 定位到 phase，再依 commit message 的步驟紀錄縮小範圍。
+- **Phase A 安全網**：記錄 `pytest` 通過數與 `pyright` 錯誤數作為基線；新增 import 冒煙測試；新增 serve 載入的特性測試（鎖定 `RAGRegistry.get()` 走載入路徑、向量庫不存在時的錯誤訊息），此測試在 C3 才改寫。
+- **Phase B 純搬移**：B1 測試搬家；B2 套件改名 `app`＋`utils` → `website_copilot`；B3 抽出 `schemas.py`；B4 `workflow/` 拆成 `storage/`＋`pipelines/`、`configs` → `config`；B5 `engines/` 拆成 `ingestion/{crawling,augmentation}`；B6 RAG 與 tools 整檔搬移（indexing 暫時仍 import retrieval，C3 消除）。結束時做里程碑檢查。
+- **Phase C RAG 重構**：C1 抽出 helper 模組（簽名不變）；C2 拆 `RAGBuilder`（仍 mutate 模式）為 `IndexBuilder` 與 retrieval 端 `RAGBuilder`，`create_rag` 改名 `build_rag`；C3 回傳式建構（`IndexHandle`、`RAG(index_handle, retriever, query_engine)`、`load_rag(config)`）並移除 `webpages` 依賴，這是唯一的行為變更。
+- **Phase D 入口**：D1 邏輯下移到 `pipelines`／`server`，舊入口暫留為薄包裝；D2 新增 `cli/` 與 `[project.scripts] website-copilot`，`pipelines/eval.py` 改名 `exp.py`，`run` 子命令改為複製 run config 後再拆出 `save`／`publish`（修正舊 `src/cli.py` 直接 pop 物件屬性的問題），刪除舊入口與 `pythonpath`。完整 `prepare` 會 publish 覆寫版控中的 `data/`，需使用者同意才執行。
+- **Phase E 雜項**：E1 widget 同步；E2 清理 `dev/` 並移除 ruff／pyright 對 `dev/**` 的排除；E3 `.env.example` 與開發指令；E4 README 與 `docs/code/**` 的舊路徑、舊指令全數改新。
 
-### Phase A：安全網
-**A1. 建立基線與 import 冒煙測試**
-- 記錄目前 `pytest -m "not slow"` 的通過數量，以及 `pyright` 的錯誤數，作為後續每一步的比對基準。
-- 新增 `src/test/dev/test_imports.py`：以 `pkgutil.walk_packages` import `app`、`utils` 底下的所有模組，外加 `cli`、`prepare`、`serve`。之後每次搬移都更新它的 root，可立即發現壞掉的 import 與循環 import。
-- 新增 serve 載入的特性測試（characterization test）：使用 tmp 資料夾，patch 掉 embedding，並 patch `RAGBuilder` 為 fake，驗證 `RAGRegistry.get(site_id)` 走 `load_to_retriever` 路徑、向量庫不存在時拋出原錯誤訊息。此測試在 C3 會依新 API 改寫，其餘步驟都不應變動它。
-- 驗證：新測試通過。
+---
 
-### Phase B：純搬移（無邏輯變更）
-**B1. 測試搬家**
-- `src/test/dev/*` → `tests/unit/`，`test_module.py`、`test_main.py` → `tests/integration/`，刪除 `src/test/__init__.py`。
-- `pyproject.toml` 的 `testpaths = ["tests"]`（`pythonpath = ["src"]` 暫時保留）；CI 路徑改為 `tests/integration/test_module.py`。
-- 驗證：通過數量與基線相同。
+## 2. serve 生命週期收斂與開發工具整理（plan 2）
 
-**B2. 套件改名 `app` + `utils` → `website_copilot`**
-- `git mv src/app src/website_copilot`，`git mv src/utils src/website_copilot/utils`。
-- 腳本替換：`from app.` / `import app.` / `"app.`（patch 字串）→ `website_copilot.`，`from utils.` → `from website_copilot.utils.`，範圍包含 `src`、`tests`、`scripts`。
-- `pyproject.toml` 的 `packages = ["src/website_copilot"]`。
-- 驗證：每步檢查全部通過，並用舊入口執行 `uv run python src/serve.py --help`。
+起點：使用者先調整 pipelines 分組（`server/bootstrap.py` → `pipelines/serve.py`，`run_app` → `run_server_build`、`serve_forever` → `serve`；刪除 `pipelines/agent.py`，`run_agent_build` 併入 serve、`run_agent_query` 併入 exp；刪除 `scripts/multi_site.py`）。
 
-**B3. 抽出 `schemas.py`**
-- 將 `GenerationResult` 從 cleaner 移到 `website_copilot/schemas.py`，並更新 cleaner、`data_manager`、`run_persistence` 的 import。
-- 驗證：每步檢查。
+**刻意的行為變更只有兩項**：server 的 run 目錄多寫 `module_config.toml`（plan 3 撤銷）；`run_server_build()` 只回傳 `ChatServer`。
 
-**B4. `workflow/` 拆成 `storage/` + `pipelines/`，並將 `configs` 改名為 `config`**
-- `data_manager`、`run_manager`、`run_persistence`、`workflow_helper`（改名為 `run_context`）移到 `storage/`。
-- `prepare_workflow`、`eval_workflow` 移到 `pipelines/{prepare,eval}.py`（`eval.py` 於 D2 改名為 `exp.py`）；`serve_workflow.py` 整檔移到 `server/bootstrap.py`。
-- `configs/` → `config/`，`workflow_config.py` → `pipeline_config.py`。
-- 驗證：每步檢查，並確認 `storage` 沒有 import `ingestion`（grep）。
+五點與決策：
 
-**B5. `engines/` 拆成 `ingestion/{crawling,augmentation}`**
-- 將 `website_crawler`、`webpage_markdown_cleaner`（改名為 `markdown_cleaner`）、`utils/html_date_extractor` 移到 `crawling/`；`webpage_image_summarizer`（改名為 `image_summarizer`）移到 `augmentation/`。
-- 驗證：每步檢查。
+| 點 | 決策（未採用的選項） |
+|---|---|
+| 1. server 建置 agent 改呼叫 `run_agent_build()` | 新增可選 `run_manager` 共用呼叫端 context（不採：各自獨立 context、抽 `_build_agent()`）；回傳未關閉的 `Agent` 由呼叫端 `close()`，只改 server |
+| 2. `ChatServer` 退出自動清理 `ChatApp` | 只回傳 `ChatServer`，`ChatApp` 經 `server.chat_app` 取得；覆寫 `serve()` 以 `try/finally` 關閉 |
+| 3. 捨棄 Makefile，改 `scripts/` | 一個指令一支 bash（不採：單一分派腳本、Python 腳本）；`check`、`format`、`sync-widget` 做腳本，`install`、`serve` 在 README 寫 `uv` 指令。使用者追加：`check.sh` 拆成 `lint.sh`、`test.sh`、`check-widget.sh`；`format.sh` 併入 `lint.sh --fix`，預設只檢查。清理 runs 腳本：只刪名稱符合 `YYYYMMDD_HHMMSS` 且日期早於今天的資料夾 |
+| 4. 統一 `GEMINI_API_KEY` | 三個 Gemini 變數合併為一個；`create_llm()` 失去作用的 `usage` 參數一併移除 |
+| 5. `pyproject.toml` | 依賴只移除沒用到的（結果：無可移除）；ruff `exclude` 改 `extend-exclude`；規則組維持預設。使用者追加：prek 的 ruff 改 local hook（版本由 uv.lock 決定），CI 改用 `scripts/lint.sh`、`scripts/check-widget.sh` |
 
-**B6. RAG 與 tools 搬移（整檔，不拆）**
-- `engines/rag/rag_factory.py` → `ingestion/indexing/index.py`；`rag.py` → `retrieval/rag.py`；`rag_eval_prompts.py` → `retrieval/evaluation.py`；`utils/rag_helper.py` → `retrieval/helpers.py`。
-- `tools/rag_registry.py` → `retrieval/registry.py`；其他 tools 移到 `agent/tools/`；`utils/langchain_helper.py` → `agent/`。
-- 此時 `indexing` 仍會 import `retrieval`，屬於過渡狀態，會在 C3 消除。`__init__.py` 保持精簡以避免循環 import。
-- 驗證：每步檢查，並執行 import 冒煙測試，確認沒有循環 import。
-- **里程碑檢查**：`uv run python src/serve.py` 啟動並呼叫 `/api/chat`，確認端到端正常後再進入 Phase C。
+---
 
-### Phase C：RAG 重構（邏輯變更，逐步進行）
-**C1. 抽出 helper 模組（函式搬家，簽名不變）**
-- `indexing/vector_store.py`：`VectorStoreBuilder`（不含 `clean_milvus`）、`EMBEDDING_DIM_MAP`。
-- `indexing/transforms.py`：3 個 Markdown transformation。
-- `indexing/source.py`：`load_source()`，暫時仍由 `RAG` 建構子呼叫。
-- `retrieval/evaluation.py`：補入 `response_to_dict`、`evaluation_result_to_dict`、`extract_sources_list`。
-- 驗證：每步檢查。
+## 3. agent build 與 server build 分離（plan 3）
 
-**C2. 拆分 `RAGBuilder` 類別（仍採用 mutate 模式）**
-- `indexing/index.py` 的 `IndexBuilder`：包含 clean、nodes、vector store、index、load、`build_or_load`、`_should_rebuild` 與 Build Stats 表。
-- `retrieval/factory.py` 的 `RAGBuilder`：`build_retriever`、`build_query_engine`；`create_rag` 移到這裡並改名為 `build_rag`，serve 載入函式也放在這裡（C2 為 `load_to_retriever(config, rag)`）。
-- `retrieval/evaluation.py`：`build_evaluators(config, rag)`。
-- 同步更新呼叫端與測試的 patch 目標。
-- 驗證：每步檢查。A1 的 serve 特性測試只允許改 patch 路徑，斷言不變。
+留下的問題：`run_server_build()` 同時建構 agent 與 server；`run_agent_build()` 為共用 context 多了參數與分支；`run_agent_query()` 自行載入 config 並建 agent，與 `run_agent_build()` 重複，且例外路徑關閉兩次；`AgentConfig` 被讀兩次；`check.sh` 因基線錯誤從 plan 1 起就不會通過。
 
-**C3. 回傳式建構與移除 `webpages` 依賴（本次唯一的行為變更）**
-- 新增 `IndexHandle`；`IndexBuilder.build`、`load`、`build_or_load` 改為回傳值；embedding 模型改由 `IndexBuilder._create_embed_model` 建立；`RAGBuilder` 的方法改為回傳值；新增 `RAG(index_handle, retriever, query_engine)`，並移除 webpages 相關欄位；`load_to_retriever` 改為 `load_rag(config) -> RAG`；`build_evaluators(config)` 改為回傳 tuple，`RAG.evaluate` 移到 `evaluation.evaluate_response`；`RAG._log_sources` 移到 `llama_index_helpers.log_source_nodes`。
-- `indexing` 不再 import `retrieval`。
-- 改寫 A1 的特性測試與 `test_rag_tools.py`、`test_run_rag_build_publish.py`。新增測試：沒有 `data/webpages/` 時 `load_rag` 仍能成功。
-- 驗證：每步檢查，並確認 serve 路徑不會載入爬蟲模組（驗證第 5 項）。
-- **里程碑檢查**：serve 端到端測試（包含將 `data/webpages/` 改名後再啟動）；以 test config 跑一次 prepare 的 RAG build。
+目標：`run_agent_build()` 脫離 `run_server_build()`、改由 `serve()` 呼叫，兩個 build 各自持有 `RunManager`；所有 agent 建構都經過 `run_agent_build()`、`AgentConfig` 只讀一次；`check.sh` 全部通過。
 
-### Phase D：入口
-**D1. 邏輯下移（保留舊入口作為薄包裝）**
-- `run_prepare()` 移到 `pipelines/prepare.py`；`serve_forever()` 移到 `server/bootstrap.py`；`run_agent_build`、`run_agent_query` 移到 `pipelines/agent.py`；`exp.py` 的實驗函式移到 `pipelines/eval.py`（D2 改名為 `pipelines/exp.py`），以 `EXPERIMENTS` 名稱表與 `run_experiment(name)` 執行。`setup_logging` 留在入口層呼叫。
-- 舊的 `src/prepare.py`、`src/serve.py`、`src/exp.py` 只保留參數解析，並呼叫新函式。
-- 驗證：每步檢查，並用舊入口執行 serve 與 prepare（test config）。
+| 問題 | 決策（未採用的選項） |
+|---|---|
+| 兩個 build 各建 `RunManager`，產生兩個時間戳目錄 | 暫時接受（不採：讓 `RunManager` 可傳入 timestamp） |
+| server 的 run module 名稱 | 改為 `server` |
+| server 目錄是否保留 `module_config.toml` | 不保留，agent 設定只寫在 `agent_build/` |
+| `run_server_build()` 取得 agent | 注入：接收 `agent`，`config_name` 由 `agent.config.config_name` 取得 |
+| `run_server_build()` 失敗時誰關閉 agent | 建立者（`serve()`）關閉；成功回傳後所有權轉交 `ChatServer` |
+| `run agent` 的 run 目錄 | 比照 server：`agent_build/` 放 `module_config.toml`，`agent/` 放對話結果與 `run_config.toml` |
+| `create_agent()` 簽名 | 直接替換為 `create_agent(config: AgentConfig)` |
+| 檢查基線修正方向 | 只改測試，程式行為不變 |
 
-**D2. `cli/` 與 console script**
-- 新增 `cli/` 子命令，以及 `[project.scripts] website-copilot`。子命令模組只在頂層 import 參數 dataclass，執行邏輯延遲 import。
-- `pipelines/eval.py` 改名為 `pipelines/exp.py`（`run_rag_query` 與批次實驗），與 `cli/exp.py` 對應，並避免與 `retrieval/evaluation.py` 混淆。
-- `run` 子命令改為複製 run config 後再拆出 `save`／`publish`，`run_config.toml` 會完整記錄這兩個參數（修正舊 `src/cli.py` 直接 pop run config 物件的問題）。
-- 刪除舊入口；刪除 `pythonpath = ["src"]`（改靠 editable install）；`scripts/multi_site.py` 只 import `pipelines.prepare`，不需修改。
-- 驗證：每步檢查、各子命令的 `--help`，以及 `uv run website-copilot serve` 端到端；prepare 以 `website-copilot run rag-build --run.config-name test` 驗證（完整 `prepare` 會 publish 覆寫版控中的 `data/`，需使用者同意才執行）。
+**Part A（serve 拆分）**：`run_agent_build()` 移除 `run_manager` 與 `nullcontext()` 分支；`run_server_build(agent, ...)`；`serve()` 串接兩個 build。**Part B（統一 agent 建構）**：B1 修正檢查基線（測試補 `hits`、加 `assert result is not None`）；B2 `create_agent(config)`；B3 `run_agent_query()` 改用 `run_agent_build()`，關閉只做一次。
 
-### Phase E：雜項（步驟順序不限，合併為一個 commit）
-- **E1 widget**：以 extension 版覆蓋 static；新增 `make sync-widget` / `make check-widget` 與 CI（`ci.yml`、`ci-test.yml`）的 `cmp` 步驟。驗證：serve 送出的 `/static/widget.js` 含 typing indicator 且與 `extension/widget.js` 相同，且 `make sync-widget && git diff --exit-code extension/`。
-- **E2 dev/**：刪除 `legacy`、`crawl4ai`、`llama_index` 的版控檔案；`marp` 只保留 `2026_0518_marp_v3.md`，改名為 `docs/progress_report/2026_0518/2026_0518_marp.md`，其餘草稿刪除；並移除 ruff 與 pyright 的 `dev/**` 排除規則。被 gitignore 的本機輸出 `dev/crawl4ai/tmp/` 不在版控內，保留由使用者自行處理。驗證：ruff 與 pyright 通過。
-- **E3 `.env.example` 與 Makefile**：`.env.example` 列出程式實際讀取的 4 個金鑰；Makefile 提供 `help` / `install` / `check`（lint + typecheck + test + check-widget）/ `format` / `sync-widget` / `serve`。注意：A1 基線即存在的 pyright 4 個錯誤與 1 個失敗測試（皆在 `test_webpage_markdown_cleaner.py`）修正前，`make check` 不會通過，也就無法直接作為 bisect 指令。
-- **E4 文件**：README、`docs/code/**`，將舊路徑與舊指令全數改新；以 grep 確認沒有殘留。README 的環境變數表同步改為實際使用的 4 個金鑰；`docs/code` 中早於本次重構即已過時的 RAG API 描述（`build_reusable`、`build_to_*`）一併改為 `IndexBuilder` / `RAGBuilder` / `build_rag` / `load_rag`。
+**行為變更**：
+
+1. `serve` 一次啟動產生兩個 run 目錄：`agent_build/<config>/` 與 `server/<config>/`，時間戳可能不同。
+2. server 的 run 目錄由 `agent/` 改為 `server/`，不再寫 `module_config.toml`。
+3. **對話歷史跨 run 查找範圍改變**：`find_thread_history_path` 以 module 搜尋，server 改用 `server` 後不再讀到舊的 `runs/*/agent/` 歷史；`run_agent_query()` 仍用 `agent`。
+4. `run agent` 同樣產生兩個 run 目錄。
+5. `run_server_build()` 第一個參數改為 `agent` 且失敗時不關閉；`create_agent()` 改簽名。
+
+---
+
+## 4. 刪除多餘檔案與 ImageSummarizer 更名（plan 4）
+
+盤點方式：`vulture` 與 `ruff --select F401,F841,F811` 找未使用定義，`grep` 確認引用；`git ls-files` 逐目錄檢查檔案。逐項審核後的決策：
+
+- **刪除**：`DEFAULT_INIT_CONFIG_FOLDER_PATH`、兩個 `override_init_config()`、`configs/rag/milvus.toml`（與 `default.toml` 相同）、`tests/unit/_helpers.py`、`2026_0629_outline.md`（已被 v2 取代）、`.aiexclude`、`docs/exp/records/`（3.1M）；docstring 中的 `chats/`；測試中未使用的參數。
+- **保留**：`KEEP_TITLE_CONTENT_THRESHOLD`（嘗試過的數值紀錄）、`data/` 中的舊 `run_config.toml`／`LOCK`／`manifest.json.prev`、`ci-test.yml`、`configs/*/test_{site}.toml`、marp pdf、`.mmd` 產生的圖、winnow 兩套計畫、`data/*/*/terminal.log`。
+- **未追蹤目錄**（根目錄 `__pycache__/`、`chats/`、`.claude/`、`runs/20260928_135728`）：刪除後無法還原，由使用者手動執行。
+- **確認不是多餘（掃描誤報）**：`retrieval/evaluation.py`、`transforms.py` 的 `aextract`／`class_name`、FastAPI 路由、autouse fixture、`extension/widget.js`。
+
+**更名**：`WebpageImageSummarizer*` → `ImageSummarizer*`，`run_webpage_image_summarizer()` → `run_image_summarizer()`，設定檔與 `configs/` 資料夾、runs 模組資料夾、實驗名稱同步；CLI 子命令原本就是 `image-summarizer`。`docs/work/`、`docs/progress_report/` 為歷史紀錄，保留舊名。
+
+---
+
+## 5. 測試新專案結構
+
+規劃在對話中與使用者逐項確認，沒有另外寫計畫，決策如下：
+
+| 項目 | 決定 |
+|---|---|
+| integration 測試分工 | `test_module.py`：每個 run function 一個測試；`test_pipeline.py`（原 `test_main.py`）：`test_prepare`、`test_serve` |
+| `test_server` | 移到 `test_pipeline.py`，改名 `test_serve` |
+| 標記 | `slow` 改為 `cost`，只標會呼叫 LLM／VLM／embedding API 的測試，逐個加標記 |
+| `scripts/test.sh` | 只跑 `tests/unit`，不再用 `-m` 過濾 |
+| CI | 維持只跑 integration，路徑改為整個 `tests/integration`（含 `cost`，每次執行會產生 API 費用） |
+| integration 斷言 | 暫不加，只驗證不拋例外 |
+| unit 測試範圍 | 只保留核心、易出錯程式的測試，其餘刪除（需要時從 `0c3dbda` 取回） |
+| `test_prepare` 不寫 `data/` | `run_prepare(config_name, publish=True)` 加 `publish` 參數，測試傳 `False`，此時三階段皆 `save=True, publish=False`，rag build 另傳 `webpages_data_use_latest_results=True` |
+
+unit 測試依 `pipelines/` 重新分檔（`test_pipeline_prepare|serve|exp.py`、`test_run_manager.py`、`test_data_manager.py`），並依「出錯後果」與「出錯機率」分 S／A／B／C 四級，刪除 B、C 級。
+
+**`webpages_data_use_latest_results` 回歸修正**：此參數原本讀 `runs/` 最新的 image summarizer 結果，拆出 DataManager 後被改成 `data/webpages/<site>`（等於預設值），參數實際沒有作用。修正為以 `load_latest_run_path(runs, "image_summarizer", site_id=...)` 取得路徑，`load_latest_run_path` 新增 `site_id` 參數以避免讀到其他 site 的 run，`build_rag` 移除不再使用的 `data_manager` 參數。
+
+---
 
 ## 驗證
 
-**每步檢查**（phase 內每一步完成後執行，每個 phase commit 前必須通過；E3 之後用 `make check` 執行）：
-1. `uv sync`（B2 之後）。
-2. `uv run ruff check . && uv run ruff format --check .`。
-3. `uv run pyright`：錯誤數不得高於 A1 的基線。
-4. `uv run pytest -m "not slow"`：通過數量不少於基線，且包含 import 冒煙測試。
-5. C3 之後：`uv run python -c "import website_copilot.retrieval.registry, sys; print([m for m in sys.modules if 'crawl4ai' in m or 'ingestion.crawling' in m])"` 應輸出空 list。
+**每步檢查**（每個 phase／點／步驟完成後執行，commit 前必須通過；`scripts/check.sh` 可用後以它執行）：
 
-**里程碑檢查**（B6、C3、D2 結束時）：
-- serve 端到端：啟動 serve 並讀取既有的 `data/rag/*`，呼叫 `/api/chat` 取得 SSE，並確認 `/static/demo.html` 能正常使用。
-- prepare：以 test config（或 `scripts/multi_site.py`）跑小規模建庫，確認 `runs/` 與 publish 行為不變（需要 API key）。
+1. `uv run ruff check . && uv run ruff format --check .`
+2. `uv run pyright`：錯誤數不得高於基線（基線 4 errors 於 plan 3 B1 修正為 0）。
+3. 單元測試通過數不少於基線，包含 import 冒煙測試。
+4. 重構 Phase C3 之後：`import website_copilot.retrieval.registry` 不應載入 `crawl4ai` 或 `ingestion.crawling`。
 
-**完成後**：
-- `grep -rn "from app\.\|from utils\.\|\"app\.\|src/test\|dev/" src tests scripts .github README.md docs/code` 無殘留。
-- 可選：`uv run pytest -m slow tests/integration`。
+**里程碑檢查**（Phase B6、C3、D2 結束時）：
+
+- serve 端到端：啟動 serve 並讀取既有 `data/rag/*`，呼叫 `/api/chat` 取得 SSE，`/static/demo.html` 正常。
+- prepare：以 test config 的 `run rag-build` 跑小規模建庫，確認 `runs/` 與 publish 行為不變（需要 API key）。
+
+**個別驗證**：
+
+- plan 2 第 2 點：以真實 `ChatServer` 搭配假 `ChatApp` 送 SIGINT，確認 `ChatApp` 被關閉；第 3 點：各腳本單獨執行，`clean-runs.sh` 只在假目錄實際刪除；第 5 點：`ruff check --show-settings`、`prek validate-config`。
+- plan 3：實際執行 `serve` 與 `run agent`，確認 `agent_build/`、`server/`、`agent/` 目錄內容符合預期。
+
+**完成後**：`grep` 確認舊路徑、舊名稱（`from app.`、`pipelines.agent`、`server.bootstrap`、`serve_forever`、`make `、舊 Gemini 變數名、`webpage_image_summarizer` 等）在 `src`、`tests`、`.github`、README、`docs/code` 中無殘留；`docs/work/` 的歷程紀錄不改。可選：`uv run pytest tests/integration`（真實爬蟲與付費 API，需使用者同意）。

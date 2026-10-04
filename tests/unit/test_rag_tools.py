@@ -295,27 +295,25 @@ class TestClose:
 
 
 def test_build_target_uses_latest_summarizer_run_of_same_site(tmp_path: Path) -> None:
-    """aug_webpages_data_use_latest_results=True：改用 runs/ 中同 site 最新的圖片摘要結果。"""
+    """use_latest_results=True：改用 runs/ 中同 site 最新的圖片摘要結果。"""
     runs = tmp_path / "runs"
     for ts, site in [
         ("20260929_090000", "nculab"),
         ("20260929_100000", "nculab"),
         ("20260929_110000", "ncucsie"),  # 較新但不同 site
     ]:
-        (runs / ts / "image_summarizer" / site / "r" / "results").mkdir(parents=True)
+        (runs / ts / "augmenter" / site / "r" / "results").mkdir(parents=True)
 
     target = build_target(
         "nculab",
         str(tmp_path / "out" / "milvus.db"),
-        aug_webpages_data_use_latest_results=True,
+        use_latest_results=True,
         runs_folder=str(runs),
     )
 
     assert target == RAGTarget(
         site_id="nculab",
-        aug_webpages_dir=str(
-            runs / "20260929_100000" / "image_summarizer" / "nculab" / "r"
-        ),
+        aug_webpages_dir=str(runs / "20260929_100000" / "augmenter" / "nculab" / "r"),
         milvus_uri=str(tmp_path / "out" / "milvus.db"),
     )
 
