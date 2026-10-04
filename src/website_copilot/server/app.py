@@ -37,18 +37,18 @@ from website_copilot.storage.run_manager import RunManager
 logger = logging.getLogger(__name__)
 
 
+DOMAIN_SITE_MAP: dict[str, str] = {
+    "nculab.csie.ncu.edu.tw": "nculab",
+    "csie.ncu.edu.tw": "ncucsie",
+}
+
+
 class ChatRequest(BaseModel):
     """POST /api/chat 請求體。"""
 
     query: str
     thread_id: str | None = None
     page_url: str | None = None
-
-
-DOMAIN_SITE_MAP: dict[str, str] = {
-    "nculab.csie.ncu.edu.tw": "nculab",
-    "csie.ncu.edu.tw": "ncucsie",
-}
 
 
 def resolve_site_id(page_url: str | None) -> str | None:
@@ -119,36 +119,6 @@ async def _event_stream(
         yield _sse({"type": "error", "message": str(exc)})
 
 
-class ChatApp:
-    """統一管理 Agent + FastAPI 的生命週期。
-
-    Attributes:
-        agent: 注入的 Agent 實例。
-        run_manager: 注入的 RunManager 實例（落盤由本物件負責，無需釋放）。
-        app: FastAPI 應用程式（/api/chat、/api/health、CORS、static mount）。
-    """
-
-    def __init__(self, agent: Agent, run_manager: RunManager, app: FastAPI) -> None:
-        self.agent = agent
-        self.run_manager = run_manager
-        self.app = app
-
-    @classmethod
-    def create(
-        cls,
-        agent: Agent,
-        run_manager: RunManager,
-        allowed_origins: list[str] | None = None,
-    ) -> "ChatApp":
-        """工廠方法：建立 FastAPI app 並綁定 agent 與 run_manager。"""
-        fastapi_app = _build_fastapi_app(agent, run_manager, allowed_origins)
-        return cls(agent=agent, run_manager=run_manager, app=fastapi_app)
-
-    def close(self) -> None:
-        """釋放 Agent 資源（run_manager 無需釋放）。"""
-        self.agent.close()
-
-
 def _build_fastapi_app(
     agent: Agent,
     run_manager: RunManager,
@@ -211,3 +181,33 @@ def _build_fastapi_app(
         )
 
     return app
+
+
+class ChatApp:
+    """統一管理 Agent + FastAPI 的生命週期。
+
+    Attributes:
+        agent: 注入的 Agent 實例。
+        run_manager: 注入的 RunManager 實例（落盤由本物件負責，無需釋放）。
+        app: FastAPI 應用程式（/api/chat、/api/health、CORS、static mount）。
+    """
+
+    def __init__(self, agent: Agent, run_manager: RunManager, app: FastAPI) -> None:
+        self.agent = agent
+        self.run_manager = run_manager
+        self.app = app
+
+    @classmethod
+    def create(
+        cls,
+        agent: Agent,
+        run_manager: RunManager,
+        allowed_origins: list[str] | None = None,
+    ) -> "ChatApp":
+        """工廠方法：建立 FastAPI app 並綁定 agent 與 run_manager。"""
+        fastapi_app = _build_fastapi_app(agent, run_manager, allowed_origins)
+        return cls(agent=agent, run_manager=run_manager, app=fastapi_app)
+
+    def close(self) -> None:
+        """釋放 Agent 資源（run_manager 無需釋放）。"""
+        self.agent.close()

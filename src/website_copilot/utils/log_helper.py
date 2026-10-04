@@ -76,76 +76,41 @@ class _TeeStream:
         return self.terminal_stream.isatty()
 
 
-def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
-    """Initialize shared Rich logging configuration for app and tests."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        handlers=[
-            RichHandler(
-                show_time=False,
-                show_path=False,
-                rich_tracebacks=True,
-            )
-        ],
-        force=True,
-    )
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)  # * 減少 debug log
-    for noisy_logger_name, noisy_logger_level in NOISY_LOGGER_LEVELS.items():
-        logging.getLogger(noisy_logger_name).setLevel(noisy_logger_level)
-    disable_model_progress_bars()
+class FlexibleTimeElapsedColumn(ProgressColumn):
+    def render(self, task) -> Text:
+        default_time_text = "-:--:--"
+        elapsed = task.finished_time if task.finished else task.elapsed
+        if elapsed is None:
+            return Text(default_time_text, style="progress.elapsed")
 
-    logging_level = logging.INFO
-    if level.lower() == "debug":
-        logging_level = logging.DEBUG
+        # * 自訂：顯示格式為 MM:SS.mmm
+        minutes, seconds = divmod(elapsed, 60)
+        hours, minutes = divmod(int(minutes), 60)
 
-    logging.getLogger("website_copilot.ingestion.crawling.website_crawler").setLevel(
-        logging_level
-    )
-    logging.getLogger(
-        "website_copilot.ingestion.augmentation.image_summarizer"
-    ).setLevel(logging_level)
-    for rag_logger_name in (
-        "website_copilot.ingestion.indexing",
-        "website_copilot.retrieval",
-    ):
-        logging.getLogger(rag_logger_name).setLevel(logging_level)
+        time_text = default_time_text
+        if hours > 0:
+            time_text = f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
+        elif minutes > 0:
+            time_text = f"{minutes:02d}:{seconds:06.3f}"
+        elif seconds >= 10:
+            time_text = f"{seconds:06.3f}s"
+        else:
+            time_text = f"{seconds:05.3f}s"
 
-    if logger is not None:
-        logger.setLevel(logging_level)
+        return Text(time_text, style="progress.elapsed")
 
 
-def disable_model_progress_bars() -> None:
-    """關閉 huggingface_hub 的下載 / 載入進度條（Downloading、Fetching files）。"""
-    # 環境變數只在 huggingface_hub 尚未被 import 時有效；runtime API 涵蓋已 import 的情況
-    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
-    try:
-        from huggingface_hub.utils.tqdm import disable_progress_bars
-    except ImportError:
-        return
-    disable_progress_bars()
+class TaskCountProgress(Progress):
+    """Shared progress template: description + bar + completed/total + elapsed."""
 
-
-def setup_logging_file(log_file_path: str) -> None:
-    """設定終端機輸出和日誌同時保存到檔案."""
-    global _tee_stream, _logging_path, _tee_depth
-
-    if _tee_depth > 0:
-        # 巢狀呼叫（如 agent 內的 tool 建立）：沿用外層 tee，避免關閉外層記錄
-        _tee_depth += 1
-        return
-
-    disable_logging_file()
-    _logging_path = log_file_path
-
-    # 建立檔案輸出流
-    file_stream = open(log_file_path, "a", encoding="utf-8")
-
-    # 捕捉直接寫入 stdout / stderr 的訊息
-    _tee_stream = _TeeStream(_stdout_original, file_stream)
-    sys.stdout = _tee_stream
-    sys.stderr = _tee_stream
-    _tee_depth = 1
+    def __init__(self, **kwargs) -> None:
+        super().__init__(
+            TextColumn("[yellow]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            FlexibleTimeElapsedColumn(),
+            **kwargs,
+        )
 
 
 def _is_target_progress_line(line: str) -> bool:
@@ -185,22 +150,70 @@ def _collapse_adjacent_progress_lines(log_file_path: str) -> None:
         log_path.write_text("".join(collapsed_lines), encoding="utf-8")
 
 
-@contextmanager
-def save_logging_file(log_file_path: str):
-    """Context manager for setup/teardown of run-specific file logging.
+def _detach_handlers_from_tee() -> None:
+    """將所有 logger 中 stream 仍指向 tee 的 handler 替換為原始 stdout（內部使用）。"""
+    if _tee_stream is None:
+        return
 
-    支援巢狀呼叫（如 agent 內包 retriever tool 建立）：內層 with block
-    結束時沿用外層 tee，只有最外層結束才還原 stdout/stderr。
-    """
-    setup_logging_file(log_file_path)
+    def _detach(handler: logging.Handler) -> None:
+        if isinstance(handler, logging.StreamHandler):
+            stream = getattr(handler, "stream", None)
+            if stream is _tee_stream:
+                handler.stream = _stdout_original
+
+    for handler in logging.getLogger().handlers:
+        _detach(handler)
+    for logger in logging.Logger.manager.loggerDict.values():
+        if isinstance(logger, logging.Logger):
+            for handler in logger.handlers:
+                _detach(handler)
+
+
+def _get_logging_console() -> Console:
+    """Get the Rich console used by current logging handlers (internal use)."""
+    root_logger = logging.getLogger()
+
+    for handler in root_logger.handlers:
+        if isinstance(handler, RichHandler):
+            return handler.console
+
+    return Console()
+
+
+def _disable_model_progress_bars() -> None:
+    """關閉 huggingface_hub 的下載 / 載入進度條（Downloading、Fetching files）。"""
+    # 環境變數只在 huggingface_hub 尚未被 import 時有效；runtime API 涵蓋已 import 的情況
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     try:
-        yield
-    finally:
-        disable_logging_file()
-        _collapse_adjacent_progress_lines(log_file_path)
+        from huggingface_hub.utils.tqdm import disable_progress_bars
+    except ImportError:
+        return
+    disable_progress_bars()
 
 
-def disable_logging_file() -> None:
+def _setup_logging_file(log_file_path: str) -> None:
+    """設定終端機輸出和日誌同時保存到檔案."""
+    global _tee_stream, _logging_path, _tee_depth
+
+    if _tee_depth > 0:
+        # 巢狀呼叫（如 agent 內的 tool 建立）：沿用外層 tee，避免關閉外層記錄
+        _tee_depth += 1
+        return
+
+    _disable_logging_file()
+    _logging_path = log_file_path
+
+    # 建立檔案輸出流
+    file_stream = open(log_file_path, "a", encoding="utf-8")
+
+    # 捕捉直接寫入 stdout / stderr 的訊息
+    _tee_stream = _TeeStream(_stdout_original, file_stream)
+    sys.stdout = _tee_stream
+    sys.stderr = _tee_stream
+    _tee_depth = 1
+
+
+def _disable_logging_file() -> None:
     """Restore streams and close previous file logging resources."""
     global _tee_stream, _tee_depth
 
@@ -225,23 +238,63 @@ def disable_logging_file() -> None:
         _tee_stream = None
 
 
-def _detach_handlers_from_tee() -> None:
-    """將所有 logger 中 stream 仍指向 tee 的 handler 替換為原始 stdout（內部使用）。"""
-    if _tee_stream is None:
-        return
+def _record_elapsed(stage: str, seconds: float) -> None:
+    """登記階段耗時（同名階段累加）。"""
+    _stage_elapsed[stage] = _stage_elapsed.get(stage, 0.0) + seconds
 
-    def _detach(handler: logging.Handler) -> None:
-        if isinstance(handler, logging.StreamHandler):
-            stream = getattr(handler, "stream", None)
-            if stream is _tee_stream:
-                handler.stream = _stdout_original
 
-    for handler in logging.getLogger().handlers:
-        _detach(handler)
-    for logger in logging.Logger.manager.loggerDict.values():
-        if isinstance(logger, logging.Logger):
-            for handler in logger.handlers:
-                _detach(handler)
+def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
+    """Initialize shared Rich logging configuration for app and tests."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[
+            RichHandler(
+                show_time=False,
+                show_path=False,
+                rich_tracebacks=True,
+            )
+        ],
+        force=True,
+    )
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)  # * 減少 debug log
+    for noisy_logger_name, noisy_logger_level in NOISY_LOGGER_LEVELS.items():
+        logging.getLogger(noisy_logger_name).setLevel(noisy_logger_level)
+    _disable_model_progress_bars()
+
+    logging_level = logging.INFO
+    if level.lower() == "debug":
+        logging_level = logging.DEBUG
+
+    logging.getLogger("website_copilot.ingestion.crawling.website_crawler").setLevel(
+        logging_level
+    )
+    logging.getLogger(
+        "website_copilot.ingestion.augmentation.image_summarizer"
+    ).setLevel(logging_level)
+    for rag_logger_name in (
+        "website_copilot.ingestion.indexing",
+        "website_copilot.retrieval",
+    ):
+        logging.getLogger(rag_logger_name).setLevel(logging_level)
+
+    if logger is not None:
+        logger.setLevel(logging_level)
+
+
+@contextmanager
+def save_logging_file(log_file_path: str):
+    """Context manager for setup/teardown of run-specific file logging.
+
+    支援巢狀呼叫（如 agent 內包 retriever tool 建立）：內層 with block
+    結束時沿用外層 tee，只有最外層結束才還原 stdout/stderr。
+    """
+    _setup_logging_file(log_file_path)
+    try:
+        yield
+    finally:
+        _disable_logging_file()
+        _collapse_adjacent_progress_lines(log_file_path)
 
 
 @contextmanager
@@ -262,16 +315,11 @@ def log_run_time(title: str = "", record: bool = True):
         elapsed_seconds = time.perf_counter() - start_time
         if tracked:
             _stage_stack.pop()
-            record_elapsed(title, elapsed_seconds)
+            _record_elapsed(title, elapsed_seconds)
         message = f"Completed in {elapsed_seconds:.3f} seconds"
         if title:
             message = f"{title} {message}"
         logging.getLogger(__name__).info(message)
-
-
-def record_elapsed(stage: str, seconds: float) -> None:
-    """登記階段耗時（同名階段累加）。"""
-    _stage_elapsed[stage] = _stage_elapsed.get(stage, 0.0) + seconds
 
 
 def record_cost(usd: float) -> None:
@@ -285,6 +333,15 @@ def reset_run_summary() -> None:
     _stage_stack.clear()
     _stage_elapsed.clear()
     _stage_costs.clear()
+
+
+def print_log(content: object, soft_wrap: bool = False) -> None:
+    """Get logging console and print content directly.
+
+    soft_wrap=True 時不由 rich 硬折行（長 URL 等需完整保留在單行的內容）。
+    """
+    console = _get_logging_console()
+    console.print(content, soft_wrap=soft_wrap)
 
 
 def log_run_summary() -> None:
@@ -313,26 +370,6 @@ def log_run_summary() -> None:
     print_log(table)
 
 
-def _get_logging_console() -> Console:
-    """Get the Rich console used by current logging handlers (internal use)."""
-    root_logger = logging.getLogger()
-
-    for handler in root_logger.handlers:
-        if isinstance(handler, RichHandler):
-            return handler.console
-
-    return Console()
-
-
-def print_log(content: object, soft_wrap: bool = False) -> None:
-    """Get logging console and print content directly.
-
-    soft_wrap=True 時不由 rich 硬折行（長 URL 等需完整保留在單行的內容）。
-    """
-    console = _get_logging_console()
-    console.print(content, soft_wrap=soft_wrap)
-
-
 def log_session(title: str | Text, style: str) -> None:
     """Log a visually distinct section header for a module session using Rich styling."""
     if isinstance(title, Text):
@@ -349,40 +386,3 @@ def log_source_title(page_title, score, page_type):
         f"[bold cyan]Type: {page_type}[/bold cyan]",
     ]
     print_log(Rule("  [dim white]|[/dim white]  ".join(parts), style="blue"))
-
-
-class FlexibleTimeElapsedColumn(ProgressColumn):
-    def render(self, task) -> Text:
-        default_time_text = "-:--:--"
-        elapsed = task.finished_time if task.finished else task.elapsed
-        if elapsed is None:
-            return Text(default_time_text, style="progress.elapsed")
-
-        # * 自訂：顯示格式為 MM:SS.mmm
-        minutes, seconds = divmod(elapsed, 60)
-        hours, minutes = divmod(int(minutes), 60)
-
-        time_text = default_time_text
-        if hours > 0:
-            time_text = f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
-        elif minutes > 0:
-            time_text = f"{minutes:02d}:{seconds:06.3f}"
-        elif seconds >= 10:
-            time_text = f"{seconds:06.3f}s"
-        else:
-            time_text = f"{seconds:05.3f}s"
-
-        return Text(time_text, style="progress.elapsed")
-
-
-class TaskCountProgress(Progress):
-    """Shared progress template: description + bar + completed/total + elapsed."""
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(
-            TextColumn("[yellow]{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            FlexibleTimeElapsedColumn(),
-            **kwargs,
-        )

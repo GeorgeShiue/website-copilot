@@ -118,15 +118,6 @@ def extract_sources_list(
     return [source_dict(node, max_content_length) for node in source_nodes]
 
 
-def evaluation_result_to_dict(result: EvaluationResult) -> dict[str, Any]:
-    """將 EvaluationResult 轉為可寫入 JSON 的 dict。"""
-    return {
-        "passing": bool(getattr(result, "passing", False)),
-        "score": getattr(result, "score", None),
-        "feedback": getattr(result, "feedback", None),
-    }
-
-
 def response_to_dict(
     query: str,
     response: Response,
@@ -147,12 +138,12 @@ def response_to_dict(
     if faithfulness_result is not None or relevancy_result is not None:
         result["evaluation"] = {
             "faithfulness": (
-                evaluation_result_to_dict(faithfulness_result)
+                _evaluation_result_to_dict(faithfulness_result)
                 if faithfulness_result is not None
                 else None
             ),
             "relevancy": (
-                evaluation_result_to_dict(relevancy_result)
+                _evaluation_result_to_dict(relevancy_result)
                 if relevancy_result is not None
                 else None
             ),
@@ -211,3 +202,12 @@ def _log_evaluation_result(
     if evaluation_result.feedback:
         reason = evaluation_result.feedback.split("Reason:", 1)[-1].strip()
     logger.info(f"Reason: {reason}")
+
+
+def _evaluation_result_to_dict(result: EvaluationResult) -> dict[str, Any]:
+    """將 EvaluationResult 轉為可寫入 JSON 的 dict。"""
+    return {
+        "passing": bool(getattr(result, "passing", False)),
+        "score": getattr(result, "score", None),
+        "feedback": getattr(result, "feedback", None),
+    }

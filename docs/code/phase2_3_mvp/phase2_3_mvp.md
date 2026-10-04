@@ -12,7 +12,7 @@
 - [x] **多輪對話記憶**（`InMemorySaver` + `thread_id`）
 - [x] **SSE 串流**（`astream_text` 共用核心，CLI 與 server 皆可用）
 - [x] **對話落盤**（`runs/<ts>/server/<config>/results_{thread_id}.json`，CLI `run agent` 為 `runs/<ts>/agent/<config>/`；讀取既有分檔 → 合併本輪 → 覆寫，`thread_id` 未提供時自動 `auto-{uuid}`）
-- [x] **資源生命週期**（`Agent.close()` 釋放；agent 由 `run_agent_query()` / `serve()`（經 `run_agent_build()`）建立：前者於 `finally` 關閉、後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉）
+- [x] **資源生命週期**（`Agent.close()` 釋放；agent 由 `run_agent_query()` / `run_serve()`（經 `run_agent_build()`）建立：前者於 `finally` 關閉、後者注入 `run_server_build()` 後由 `ChatServer` 結束時呼叫 `ChatApp.close()` 關閉）
 - [x] **多站 RAG 路由**（M3：`RAGRegistry` + `webpage_retriever(site_id)` + `list_knowledge_bases`）
     - [x] `RAGRegistry` — lazy + LRU 快取管理多站 RAG 實例
     - [x] `webpage_retriever` — 接受 `site_id` 參數路由至對應知識庫

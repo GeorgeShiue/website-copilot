@@ -42,9 +42,19 @@ class RAGRegistry:
         self.config_name = config_name
         self._max_cached = max_cached
 
-    def _site_exists(self, site_id: str) -> bool:
-        """檢查指定 site_id 是否已 publish 向量庫（data/vector_db/{site_id}.db 資料夾）。"""
-        return os.path.isdir(vector_store_path(site_id, self.base_folder))
+    def __enter__(self) -> "RAGRegistry":
+        """進入 context manager，回傳 self。"""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> bool:
+        """離開 context manager，釋放資源並傳播例外。"""
+        self.close()
+        return False
 
     def list_sites(self) -> list[str]:
         """回傳所有可查詢的 site_id 列表（掃描 data/vector_db/ 下已 publish 向量庫的站點）。
@@ -96,26 +106,16 @@ class RAGRegistry:
 
         return rag
 
-    def __enter__(self) -> "RAGRegistry":
-        """進入 context manager，回傳 self。"""
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: object | None,
-    ) -> bool:
-        """離開 context manager，釋放資源並傳播例外。"""
-        self.close()
-        return False
-
     def close(self) -> None:
         """釋放所有快取中的 RAG 實例資源。"""
         for site_id, rag in self._cache.items():
             logger.info("Closing RAG for site_id=%s", site_id)
             rag.close()
         self._cache.clear()
+
+    def _site_exists(self, site_id: str) -> bool:
+        """檢查指定 site_id 是否已 publish 向量庫（data/vector_db/{site_id}.db 資料夾）。"""
+        return os.path.isdir(vector_store_path(site_id, self.base_folder))
 
     def _evict_if_needed(self) -> None:
         """若快取超出上限，淘汰最久未使用的 RAG 實例。"""

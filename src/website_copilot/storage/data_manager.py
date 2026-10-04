@@ -92,49 +92,6 @@ class DataManager:
             site_id, AUG_WEBPAGES, enhanced_results, "enhanced_markdown"
         )
 
-    def _publish_results(
-        self,
-        site_id: str,
-        category: str,
-        results: dict[str, dict],
-        markdown_key: str,
-    ) -> str:
-        """把 results 發布成 data/{category}/{site_id}/ 的 results.json 與 results/*.md
-        （publish_crawl_results／publish_markdown 共用，兩者只差資料夾與 markdown 欄位）。"""
-        site_path = site_data_path(category, site_id, self.base_folder)
-        os.makedirs(site_path, exist_ok=True)
-
-        results_json_path = os.path.join(site_path, "results.json")
-        with open(results_json_path, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=4)
-
-        dest_results = os.path.join(site_path, "results")
-        os.makedirs(dest_results, exist_ok=True)
-        self._write_markdown_files(dest_results, results, markdown_key)
-        logger.info(f"Published {markdown_key} pages to {dest_results}")
-
-        return site_path
-
-    def _write_markdown_files(
-        self,
-        dest_folder: str,
-        results: dict[str, dict],
-        markdown_key: str,
-    ) -> None:
-        """把 results 逐頁寫成 {page_title}.md（由 _publish_results 呼叫）。
-
-        寫入前先清掉 dest_folder 內既有的 .md，讓資料夾內容與 results.json 一致，
-        避免前一次爬取留下的頁面殘檔被 RAG 建庫讀進去。
-        """
-        for name in os.listdir(dest_folder):
-            if name.endswith(".md"):
-                os.remove(os.path.join(dest_folder, name))
-        for page_title, result in results.items():
-            markdown = result.get(markdown_key, "")
-            md_file_path = os.path.join(dest_folder, f"{page_title}.md")
-            with open(md_file_path, "w", encoding="utf-8") as f:
-                f.write(markdown)
-
     def publish_generated_exclude_words(
         self,
         site_id: str,
@@ -240,21 +197,6 @@ class DataManager:
         logger.info(f"Published Milvus vector store to {dest_path}")
         return dest_path
 
-    # ----- Publish 元資料方法 -----
-
-    def _copy_single_file(
-        self,
-        source_path: str | None,
-        dest_folder: str,
-        filename: str,
-    ) -> None:
-        """複製單一檔案到目標資料夾。"""
-        if not source_path or not os.path.isfile(source_path):
-            return
-        dest_path = os.path.join(dest_folder, filename)
-        shutil.copy2(source_path, dest_path)
-        logger.info(f"Published {filename} to {dest_path}")
-
     def publish_run_metadata(
         self,
         site_id: str,
@@ -296,3 +238,61 @@ class DataManager:
         """把 module_config.yml／site_config.yml／run_config.yml／terminal.log 寫入 dest_folder。"""
         save_run_configs(dest_folder, config, site, run_config)
         self._copy_single_file(log_path, dest_folder, "terminal.log")
+
+    # ----- 內部 helper -----
+
+    def _publish_results(
+        self,
+        site_id: str,
+        category: str,
+        results: dict[str, dict],
+        markdown_key: str,
+    ) -> str:
+        """把 results 發布成 data/{category}/{site_id}/ 的 results.json 與 results/*.md
+        （publish_crawl_results／publish_markdown 共用，兩者只差資料夾與 markdown 欄位）。"""
+        site_path = site_data_path(category, site_id, self.base_folder)
+        os.makedirs(site_path, exist_ok=True)
+
+        results_json_path = os.path.join(site_path, "results.json")
+        with open(results_json_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False, indent=4)
+
+        dest_results = os.path.join(site_path, "results")
+        os.makedirs(dest_results, exist_ok=True)
+        self._write_markdown_files(dest_results, results, markdown_key)
+        logger.info(f"Published {markdown_key} pages to {dest_results}")
+
+        return site_path
+
+    def _write_markdown_files(
+        self,
+        dest_folder: str,
+        results: dict[str, dict],
+        markdown_key: str,
+    ) -> None:
+        """把 results 逐頁寫成 {page_title}.md（由 _publish_results 呼叫）。
+
+        寫入前先清掉 dest_folder 內既有的 .md，讓資料夾內容與 results.json 一致，
+        避免前一次爬取留下的頁面殘檔被 RAG 建庫讀進去。
+        """
+        for name in os.listdir(dest_folder):
+            if name.endswith(".md"):
+                os.remove(os.path.join(dest_folder, name))
+        for page_title, result in results.items():
+            markdown = result.get(markdown_key, "")
+            md_file_path = os.path.join(dest_folder, f"{page_title}.md")
+            with open(md_file_path, "w", encoding="utf-8") as f:
+                f.write(markdown)
+
+    def _copy_single_file(
+        self,
+        source_path: str | None,
+        dest_folder: str,
+        filename: str,
+    ) -> None:
+        """複製單一檔案到目標資料夾。"""
+        if not source_path or not os.path.isfile(source_path):
+            return
+        dest_path = os.path.join(dest_folder, filename)
+        shutil.copy2(source_path, dest_path)
+        logger.info(f"Published {filename} to {dest_path}")

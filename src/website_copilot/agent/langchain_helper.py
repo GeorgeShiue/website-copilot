@@ -74,7 +74,7 @@ def extract_sources_from_messages(messages: list[Any]) -> list[str]:
     return sources
 
 
-def _message_content_to_text(content: Any) -> str:
+def message_content_to_text(content: Any) -> str:
     """將 AIMessage content 轉為純文字。
 
     Gemini / OpenAI 的 content 可能是 list[dict]（含 type/text/extras 等欄位），

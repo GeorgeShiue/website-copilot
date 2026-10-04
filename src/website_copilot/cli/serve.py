@@ -11,8 +11,8 @@ class ServeCLI:
 
 
 def main(cli: ServeCLI) -> None:
-    from website_copilot.pipelines.serve import serve
+    from website_copilot.pipelines.serve import run_serve
     from website_copilot.utils.log_helper import setup_logging
 
     setup_logging("info")
-    serve(cli.run)
+    run_serve(cli.run)

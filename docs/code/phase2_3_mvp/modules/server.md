@@ -15,7 +15,7 @@
 - **模組實作**
 	- `src/website_copilot/server/app.py`（**FastAPI app**：`ChatApp`、`_build_fastapi_app`、`ChatRequest`、`_event_stream`、`_sse`）
 	- `src/website_copilot/server/server.py`（`ChatServer`：持有 `ChatApp` 的 `uvicorn.Server` 子類，收到退出訊號時先印 log，`serve()` 結束時自動關閉 `ChatApp`）
-	- `src/website_copilot/pipelines/serve.py`（`run_server_build` / `serve`：`website-copilot serve` 的執行邏輯）
+	- `src/website_copilot/pipelines/serve.py`（`run_server_build` / `run_serve`：`website-copilot serve` 的執行邏輯）
 	- `src/website_copilot/server/__init__.py`（匯出 `ChatApp` / `ChatRequest`）
 	- `src/website_copilot/server/static/`（**嵌入表面前端檔**：chat.html / widget.js / demo.html，詳見 [interface.md](interface.md)）
 
@@ -66,10 +66,10 @@ data: {"type": "error", "message": "..."}       ← 失敗
 - **`_enrich_query_with_site_context(query, site_id)`** — 將 `site_id` 前綴注入查詢字串，確保 Agent 在多站環境下檢索正確知識庫
 
 - **`DOMAIN_SITE_MAP`** — hostname → site_id 對照表，定義哪些域名對應哪些知識庫
-- **`run_server_build(...)`（pipelines/serve.py）** — 啟動入口（`serve()`，即 `website-copilot serve` 使用）：
-  - `run_server_build(agent, run_config)`：接收由 `serve()` 經 `run_agent_build()` 建構的 agent；建立自己的 run context（`create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")`，路徑 `runs/<ts>/server/<config>/`）→ `ChatApp.create(agent, run_manager, run_config.allowed_origins)` → `uvicorn.Config(app, run_config.host, run_config.port)` → `ChatServer(config, chat_app)`（`uvicorn.Server` 子類），回傳 **`ChatServer`（非阻塞）**；由呼叫端執行 `server.run()`（或 `await server.serve()`），`ChatServer.serve()` 結束時於 `finally` 自動呼叫 `chat_app.close()`；ChatApp 可經 `server.chat_app` 取得
+- **`run_server_build(...)`（pipelines/serve.py）** — 啟動入口（`run_serve()`，即 `website-copilot serve` 使用）：
+  - `run_server_build(agent, run_config)`：接收由 `run_serve()` 經 `run_agent_build()` 建構的 agent；建立自己的 run context（`create_run_no_site_context(module="server", config_name=agent.config.config_name, base_folder="runs")`，路徑 `runs/<ts>/server/<config>/`）→ `ChatApp.create(agent, run_manager, run_config.allowed_origins)` → `uvicorn.Config(app, run_config.host, run_config.port)` → `ChatServer(config, chat_app)`（`uvicorn.Server` 子類），回傳 **`ChatServer`（非阻塞）**；由呼叫端執行 `server.run()`（或 `await server.serve()`），`ChatServer.serve()` 結束時於 `finally` 自動呼叫 `chat_app.close()`；ChatApp 可經 `server.chat_app` 取得
   - `run_config.yml` 與 `log_run_paths`（`init` → `complete`）由此函式寫出；server 目錄**不寫** `module_config.yml`（agent 設定只寫在 `run_agent_build` 的 `runs/<ts>/agent_build/<config>/`）
-  - 建立 `ChatApp`／server 失敗時 re-raise，**不關閉**注入的 agent；由建立 agent 的 `serve()` 負責 `agent.close()`（不洩漏 RAG 資源）
+  - 建立 `ChatApp`／server 失敗時 re-raise，**不關閉**注入的 agent；由建立 agent 的 `run_serve()` 負責 `agent.close()`（不洩漏 RAG 資源）
   - **傳 app 物件而非 import string**：避免 reloader 子程序 sys.path 不含 `src/` 導致 ModuleNotFoundError
 
 ### 啟動方式

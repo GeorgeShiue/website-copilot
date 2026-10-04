@@ -39,14 +39,6 @@ def create_llm(llm_name: str) -> GoogleGenAI | OpenAI:
     return OpenAI(model=llm_name, api_key=api_key)
 
 
-def extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
-    metadata = getattr(source_node.node, "metadata", None) or {}
-    page_title = metadata.get("page_title", "Unknown")
-    score = source_node.get_score()
-    page_type = metadata.get("page_type", "Unknown")
-    return page_title, score, page_type
-
-
 def source_dict(
     source_node: NodeWithScore, max_content_length: int | None = None
 ) -> dict[str, Any]:
@@ -56,7 +48,7 @@ def source_dict(
     rag-query 的 results.json（evaluation.extract_sources_list）與 Agent 檢索工具
     （RAG.retrieve）共用。
     """
-    page_title, score, page_type = extract_sources_info(source_node)
+    page_title, score, page_type = _extract_sources_info(source_node)
     content = source_node.node.get_content()
     if max_content_length is not None:
         content = content[:max_content_length]
@@ -73,8 +65,16 @@ def log_source_nodes(source_nodes: Sequence[NodeWithScore]) -> None:
     log_session("Sources", style="blue")
     logger.info(f"Retrieved {len(source_nodes)} sources")
     for source_node in source_nodes:
-        page_title, score, page_type = extract_sources_info(source_node)
+        page_title, score, page_type = _extract_sources_info(source_node)
         log_source_title(page_title, score, page_type)
         raw_content = source_node.node.get_content()
         format_content = truncate_text(raw_content, max_length=500)
         logger.info(format_content)
+
+
+def _extract_sources_info(source_node: NodeWithScore) -> tuple[str, float, str]:
+    metadata = getattr(source_node.node, "metadata", None) or {}
+    page_title = metadata.get("page_title", "Unknown")
+    score = source_node.get_score()
+    page_type = metadata.get("page_type", "Unknown")
+    return page_title, score, page_type

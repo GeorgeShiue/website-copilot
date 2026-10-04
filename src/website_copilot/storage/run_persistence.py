@@ -19,13 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Discovery helpers
+# Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def is_run_folder(name: str) -> bool:
-    """資料夾名稱是否為 run 時間戳資料夾（如 20260830_172330：以 20 開頭、共 15 字元）。"""
-    return name.startswith("20") and len(name) == 15
 
 
 def _filter_run_folders(base_folder: str) -> list[str]:
@@ -56,6 +51,87 @@ def _walk_sorted(folder: str) -> Iterator[tuple[str, list[str]]]:
         dirs.sort()
         files.sort()
         yield root, files
+
+
+def _render_query_result_md(result: dict) -> str:
+    """將單次 query 的結果渲染為獨立的 Markdown 檔案（內部使用）。"""
+    lines: list[str] = []
+    lines.append(f"# Query #{result.get('index')}: {result.get('query', '')}")
+    timestamp = result.get("timestamp")
+    if timestamp:
+        lines.append("")
+        lines.append(f"> {timestamp}")
+    lines.append("")
+    lines.append("# Response")
+    lines.append("")
+    lines.append(str(result.get("response", "")))
+    lines.append("")
+
+    evaluation = result.get("evaluation")
+    if evaluation:
+        lines.append("# Evaluation")
+        lines.append("")
+        lines.append("| Metric | Passing | Score | Reason |")
+        lines.append("|--------|:-------:|:-----:|--------|")
+        for metric in ("faithfulness", "relevancy"):
+            ev = evaluation.get(metric)
+            if ev is None:
+                continue
+            passing = ev.get("passing")
+            mark = ":white_check_mark:" if passing else ":x:"
+            score = ev.get("score")
+            score_text = _format_score(score)
+            reason = _escape_md_cell((ev.get("feedback") or "").replace("\n", " "))
+            lines.append(
+                f"| {metric.capitalize()} | {mark} | {score_text} | {reason} |"
+            )
+        lines.append("")
+
+    sources = result.get("sources", [])
+    lines.append(f"# Sources ({len(sources)})")
+    lines.append("")
+    if sources:
+        lines.append("| # | Page | Type | Score | URL |")
+        lines.append("|---|------|------|:-----:|-----|")
+        for i, source in enumerate(sources, start=1):
+            lines.append(
+                f"| {i} | {_escape_md_cell(source.get('page_title', ''))} "
+                f"| {_escape_md_cell(source.get('page_type', ''))} "
+                f"| {_format_score(source.get('score'))} "
+                f"| {_escape_md_cell(source.get('url', ''))} |"
+            )
+        lines.append("")
+        for i, source in enumerate(sources, start=1):
+            content = source.get("content", "")
+            lines.append(f"**#{i} 內容片段：**")
+            lines.append("")
+            lines.append(_to_blockquote(content))
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _format_score(score: object) -> str:
+    return f"{score:.4f}" if isinstance(score, (int, float)) else "-"
+
+
+def _escape_md_cell(text: object) -> str:
+    return str(text).replace("|", "\\|").replace("\n", " ")
+
+
+def _to_blockquote(text: object) -> str:
+    """將多行文字轉為每行皆為引用區塊的 Markdown。"""
+    return "\n".join(f"> {line}" for line in str(text).splitlines())
+
+
+# ---------------------------------------------------------------------------
+# Discovery
+# ---------------------------------------------------------------------------
+
+
+def is_run_folder(name: str) -> bool:
+    """資料夾名稱是否為 run 時間戳資料夾（如 20260830_172330：以 20 開頭、共 15 字元）。"""
+    return name.startswith("20") and len(name) == 15
 
 
 def load_latest_results(
@@ -182,79 +258,3 @@ def save_query_results_as_md(
         os.makedirs(os.path.dirname(md_file_path), exist_ok=True)
         with open(md_file_path, "w", encoding="utf-8") as f:
             f.write(markdown)
-
-
-# ---------------------------------------------------------------------------
-# Markdown rendering helpers
-# ---------------------------------------------------------------------------
-
-
-def _render_query_result_md(result: dict) -> str:
-    """將單次 query 的結果渲染為獨立的 Markdown 檔案（內部使用）。"""
-    lines: list[str] = []
-    lines.append(f"# Query #{result.get('index')}: {result.get('query', '')}")
-    timestamp = result.get("timestamp")
-    if timestamp:
-        lines.append("")
-        lines.append(f"> {timestamp}")
-    lines.append("")
-    lines.append("# Response")
-    lines.append("")
-    lines.append(str(result.get("response", "")))
-    lines.append("")
-
-    evaluation = result.get("evaluation")
-    if evaluation:
-        lines.append("# Evaluation")
-        lines.append("")
-        lines.append("| Metric | Passing | Score | Reason |")
-        lines.append("|--------|:-------:|:-----:|--------|")
-        for metric in ("faithfulness", "relevancy"):
-            ev = evaluation.get(metric)
-            if ev is None:
-                continue
-            passing = ev.get("passing")
-            mark = ":white_check_mark:" if passing else ":x:"
-            score = ev.get("score")
-            score_text = _format_score(score)
-            reason = _escape_md_cell((ev.get("feedback") or "").replace("\n", " "))
-            lines.append(
-                f"| {metric.capitalize()} | {mark} | {score_text} | {reason} |"
-            )
-        lines.append("")
-
-    sources = result.get("sources", [])
-    lines.append(f"# Sources ({len(sources)})")
-    lines.append("")
-    if sources:
-        lines.append("| # | Page | Type | Score | URL |")
-        lines.append("|---|------|------|:-----:|-----|")
-        for i, source in enumerate(sources, start=1):
-            lines.append(
-                f"| {i} | {_escape_md_cell(source.get('page_title', ''))} "
-                f"| {_escape_md_cell(source.get('page_type', ''))} "
-                f"| {_format_score(source.get('score'))} "
-                f"| {_escape_md_cell(source.get('url', ''))} |"
-            )
-        lines.append("")
-        for i, source in enumerate(sources, start=1):
-            content = source.get("content", "")
-            lines.append(f"**#{i} 內容片段：**")
-            lines.append("")
-            lines.append(_to_blockquote(content))
-            lines.append("")
-
-    return "\n".join(lines)
-
-
-def _format_score(score: object) -> str:
-    return f"{score:.4f}" if isinstance(score, (int, float)) else "-"
-
-
-def _escape_md_cell(text: object) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ")
-
-
-def _to_blockquote(text: object) -> str:
-    """將多行文字轉為每行皆為引用區塊的 Markdown。"""
-    return "\n".join(f"> {line}" for line in str(text).splitlines())

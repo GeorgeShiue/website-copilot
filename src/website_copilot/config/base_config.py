@@ -39,16 +39,7 @@ def _check_not_blank(value: str) -> str:
 NonEmptyStr = Annotated[str, AfterValidator(_check_not_blank)]
 
 
-class ConfigModel(BaseModel):
-    """所有 config（含巢狀 section）的共用基底。"""
-
-    # validate_default：預設值也經過驗證（含跨欄位規則），避免誤寫的預設值靜默通過
-    model_config = ConfigDict(
-        strict=True, extra="forbid", validate_assignment=True, validate_default=True
-    )
-
-
-def format_validation_error(source: str, error: ValidationError) -> str:
+def _format_validation_error(source: str, error: ValidationError) -> str:
     """將 pydantic 的 ValidationError 轉成「來源: 欄位路徑: 訊息」的多行字串。"""
     lines = []
     for err in error.errors():
@@ -65,11 +56,44 @@ def format_validation_error(source: str, error: ValidationError) -> str:
 def validate_loaded[M: ConfigModel](
     cls: type[M], data: dict[str, Any], source: str
 ) -> M:
-    """驗證載入的設定 dict；失敗時轉成帶來源（設定檔路徑與繼承鏈）的 ConfigValidationError。"""
+    """驗證載入的設定 dict；失敗時轉成帶來源的 ConfigValidationError。
+
+    來源包含設定檔路徑與繼承鏈。
+    """
     try:
         return cls.model_validate(data)
     except ValidationError as e:
-        raise ConfigValidationError(format_validation_error(source, e)) from e
+        raise ConfigValidationError(_format_validation_error(source, e)) from e
+
+
+def _has_field_path(cls: type[BaseModel], dotted_path: str) -> bool:
+    """dotted path 的每一段都是模型欄位（中間段必須是 section）。
+
+    section 為欄位型別恰為 ConfigModel 子類者（對應 YAML 的巢狀 mapping）；
+    可選 section（`Model | None`）可能是 None，不能作為路徑中段。
+    """
+    parts = dotted_path.split(".")
+    model: type[BaseModel] = cls
+    for i, part in enumerate(parts):
+        if part not in model.model_fields:
+            return False
+        if i < len(parts) - 1:
+            annotation = model.model_fields[part].annotation
+            if not (
+                isinstance(annotation, type) and issubclass(annotation, ConfigModel)
+            ):
+                return False
+            model = annotation
+    return True
+
+
+class ConfigModel(BaseModel):
+    """所有 config（含巢狀 section）的共用基底。"""
+
+    # validate_default：預設值也經過驗證（含跨欄位規則），避免誤寫的預設值靜默通過
+    model_config = ConfigDict(
+        strict=True, extra="forbid", validate_assignment=True, validate_default=True
+    )
 
 
 class LoadedConfigModel(ConfigModel):
@@ -79,7 +103,10 @@ class LoadedConfigModel(ConfigModel):
 
     @property
     def source(self) -> str:
-        """載入來源描述，如 `configs/rag/test.yml (extends: default)`；未經 loader 建立時為空字串。"""
+        """載入來源描述，如 `configs/rag/test.yml (extends: default)`。
+
+        未經 loader 建立時為空字串。
+        """
         return self._source
 
 
@@ -103,9 +130,26 @@ class BaseModuleConfig(LoadedConfigModel):
             return list(self._DEFAULT_RUN_NAME_FIELDS)
         return self._run_name_fields
 
+    @property
+    def run_name(self) -> str:
+        """根據 run name 欄位生成 run name（以最後一段欄位名組成，如 max_depth-2）。"""
+        run_name_fields = self.run_name_fields
+        if not run_name_fields:
+            return "default"
+
+        run_name = ""
+        for field_path in run_name_fields:
+            value = self.get_field(field_path)
+            if value is not None:
+                run_name += f"{field_path.rsplit('.', 1)[-1]}-{value}_"
+        run_name = run_name.rstrip("_")
+        return self._post_process_run_name(run_name)
+
     @classmethod
     def from_yaml(
-        cls, config_name: str = "default", overrides: dict[str, Any] | None = None
+        cls,
+        config_name: str = DEFAULT_CONFIG_NAME,
+        overrides: dict[str, Any] | None = None,
     ) -> Self:
         """從 YAML 設定檔（展開 extends）建立 config，設定檔未寫的欄位使用欄位預設值。
 
@@ -127,6 +171,13 @@ class BaseModuleConfig(LoadedConfigModel):
         config._run_name_fields = run_name_fields
         config._source = source
         return config
+
+    def get_field(self, dotted_path: str) -> Any:
+        """以 dotted path（如 "init.max_depth"）取得巢狀欄位值。"""
+        value: Any = self
+        for part in dotted_path.split("."):
+            value = getattr(value, part)
+        return value
 
     @classmethod
     def _load(cls, config_name: str) -> tuple[dict[str, Any], str]:
@@ -159,49 +210,6 @@ class BaseModuleConfig(LoadedConfigModel):
                 )
         return fields
 
-    def get_field(self, dotted_path: str) -> Any:
-        """以 dotted path（如 "init.max_depth"）取得巢狀欄位值。"""
-        value: Any = self
-        for part in dotted_path.split("."):
-            value = getattr(value, part)
-        return value
-
-    @property
-    def run_name(self) -> str:
-        """根據 run name 欄位生成 run name（以最後一段欄位名組成，如 max_depth-2）。"""
-        run_name_fields = self.run_name_fields
-        if not run_name_fields:
-            return "default"
-
-        run_name = ""
-        for field_path in run_name_fields:
-            value = self.get_field(field_path)
-            if value is not None:
-                run_name += f"{field_path.rsplit('.', 1)[-1]}-{value}_"
-        run_name = run_name.rstrip("_")
-        return self._post_process_run_name(run_name)
-
     def _post_process_run_name(self, run_name: str) -> str:
         """子類可覆寫以自訂 run_name 的後處理邏輯。"""
         return run_name
-
-
-def _has_field_path(cls: type[BaseModel], dotted_path: str) -> bool:
-    """dotted path 的每一段都是模型欄位（中間段必須是 section）。
-
-    section 為欄位型別恰為 ConfigModel 子類者（對應 YAML 的巢狀 mapping）；
-    可選 section（`Model | None`）可能是 None，不能作為路徑中段。
-    """
-    parts = dotted_path.split(".")
-    model: type[BaseModel] = cls
-    for i, part in enumerate(parts):
-        if part not in model.model_fields:
-            return False
-        if i < len(parts) - 1:
-            annotation = model.model_fields[part].annotation
-            if not (
-                isinstance(annotation, type) and issubclass(annotation, ConfigModel)
-            ):
-                return False
-            model = annotation
-    return True

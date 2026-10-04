@@ -118,7 +118,7 @@ def run_server_build(agent: Agent, run_config: ServeRunConfig) -> ChatServer:
     return server
 
 
-def serve(run_config: ServeRunConfig) -> None:
+def run_serve(run_config: ServeRunConfig) -> None:
     """建構 Agent 後啟動 Chat Server 並阻塞至中斷（agent 資源由 ChatServer 結束時關閉）。"""
     agent = run_agent_build(run_config)
 

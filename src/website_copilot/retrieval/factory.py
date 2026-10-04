@@ -93,6 +93,28 @@ class RAGBuilder:
         )
 
 
+def _run_source(run_path: str) -> str:
+    """讀取 run 的 module_config.yml 檔頭的 `# source:`；讀不到時回傳 unknown。"""
+    try:
+        with open(os.path.join(run_path, MODULE_CONFIG_FILE), encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("# source:"):
+                    return line.removeprefix("# source:").strip()
+                if not line.startswith("#"):
+                    break
+    except OSError:
+        pass
+    return "unknown"
+
+
+def _log_target(target: RAGTarget) -> None:
+    """記錄本次 RAG 的站點、資料來源與向量庫位置（不寫入 module_config.yml）。"""
+    log_session("RAG Target", style="cyan")
+    print_log(f"site_id: {target.site_id}")
+    print_log(f"aug_webpages_dir: {target.aug_webpages_dir}")
+    print_log(f"milvus_uri: {target.milvus_uri}")
+
+
 def published_target(site_id: str, data_folder: str = "data") -> RAGTarget:
     """已 publish 的位置：資料來源 data/aug_webpages/{site_id}、向量庫 data/vector_db/{site_id}.db。
 
@@ -140,20 +162,6 @@ def vector_store_run_target(
     )
 
 
-def _run_source(run_path: str) -> str:
-    """讀取 run 的 module_config.yml 檔頭的 `# source:`；讀不到時回傳 unknown。"""
-    try:
-        with open(os.path.join(run_path, MODULE_CONFIG_FILE), encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("# source:"):
-                    return line.removeprefix("# source:").strip()
-                if not line.startswith("#"):
-                    break
-    except OSError:
-        pass
-    return "unknown"
-
-
 def build_target(
     site_id: str,
     milvus_uri: str,
@@ -183,14 +191,6 @@ def build_target(
     )
 
 
-def log_target(target: RAGTarget) -> None:
-    """記錄本次 RAG 的站點、資料來源與向量庫位置（不寫入 module_config.yml）。"""
-    log_session("RAG Target", style="cyan")
-    print_log(f"site_id: {target.site_id}")
-    print_log(f"aug_webpages_dir: {target.aug_webpages_dir}")
-    print_log(f"milvus_uri: {target.milvus_uri}")
-
-
 def build_rag(config: RAGConfig, target: RAGTarget) -> RAG:
     """重建向量庫並回傳 RAG（只建到 vector store／index 層級，不含 retriever）。
 
@@ -207,7 +207,7 @@ def build_rag(config: RAGConfig, target: RAGTarget) -> RAG:
     Raises:
         FileNotFoundError: 資料來源缺少 results.json 時（此時不會清除既有向量庫）。
     """
-    log_target(target)
+    _log_target(target)
     log_session("Building RAG to Vector Store", style="cyan")
     source = load_source(target.aug_webpages_dir)
     return RAG(IndexBuilder(config, target).build(source))

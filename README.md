@@ -81,7 +81,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   └── static/              # chat.html（iframe）/ widget.js（來源，含 typing indicator）/ demo.html
 │   ├── pipelines/
 │   │   ├── prepare.py           # run_website_crawler / run_image_summarizer / run_rag_build / run_prepare
-│   │   ├── serve.py             # run_agent_build / run_server_build / serve（不 import 爬蟲）
+│   │   ├── serve.py             # run_agent_build / run_server_build / run_serve（不 import 爬蟲）
 │   │   └── exp.py               # run_rag_query / run_agent_query（實驗／除錯用）
 │   └── utils/                   # config_helper / log_helper
 ├── tests/
