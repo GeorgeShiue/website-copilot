@@ -13,6 +13,7 @@ dependencies = [
     "crawl4ai>=0.9.2",
     "fastapi>=0.141.1",
     "flagembedding>=1.4.2",
+    "httpx>=0.28.1",
     "langchain>=1.4.0",
     "langchain-google-genai>=4.3.2",
     "langchain-openai>=0.3.0",
@@ -25,6 +26,7 @@ dependencies = [
     "mdformat>=1.0.0",
     "mdformat-gfm>=1.0.0",
     "milvus-lite==3.2.0",
+    "pillow>=12.2.0",
     "playwright>=1.58.0",
     "pydantic>=2.12.5",
     "python-dotenv>=1.0.0",
@@ -39,7 +41,6 @@ website-copilot = "website_copilot.cli:main"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "prek>=0.3.5",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
@@ -69,7 +70,15 @@ extend-exclude = [
 ]
 
 [tool.pyright]
-exclude = ["**/node_modules", "**/__pycache__", ".venv", "**/.*"]
+# docs/exp/memo/webpage_image_summarizer：針對舊版逐頁 ImageSummarizer 內部實作的實驗腳本（歷史紀錄），
+# P1c 重構後不再對應，不納入型別檢查
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv",
+    "**/.*",
+    "docs/exp/memo/webpage_image_summarizer",
+]
 typeCheckingMode = "basic"
 deprecateTypingAliases = true
 strictDictionaryInference = true
@@ -81,4 +90,6 @@ testpaths = ["tests"]
 addopts = "-s -v"
 markers = [
     "cost: 會呼叫 LLM / VLM / embedding API 而產生費用的測試，可用 -m \"not cost\" 略過",
+    "network: 連真實網站（不產生費用）的測試，可用 -m \"not network\" 略過",
+    "heavy: 載入 Docling 等大型模型、執行較慢的測試，可用 -m \"not heavy\" 略過",
 ]

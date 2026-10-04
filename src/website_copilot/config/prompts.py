@@ -3,7 +3,7 @@
 由 config class 引用作為欄位預設值；設定檔可覆寫。
 """
 
-# ImageSummarizerConfig.summarize.prompt
+# AugmenterConfig.images.prompt
 IMAGE_SUMMARY_PROMPT = """\
 你是網頁圖片資訊萃取器。目標是為 RAG 產生精確、可檢索的圖片摘要。
 

@@ -4,9 +4,9 @@
 
 - `website-copilot`：單一 CLI 指令（`pyproject.toml` 的 `[project.scripts]` → `website_copilot.cli:main`；也可用 `python -m website_copilot.cli`）。
 - `src/website_copilot/cli/__init__.py`：`main()` 以 `tyro` 解析子命令 `prepare | serve | run` 並 dispatch 到對應子命令模組。各子命令模組只在頂層 import 參數 dataclass，執行邏輯在 `main()` 內延遲 import，避免例如 serve 間接載入爬蟲依賴。
-- `src/website_copilot/cli/run.py`：單模組執行 `run website-crawler | image-summarizer | rag-build | rag-query | agent`，將 `run`（RunConfig）與 `module`（自動產生的覆寫值）交給對應 pipeline：`run_xxx(command.run, overrides)`。
+- `src/website_copilot/cli/run.py`：單模組執行 `run website-crawler | augmenter | rag-build | rag-query | agent`，將 `run`（RunConfig）與 `module`（自動產生的覆寫值）交給對應 pipeline：`run_xxx(command.run, overrides)`。
 - `src/website_copilot/cli/{prepare,serve}.py`：兩階段入口的參數定義，分別呼叫 `pipelines.prepare.run_prepare(run_config)`、`pipelines.serve.run_serve(run_config)`。
-- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_image_summarizer`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`run_serve`；exp：`run_rag_query`、`run_agent_query`），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
+- `src/website_copilot/pipelines/{prepare,serve,exp}.py`：實作主要 pipeline（prepare：`run_website_crawler`、`run_augmenter`、`run_rag_build`、`run_prepare`；serve：`run_agent_build`、`run_server_build`、`run_serve`；exp：`run_rag_query`、`run_agent_query`），負責載入 module config、執行流程與落盤結果。`run_agent_query` 為 CLI 問答的完整入口（建立 run context、問答與落盤），`run_agent_build` 為 agent 建構 + 落盤的程式化 API（`serve` 透過它建構 agent 再注入 `run_server_build`；`run_agent_query` 也透過它建構 agent）。
 - `src/website_copilot/pipelines/serve.py`：`run_agent_build`（建構 agent）、`run_server_build`（以注入的 agent 建立 ChatApp + ChatServer）與 `run_serve`（`run_agent_build` → `run_server_build` → `server.run()` → 關閉）。
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)：定義 run 相關 dataclass（`BaseRunConfig` 與各 module 的 RunConfig），供 `tyro` 與程式使用。`site` 為必填的位置參數（`Annotated[str, tyro.conf.Positional]`，metavar `SITE`），對應 `configs/sites/{site}.yml`；agent／serve 為多站，沒有 `site`。`config_name` 在 CLI 上為 `--run.config`（`tyro.conf.arg(name="config")`），Python 屬性維持 `config_name`。
 - [src/website_copilot/config/overrides.py](src/website_copilot/config/overrides.py)：`make_overrides_model()` 由 module config 自動產生 CLI 覆寫用的 partial model（`{Config}Overrides`），`overrides_to_dict()` 轉成只含已指定欄位的巢狀 dict。
@@ -17,7 +17,7 @@
 ## 二、CLI 解析與 dispatch 流程
 
 1. `cli/__init__.py` 定義頂層子命令 union：`PrepareCLI | ServeCLI | RunCLI`（以 `tyro.conf.subcommand` 命名為 `prepare` / `serve` / `run`）。
-2. `RunCLI` 的 `command` 欄位為第二層子命令 union：`WebsiteCrawlerCLI | ImageSummarizerCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI`（`website-crawler` / `image-summarizer` / `rag-build` / `rag-query` / `agent`）。
+2. `RunCLI` 的 `command` 欄位為第二層子命令 union：`WebsiteCrawlerCLI | AugmenterCLI | RAGBuildCLI | RAGQueryCLI | AgentCLI`（`website-crawler` / `augmenter` / `rag-build` / `rag-query` / `agent`）。
    - 每個 dataclass 包含兩個欄位：`run`（RunConfig）與 `module`（`make_overrides_model()` 從對應 module config 產生的 `{Config}Overrides`），命令列參數為 `--run.*` 與 `--module.*`。
    - `--module.*` 的巢狀結構與設定檔相同，如 `--module.retriever.similarity-top-k 20`、`--module.vector-store.hybrid-ranker-params.weights 1.0 0.3`；module config 新增欄位時 CLI 自動跟著產生，不需手動同步。
 3. `tyro.cli(...)` 解析命令列並回傳對應的 dataclass 實例，`main()` 依型別 dispatch 到子命令模組的 `main()`。

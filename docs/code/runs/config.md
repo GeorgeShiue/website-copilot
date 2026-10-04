@@ -2,7 +2,7 @@
 
 ## 待辦事項
 
-- [x] image_summarizer 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.yml
+- [x] augmenter 的 litellm_kwargs 改為獨立的 section，並且保存到 module_config.yml
 - [x] 調整 website_crawler 的參數型態和預設值 (max_depth 改成 None 代表不限制深度, exclude_words 改成 list)
 - [x] 重構 config 架構
 - [x] 保留建置 vector store 的 config 到 data/vector_db/{site_id}.db/meta/
@@ -14,10 +14,10 @@
 
 `src/website_copilot/pipelines/*.py`、`src/website_copilot/cli/` 與 [src/website_copilot/storage/run_manager.py](src/website_copilot/storage/run_manager.py) 共同負責執行路徑與檔案留存。
 
-專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/image_summarizer/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 pydantic model 在 `src/website_copilot/config/` 中載入與驗證：
+專案模組參數實際存放於 `configs/` 目錄下（例如 `configs/website_crawler/`、`configs/augmenter/`、`configs/rag/`、`configs/agent/`），每個模組由對應的 pydantic model 在 `src/website_copilot/config/` 中載入與驗證：
 
 - `src/website_copilot/config/website_crawler_config.py`
-- `src/website_copilot/config/image_summarizer_config.py`
+- `src/website_copilot/config/augmenter_config.py`
 - `src/website_copilot/config/rag_config.py`
 - `src/website_copilot/config/agent_config.py`
 - `src/website_copilot/config/site_config.py`：`SiteConfig`（站點身分與爬取範圍，`configs/sites/{site_id}.yml`；不是模組 config）
@@ -71,13 +71,14 @@
 - run name 預設為 `[init.max_depth]`。
 - `clean`：`llm_model`、`sample_ratio`（0 < x ≤ 1）、`repeat`、`max_prompt_tokens`、`seed`（可省略）。exclude_words 一律由 LLM 產生並經全站行覆蓋率驗證，不提供人工清單與開關。
 
-### Image summarizer
+### Augmenter
 
-- Config model: `ImageSummarizerConfig`（`src/website_copilot/config/image_summarizer_config.py`），設定檔 `configs/image_summarizer/{config_name}.yml`。
-- `init`：`download_timeout`（> 0）、`download_max_workers`（> 0，預設 40；同時下載圖片的執行緒數）、`success_threshold`（0～1）、`max_retries`（≥ 0）。
-- `summarize`：`model`、`prompt`、`image_source`（`images` 或 `markdown`）、`summary_max_workers`（> 0，預設 50；同時呼叫 VLM 的請求數）。兩個並行上限皆為每頁各自計算（頁面依序處理）。
+- Config model: `AugmenterConfig`（`src/website_copilot/config/augmenter_config.py`），設定檔 `configs/augmenter/{config_name}.yml`。
+- `download`（共用下載器 `utils/http_downloader.py` 的參數）：`timeout`（> 0，單次請求逾時）、`max_concurrency`（> 0，預設 40；同時下載的請求數）、`max_retries`（≥ 0，預設 2；逾時、連線錯誤、5xx、429 的單一請求重試次數）、`max_bytes`（> 0，預設 50 MiB；單一檔案大小上限）。
+- `retry`（整輪退避重試）：`success_threshold`（0～1）、`max_retries`（≥ 0；整輪處理的最大輪數，含第一輪）。成功率 = 成功 ÷（成功 + 可恢復失敗），以不重複資源計算；404 等永久錯誤與格式不符不計入、不重試。
+- `images`：`model`、`prompt`、`source`（`images` 或 `markdown`）、`max_concurrency`（> 0，預設 50；同時呼叫 VLM 的請求數）。`min_size`（≥ 0，預設 100；圖片長邊小於此像素值不送 VLM、不產生描述，0 為不過濾）。下載與 VLM 兩個並行上限皆為所有頁面共用（整批處理）。
 - `litellm_kwargs`：任意 key，原樣傳給 litellm（預設為空）。
-- run name 預設為 `[summarize.model]`。
+- run name 預設為 `[images.model]`。
 - 未傳入爬蟲結果時，只讀取 runs/ 中同站點最新的爬蟲結果（找不到時報錯，不退回其他站點）。
 
 ### RAG
@@ -89,7 +90,7 @@
 - `retriever`：`query_mode`（`"default"` 或 `"hybrid"`）、`similarity_top_k`、`hybrid_top_k`、`alpha`（0～1）。
 - `query_engine`：`query_llm_name`、`evaluator_llm_name`、`cutoff`（0～1；hybrid 模式不使用）。查詢問題在 `RAGQueryRunConfig.query`（`--run.query`），未指定時使用站點的 `sample_query`。
 - 執行期目標 `RAGTarget(site_id, aug_webpages_dir, milvus_uri)`：
-  - 資料來源：預設 `data/aug_webpages/{site_id}`；`--run.aug-webpages-data-use-latest-results` 時為 runs/ 中同站點最新的 image_summarizer 結果。
+  - 資料來源：預設 `data/aug_webpages/{site_id}`；`--run.use-latest-results` 時為 runs/ 中同站點最新的 augmenter 結果。
   - 向量庫：rag-build 依 save／publish 建在 run 的 `results/milvus.db`、`data/vector_db/.staging-*/{site_id}.db` 或系統暫存（publish 時連同 `meta/` 原子替換到 `data/vector_db/{site_id}.db`）；rag-query 與 serve 使用 `data/vector_db/{site_id}.db`（rag-query 可用 `--run.vector-store-run` 改查 runs/ 的向量庫）。Milvus collection 名稱固定為 `chunks`。
 
 目前 class 預設值與 `configs/rag/test.yml` 皆為 **Milvus hybrid search**（`query_mode="hybrid"`、`hybrid_ranker="WeightedRanker"`、`hybrid_ranker_params={weights=[1.0, 0.5]}`、`hybrid_top_k=10`）。
@@ -143,7 +144,7 @@ module_config 與 run_config 的寫入機制：
 - 模組無關的 Markdown／發現函式位於 `src/website_copilot/storage/run_persistence.py`（無狀態函式，非 RunManager 方法）：`save_results_as_md()` 把每頁結果寫入 `results/*.md`、`save_query_results_as_md()` 寫 `results/query_{index}.md`、`load_latest_results()` / `load_latest_run_path()` 供跨 run 探索。
 - 目前主要 workflow 入口的行為：
   - `run_website_crawler()`：寫 `module_config.yml`、`results.json`、`results/*.md`
-  - `run_image_summarizer()`：寫 `module_config.yml`、`results.json`、`results/*.md`
+  - `run_augmenter()`：寫 `module_config.yml`、`results.json`、`results/*.md`
   - `run_rag_build()`：寫 `module_config.yml`（與 `run_config.yml`）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/vector_db/<site_id>.db`（詳見 workflow.md）。
   - `run_rag_query()`：寫 `results.json`（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 `module_config.yml`；重建（rebuild）時另存一份 `module_config.yml` 到向量庫路徑。
   - `run_agent_query()`：經 `run_agent_build()` 建構 agent（`module_config.yml` 寫在 `agent_build/`）；本身只寫 `run_config.yml`，並呼叫 `RunManager.save_agent_results_as_json()` 寫 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；`thread_id` 未提供時自動 `auto-{uuid}`）；對話結果位於 `runs/<ts>/agent/<config>/`（`RunManager.for_run_no_site()`，**無 `site_id` 層、不寫 `results.json`**）。
@@ -177,7 +178,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 主要流程目前行為：
 
 - run_website_crawler()：寫 module_config.yml、results.json、results/\*.md
-- run_image_summarizer()：寫 module_config.yml、results.json、results/\*.md
+- run_augmenter()：寫 module_config.yml、results.json、results/\*.md
 - run_rag_build()：寫 module_config.yml（與 run_config.yml）；`save=True` 時向量庫建在本次 run 的 `results/milvus.db`；`save=False` 時建在暫存資料夾（結束即刪）；`publish=True` 時才原子替換到 `data/vector_db/<site_id>.db`（詳見 workflow.md）
 - run_rag_query()：寫 results.json（query 三層結構）、`results/query_{index}.md`（每次 query 一份）與 module_config.yml；重建時另存一份到向量庫路徑
 - run_agent_query()：寫 run_config.yml 與 `results_{thread_id}.json`（module_config.yml 由 run_agent_build 寫在 `agent_build/`）（`RunManager.save_agent_results_as_json()` 讀取既有分檔 → 合併本輪 → 覆寫；thread_id 未提供時自動 `auto-{uuid}`）；檔案位於 `runs/<ts>/agent/<config>/`
@@ -189,7 +190,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 倉庫中的測試與實驗（現況）：
 
 - `tests/integration/test_module.py` 會透過程式 API 逐一呼叫各 run function（皆以 `config_name="test"` 的 RunConfig 呼叫）：
-  - `run_website_crawler`、`run_image_summarizer`、`run_rag_build`
+  - `run_website_crawler`、`run_augmenter`、`run_rag_build`
   - `run_agent_build`、`run_agent_query`
 
 - `tests/integration/test_pipeline.py` 會執行 `run_prepare(PrepareRunConfig(config_name="test", publish=False))`（只存到 `runs/`，RAG 以 `runs/` 中本次的圖片摘要結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
@@ -202,7 +203,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 
 重點：
 
-- 四個主要模組（crawler、image_summarizer、rag、agent）使用一致的 config 載入與覆寫流程。
+- 四個主要模組（crawler、augmenter、rag、agent）使用一致的 config 載入與覆寫流程。
 - `BaseModuleConfig`（`src/website_copilot/config/base_config.py`）為模組 config 的共用基底；模組 config 不含站點資訊，站點由 `SiteConfig` 提供。
 - 驗證以 pydantic 型別、`Field` 約束與 `model_validator` 表達，在建構與修改欄位時即捕捉錯誤。
 - `pipeline_config.py`（`src/website_copilot/config/pipeline_config.py`）定義 RunConfig dataclass，供 CLI（tyro）與程式端共用；CLI 的 `--module.*` 覆寫參數由 `config/overrides.py` 從 module config 自動產生。
@@ -214,7 +215,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
 - [src/website_copilot/config/yaml_helper.py](src/website_copilot/config/yaml_helper.py)
 - [src/website_copilot/config/pipeline_config.py](src/website_copilot/config/pipeline_config.py)
 - [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)
-- [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)
+- [src/website_copilot/config/augmenter_config.py](src/website_copilot/config/augmenter_config.py)
 - [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)
 - [src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)
 - [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)

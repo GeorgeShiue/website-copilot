@@ -17,18 +17,18 @@
 - `src/website_copilot/retrieval/registry.py`：管理多站 RAG 實例（lazy + LRU 快取），供 Agent 在不同 `site_id` 間路由。
 - `src/website_copilot/agent/tools/site_discovery.py`：`list_knowledge_bases` 工具，供 LLM 確認可用站點列表。
 - [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)：實際執行網站爬取、Markdown 清理與資料整理的模組。
-- [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py)：實際執行圖片下載、VLM 摘要、快取與 Markdown 增強的模組。
+- [src/website_copilot/ingestion/augmentation/augmenter.py](src/website_copilot/ingestion/augmentation/augmenter.py)：augmenter 的主流程：以 `ImageCollector`（`collectors.py`）跨頁收集不重複的圖片資源（`assets.py`）、經共用下載器（`utils/http_downloader.py`）整批下載、`ImageCaptioner`（`processors/image_captioner.py`）整批呼叫 VLM，並負責快取、整輪退避重試、統計與回寫 Markdown。
 - [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)：執行查詢、檢索、評估與資源釋放的 runtime 模組。
 - [src/website_copilot/ingestion/indexing/index.py](src/website_copilot/ingestion/indexing/index.py)：`IndexBuilder` 負責向量庫的 clean / nodes / vector store / index 建置與載入，回傳 `IndexHandle`（nodes 與向量庫分別由 `node_pipeline.py`、`vector_store.py` 建立）。
 - [src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)：`RAGBuilder` 在 `IndexHandle` 之上建立 retriever / query engine；`build_rag()`（建置）與 `load_rag()`（serve 載入，絕不建置）為兩個入口。
-- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 pydantic model，負責從 `configs/` 載入與驗證。
+- [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)、[src/website_copilot/config/augmenter_config.py](src/website_copilot/config/augmenter_config.py)、[src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)、[src/website_copilot/config/agent_config.py](src/website_copilot/config/agent_config.py)：各模組對應的設定 pydantic model，負責從 `configs/` 載入與驗證。
 - [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)：共用設定工具，提供 module_config.yml／run_config.yml 寫出與 config 顯示等功能；YAML 讀取與 extends 展開見 `config/yaml_helper.py`。
 
 ## 二、Workflow 解析與執行流程
 
 1. workflow 的核心實作分散在 `pipelines/prepare.py`／`pipelines/serve.py`／`pipelines/exp.py`，共提供七個主要入口（另有 `run_prepare()` 串接 prepare 三階段、`run_serve()` 串接 `run_agent_build()` 與 `run_server_build()` 並管理生命週期）：
    - `run_website_crawler()`
-   - `run_image_summarizer()`
+   - `run_augmenter()`
    - `run_rag_build()`
    - `run_rag_query()`
    - `run_agent_build()` / `run_agent_query()`
@@ -38,7 +38,7 @@
 4. Workflow 會透過 `utils.config_helper.save_module_config()` 寫出 `module_config.yml`（agent 的 `run_agent_build` / `run_agent_query` 會寫；`run_server_build` 不寫，server 的 run 目錄只有 `run_config.yml`），並由 `RunManager` 保存 `results.json`、`results/*.md` 與 `terminal.log`；`DataManager`（[src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)）則負責將 run 產物發布到 `data/` 持久化路徑。
 5. 所有入口的簽名一致：`run_xxx(run_config, overrides=None)`。`run_config`（RunConfig，必填）提供 `config_name`、`save`、`publish` 等執行參數，`overrides` 為 module config 的巢狀覆寫值（如 `{"retriever": {"similarity_top_k": 20}}`）；`run_config.yml` 一律以 `save_run_config()` 寫出。
 6. 有站點的入口（crawler／summarizer／rag_build／rag_query）以 `SiteConfig.from_yaml(run_config.site)` 載入站點，以 `site.site_id` 決定 runs/ 與 data/ 的資料夾，並把站點設定另存為 `site_config.yml`。
-7. `run_prepare(run_config: PrepareRunConfig)` 以同一個 `site` 與 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig` 傳給各階段；`publish=True`（預設）時各階段 `save=False, publish=True`，`publish=False`（`--run.no-publish`）時 `save=True, publish=False` 且 RAG 以 runs/ 中本次的圖片摘要結果建庫。
+7. `run_prepare(run_config: PrepareRunConfig)` 以同一個 `site` 與 `config_name` 建立 `WebsiteCrawlerRunConfig`／`AugmenterRunConfig`／`RAGBuildRunConfig` 傳給各階段；`publish=True`（預設）時各階段 `save=False, publish=True`，`publish=False`（`--run.no-publish`）時 `save=True, publish=False` 且 RAG 以 runs/ 中本次的圖片摘要結果建庫。
 
 ## 三、主要 Workflow 入口
 
@@ -51,12 +51,12 @@
   3. 以爬蟲參數建立 `WebsiteCrawler`，以站點的 `crawl`（起始 URL、URL 模式、允許網域、路徑前綴）呼叫 `crawl_website()`。
   4. 若爬取成功，寫出 `module_config.yml`、`site_config.yml`、`results.json` 與 `results/*.md`。
 
-### 2. `run_image_summarizer()`
+### 2. `run_augmenter()`
 
-- 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown。
+- 目的：將 crawl results 中的圖片交給 VLM 做摘要，並輸出增強後的 Markdown（整批處理：全部收集 → 整批下載 → 整批摘要 → 回寫）。
 - 流程：
-  1. 建立 [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py) 的 `ImageSummarizer`。
-  2. 載入站點與 [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py) 的參數（`configs/image_summarizer/{config_name}.yml` 或 class 預設值）。
+  1. 建立 [src/website_copilot/ingestion/augmentation/augmenter.py](src/website_copilot/ingestion/augmentation/augmenter.py) 的 `Augmenter`（注入以 `download` 設定建立的 `HttpDownloader`）。
+  2. 載入站點與 [src/website_copilot/config/augmenter_config.py](src/website_copilot/config/augmenter_config.py) 的參數（`configs/augmenter/{config_name}.yml` 或 class 預設值）。
   3. 若未直接傳入 `crawl_results`，則由 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py) 的 `load_latest_results(..., site_id=...)` 載入 runs/ 中**同站點**最近一次的 crawler 結果（找不到時報錯，不退回其他站點）。
   4. 執行圖片摘要後，寫出 `module_config.yml`、`site_config.yml`、`results.json` 與 `results/*.md`。
 
@@ -65,7 +65,7 @@
 - 目的：建立 RAG 所需的 nodes、vector store、index、retriever 與 query engine（**不含 query 步驟**），並落盤建置產物。
 - 流程：
   1. 載入站點與 [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py) 的參數（`configs/rag/{config_name}.yml` 或 class 預設值）。
-  2. 依 save／publish 決定向量庫位置，以 `build_target()` 產生 `RAGTarget`（資料來源預設 `data/aug_webpages/{site_id}`，`aug_webpages_data_use_latest_results` 時為 runs/ 中同站點最新的圖片摘要結果），再呼叫 `build_rag(config, target)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）；內部先以 `load_source()` 讀取 aug_webpages 來源（來源缺少時在清除既有向量庫前就失敗），再由 `IndexBuilder(config, target).build(source)` 重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
+  2. 依 save／publish 決定向量庫位置，以 `build_target()` 產生 `RAGTarget`（資料來源預設 `data/aug_webpages/{site_id}`，`use_latest_results` 時為 runs/ 中同站點最新的圖片摘要結果），再呼叫 `build_rag(config, target)`（[src/website_copilot/retrieval/factory.py](src/website_copilot/retrieval/factory.py)）；內部先以 `load_source()` 讀取 aug_webpages 來源（來源缺少時在清除既有向量庫前就失敗），再由 `IndexBuilder(config, target).build(source)` 重建：`clean()` → `build_nodes()` → `build_vector_store()`（**Milvus BGE-M3**，可選 `WeightedRanker` / `RRFRanker`）→ `build_index()`，回傳 `IndexHandle`（建庫只到 index 層級，不建 retriever / query engine）。
   3. `save=True` 時在 run 路徑寫出 `module_config.yml`、`site_config.yml` 與 `run_config.yml`，最後 `rag.close()` 釋放資源。config 在建庫過程中不會被改寫（位置都在 `RAGTarget`）。
   4. 一律重建，且**絕不直接寫入** `data/vector_db/<site_id>.db`；`publish=True` 時由 `DataManager.publish_vector_store()` 原子替換（先放 `<site_id>.db.tmp` 並寫入 `meta/`（module／site／run config 與 log），舊版 rename 成 `.old`、新版 rename 成 `<site_id>.db`，再刪 `.old`；中途失敗會還原舊版，向量庫與設定紀錄一定同版）。建庫結束時 `IndexHandle.close()` 會一併停止本地 Milvus Lite server（確保資料已 flush 後才搬移資料夾）。向量庫位置屬於執行期資訊，不寫入 `module_config.yml`（改記錄在 log 的「RAG Target」）。建庫位置：
 
@@ -148,7 +148,7 @@ Workflow 內部常見行為：
 - `run_manager.save_results_as_json(results, file_path=None)`：寫出 JSON 結果（crawler / summarizer 的爬取結果、`run_rag_query` 的 query 三層結構，或 agent 指定分檔）。
 - `run_manager.save_agent_results_as_json(thread_id, results, agent_config)`：agent 對話結果落盤（呼叫端 `run_agent_query` / server `_event_stream` 傳入 `agent_config`）— 依 `thread_id` 寫出 `results_{thread_id}.json`（讀取既有分檔 → 合併本輪 → 覆寫；無既有分檔時以 `RunManager.find_thread_history_path()` 回掃歷史 run）。
 - `run_manager.find_thread_history_path(base_folder, module_name, history_filename)`（staticmethod）：跨 timestamped run 目錄搜尋最新的 thread 歷史檔。
-- 模組無關的持久化／發現函式位於 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)：`save_results_as_md()`、`save_query_results_as_md()`、`load_latest_results()`、`load_latest_run_path()`（皆為無狀態函式，**非 RunManager 方法**）；image summarizer 未直接收到 `crawl_results` 時即呼叫 `load_latest_results()` 載入最近一次 crawler 輸出。
+- 模組無關的持久化／發現函式位於 [src/website_copilot/storage/run_persistence.py](src/website_copilot/storage/run_persistence.py)：`save_results_as_md()`、`save_query_results_as_md()`、`load_latest_results()`、`load_latest_run_path()`（皆為無狀態函式，**非 RunManager 方法**）；augmenter 未直接收到 `crawl_results` 時即呼叫 `load_latest_results()` 載入最近一次 crawler 輸出。
 
 ## 五、Workflow 與 Config 的互動
 
@@ -201,9 +201,9 @@ uv run website-copilot run rag-query nculab --run.config test --run.vector-store
 - [src/website_copilot/storage/data_manager.py](src/website_copilot/storage/data_manager.py)
 - [src/website_copilot/cli/](src/website_copilot/cli/)
 - [src/website_copilot/ingestion/crawling/website_crawler.py](src/website_copilot/ingestion/crawling/website_crawler.py)
-- [src/website_copilot/ingestion/augmentation/image_summarizer.py](src/website_copilot/ingestion/augmentation/image_summarizer.py)
+- [src/website_copilot/ingestion/augmentation/augmenter.py](src/website_copilot/ingestion/augmentation/augmenter.py)
 - [src/website_copilot/retrieval/rag.py](src/website_copilot/retrieval/rag.py)
 - [src/website_copilot/config/website_crawler_config.py](src/website_copilot/config/website_crawler_config.py)
-- [src/website_copilot/config/image_summarizer_config.py](src/website_copilot/config/image_summarizer_config.py)
+- [src/website_copilot/config/augmenter_config.py](src/website_copilot/config/augmenter_config.py)
 - [src/website_copilot/config/rag_config.py](src/website_copilot/config/rag_config.py)
 - [src/website_copilot/utils/config_helper.py](src/website_copilot/utils/config_helper.py)

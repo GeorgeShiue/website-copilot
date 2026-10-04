@@ -7,14 +7,14 @@ import pytest
 
 from website_copilot.config.pipeline_config import (
     AgentRunConfig,
-    ImageSummarizerRunConfig,
+    AugmenterRunConfig,
     RAGBuildRunConfig,
     ServeRunConfig,
     WebsiteCrawlerRunConfig,
 )
 from website_copilot.pipelines.exp import run_agent_query
 from website_copilot.pipelines.prepare import (
-    run_image_summarizer,
+    run_augmenter,
     run_rag_build,
     run_website_crawler,
 )
@@ -30,8 +30,8 @@ def test_website_crawler():
 
 
 @pytest.mark.cost
-def test_image_summarizer():
-    run_image_summarizer(ImageSummarizerRunConfig(site="nculab", config_name="test"))
+def test_augmenter():
+    run_augmenter(AugmenterRunConfig(site="nculab", config_name="test"))
 
 
 @pytest.mark.cost

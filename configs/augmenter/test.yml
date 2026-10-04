@@ -1,4 +1,4 @@
-# 測試用設定：目前與 ImageSummarizerConfig 的預設值相同（image_summarizer_config.py）
+# 測試用設定：目前與 AugmenterConfig 的預設值相同（augmenter_config.py）
 #
 # litellm_kwargs 為直接傳給 litellm 的額外參數，例：
 # litellm_kwargs:

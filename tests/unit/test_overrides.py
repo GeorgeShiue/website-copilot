@@ -6,7 +6,7 @@ import pytest
 from pydantic import BaseModel
 
 from website_copilot.config.agent_config import AgentConfig
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
+from website_copilot.config.augmenter_config import AugmenterConfig
 from website_copilot.config.overrides import (
     _format_default,
     _metavar,
@@ -35,7 +35,7 @@ def test_model_name() -> None:
 
 
 @pytest.mark.parametrize(
-    "config_cls", [WebsiteCrawlerConfig, ImageSummarizerConfig, RAGConfig, AgentConfig]
+    "config_cls", [WebsiteCrawlerConfig, AugmenterConfig, RAGConfig, AgentConfig]
 )
 def test_all_leaf_fields_default_to_none(config_cls: type[BaseModel]) -> None:
     """未指定任何值時，overrides 為空 dict（不會以 None 覆蓋設定檔）。"""
@@ -69,10 +69,10 @@ def test_leaf_type_becomes_optional() -> None:
 
 def test_dict_field_excluded() -> None:
     """dict[str, Any]（litellm_kwargs）tyro 無法處理，排除在 CLI 之外。"""
-    overrides_cls = make_overrides_model(ImageSummarizerConfig)
+    overrides_cls = make_overrides_model(AugmenterConfig)
 
     assert "litellm_kwargs" not in overrides_cls.model_fields
-    assert "summarize" in overrides_cls.model_fields
+    assert "images" in overrides_cls.model_fields
 
 
 def test_description_copied() -> None:

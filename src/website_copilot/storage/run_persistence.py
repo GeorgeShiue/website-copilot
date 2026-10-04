@@ -175,7 +175,7 @@ def load_latest_run_path(base_folder: str, module_name: str, site_id: str) -> st
 
     Args:
         base_folder: runs/ 根目錄。
-        module_name: 模組資料夾名稱（如 "image_summarizer"）。
+        module_name: 模組資料夾名稱（如 "augmenter"）。
         site_id: 站點識別碼。
 
     Returns:

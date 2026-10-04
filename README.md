@@ -58,11 +58,11 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── cli/                     # `website-copilot <subcommand>`（tyro 子命令）
 │   │   ├── __init__.py          # main()：prepare / serve / run 分派
 │   │   ├── prepare.py  serve.py # 兩階段入口的參數定義
-│   │   └── run.py               # run website-crawler | image-summarizer | rag-build | rag-query | agent
+│   │   └── run.py               # run website-crawler | augmenter | rag-build | rag-query | agent
 │   ├── config/                  # AgentConfig / RAGConfig / 爬蟲與圖片摘要 config；site_config.py（SiteConfig）；pipeline_config.py（RunConfig）；base_config.py（pydantic 基底）、yaml_helper.py（YAML 讀取與 extends）、overrides.py（CLI 覆寫參數自動產生）、prompts.py（長 prompt 預設值）
 │   ├── ingestion/
 │   │   ├── crawling/            # website_crawler / markdown_cleaner（含 LLM exclude_words）/ html_date_extractor
-│   │   ├── augmentation/        # image_summarizer（VLM 圖片摘要）
+│   │   ├── augmentation/        # augmenter（篩選 → 下載 → 解析 → 回寫）/ assets / collectors / processors（image_captioner：VLM 圖片摘要）
 │   │   └── indexing/            # source / transforms / node_pipeline / vector_store / index（IndexBuilder → IndexHandle）
 │   ├── retrieval/
 │   │   ├── rag.py               # RAG（index_handle + retriever + query engine）
@@ -80,10 +80,10 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   │   ├── server.py            # ChatServer（uvicorn.Server 子類，持有 ChatApp，結束時自動關閉）
 │   │   └── static/              # chat.html（iframe）/ widget.js（來源，含 typing indicator）/ demo.html
 │   ├── pipelines/
-│   │   ├── prepare.py           # run_website_crawler / run_image_summarizer / run_rag_build / run_prepare
+│   │   ├── prepare.py           # run_website_crawler / run_augmenter / run_rag_build / run_prepare
 │   │   ├── serve.py             # run_agent_build / run_server_build / run_serve（不 import 爬蟲）
 │   │   └── exp.py               # run_rag_query / run_agent_query（實驗／除錯用）
-│   └── utils/                   # config_helper / log_helper
+│   └── utils/                   # config_helper / log_helper / http_downloader（共用下載器）/ document_rules（文件 URL 規則）
 ├── tests/
 │   ├── unit/                    # 單元測試（預設執行）
 │   └── integration/             # 整合測試（cost 標記：會呼叫 LLM API）
@@ -103,7 +103,7 @@ Website Copilot 是一個 Python 專案，將網站內容轉換為可檢索的�
 │   ├── README.md                # 設定檔撰寫說明（站點／模組設定、extends、YAML 注意事項）
 │   ├── sites/                   # 站點設定：nculab / ncucsie（site_id、sample_query、爬取範圍）
 │   ├── website_crawler/         # 模組設定：test.yml（只寫與 class 預設值不同的部分）
-│   ├── image_summarizer/
+│   ├── augmenter/
 │   ├── rag/
 │   └── agent/
 ├── data/                        # prepare 與 serve 之間的唯一介面（已 publish 的結果）
@@ -144,7 +144,7 @@ cp .env.example .env        # 填入 API 金鑰
 - **站點設定**（`configs/sites/{site_id}.yml`）：站點身分（`site_id`）、`sample_query` 與爬取範圍（起始 URL、URL 模式、允許網域、路徑前綴）。CLI 以位置參數指定站點。
 - **模組設定**（`configs/{module}/{name}.yml`）：參數的預設值寫在 `src/website_copilot/config/*_config.py` 的 config class，設定檔只寫與預設值不同的部分，以 `--run.config <name>` 指定（省略時為 class 預設值）。`uv run website-copilot run <module> --help` 會列出所有參數與預設值。
   - 爬蟲（`website_crawler`）：爬取深度、頁面數量限制、內容過濾、exclude words 產生。
-  - 圖片摘要（`image_summarizer`）：圖片下載逾時、重試、快取、模型、prompt 與圖片來源模式。
+  - 擴充處理（`augmenter`）：圖片下載逾時與並行、重試、模型、prompt 與圖片來源模式。
   - RAG（`rag`）：切塊、向量庫與 hybrid ranker、embedding、檢索與 query engine。
   - Agent（`agent`）：LLM 與 system prompt。
 
@@ -154,8 +154,8 @@ cp .env.example .env        # 填入 API 金鑰
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | `ingestion/indexing/index.py`、`retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | Embedding（`text-embedding-3-*`），以及 `gpt-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
-| `GEMINI_API_KEY` | `retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/image_summarizer.py` | `gemini-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
+| `OPENAI_API_KEY` | `ingestion/indexing/index.py`、`retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/augmenter.py` | Embedding（`text-embedding-3-*`），以及 `gpt-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
+| `GEMINI_API_KEY` | `retrieval/llama_index_helpers.py`、`agent/langchain_helper.py`、`ingestion/augmentation/augmenter.py` | `gemini-*` 的回答生成 / 評估 / Agent / 圖片摘要。 |
 
 ## 使用方式
 
@@ -183,7 +183,7 @@ uv run website-copilot prepare nculab --run.config test --run.no-publish
 
 ```bash
 uv run website-copilot run website-crawler nculab --module.init.max-pages 10
-uv run website-copilot run image-summarizer nculab     # 讀取 runs/ 中同站點最新的爬蟲結果
+uv run website-copilot run augmenter nculab     # 讀取 runs/ 中同站點最新的爬蟲結果
 uv run website-copilot run rag-build nculab --run.publish
 ```
 
@@ -249,7 +249,7 @@ uv run website-copilot serve --run.allowed-origins https://lab.example.edu.tw
 
 # 整合測試（需 API 金鑰；cost 標記的測試會產生 API 費用）
 uv run pytest tests/integration
-uv run pytest tests/integration -m "not cost"   # 略過會呼叫 LLM API 的測試
+uv run pytest tests/integration -m "not cost and not network and not heavy"   # 略過會呼叫 LLM API、連真實網站、載入大型模型的測試
 ```
 
 ## 輸出

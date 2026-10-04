@@ -58,8 +58,8 @@ class DataManager:
         """將爬取結果發布到 data/raw_webpages/{site_id}/（crawler 自己的原始輸出）。
 
         跟 publish_markdown() 寫入的 data/aug_webpages/{site_id}/ 完全分開存放——後者
-        才是 image summarizer 產生、RAG 建庫實際讀取的最終版本
-        （見 indexing.source.load_source），避免 image_summarizer 執行後
+        才是 augmenter 產生、RAG 建庫實際讀取的最終版本
+        （見 indexing.source.load_source），避免 augmenter 執行後
         覆蓋掉 crawler 自己的原始輸出。
 
         Args:
@@ -74,7 +74,7 @@ class DataManager:
     def publish_markdown(self, site_id: str, enhanced_results: dict[str, dict]) -> str:
         """發布增強後的結果到 data/aug_webpages/{site_id}/（RAG 建庫實際讀取的最終版本）。
 
-        enhanced_results 是 image_summarizer 就地在 crawl_results 上疊加
+        enhanced_results 是 augmenter 就地在 crawl_results 上疊加
         enhanced_markdown 欄位後回傳的完整結果（每頁仍保留 url／images／metadata／
         crawl_info 等原始欄位），所以這裡連同 results.json 一起發布，讓
         data/aug_webpages/{site_id}/ 維持跟 RAG 目前預期的結構一致（results.json +

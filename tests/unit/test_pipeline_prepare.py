@@ -16,7 +16,7 @@ import pytest
 import yaml
 
 from website_copilot.config.pipeline_config import (
-    ImageSummarizerRunConfig,
+    AugmenterRunConfig,
     PrepareRunConfig,
     RAGBuildRunConfig,
     WebsiteCrawlerRunConfig,
@@ -205,21 +205,19 @@ def test_website_crawler_save_writes_results_and_run_configs(env):
     assert list(env.data.iterdir()) == []  # 未 publish
 
 
-def test_image_summarizer_save_writes_results_and_run_configs(env):
+def test_augmenter_save_writes_results_and_run_configs(env):
     from website_copilot.pipelines import prepare
 
-    with patch.object(prepare, "ImageSummarizer") as summarizer_cls:
+    with patch.object(prepare, "Augmenter") as summarizer_cls:
         summarizer = summarizer_cls.return_value
-        summarizer.summarize_crawl_results_images.return_value = {
-            "p": {"enhanced_markdown": "enhanced"}
-        }
-        prepare.run_image_summarizer(
-            ImageSummarizerRunConfig(site=SITE, config_name="test", save=True),
+        summarizer.augment.return_value = {"p": {"enhanced_markdown": "enhanced"}}
+        prepare.run_augmenter(
+            AugmenterRunConfig(site=SITE, config_name="test", save=True),
             crawl_results={"p": {"fit_markdown": "md"}},
         )
 
-    (run_path,) = env.runs.glob(f"*/image_summarizer/{env.site_id}/r1")
-    _assert_run_configs_saved(run_path, "summarize")
+    (run_path,) = env.runs.glob(f"*/augmenter/{env.site_id}/r1")
+    _assert_run_configs_saved(run_path, "images")
     assert (run_path / "results" / "p.md").read_text(encoding="utf-8") == "enhanced"
     assert list(env.data.iterdir()) == []  # 未 publish
 
@@ -303,8 +301,8 @@ def test_build_does_not_modify_config(env):
 
 
 def test_webpages_data_use_latest_results(env):
-    """aug_webpages_data_use_latest_results：資料來源改為 runs/ 中同站點最新的圖片摘要結果。"""
-    latest = env.runs / "20260930_100000" / "image_summarizer" / env.site_id / "r"
+    """use_latest_results：資料來源改為 runs/ 中同站點最新的圖片摘要結果。"""
+    latest = env.runs / "20260930_100000" / "augmenter" / env.site_id / "r"
     (latest / "results").mkdir(parents=True)
 
     run_rag_build(
@@ -313,7 +311,7 @@ def test_webpages_data_use_latest_results(env):
             config_name="test",
             save=True,
             publish=False,
-            aug_webpages_data_use_latest_results=True,
+            use_latest_results=True,
         )
     )
 
@@ -434,7 +432,7 @@ def test_run_prepare_chains_stages_with_publish() -> None:
 
     with (
         patch.object(prepare, "run_website_crawler", return_value={"p": {}}) as crawl,
-        patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
+        patch.object(prepare, "run_augmenter", return_value={"p": {}}) as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
         prepare.run_prepare(PrepareRunConfig(site="ncucsie", config_name="test"))
@@ -444,7 +442,7 @@ def test_run_prepare_chains_stages_with_publish() -> None:
         )
     )
     image.assert_called_once_with(
-        ImageSummarizerRunConfig(
+        AugmenterRunConfig(
             site="ncucsie", config_name="test", save=False, publish=True
         ),
         crawl_results={"p": {}},
@@ -455,7 +453,7 @@ def test_run_prepare_chains_stages_with_publish() -> None:
             config_name="test",
             save=False,
             publish=True,
-            aug_webpages_data_use_latest_results=False,
+            use_latest_results=False,
         )
     )
 
@@ -466,7 +464,7 @@ def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> N
 
     with (
         patch.object(prepare, "run_website_crawler", return_value={"p": {}}) as crawl,
-        patch.object(prepare, "run_image_summarizer", return_value={"p": {}}) as image,
+        patch.object(prepare, "run_augmenter", return_value={"p": {}}) as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
         prepare.run_prepare(
@@ -478,7 +476,7 @@ def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> N
         )
     )
     image.assert_called_once_with(
-        ImageSummarizerRunConfig(
+        AugmenterRunConfig(
             site="ncucsie", config_name="test", save=True, publish=False
         ),
         crawl_results={"p": {}},
@@ -489,25 +487,25 @@ def test_run_prepare_without_publish_saves_to_runs_and_builds_from_latest() -> N
             config_name="test",
             save=True,
             publish=False,
-            aug_webpages_data_use_latest_results=True,
+            use_latest_results=True,
         )
     )
 
 
-def test_image_summarizer_loads_latest_results_of_same_site() -> None:
+def test_augmenter_loads_latest_results_of_same_site() -> None:
     """未傳入爬蟲結果時，只讀取 runs/ 中同站點的最新結果（S7）。"""
     from website_copilot.pipelines import prepare
 
     with (
         patch.object(prepare, "load_latest_results", return_value={"p": {}}) as load,
-        patch.object(prepare, "ImageSummarizer") as summarizer_cls,
+        patch.object(prepare, "Augmenter") as summarizer_cls,
     ):
-        prepare.run_image_summarizer(
-            ImageSummarizerRunConfig(site="ncucsie", config_name="test", save=False)
+        prepare.run_augmenter(
+            AugmenterRunConfig(site="ncucsie", config_name="test", save=False)
         )
 
     load.assert_called_once_with("runs", "website_crawler", site_id="ncucsie")
-    summarize = summarizer_cls.return_value.summarize_crawl_results_images
+    summarize = summarizer_cls.return_value.augment
     assert summarize.call_args.args == ({"p": {}},)
 
 
@@ -516,7 +514,7 @@ def test_run_prepare_stops_when_crawler_returns_none() -> None:
 
     with (
         patch.object(prepare, "run_website_crawler", return_value=None),
-        patch.object(prepare, "run_image_summarizer") as image,
+        patch.object(prepare, "run_augmenter") as image,
         patch.object(prepare, "run_rag_build") as rag,
     ):
         prepare.run_prepare(PrepareRunConfig(site="ncucsie", config_name="test"))

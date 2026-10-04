@@ -72,14 +72,12 @@ def _make_results_folder(runs: Path, ts: str, site: str, module: str) -> Path:
 
 
 def test_load_latest_run_path_of_same_site(tmp_path: Path) -> None:
-    _make_results_folder(tmp_path, "20260929_090000", "nculab", "image_summarizer")
-    newest = _make_results_folder(
-        tmp_path, "20260929_100000", "nculab", "image_summarizer"
-    )
-    _make_results_folder(tmp_path, "20260929_110000", "ncucsie", "image_summarizer")
+    _make_results_folder(tmp_path, "20260929_090000", "nculab", "augmenter")
+    newest = _make_results_folder(tmp_path, "20260929_100000", "nculab", "augmenter")
+    _make_results_folder(tmp_path, "20260929_110000", "ncucsie", "augmenter")
     _make_results_folder(tmp_path, "20260929_120000", "nculab", "website_crawler")
 
-    path = load_latest_run_path(str(tmp_path), "image_summarizer", site_id="nculab")
+    path = load_latest_run_path(str(tmp_path), "augmenter", site_id="nculab")
 
     assert path == str(newest)
 
@@ -87,14 +85,10 @@ def test_load_latest_run_path_of_same_site(tmp_path: Path) -> None:
 def test_load_latest_run_path_skips_newer_run_without_results_folder(
     tmp_path: Path,
 ) -> None:
-    complete = _make_results_folder(
-        tmp_path, "20260929_090000", "nculab", "image_summarizer"
-    )
-    (tmp_path / "20260929_100000" / "image_summarizer" / "nculab" / "r").mkdir(
-        parents=True
-    )
+    complete = _make_results_folder(tmp_path, "20260929_090000", "nculab", "augmenter")
+    (tmp_path / "20260929_100000" / "augmenter" / "nculab" / "r").mkdir(parents=True)
 
-    path = load_latest_run_path(str(tmp_path), "image_summarizer", site_id="nculab")
+    path = load_latest_run_path(str(tmp_path), "augmenter", site_id="nculab")
 
     assert path == str(complete)
 
@@ -102,10 +96,10 @@ def test_load_latest_run_path_skips_newer_run_without_results_folder(
 def test_load_latest_run_path_does_not_fall_back_to_other_site(
     tmp_path: Path,
 ) -> None:
-    _make_results_folder(tmp_path, "20260929_110000", "ncucsie", "image_summarizer")
+    _make_results_folder(tmp_path, "20260929_110000", "ncucsie", "augmenter")
 
-    with pytest.raises(FileNotFoundError, match="image_summarizer run path"):
-        load_latest_run_path(str(tmp_path), "image_summarizer", site_id="nculab")
+    with pytest.raises(FileNotFoundError, match="augmenter run path"):
+        load_latest_run_path(str(tmp_path), "augmenter", site_id="nculab")
 
 
 @pytest.mark.parametrize(

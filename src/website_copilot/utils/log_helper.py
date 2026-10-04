@@ -269,9 +269,9 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
     logging.getLogger("website_copilot.ingestion.crawling.website_crawler").setLevel(
         logging_level
     )
-    logging.getLogger(
-        "website_copilot.ingestion.augmentation.image_summarizer"
-    ).setLevel(logging_level)
+    logging.getLogger("website_copilot.ingestion.augmentation.augmenter").setLevel(
+        logging_level
+    )
     for rag_logger_name in (
         "website_copilot.ingestion.indexing",
         "website_copilot.retrieval",

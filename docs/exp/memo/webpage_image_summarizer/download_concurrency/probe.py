@@ -1,6 +1,6 @@
 """下載並行上限實驗（code cleanup plan C2「後續：下載並行上限實驗」）。
 
-以正式的 ImageSummarizer._download_images 對 ncucsie 的圖片送出 2N 個下載請求
+以正式的 Augmenter._download_images 對 ncucsie 的圖片送出 2N 個下載請求
 （一次傳入全部 URL，繞過正式流程「每頁各自一個執行緒池」的限制），
 逐級提高 download_max_workers=N，直到某一級失敗率超過門檻或跑完所有級距。
 
@@ -31,10 +31,10 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from website_copilot.config.image_summarizer_config import ImageSummarizerConfig
-from website_copilot.ingestion.augmentation.image_summarizer import (
+from website_copilot.config.augmenter_config import AugmenterConfig
+from website_copilot.ingestion.augmentation.augmenter import (
     UNSUPPORTED_IMAGE_SUFFIXES,
-    ImageSummarizer,
+    Augmenter,
     PageStats,
 )
 from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN
@@ -77,7 +77,7 @@ def usable_urls(path: str = SOURCE_RESULTS) -> list[str]:
 class Recorder:
     """包裝 summarizer._download_image：記錄每個請求並統計同時進行中的最大數量。"""
 
-    def __init__(self, summarizer: ImageSummarizer, fake: Any = None) -> None:
+    def __init__(self, summarizer: Augmenter, fake: Any = None) -> None:
         self._summarizer = summarizer
         self._download = fake or summarizer._download_image
         self._lock = threading.Lock()
@@ -120,7 +120,7 @@ def _percentile(values: list[float], q: float) -> float:
 
 
 def make_fake_download(
-    summarizer: ImageSummarizer, workers: int, fail_from: int | None
+    summarizer: Augmenter, workers: int, fail_from: int | None
 ) -> Any:
     """--dry-run 用：不連網，模擬 0.05～0.15 秒延遲；fail_from 以上的級距模擬 429。"""
 
@@ -137,7 +137,7 @@ def make_fake_download(
 
 
 def run_level(
-    summarizer: ImageSummarizer,
+    summarizer: Augmenter,
     all_urls: list[str],
     workers: int,
     seen: set[str],
@@ -235,15 +235,15 @@ def main() -> None:
     if len(urls) < needed:
         raise SystemExit("可用 URL 不足，無法在同一級內避免重複")
 
-    config = ImageSummarizerConfig.from_yaml("default")
-    summarizer = ImageSummarizer(
-        download_timeout=config.init.download_timeout,
+    config = AugmenterConfig.from_yaml("default")
+    summarizer = Augmenter(
+        download_timeout=config.download.timeout,
         download_max_workers=args.levels[0],
-        success_threshold=config.init.success_threshold,
+        success_threshold=config.retry.success_threshold,
         max_retries=0,
     )
     print(
-        f"download_timeout={config.init.download_timeout}s dry_run={args.dry_run} "
+        f"download_timeout={config.download.timeout}s dry_run={args.dry_run} "
         f"stop_if_failure_rate>{args.max_failure_rate}"
     )
 

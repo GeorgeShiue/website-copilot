@@ -33,13 +33,13 @@ class WebsiteCrawlerRunConfig(BaseRunConfig):
 
 
 @dataclass
-class ImageSummarizerRunConfig(BaseRunConfig):
+class AugmenterRunConfig(BaseRunConfig):
     pass
 
 
 @dataclass
 class RAGBuildRunConfig(BaseRunConfig):
-    aug_webpages_data_use_latest_results: bool = False
+    use_latest_results: bool = False
 
 
 @dataclass

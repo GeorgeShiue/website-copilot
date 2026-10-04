@@ -165,7 +165,7 @@ def vector_store_run_target(
 def build_target(
     site_id: str,
     milvus_uri: str,
-    aug_webpages_data_use_latest_results: bool = False,
+    use_latest_results: bool = False,
     runs_folder: str = "runs",
     data_folder: str = "data",
 ) -> RAGTarget:
@@ -174,15 +174,15 @@ def build_target(
     Args:
         site_id: 站點識別碼。
         milvus_uri: 向量庫建置位置（run 的 results/milvus.db、data/vector_db/.staging-*/{site_id}.db 或系統暫存）。
-        aug_webpages_data_use_latest_results: True 時改用 runs/ 中同站點最新一次 image summarizer
+        use_latest_results: True 時改用 runs/ 中同站點最新一次 augmenter
             的結果（需該次以 save=True 執行）；False 時使用 data/aug_webpages/{site_id}。
         runs_folder: runs/ 根目錄。
         data_folder: data/ 根目錄。
     """
-    if aug_webpages_data_use_latest_results:
+    if use_latest_results:
         log_session("Finding Latest Webpages Data", style="cyan")
         aug_webpages_dir = load_latest_run_path(
-            runs_folder, "image_summarizer", site_id=site_id
+            runs_folder, "augmenter", site_id=site_id
         )
     else:
         aug_webpages_dir = aug_webpages_path(site_id, data_folder)
