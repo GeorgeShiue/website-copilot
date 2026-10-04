@@ -1,267 +1,155 @@
-# 程式碼清理：實作紀錄
+# 程式碼清理與資料儲存重構：實作紀錄
 
-> 計畫見 [plan.md](./plan.md)。A 組基準點：`dc52401`（plan 與 `KEEP_TITLE_CONTENT_THRESHOLD` 文件紀錄）。
+> 計畫見 [plan.md](./plan.md)。只記錄與 plan 不同的決定、過程中的發現與驗證結果。除特別註明外，每項的驗證皆為共同關卡（`check.sh`、`tests/integration -m "not cost"`、7 個 CLI `--help`）通過，括號內為 `check.sh` 的通過測試數。
 
-## A1：刪除死碼
-
-### 變更
-
-- 刪除 6 個未使用的 `logger`（`config/{agent,rag,image_summarizer,website_crawler}_config.py`、`storage/run_manager.py`、`utils/config_helper.py`）與隨之未使用的 `import logging`。
-- 刪除 `KEEP_TITLE_CONTENT_THRESHOLD`；值 `0.45` 記錄於 `docs/code/phase1/modules/data_collect.md` 補充說明。
-- `storage/__init__.py` 移除 re-export，只留模組 docstring（全專案無人經由 `website_copilot.storage` 匯入）。
-- `DataManager` 刪除 `get_vector_store_path`／`list_sites`／`get_webpages_path`／`site_exists`（整個 Discover 區塊）。
-- `save_results_as_md` 移除 `save_images` 參數與其寫入圖片清單的分支。
-- `Agent`：刪除 `tools` property、`__enter__`／`__exit__`；`checkpointer` 改為必填（唯一呼叫端 `create_agent` 一定傳入），移除 `or InMemorySaver()`；`Tool`、`ChatApp` 的 `__enter__`／`__exit__` 一併刪除。
-- `create_run_no_site_context` 移除 `run_name` 參數；`run_server_build`、`run_agent_query` 移除多餘的 `base_folder="runs"`。
-- `RunManager.__init__` 的 `module_name` 改為必填，初始化時直接建立 module 路徑；刪除 `init_module_run_paths` 中走不到的 `module_name` 檢查（保留 `run_name` 檢查：run name 欄位全為 None 時會得到空字串，仍可能觸發）。
-- `run_rag_query` 的 `except` 內刪除重複的 `rag.close()`（`finally` 已關閉）。
-- `IndexBuilder.load` 移除 `vector_store_type == "milvus"` 判斷、`_close_vector_store` 移除 `isinstance(MilvusVectorStore)` 判斷（`vector_store_type` 為單值 `Literal["milvus"]`）。
-
-### 驗證
-
-- `check.sh`、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過（375 passed）。
-- grep 被刪除的名稱，src／tests 皆無結果。
-
-## A2：簡化 `build_rag` 與 `IndexBuilder`
-
-### 變更
-
-- `build_rag(config, target)`：移除 `force_rebuild`／`build_query_engine` 參數與 query engine 分支；先 `load_source(target.aug_webpages_dir)` 再 `IndexBuilder.build(source)`，回傳 `RAG(handle)`（來源缺少時在清除既有向量庫前失敗，順序與原本相同）。
-- 刪除 `IndexBuilder.build_or_load()`、`_should_rebuild()`；`index.py` 不再 import `load_source`。
-- `run_rag_build` 改呼叫 `build_rag(config, target)`。
-- 測試：刪除 `TestShouldRebuildMilvus`（4 個）與只服務它的 `_make_builder()`；`test_rebuild_reads_source_before_cleaning` 改呼叫 `build_rag`（斷言不變）；`test_build_rag_does_not_modify_config` 補 patch `load_source`；`test_pipeline_prepare` 的 fake `build_rag` 簽名移除 `**_kwargs`。
-- 文件：`docs/code/phase1/modules/data_retrieve.md`、`docs/code/runs/workflow.md` 同步新流程。
-
-### 驗證
-
-- `check.sh`（371 passed，較 A1 少 4 個為刪除的測試）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- grep `force_rebuild`／`build_or_load`／`_should_rebuild`：src 無結果，tests 只剩「`--run.force-rebuild` 被拒」的 CLI 測試。
-
-## A3：合併重複實作
-
-### 變更
-
-- `MARKDOWN_IMAGE_PATTERN` 只定義於 `utils/text_helper.py`，`website_crawler`、`image_summarizer` 改為 import（不放在 crawler 內，避免 summarizer 間接 import crawl4ai）。
-- `RESULTS_JSON_NAME` 只定義於 `storage/run_persistence.py`，`run_manager` 改為 import。
-- 新增 `run_persistence.is_run_folder(name)`，`_filter_run_folders` 與 `RunManager.find_thread_history_path` 共用。
-- 刪除 `base_config._is_section`／`_section_model`，`_has_field_path` 直接判斷欄位型別。**與 plan 不同**：plan 寫「保留 `overrides._section_type`、`base_config` 改用」，但 `_section_type` 會接受 `Model | None`，使 `run_name_fields` 可指到可能為 None 的 section（`get_field` 會 AttributeError），行為較原本寬；為維持行為不變，`_has_field_path` 仍只接受型別恰為 ConfigModel 子類的 section。`overrides._section_type` 維持原狀。
-- 新增 `base_config.validate_loaded(cls, data, source)`（validate → `ConfigValidationError` 帶來源）與 `LoadedConfigModel`（持有 `_source` 與 `source` property）；`BaseModuleConfig`、`SiteConfig` 改為繼承 `LoadedConfigModel`，兩者的 `from_yaml` 共用 `validate_loaded`。
-- `DataManager.publish_crawl_results`／`publish_markdown` 保留為一行包裝，共用 `_publish_results(site_id, category, results, markdown_key)`；兩者的 log 統一為 `Published {markdown_key} pages to ...`（原本只有 `publish_markdown` 有 log）。
-
-### 驗證
-
-- `check.sh`（371 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- `test_publish_removes_stale_markdown`（兩個 publisher 皆參數化）、`test_configs`／`test_site_config`／`test_config_extends` 的錯誤訊息斷言不修改即通過。
-
-## A4：結構簡化
-
-### 變更
-
-- `server/app.py`：移除 lifespan、`app.state` 與 `Depends`（`get_agent`／`get_run_manager`），`/api/chat` 路由直接使用 `_build_fastapi_app` closure 中的 `agent`／`run_manager`；同步更新模組與函式 docstring。
-- `storage/run_context.py`：刪除 `_WorkflowContext`，`run_workflow_context` 改為 `@contextmanager`（`with ExitStack()` 內進入 log／計時 context、印標題與 Run Paths、`yield`，區塊正常結束才印 complete 路徑表）。保留 `log_path` 參數。副作用：初始化中途失敗（如 `log_run_paths("init")` 拋錯）時，ExitStack 也會關閉已開啟的 log tee（原本不會）。
-
-### 驗證
-
-- `check.sh`（371 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- 手動確認 `run_workflow_context`：區塊內 `return`、區塊內拋例外兩種結束方式——return 時 log 含 complete 路徑表、例外時沒有，兩者皆記錄耗時並還原 stdout。
+基準點：A 組 `dc52401`；B 組 `754a8de`（A 組合併 commit）；C 組 `e9f869e`（B 組合併 commit）。
 
 ---
 
-# B 組
+# 一、程式碼清理
 
-> B 組基準點：`754a8de`（A 組合併 commit；與先前的 `0ea5012` 內容相同，僅 commit 訊息被改寫）。
+## A 組
 
-## B1：`storage/data_paths.py`
+### A1：刪除死碼（375 passed）
 
-### 變更
+除 plan 所列，另做了這些：`KEEP_TITLE_CONTENT_THRESHOLD` 的值 `0.45` 記錄於 `docs/code/phase1/modules/data_collect.md`；`checkpointer` 改為必填（唯一呼叫端 `create_agent` 一定傳入）；`create_run_no_site_context` 移除 `run_name` 參數；`RunManager.__init__` 的 `module_name` 改為必填並刪除 `init_module_run_paths` 中走不到的檢查（保留 `run_name` 檢查，欄位全為 None 時會得到空字串）；`run_rag_query` 的 `except` 內重複的 `rag.close()`；`IndexBuilder.load` 的 `vector_store_type == "milvus"` 判斷與 `_close_vector_store` 的 `isinstance(MilvusVectorStore)` 判斷（型別為單值 `Literal["milvus"]`）。
 
-- 新增 `storage/data_paths.py`（只 import `os`，不存取檔案系統）：`RAW_WEBPAGES`／`AUG_WEBPAGES`／`VECTOR_DB` 常數，`site_data_path`、`aug_webpages_path`、`vector_db_folder`、`vector_store_name`、`vector_store_path`、`site_id_from_vector_store_name`（`{site_id}.db` → site_id，`.staging-*`／`.db.tmp`／`.db.old`／隱藏檔回傳 None）。
-- `DataManager`、`retrieval.factory`（`published_target`／`vector_store_run_target`／`build_target`）、`RAGRegistry`（`_site_exists`／`list_sites`）、`pipelines/prepare`（`category` 常數與 staging 內的 `{site_id}.db`）改用上述函式與常數；src 內不再有 `"vector_db"`／`"aug_webpages"`／`"raw_webpages"` 的路徑字串。
-- 新增 `tests/unit/test_data_paths.py`（10 個）：佈局、無檔案系統副作用、`site_id_from_vector_store_name` 各種名稱。
-- README 檔案結構補上 `data_paths`。
+### A2：簡化 `build_rag`（371 passed）
 
-### 驗證
+少 4 個為刪除的測試。`test_build_rag_does_not_modify_config` 補 patch `load_source`。grep `force_rebuild`：src 無結果，tests 只剩「`--run.force-rebuild` 被拒」的 CLI 測試。
 
-- `check.sh`（381 passed，較 A 組多 10 個新測試）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- `test_published_target`、`test_vector_store_path`、`TestListSites`、`test_serve_rag_loading`、`test_pipeline_prepare`、`test_imports`（serve 路徑不載入爬蟲）不修改即通過。
+### A3：合併重複實作（371 passed）
 
-## B2：共用 runs/ 走訪
+- `MARKDOWN_IMAGE_PATTERN` 放在 `utils/text_helper.py`，不放在 crawler 內，避免 summarizer 間接 import crawl4ai。
+- **與 plan 不同**：plan 寫「保留 `overrides._section_type`、`base_config` 改用」，但 `_section_type` 會接受 `Model | None`，使 `run_name_fields` 可指到可能為 None 的 section（`get_field` 會 `AttributeError`），行為較原本寬。為維持行為不變，`base_config._has_field_path` 仍只接受型別恰為 ConfigModel 子類的 section，`overrides._section_type` 維持原狀。
+- `BaseModuleConfig`、`SiteConfig` 改為繼承 `LoadedConfigModel`，共用 `validate_loaded`。
+- `publish_crawl_results`／`publish_markdown` 的 log 統一為 `Published {markdown_key} pages to ...`（原本只有後者有 log）。
 
-### 變更
+### A4：結構簡化（371 passed）
 
-- `storage/run_persistence.py` 新增 `_iter_site_run_folders(base_folder, module_name, site_id)`（由新到舊 yield 存在的 `runs/<ts>/<module>/<site_id>/`，沒有任何時間戳資料夾時報 `FileNotFoundError`）與 `_walk_sorted(folder)`（排序後由上而下走訪）；`load_latest_results`、`load_latest_run_path` 只保留各自的判斷（找 `results.json`／找 `results/` 資料夾），找到即回傳。
-- `load_latest_run_path` 的 `site_id` 改為必填（`module_name` 因而也改為必填；唯一呼叫端 `build_target` 本來就傳 `"image_summarizer"` 與 `site_id`）；刪除「`site_id is None` 時不限站點」分支。
-- 刪除 `load_latest_results` 中走不到的 `if not os.path.isfile(...)` 檢查（路徑來自 `os.walk` 的檔名清單）。
-- 測試：重構前先補特徵測試並在舊程式碼上確認通過，再重構（新增 9 個，`test_run_persistence.py` 共 12 個）：較新的 run 缺 `results.json`／`results/` 時退回較舊的 run、不退回其他站點、忽略非時間戳資料夾、無任何 run 資料夾報錯、`is_run_folder`。
+`run_workflow_context` 改 `@contextmanager` 的副作用：初始化中途失敗（如 `log_run_paths("init")` 拋錯）時，ExitStack 也會關閉已開啟的 log tee（原本不會）。手動確認區塊內 `return` 與拋例外兩種結束方式：return 時 log 含 complete 路徑表，例外時沒有，兩者皆記錄耗時並還原 stdout。
 
-### 驗證
+## B 組
 
-- `check.sh`（391 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- `test_build_target_uses_latest_summarizer_run_of_same_site`、`test_image_summarizer_loads_latest_results_of_same_site` 不修改即通過。
+### B1：`storage/data_paths.py`（381 passed）
 
-## B3：`new_thread_id()`
+除 plan 所列函式，另有 `site_id_from_vector_store_name`（`{site_id}.db` → site_id，`.staging-*`／`.db.tmp`／`.db.old`／隱藏檔回傳 None）。src 內不再有 `"vector_db"`／`"aug_webpages"`／`"raw_webpages"` 的路徑字串。新增 10 個測試（佈局、無檔案系統副作用）。
 
-### 變更
+### B2：共用 runs/ 走訪（391 passed）
 
-- `agent/langchain_helper.py` 新增 `new_thread_id()`（`auto-{uuid 前 8 碼}`）；`thread_config(None)`、`run_agent_query`、server `/api/chat` 共用，`exp.py`／`app.py` 不再各自 `import uuid`。
-- `run_agent_query` 改為問答**前**決定 thread_id（`run_config.thread_id` 為 None 時才產生），同一個 id 傳給 `ask`／`astream_result` 並用於落盤。原本是問答後才另外產生，落盤檔 `results_auto-xxx.json` 的 id 與實際對話 id 不同，無法以該 id 續接對話。
-- 判斷語意維持各處原樣：`run_agent_query` 以 `is None` 判斷、server 以 `or`（空字串視為未提供）。
-- 測試：`test_run_agent_query_auto_generates_thread_id` 增加斷言「`ask` 收到的 thread_id 與落盤的相同」（已確認在舊程式碼上失敗）；`test_agent_server` 新增 `new_thread_id`／`thread_config` 測試（2 個）。
+抽出 `_iter_site_run_folders` 與 `_walk_sorted`；`load_latest_run_path` 的 `site_id` 改必填；刪除 `load_latest_results` 中走不到的 `isfile` 檢查。**重構前先補 9 個特徵測試並在舊程式碼上確認通過**：較新的 run 缺 `results.json`／`results/` 時退回較舊的 run、不退回其他站點、忽略非時間戳資料夾、無任何 run 報錯。
 
-### 驗證
+### B3：`new_thread_id()`（393 passed）
 
-- `check.sh`（393 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- `test_chat_sse_streams_tokens_and_done` 不修改即通過。
-- 此項為行為修正（落盤 id），付費整合測試待 B 組合併後執行。
+判斷語意維持各處原樣（`run_agent_query` 以 `is None`、server 以 `or`，空字串視為未提供）。`test_run_agent_query_auto_generates_thread_id` 增加「`ask` 收到的 thread_id 與落盤相同」斷言，已確認在舊程式碼上失敗。付費整合測試待 B 組合併後執行。
 
-## B4：模組層級 helper
+### B4：模組層級 helper（397 passed）
 
-### 變更
-
-- `agent/agent.py` 新增模組函式 `state_messages(graph, config)`（`graph.get_state` 取 messages，無 state 時為 `[]`）與 `build_result(query, response, messages)`（組 `{query, response, sources, timestamp}`）。
-- `Agent.ask`、`Agent.astream_result`、server `_event_stream` 改用上述兩者；欄位與順序不變（`save_agent_results_as_json` 落盤格式不變），server 的 `query` 仍是使用者原始問題（非加站點前綴的版本）、仍逐 token yield。`app.py` 不再直接使用 `extract_sources_from_messages`、`time`。
-- 因 helper 是模組函式、直接接收 `graph`，`test_agent_server` 的 `_FakeAgent`（只有 `graph`／`config`／`astream_text`）不必修改。
-- 測試：新增 `build_result`、`state_messages`（含空 state）、`Agent.ask`、`Agent.astream_result` 共 4 個（`ask`／`astream_result` 原本沒有單元測試）；這兩個測試已用重構前的實作確認通過（結果欄位與順序相同）。
-
-### 驗證
-
-- `check.sh`（397 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- `test_chat_sse_streams_tokens_and_done`、`test_chat_delegates_save_to_run_manager_with_agent_config`、`test_pipeline_exp` 不修改即通過。
+欄位與順序不變，落盤格式不變；server 的 `query` 仍是使用者原始問題（非加站點前綴的版本）、仍逐 token yield。新增 4 個測試（`ask`／`astream_result` 原本沒有單元測試），已用重構前的實作確認通過。
 
 ## C 組
 
-> C 組基準點：`e9f869e`（B 組合併 commit）。依使用者指示，C2～C10 全部完成後合併為單一 commit（含 C2 的 bug 修正）。
+依使用者指示，C2～C10 全部完成後合併為單一 commit。
 
-## C2：VLM 並行數限制（bug 修正）
+### C2：VLM 並行數限制（399 passed）
 
-### 變更
+修正前 `(3, 10)` 失敗（peak 為 10），修正後通過。
 
-- `_agenerate_image_captions` 建立一個 `asyncio.Semaphore(self.vlm_max_workers)`，以參數傳給 `_agenerate_image_caption_task`；task 內不再各自建立 semaphore，刪除多餘的 `max(1, ...)`。
-- 測試：新增 `tests/unit/test_image_summarizer.py`，以 fake 取代 `_agenerate_image_caption` 記錄最高並行數，參數化 `(3, 10) → 3`、`(20, 5) → 5`。修正前 `(3, 10)` 失敗（peak 為 10），修正後通過。
+### C1：`ImageSummarizer` 快取與統計（409 passed）
+
+- 先補 10 個測試（獨立 commit），以重構前的實作確認通過；重構後只改 `_make_summarizer` 的參數與 `_stats` helper，斷言不變。
+- 順帶清除：`_download_image` 改為只回傳 `str | None`（原本的 status 字串只用在永遠為 False 的 `"failure" in download_status` 判斷，`"failed"` 不含 `"failure"`）；`_enhance_markdown` 刪除 `if not self._image_captions` 的提早 return（條件不會成立）。
+- `image["caption"]` 只在該圖已有摘要結果時寫入，與原本條件相同；`_agenerate_image_caption_task` 包裝層保留（負責把 url 附在結果上）。
+
+### C6：runs/ 存檔樣板（412 passed）
+
+未改 serve 的三處呼叫（理由見 plan）；serve 測試逐一 mock 這兩個函式。`test_pipeline_rag_query` 的 fixture 改 mock `save_run_configs`。新增 `_assert_run_configs_saved` 測試，先以重構前的實作確認通過。
+
+### C4：LLM 供應商路由（431 passed）
+
+測試先行（獨立 commit，12 個）。`ImageSummarizer` 改在 `summarize_crawl_results_images` 開頭解析一次，每張圖不再重複 `load_dotenv`。行為統一的效果：RAG 缺 key 時於建立 LLM 時報錯（原本把 `None` 傳給 SDK）；ImageSummarizer 的未知模型或缺 key 在開始前失敗（原本在每個 caption task 內拋出，被當作「unexpectedly failed」逐張記 warning）。
+
+### C5、C10（436 passed）
+
+- C5：新增 `test_sources.py`，以 dict 相等斷言先在重構前確認通過，重構後再加 key 順序一致的測試。
+- C10：`test_rag_run_name_keeps_gemini_model_name`，舊實作得到 `…query_llm_name-models-2.5-flash`（失敗），修改後為 `…-models-gemini-2.5-flash`。
+
+### 付費整合測試（C 組合併後，含 B3）
+
+- `uv run pytest tests/integration`：7 passed（6 分 53 秒）；`run rag-query nculab --run.config test`：成功（20.5 秒），Faithfulness 1/1、Relevancy 1/1。
+
+通過條件：
+
+1. image_summarizer（兩次）各 57 張成功、0 失敗，格式與舊紀錄（`20261002_135115`：57 成功、cache_reuse 1）相同。✅ 耗時 142.5／122.9 秒（舊紀錄 109.6 秒）；nculab 單頁最多 17 張，未達上限 20，semaphore 不會限速，差異應為 VLM 延遲波動。
+2. 所有 run 皆有三個 yml，`module_config.yml` 首行為 `# source: configs/...`，image_summarizer 的 config 無 `cache_*`。✅
+3. agent_query 結果檔以自動 id 命名、sources 正常（7 個 URL）。⚠️ **部分驗證**：terminal.log 不印 thread_id，「落盤 id 與對話 id 相同」無法由 log 直接核對（checkpointer 為記憶體內，也無法跨程序續接），由單元測試保證。
+4. rag-query results.json 的 sources 10 筆，key 順序與舊 run（`20261001_162920`）相同。✅
+
+成本：log 有記錄的部分（crawler 與 summarizer）約 $0.143；agent_query、rag-query、embedding 未記錄，估計數美分，總計約 $0.15～0.20，與估算相符。
+
+### C2：並行上限實驗
+
+腳本與結果在 `docs/exp/memo/webpage_image_summarizer/vlm_concurrency/`，先 `--dry-run` 確認流程。N=20 後 rate limit header 顯示 RPM 30,000／TPM 1.8 億（理論可承受並行約 4,000），依使用者決定只再跑 60、100（plan 原訂 20～100 每 10 一級）。結果：20／60／100 共 360 個請求、0 失敗，實測最高並行等於 N；延遲 p50 7.95 → 9.39 秒，吞吐量 1.54 → 5.24 req/s；成本 $0.402。結論：VLM 端不是瓶頸，提高預設值的風險在下載端（未涵蓋）。
+
+### 拆分 `vlm_max_workers`
+
+新測試先以舊實作確認失敗。注意 `fakes` fixture 會把全域 `time.sleep` 換成 no-op，下載端測試改用 `threading.Event().wait()` 製造延遲。並行實驗的 `probe.py` 改用新參數名，`results.md` 註記實驗當時的舊名稱。
+
+### 下載並行上限實驗（ncucsie）與完整驗證
+
+- 腳本與結果在 `docs/exp/memo/webpage_image_summarizer/download_concurrency/`。先 `--dry-run`（含模擬限流時在失敗率 > 20% 的級距停止）；正式跑 20／30／40／50 共 280 個請求，**0 失敗**；吞吐量從 N=20 起固定約 10 MB/s，更高並行只讓延遲變長（p50 ×1.00／1.67／2.19／2.62）。
+- 完整驗證（下載 40、摘要 50，`save=True`／`publish=False`，`data/` 無變動）：
+  1. 摘要成功 161、同樣 8 張失敗，無 429／逾時。✅
+  2. 無 `retrying`（下載失敗累計 33，成功率 83%，仍高於 0.8）。✅
+  3. 統計表格格式不變 ✅；耗時 465.4 秒，**未達「不長於舊紀錄 422.9 秒」** ⚠️：差異在自然波動內（nculab 相同設定三次為 109.6／142.5／122.9 秒），預期並行增益（3 個大頁，合計估計 < 40 秒）小於雜訊，此條件過於樂觀。
+  4. 費用 $0.1676（估計 $0.16）。✅
+- 預設值：機械套用規則為 40，但吞吐量在 20 並行即飽和，我建議維持 20；**使用者決定改為 40**，與實驗紀錄一併 amend 到同一個 commit。
+- 意外發現（既有問題）：同一頁內重複的圖片 URL（全站 10 頁）會被同時下載多次，失敗原因可能顯示為 `download failed` 而非 `HTTP Error 404`（`doc.gif%20`）。未修正，已新增 todo「圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次」。
+
+---
+
+# 二、資料儲存重構
+
+## Phase 1：移除 `run_rag_query` 的 `force_rebuild`、新增 `--run.vector-store-run`
+
+### 與 plan 不同或補充
+
+- `load_rag(config, target, build_query_engine=False)` 新增 `build_query_engine`，供 rag-query 使用。
+- `run_rag_query` 由 `build_rag(..., force_rebuild=...)` 改為 `load_rag(..., build_query_engine=True)`。連帶修正既有行為：原本向量庫不存在時 `build_or_load` 會自動建庫到 `data/rag/{site}/milvus.db`，現在報錯。
+- `run_rag_build` save 時補存 `site_config.yml`（驗證時發現 rag-build 的 run 資料夾原本沒有，`vector_store_run` 無法核對站點）。
+- 新增 `test_pipeline_rag_query.py`、CLI 測試（`--run.force-rebuild` 被拒）等。
 
 ### 驗證
 
-- `check.sh`（399 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+`check.sh`：352 passed；integration 免費部分 2 passed。**付費實測**（使用者已確認）：
 
-## C1：`ImageSummarizer` 快取與統計
+- `run rag-build nculab --run.config test` 的 run 資料夾含 `site_config.yml`。
+- `rag-query nculab --run.vector-store-run <該 run>`：exit 0，log 印出 `建庫設定 configs/rag/test.yml`；`rag-query nculab`（已發布）：exit 0。
+- `rag-query ncucsie --run.vector-store-run <nculab 的 run>`：`ValueError: 站點不一致`；`--run.vector-store-run runs/nope`：`FileNotFoundError`。
+- `data/rag`、`data/webpages`（排除 `indexes/`）所有檔案的 sha256 清單於查詢前後完全相同。
 
-### 變更
+驗證小插曲：第一版 tree-hash 腳本用 `sorted(os.walk())` 先走完整棵樹，`indexes` 的剪枝無效，導致誤報 data/ 有變動；改為逐檔 sha256 清單（`find -prune`）後確認無變動。
 
-- 測試先行（獨立 commit）：`test_image_summarizer.py` 新增 10 個測試，以 fake `urlopen`／`acompletion`／`completion_cost`／`time.sleep` 涵蓋跨頁快取、下載失敗、不支援的 content-type 與副檔名、摘要失敗、重試（只重做失敗圖、達門檻不重試、達 `max_retries` 停止）、`enhanced_markdown` 格式、逐頁與跨輪統計；先以重構前的實作確認通過。
-- 快取：`_image_cache: dict[str, ImageEntry]`（dataclass：`base64_url`、`download_status`、`caption`、`summarize_status`）取代 dict 快取；刪除由它推得的 `_downloaded_images`、`_image_captions`。
-- 統計：`PageStats`（逐頁，`__add__` 加總）與 `RoundStats`（跨輪）取代三種 dict；本輪總計改由逐頁統計加總（`_round_total()`），刪除 `_all_page_stats` 與 `_new_*_stats()`。log 表格欄位與格式不變（欄位取自 dataclass 欄位順序）。
-- 刪除 `SummarizerInitConfig.cache_download_images`／`cache_image_captions`、`ImageSummarizer` 對應參數與 `prepare.py` 的傳入（旗標原本無作用，見 plan C1）。
-- 順帶清除：`_download_image` 改為只回傳 `str | None`（原本的 status 字串只用在永遠為 False 的 `"failure" in download_status` 判斷，`"failed"` 不含 `"failure"`）；`_enhance_markdown` 刪除 `if not self._image_captions` 的提早 return（呼叫時至少已寫入本頁圖片的結果，條件不會成立）。
-- `image["caption"]` 只在該圖已有摘要結果（`summarize_status` 非空）時寫入，與原本「`url in _image_captions`」的條件相同。
-- `_agenerate_image_caption_task` 包裝層保留（負責把 url 附在結果上）。
-- 文件：`docs/code/phase1/modules/data_preprocess.md`、`docs/code/runs/config.md`。
+## Phase 2：向量庫路徑重整
 
-### 驗證
+### 與 plan 不同或補充
 
-- `test_image_summarizer.py` 只改 `_make_summarizer` 的參數（移除旗標）與 `_stats` helper（改為只處理 dataclass），斷言不變，12 個全部通過。
-- `check.sh`（409 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-
-## C6：runs/ 存檔樣板
-
-### 變更
-
-- `utils/config_helper.py` 新增 `MODULE_CONFIG_FILE`／`SITE_CONFIG_FILE`／`RUN_CONFIG_FILE` 常數與 `save_run_configs(dest_folder, config, site=None, run_config=None)`（不處理 log）。
-- 改用者：prepare 的 crawler／summarizer／rag-build 存檔（3 處）、`run_rag_query` 存檔、`DataManager.write_run_metadata`（再自行複製 terminal.log）。
-- 檔名常數由 `RunManager`（`module_config_path` 等）、`factory`（`site_config.yml` 核對、`module_config.yml` 檔頭）共用，runs/ 與 data/ 的檔名不變。
-- 未改：serve 的 `run_agent_build`（只有 module＋run 兩行、無 site）與 `run_agent_query`／`run_server_build`（只存 run_config 一行），非重複樣板；且 serve 測試逐一 mock 這兩個函式。
-- 測試：`test_pipeline_prepare` 新增 `_assert_run_configs_saved` 與 rag-build／crawler／summarizer 的 save=True 測試（三個 yml 內容、`module_config.yml` 檔頭、results 的 md、未 publish 時 data/ 為空）；先以重構前的實作確認通過。`test_pipeline_rag_query` 的 fixture 改 mock `save_run_configs`（原本 mock 三個 save 函式）。
+- `publish_vector_store(site_id, source_path, move, write_meta)`：放到 `{site_id}.db.tmp` → 呼叫 `write_meta(<tmp>/meta)` → `os.replace` 整個資料夾；來源不是資料夾報 `NotADirectoryError`。`publish_run_metadata` 拆出 `write_run_metadata(dest_folder, ...)` 供 meta 寫入共用。
+- `run_rag_build`：建庫無產出時略過 publish 並印出訊息（紀錄隨向量庫發布，沒有向量庫就沒有地方放）。
+- **Milvus Lite server 未停止的 bug（驗證中發現並修正）**：`_close_vector_store` 只關 client，in-process 的 Milvus Lite server 要到程式結束才 flush。publish 搬移資料夾後，結束時的 flush 寫回原 staging 路徑（重新產生 `.staging-*/…db` 殘骸），已發布的向量庫則只剩未 flush 的 WAL（claudecode 的 WAL 達 82MB、沒有 parquet）。現在 `_close_vector_store(vector_store, milvus_uri)` 一併呼叫 `server_manager_instance.release_server()`；新增 `test_index_close.py` 以真實 Milvus Lite 驗證 close 後已有 parquet、搬移後原路徑不會被重建。
+- 既有三個站點以 `run rag-build <site> --run.no-save --run.publish` 重建並發布（D7 方案 b，實際執行兩輪：第一輪發現上述 bug，清掉後重跑）。
+- 新增 `test_published_layout.py`：repo 內已發布向量庫的 collection 為 `chunks`、parquet 路徑 site_id 只出現一次且無 `milvus.db`、`meta/` 內容、`data/rag` 無殘留。
 
 ### 驗證
 
-- `check.sh`（412 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
+`check.sh`：370 passed；`tests/integration`（含 cost）：7 passed，455 秒；三站 `rag-query` 皆 exit 0，結果中 `collection_name` 為 `chunks`。**遷移前基準與遷移後比較**：
 
-## C4：LLM 供應商路由
+| 站點 | 筆數 舊 → 新 | 頁面集合 | top-k url（sample_query） | 體積（不含 `indexes/`） |
+|---|---|---|---|---|
+| nculab | 277 → 274 | 相同（47 頁） | 重疊 5/6 | 1.5M（舊 3.2M 含 indexes） |
+| ncucsie | 737 → 723 | 相同（192 頁） | 重疊 8/9 | 3.1M（舊 3.3M） |
+| claudecode | 6465 → 6463 | 相同（193 頁） | 5/5，順序相同 | 29M（舊 29M） |
 
-### 變更
+筆數與 text hash **不完全相同**，已逐一檢視：目前 `data/webpages/` 的 markdown 與舊向量庫建庫時的版本有空白差異（舊 chunk 為 `**圖片摘要：**  \n> …`，行尾有兩個空格，現在沒有），使個別頁面的 chunk 邊界偏移、少 1 個 chunk（例：nculab 的 `projects` 9 → 8）。以「空白正規化後的行」比較，各站只有 0～65 行（總計 1300～34042 行）不見於對方，為 chunk 邊界切開所致。此差異來自資料來源而非本次改動：`IndexBuilder.build_nodes` 與 chunk 參數（800／100）未變。新向量庫 node metadata 的 `site_id` 皆正確。
 
-- 測試先行（獨立 commit）：`tests/unit/test_llm_provider.py` 鎖住不變的路由行為（gpt／gemini 分別建立 llama_index `OpenAI`／`GoogleGenAI`、langchain `ChatOpenAI`（`SecretStr`、`use_responses_api=True`）／`ChatGoogleGenerativeAI`、litellm 的 `openai/`／`gemini/` 前綴與 api_key、`litellm_kwargs` 傳遞），先以重構前的實作確認通過。
-- 新增 `utils/llm_provider.py`：`Provider`（`keyword`、`env_var`、`litellm_prefix`）、`PROVIDERS`、`resolve_provider()`（不分大小寫，無法判斷時拋 `UnsupportedModelError(ValueError)`）、`get_api_key()`（`load_dotenv` 後讀取，未設定或為空時拋 `EnvironmentVariableError`）。
-- `llama_index_helpers.create_llm`、`langchain_helper.create_llm` 改為「`resolve_provider` → `get_api_key` → 建構 client」，client 參數不變；刪除 `LLM_API_KEY_ENV_VARS`、`VLM_MODEL_TO_API_KEY`、`ImageSummarizer._get_api_key`。
-- `ImageSummarizer` 在 `summarize_crawl_results_images` 開頭解析一次（`_litellm_model`、`_api_key`），每張圖不再重複 `load_dotenv`。
-- 行為統一：
-  - RAG：模型名稱不分大小寫；缺 key 時於建立 LLM 時報錯（原本把 `None` 傳給 SDK）。
-  - Agent：未知模型報錯（原本預設 OpenAI）。所有預設值（`gpt-5.6-*`）與 `configs/` 不受影響。
-  - ImageSummarizer：未知模型或缺 key 在開始前失敗（原本在每個 caption task 內拋出，被當作「unexpectedly failed」逐張記 warning）。
-- 測試：`test_llm_provider.py` 的 ImageSummarizer 案例改為以空爬取結果呼叫 `summarize_crawl_results_images` 完成解析（原本直接設 `summarizer.model`），斷言不變；新增大小寫、未知模型、缺 key（兩個 create_llm 與 ImageSummarizer）共 12 個測試。
-- 文件：`docs/code/phase1/modules/{data_preprocess,data_retrieve}.md`、`docs/code/phase2_3_mvp/modules/agent.md`。
-
-### 驗證
-
-- `check.sh`（431 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-- 行為有統一，需付費整合測試（待使用者確認，見回報）。
-
-## C5：來源 dict 共用
-
-### 變更
-
-- `retrieval/llama_index_helpers.py` 新增 `source_dict(node, max_content_length=None)`（`page_title, score, page_type, url, content`）；`evaluation.extract_sources_list`（截斷 800 字）與 `RAG.retrieve`（不截斷）改用它，`evaluation.py`／`rag.py` 不再直接使用 `extract_sources_info`。
-- 輸出變動：統一的順序即 rag-query results.json 原本的順序，**results.json 不變**；只有 `RAG.retrieve` 的 dict 由 `content, url` 改為 `url, content`，其結果不落盤，Agent tool 依 key 格式化（`_format_retrieval_results`），LLM 看到的文字不變。
-- 測試：新增 `tests/unit/test_sources.py`（截斷／不截斷、缺 metadata 的預設值、`RAG.retrieve` 還原 retriever 的 filters 與 top_k；以 dict 相等斷言，先以重構前的實作確認通過），重構後再加 key 順序一致的測試。
-
-## C10：刪除 RAG run_name 的 `-gemini` 特例
-
-### 變更
-
-- `RAGConfig._post_process_run_name` 只保留 `/` → `-`（與 `ImageSummarizerConfig` 一致）。
-- 測試：`test_configs.test_rag_run_name_keeps_gemini_model_name`（run_name_fields 含 `query_engine.query_llm_name`、模型 `models/gemini-2.5-flash`）；舊實作得到 `...query_llm_name-models-2.5-flash`（測試失敗），修改後為 `...query_llm_name-models-gemini-2.5-flash`。
-- 預設 run_name_fields 不觸發此規則，現有 runs/ 資料夾名稱不受影響。
-
-### 驗證（C5＋C10）
-
-- `check.sh`（436 passed）、`tests/integration -m "not cost"`、7 個 CLI `--help`：全部通過。
-
-## 付費整合測試（C 組合併後，含 B3）
-
-### 執行
-
-- `uv run pytest tests/integration`：7 passed（6 分 53 秒）。
-- `uv run website-copilot run rag-query nculab --run.config test`：成功（20.5 秒），Faithfulness 1/1、Relevancy 1/1。
-- 產生的 runs：`20261002_201558`～`20261002_202253`（test_module 與 test_prepare 各一組 crawler／summarizer／rag_build，加上 agent、serve、rag_query）。
-
-### 通過條件
-
-1. image_summarizer（兩次）：各 57 張成功、0 失敗，無 `task failed unexpectedly`／`Image summarization failed`；統計表格欄位與 Total 列格式與舊紀錄（`20261002_135115`：57 成功、cache_reuse 1）相同。耗時 142.5／122.9 秒（舊紀錄 109.6 秒）；nculab 單頁最多 17 張，未達 `vlm_max_workers=20`，semaphore 不會限速，差異應為 VLM 延遲波動。✅
-2. 6 個 crawler／summarizer／rag_build run 與 rag_query run 皆有三個 yml，`module_config.yml` 首行為 `# source: configs/...`；image_summarizer 的 `module_config.yml` 無 `cache_*` 欄位。✅
-3. agent_query：結果檔 `results_auto-22dec6bc.json` 以自動 id 命名，內容與 sources（7 個 URL）正常。terminal.log 不印 thread_id，「落盤 id 與對話 id 相同」無法由 log 直接核對（checkpointer 為記憶體內，也無法跨程序續接驗證），由單元測試 `test_run_agent_query_auto_generates_thread_id` 保證。⚠️ 部分驗證
-4. rag-query results.json：sources 10 筆，key 順序 `page_title, score, page_type, url, content`，與舊 run（`20261001_162920`）相同。✅
-
-### 成本
-
-- log 有記錄的部分：website_crawler $0.0078＋$0.0173、image_summarizer $0.0619＋$0.0558，合計約 $0.143。
-- agent_query、rag-query、embedding 的成本未記錄在 log，估計合計數美分；總計約 $0.15～0.20，與估算相符。
-
-## C2：並行上限實驗
-
-- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/vlm_concurrency/`（`probe.py`、`results.md`、`raw.jsonl`、`summary.jsonl`）。先以 `--dry-run`（fake VLM，輸出到暫存資料夾）確認流程與並行量測，再正式執行。
-- 級距：N=20 後，rate limit header 顯示 RPM 30,000／TPM 1.8 億（理論可承受並行約 4,000），依使用者決定只再跑 60、100（plan 原訂 20～100 每 10 一級）。
-- 結果：20／60／100 共 360 個請求、0 失敗，實測最高並行數皆等於 N；延遲 p50 7.95 → 9.39 秒，吞吐量 1.54 → 5.24 req/s；成本 $0.402。
-- 結論：目前帳號下 VLM 端不是瓶頸；`vlm_max_workers` 同時控制下載執行緒數，提高預設值的風險在下載端（未涵蓋）。預設值待使用者決定。
-
-## 拆分 `vlm_max_workers`（C 組合併後的獨立 commit）
-
-### 變更
-
-- `SummarizerInitConfig.download_max_workers`（`PositiveInt`，初始預設 20，下載並行實驗後改為 40，`init` 區塊）與 `SummarizeConfig.summary_max_workers`（`PositiveInt`，預設 50，`summarize` 區塊）取代 `vlm_max_workers`；兩者皆附欄位說明（CLI `--help` 顯示）。
-- `ImageSummarizer`：`download_max_workers` 為建構子參數，用於下載的 `ThreadPoolExecutor`；`summary_max_workers` 為 `summarize_crawl_results_images` 參數，用於摘要的 `asyncio.Semaphore`。`prepare.py` 分別傳入。
-- 行為變動：只有 `summary_max_workers` 預設值（20 → 50）；單頁圖片超過 20 張的頁面（ncucsie 5 頁：52、45、30、30、26）摘要並行數提高。
-- 文件：`docs/code/runs/config.md`、`docs/code/phase1/modules/data_preprocess.md`；並行實驗的 `probe.py`（改用新參數名）與 `results.md`（註記實驗當時的舊名稱）。
-- 測試：`test_image_summarizer.py` 新增下載並行數測試（`(2, 8) → 2`、`(20, 5) → 5`）與兩者獨立測試（下載 2、摘要 5）；摘要並行測試改名；`test_llm_provider.py` 改用新參數。新測試先以舊實作確認失敗。注意 `fakes` fixture 會把全域 `time.sleep` 換成 no-op，下載端測試改用 `threading.Event().wait()` 製造延遲。
-
-## 下載並行上限實驗（ncucsie）與完整驗證
-
-- 腳本與結果：`docs/exp/memo/webpage_image_summarizer/download_concurrency/`（`probe.py`、`validate.py`、`results.md`、`raw.jsonl`、`summary.jsonl`）。
-- 實驗：先以 `--dry-run`（fake 下載，輸出到暫存資料夾）確認紀錄格式、並行量測，以及模擬限流時在失敗率 > 20% 的那一級停止；再正式跑 20／30／40／50 共 280 個請求，**0 失敗**，無限流類錯誤；吞吐量從 N=20 起固定約 10 MB/s（頻寬飽和），更高並行只讓延遲變長（p50 ×1.00／1.67／2.19／2.62）。
-- 完整驗證（下載 40、摘要 50，輸入為已發布的 ncucsie 結果，`save=True`／`publish=False`，`data/` 無變動）：run `runs/20261002_215918/...`。
-  1. 摘要成功 161、最終失敗仍為同樣 8 張，無 429／逾時：✅
-  2. 無 `retrying`（下載失敗累計 33，成功率 83%，仍高於門檻 0.8）：✅
-  3. 統計表格欄位與格式不變：✅；耗時 465.4 秒，**未達「不長於舊紀錄 422.9 秒」**：差異在單次執行的自然波動內（nculab 相同設定三次為 109.6／142.5／122.9 秒），預期的並行增益（3 個大頁，合計估計 < 40 秒）小於雜訊，此條件過於樂觀。⚠️
-  4. 費用 $0.1676（估計 $0.16）；`data/` 無變動：✅
-- 意外發現（既有問題）：同一頁內重複的圖片 URL（全站 10 頁）會被同時下載多次，失敗原因可能顯示為 `download failed` 而非實際的 `HTTP Error 404`（`doc.gif%20` 在本次出現）。未修正，細節見 `results.md`。
-- 預設值：機械套用規則為 40，但吞吐量在 20 並行即飽和，我建議維持 20；**使用者決定改為 40**。`SummarizerInitConfig.download_max_workers` 預設 20 → 40，`docs/code/runs/config.md` 同步；依使用者指示與實驗紀錄一併 amend 到同一個 commit。
-- 行為變動：圖片較多的頁面（ncucsie 3 頁未快取下載數 45／30／26）下載並行數 20 → 40；其餘頁面不受影響。完整驗證即以 40 執行並通過。
-- todo：新增「圖片摘要：同一頁內重複的圖片 URL 會被同時下載多次」（`docs/work/todo.md` 效能優化）。
+**未做**：`prepare nculab --run.config test` 的完整 publish 流程——它會以 `max_pages=40` 的測試資料覆寫已提交的 `data/webpages` 與 `data/rag` 內 nculab 資料；publish 位置與 `meta/` 已由單元測試與三站的實際 `rag-build --run.publish` 覆蓋。

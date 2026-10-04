@@ -1,414 +1,178 @@
-# 模組配置重構 plan
+# 模組配置重構：實作規劃
 
-> 對應 [todo.md](../../todo.md)「技術債 → 模組配置」
+> 對應 [todo.md](../../todo.md)「技術債 → 模組配置」。實作紀錄見 [dev.md](./dev.md)。
 
 ## Context
 
-目前 module config（`WebsiteCrawlerConfig`／`ImageSummarizerConfig`／`RAGConfig`／`AgentConfig`）是「扁平 dataclass + TOML + 手寫驗證」的組合，累積出以下問題：
+module config（`WebsiteCrawlerConfig`／`ImageSummarizerConfig`／`RAGConfig`／`AgentConfig`）原本是「扁平 dataclass＋TOML＋手寫驗證」，累積出四個問題：
 
-1. **site_id 一致性靠檔名慣例**：site_id 在 `configs/{website_crawler,image_summarizer,rag}/` 各寫一次，`prepare --config ncucsie` 能跑對只是因為三個檔名相同；設定檔數量＝站點 × 環境 × 模組（每模組 8 份），多為複製貼上（例：`rag/test_ncucsie.toml` 的 query 仍是 nculab 的問題）。CLI 無法覆寫 site_id；`BaseModuleConfig` 未宣告 site_id，`run_context.py` 需另行處理型別。
-2. **section 對照與驗證重複維護**：`INIT_KEYS`／`SECTIONS_TO_KEYS` 等對照表、四個 config 共約 400 行 `_validate_config`，以及專為 tomlkit 型別補洞的 `_normalize_toml_types`。
-3. **run name 依賴 TOML 註解**：`filter_commented_configs` 解析 `# run name` 註解決定 run name，與檔案格式綁死。
-4. **CLI 中介層手動同步**：`pipeline_config.py` 的 `*ModuleConfig` 手動複製模組欄位成 `X | None = None`；`cli/run.py` 另有 `weights → hybrid_ranker_params` 特例。模組新增欄位時需同步修改，否則 CLI 無法覆寫。
+1. **site_id 一致性靠檔名慣例**：site_id 在 `configs/{website_crawler,image_summarizer,rag}/` 各寫一次，`prepare --config ncucsie` 能跑對只是因為三個檔名相同；設定檔數量＝站點 × 環境 × 模組（每模組 8 份），多為複製貼上（例：`rag/test_ncucsie.toml` 的 query 仍是 nculab 的問題）。CLI 無法覆寫 site_id。
+2. **section 對照與驗證重複維護**：`INIT_KEYS`／`SECTIONS_TO_KEYS` 對照表、四個 config 共約 400 行 `_validate_config`，以及專為 tomlkit 型別補洞的 `_normalize_toml_types`。
+3. **run name 依賴 TOML 註解**：`filter_commented_configs` 解析 `# run name` 註解，與檔案格式綁死。
+4. **CLI 中介層手動同步**：`pipeline_config.py` 的 `*ModuleConfig` 手動複製模組欄位成 `X | None = None`，另有 `weights → hybrid_ranker_params` 特例；模組新增欄位時需同步修改。
 
-## 討論結論
+## 討論結論與階段
 
 | # | todo 項目 | 決策 |
 |---|---|---|
-| 1 | 優化 site_id 參數設定和讀取 | 採用**站點分層**（`configs/sites/` + 獨立 `SiteConfig`，見 Phase D） |
-| 2 | run config 永遠儲存 | **捨棄**獨立項目（先前重構後已不需要）；Phase C 的 C3 讓 run_config 成為必填，實際上所有路徑都會記錄 run config |
-| 3 | yml 配置檔 | **改用 YAML**：有套件可直接將設定檔轉成 dataclass／model（見 Phase B） |
-| 4 | configs 改用 pydantic 參數驗證 | 採用（見 Phase A） |
-| 5 | config class 引入巢狀 class 分類 | 採用，巢狀 class 與 YAML 的巢狀 key 一一對應（見 Phase A） |
-| 6 | cli module config 移除中介層 | 採用 **tyro 巢狀參數**（`--module.retriever.similarity-top-k 20`，見 Phase C） |
+| 1 | 優化 site_id 參數設定和讀取 | **站點分層**：`configs/sites/` 加獨立 `SiteConfig`（Phase D） |
+| 2 | run config 永遠儲存 | 捨棄為獨立項目；Phase C 讓 run_config 成為必填，所有路徑都會記錄 |
+| 3 | yml 配置檔 | 改用 YAML（Phase B） |
+| 4 | configs 改用 pydantic 驗證 | 採用（Phase A） |
+| 5 | config class 引入巢狀 class | 採用，巢狀 class 與 YAML 巢狀 key 一一對應（Phase A） |
+| 6 | cli module config 移除中介層 | 採用 **tyro 巢狀參數**，如 `--module.retriever.similarity-top-k 20`（Phase C） |
 
-## 實作階段
-
-依 A → B → C → D 順序執行，每個 Phase 的變更為一個 commit。
+依 A → B → C → C2 → D 順序執行，**每個 Phase 一個 commit**（不合併）。
 
 | Phase | 內容 | 依賴 |
 |---|---|---|
-| A | config 模型改為 pydantic + 巢狀 class | — |
+| A | config 模型改為 pydantic＋巢狀 class | — |
 | B | 設定檔改為 YAML（含 `extends`） | A |
 | C | 移除 CLI 中介層 | A |
-| C2 | config class 為預設值基準（Phase C 審核後追加，修訂 V2） | A、B、C |
+| C2 | config class 為預設值基準（C 審核後追加，修訂 V2） | A、B、C |
 | D | 站點分層 | A、B、C2 |
 
-### 執行順序說明
+**為什麼先 C 再 D**：兩者無相依，但先做 C 可避免改了又刪（先做 D 必須先改 `*ModuleConfig`，之後移除中介層又整個刪掉；先做 C，D 只需在 run config 加 `site`／`query`，module 的 CLI 參數由 partial model 自動跟著改變），且行為變動最大的 D 放最後，付費整合測試只需跑一次。代價是 C 到 D 之間 `site_id` 與 `query_engine.query` 會暫時出現在自動產生的 CLI 參數中，D 完成後自動消失。C2 排在 D 之前：D 會重整設定檔結構，在新的預設值基準上進行可避免設定檔改兩次。
 
-C（CLI）與 D（站點分層）彼此無相依，兩種順序技術上都可行。選擇先做 C 的理由：
+---
 
-- **避免改了又刪**：若先做站點分層，必須先修改 `pipeline_config.py` 的 `*ModuleConfig`（如從 `RAGModuleConfig` 移除 `query`），之後移除中介層時又整個刪掉。先做 C，D 只需在 run config 加 `site`／`query`，module 的 CLI 參數由 partial model 自動跟著改變。
-- **付費整合測試只跑一次**：行為變動最大的站點分層放最後，D 完成後跑一次即涵蓋 C 與 D。
+## Phase A：config 模型改為 pydantic＋巢狀 class
 
-代價：C 到 D 之間，`site_id` 與 `query_engine.query` 會暫時出現在自動產生的 CLI 參數中（如 `--module.site-id`），D 完成後自動消失。
-
-C2（預設值基準）於 Phase C 審核時追加，排在 D 之前：D 會重整設定檔結構，在新的預設值基準上進行可避免設定檔改兩次；C 已完成驗證，不與方向調整混在同一個 commit。
-
-### Phase A：config 模型改為 pydantic + 巢狀 class（todo 4、5）
-
-目標結構（以 RAG 為例）：
-
-```python
-class ConfigModel(BaseModel):
-    """所有 config（含巢狀 section）的共用基底。"""
-    model_config = ConfigDict(strict=True, extra="forbid", validate_assignment=True)
-
-class NodesConfig(ConfigModel):
-    chunk_size: PositiveInt
-    chunk_overlap: PositiveInt
-    paragraph_separator: str
-
-    @model_validator(mode="after")
-    def _check_overlap(self) -> Self:
-        if self.chunk_overlap >= self.chunk_size:
-            raise ValueError("chunk_overlap 必須小於 chunk_size")
-        return self
-
-class RetrieverConfig(ConfigModel):
-    query_mode: Literal["hybrid", "default"]
-    similarity_top_k: PositiveInt
-    hybrid_top_k: PositiveInt
-    alpha: float = Field(ge=0, le=1)
-
-class RAGConfig(BaseModuleConfig):
-    site_id: str  # Phase D 移除，改由 SiteConfig 提供
-    nodes: NodesConfig
-    vector_store: VectorStoreConfig
-    index: IndexConfig
-    retriever: RetrieverConfig
-    query_engine: QueryEngineConfig
-```
-
-- 驗證規則見下方「驗證機制」。
-- 刪除：`SECTIONS_TO_KEYS` 等對照表、`_validate_config`、`_normalize_toml_types`、`load_config_from_toml`／`override_config`／`_filter_allowed_config_keys`。
-- run name：現況是**每份設定檔各自**以 `# run name` 註解決定欄位（如 `website_crawler/default` 無、`ncucsie` 為 `max_depth`、`test` 為 `max_pages`），不能改成類別層級的宣告，否則部分 run_name 與 runs/ 資料夾名稱會改變。
-  - Phase A 期間保留註解解析：`filter_commented_configs` 追蹤目前所在的 `[section]`，回傳 dotted path（如 `init.max_depth`），以便從巢狀模型取值。
-  - run_name 字串仍以**最後一段欄位名**組成（`max_depth-2`，而非 `init.max_depth-2`），與現行完全相同。
-  - Phase B 改為 YAML 頂層保留 key `run_name_fields`。
-- `config_name` 由 dataclass 欄位改為 pydantic `PrivateAttr`（由 loader 設定、以 property 讀取），不參與驗證與 `model_dump`；Phase B 的 `run_name_fields` 比照處理。
+- **共用基底** `ConfigModel`：`strict=True`、`extra="forbid"`（未知 key 直接報錯，取代原本只 warning 的行為）、`validate_assignment=True`；所有 module config 與巢狀 section 都繼承它。四個 config 依 YAML 結構拆成 section（如 RAG 為 `nodes`／`vector_store`／`index`／`retriever`／`query_engine`）。
+- **刪除**：`SECTIONS_TO_KEYS` 等對照表、`_validate_config`、`_normalize_toml_types`、`load_config_from_toml`／`override_config`／`_filter_allowed_config_keys`。
+- **run name**：原本每份設定檔各自以 `# run name` 註解決定欄位，不能改成類別層級宣告，否則部分 run_name 與 runs/ 資料夾名稱會改變。Phase A 期間保留註解解析（`filter_commented_configs` 追蹤所在 section，回傳 dotted path 如 `init.max_depth`），run_name 字串仍以**最後一段欄位名**組成（`max_depth-2`）；Phase B 改為頂層 `run_name_fields`。
+- `config_name` 改為 pydantic `PrivateAttr`（由 loader 設定、以 property 讀取），不參與驗證與 `model_dump`；`run_name_fields` 比照。
 - `log_config` 改為依巢狀 model 逐 section 產表；`save_module_config` 改為 `model_dump()` 後寫檔。
-- `hybrid_ranker_params` 改為明確的 model（`weights: list[float] | None`（長度 2）、`k: PositiveInt | None`），順帶消除 CLI 的 `weights` 特例。strict 模式下 YAML 的 list 無法轉成 tuple，因此用 `list` 加長度約束。
-- 呼叫端 `config.similarity_top_k` → `config.retriever.similarity_top_k`，影響範圍：`pipelines/{prepare,exp,serve}.py`、`retrieval/factory.py`、`ingestion/indexing/index.py`、`ingestion/augmentation/image_summarizer.py`、`agent/agent.py`、`storage/{run_context,run_manager,data_manager}.py` 與對應 tests。
-- `pyproject.toml` 明確加入 `pydantic`（目前經 fastapi／langchain 間接安裝）。
+- `hybrid_ranker_params` 改為明確的 model（`weights: list[float] | None`（長度 2）、`k: PositiveInt | None`），順帶消除 CLI 的 `weights` 特例。strict 模式下 YAML 的 list 無法轉 tuple，所以用 `list` 加長度約束。
+- 呼叫端改為巢狀存取（如 `config.retriever.similarity_top_k`）；`pyproject.toml` 明確加入 `pydantic`。
+- 此 Phase 仍讀 TOML（`tomllib` 讀出 dict 後 `model_validate`），讓模型改寫與格式轉換分開驗證。
 
-> 此 Phase 仍讀 TOML（`tomllib` 讀出 dict 後 `model_validate`），讓模型改寫與格式轉換分開驗證。
+### 驗證機制
 
-#### 驗證機制
-
-現況問題：
-
-- 型別檢查不一致：`WebsiteCrawlerConfig` 會排除 bool，`ImageSummarizerConfig` 的 `cache_*`／`max_retries`／`download_timeout` 完全沒檢查型別（例：`max_retries = "6"` 會通過）。
-- `allowed_domains` 為字串時會被逐字元檢查，驗證形同無效。
-- 沒有跨欄位檢查（`chunk_overlap >= chunk_size`、`RRFRanker` 搭配 `weights` 都不會報錯）。
-- config 建立後的修改（`factory.py:119,127`、`prepare.py:288,324` 改寫 `milvus_uri`／`webpages_data_folder_path`）完全繞過驗證。
-- 程式預設值與 `default.toml` 不一致：`cache_download_images`（`False` vs `true`）、`vlm_max_workers`（10 vs 20）、圖片摘要 prompt（頁面關聯 20 字 vs 40 字）、Agent system prompt 內容不同。
-
-決策：
+原本的問題：型別檢查不一致（`ImageSummarizerConfig` 的 `max_retries = "6"` 會通過）；`allowed_domains` 為字串時被逐字元檢查；沒有跨欄位檢查（`chunk_overlap >= chunk_size`、`RRFRanker` 搭配 `weights` 都不報錯）；config 建立後的修改（改寫 `milvus_uri` 等）完全繞過驗證；程式預設值與 `default.toml` 不一致（`cache_download_images`、`vlm_max_workers`、prompt、Agent system prompt）。
 
 | # | 問題 | 決策 |
 |---|---|---|
-| V1 | 型別嚴格程度 | 先嘗試全面採用 `strict=True`（已實測：巢狀 dict 與 YAML list 在 strict 下可正常載入；lax 模式會把 `True` 轉成 `1`）。若遇到無法相容的情況（如 tyro 產生的值、YAML 的日期型別），改為在個別欄位使用 `StrictInt`／`StrictBool` 等，並記錄在 dev.md |
-| V2 | 預設值的單一來源 | ~~程式不給預設值，`default.yml` 為唯一來源；其他設定檔以 `extends: default` 繼承（見 Phase B）~~ → Phase C2 修訂：config class 的欄位預設值為唯一來源，yml 只寫差異（見 Phase C2） |
+| V1 | 型別嚴格程度 | 先嘗試全面 `strict=True`（已實測巢狀 dict 與 YAML list 可正常載入；lax 會把 `True` 轉成 `1`）。遇到不相容時改在個別欄位用 `StrictInt`／`StrictBool`，並記錄在 dev.md |
+| V2 | 預設值的單一來源 | ~~程式不給預設值，`default.yml` 為唯一來源~~ → **Phase C2 修訂**：config class 的欄位預設值為唯一來源，yml 只寫差異 |
 | V3 | 跨欄位規則 | 以 `model_validator` 實作，YAML 結構不變 |
-| V4 | 建立後的修改 | `validate_assignment=True`，修改時重新驗證 |
-| V5 | 錯誤訊息與 CI | loader 將 `ValidationError` 包成 `ConfigValidationError` 並附上設定檔路徑；新增測試載入 `configs/` 下所有設定檔 |
+| V4 | 建立後的修改 | `validate_assignment=True` |
+| V5 | 錯誤訊息與 CI | loader 把 `ValidationError` 包成 `ConfigValidationError` 並附設定檔路徑；新增測試載入 `configs/` 下所有設定檔 |
 
 實作細節：
 
-- **共用基底**：`ConfigModel` 設定 `strict=True`、`extra="forbid"`（未知 key 直接報錯，取代目前只 warning 的行為）、`validate_assignment=True`；所有 module config 與巢狀 section 都繼承它。
-- **預設值（V2）**
-  - 一般欄位不給預設值，設定檔缺欄位即報錯。
-  - 語意為「未設定」的可選欄位保留 `None` 預設（`max_pages`、`seed`、`path_prefix`、`webpages_data_folder_path`、`milvus_uri`、`hybrid_ranker_params`），`litellm_kwargs` 保留空 dict 預設。
-  - 刪除 `DEFAULT_PROMPT`、`DEFAULT_SYSTEM_PROMPT`、`DEFAULT_LLM_NAME` 等 Python 常數，以 `default` 設定檔的值為準。
-  - `DEFAULT_PROMPT` 目前也是 `ImageSummarizer.summarize_crawl_results_images`（`image_summarizer.py:85`）的參數預設值；該函式的 `prompt`、`model` 改為必填，同時移除與 config 不一致的隱藏預設 `model="gemini-3-flash-preview"`。
-  - Phase A 尚無 extends，**所有** toml（不只 default）都是完整複製，必須以**現行程式預設值**補齊目前缺少的必填欄位（如 rag 的 `alpha`、`cutoff`），確保載入結果不變；`extends` 在 Phase B 實作。
-- **單欄位約束**：優先用型別與 `Field`（`PositiveInt`、`NonNegativeInt`、`Literal`、`Field(ge=, le=, gt=)`、`min_length`）。非空字串用共用型別 `NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]`。
-- **型別簡化**：`url_patterns` 由 `str | Pattern | list[...]` 改為 `list[str]`，`allowed_domains` 由 `str | list[str]` 改為 `list[NonEmptyStr]`（YAML 無法產生 `Pattern`；統一成 list 也修正逐字元檢查的 bug）。
-- **跨欄位規則（V3）**
-  - `NodesConfig`：`chunk_overlap < chunk_size`。
-  - `VectorStoreConfig`：`WeightedRanker` 必須有 `weights` 且不可有 `k`；`RRFRanker` 必須有 `k` 且不可有 `weights`。
-- **錯誤訊息（V5）**
-  - loader 捕捉 `ValidationError`，轉成 `ConfigValidationError`，訊息包含設定檔路徑與 pydantic 的欄位路徑（如 `configs/rag/test.yml: retriever.similarity_top_k: Input should be greater than 0`）。
-  - pydantic 內建約束沿用英文訊息；自訂 validator（跨欄位規則、`path_prefix` 格式）使用中文訊息。
-- **CI 測試（V5）**：新增 `tests/unit/test_configs.py`，以 parametrize 載入 `configs/` 下所有設定檔並驗證，另外針對跨欄位規則與 strict 行為補單元測試。
-- **不在 config 驗證範圍**：API key 是否存在（`image_summarizer.py:511`）、模型名稱是否有效，依賴執行環境，維持在執行時檢查。
+- **預設值（V2 原版）**：一般欄位不給預設值，缺欄位即報錯；語意為「未設定」的可選欄位保留 `None`（`max_pages`、`seed`、`path_prefix`、`webpages_data_folder_path`、`milvus_uri`、`hybrid_ranker_params`），`litellm_kwargs` 保留空 dict。刪除 `DEFAULT_PROMPT`、`DEFAULT_SYSTEM_PROMPT`、`DEFAULT_LLM_NAME` 等常數；`ImageSummarizer.summarize_crawl_results_images` 的 `prompt`、`model` 改為必填，移除與 config 不一致的隱藏預設 `model="gemini-3-flash-preview"`。Phase A 尚無 extends，所有 toml 都是完整複製，需以**現行程式預設值**補齊缺少的必填欄位（如 rag 的 `alpha`、`cutoff`），確保載入結果不變。
+- **單欄位約束**：優先用型別與 `Field`（`PositiveInt`、`Literal`、`Field(ge=, le=)`）；非空字串用共用型別 `NonEmptyStr`。
+- **型別簡化**：`url_patterns` 由 `str | Pattern | list` 改為 `list[str]`，`allowed_domains` 改為 `list[NonEmptyStr]`（YAML 無法產生 `Pattern`；統一成 list 也修正逐字元檢查的 bug）。
+- **跨欄位規則**：`NodesConfig` 要求 `chunk_overlap < chunk_size`；`VectorStoreConfig` 要求 `WeightedRanker` 有 `weights` 無 `k`、`RRFRanker` 有 `k` 無 `weights`。
+- **錯誤訊息**：包含設定檔路徑與欄位路徑（如 `configs/rag/test.yml: retriever.similarity_top_k: Input should be greater than 0`）；pydantic 內建約束沿用英文，自訂 validator 用中文。
+- **不在驗證範圍**：API key 是否存在、模型名稱是否有效，依賴執行環境，維持在執行時檢查。
 
-### Phase B：設定檔改為 YAML（todo 3）
+---
 
-#### 決策
+## Phase B：設定檔改為 YAML
 
 | # | 問題 | 決策 |
 |---|---|---|
-| B1 | 副檔名 | 統一 `.yml`（與 `.github/workflows` 一致），loader 只接受 `.yml` |
+| B1 | 副檔名 | 統一 `.yml`，loader 只接受 `.yml` |
 | B2 | PyYAML 的 YAML 1.1 陷阱 | 依賴 strict 模式攔截，並在 `configs/README.md` 寫撰寫注意事項；不換 ruamel.yaml、不自訂 loader |
 | B3 | 存檔格式 | 自訂 dumper；存 extends 展開後的完整 config；`None` 輸出為 `null`；檔頭註解記錄來源 |
-| B4 | `extends` 語意 | 見下方「`extends` 設計」 |
+| B4 | `extends` 語意 | 見下 |
 | B5 | `generated_exclude_words.toml` | 刪除（`exclude_words` 已不是 config 欄位，詞彙已完整記錄在 `exclude_words_report.json`） |
 | B6 | 轉換方式 | 一次性腳本轉檔後手動整理；移除 `tomlkit` |
 
-#### 載入流程
+**載入流程**：`configs/{module}/{name}.yml` → `yaml.safe_load`（逐層處理 extends）→ deep merge 成單一 dict → 取出保留 key → `Config.model_validate(dict)`。
 
-```
-configs/{module}/{name}.yml
-  → yaml.safe_load（逐層處理 extends）
-  → deep merge 成單一 dict
-  → 取出保留 key（run_name_fields）
-  → Config.model_validate(dict)
-```
+### `extends` 設計
 
-#### `extends` 設計
+- **語法與範圍**：檔案最上層寫 `extends: <設定名>`，單一字串（單一繼承），不含副檔名；只能繼承同資料夾的設定。
+- **多層繼承**：深度不限；以已走訪清單偵測循環，錯誤訊息列出完整鏈（`a → b → a`）；找不到被繼承的檔案時報錯並列出繼承鏈。
+- **合併規則**（子疊在父上）：兩邊都是 dict 則遞迴合併；其他情況（list、純量、`null`、型別不同）子檔的值整個取代父檔的值。
+- **清除值**：寫 `key: null`。可選欄位變成「未設定」，必填欄位則驗證失敗。dict 是遞迴合併，子檔寫 `key: {}` **不會**清空父檔的 dict；要移除其中的 key 需明確寫該 key 為 `null`（例：父檔用 `WeightedRanker`，子檔改 `RRFRanker` 時需寫 `weights: null`，否則合併後同時有 `weights` 與 `k`，被跨欄位規則擋下）。
+- **只驗證最終結果**：各層原始 dict 不個別驗證，合併完成後 `model_validate` 一次。
+- **保留 key**（只在最上層有效）：`extends`（處理後移除，不繼承）；`run_name_fields`（dotted path 的 list，如 `[init.max_pages]`，和一般欄位一樣繼承、子檔寫了就整個取代；可省略，run_name 字串以最後一段欄位名組成）。其他層級出現同名 key 視為一般欄位，被 `extra="forbid"` 擋下。
+- **錯誤訊息**：包含實際載入的檔案與繼承鏈，如 `configs/rag/test.yml (extends: default): retriever.similarity_top_k: ...`。
+- **與 CLI overrides 的關係**（Phase C）：沿用同一個 deep merge，優先順序父檔 < 子檔 < CLI overrides，最後統一驗證一次。
+- **存檔**：runs/ 與 data/ 的 `module_config.yml` 存展開後的完整 config，不含 `extends`；附加資訊（`# source:`、`# run_name_fields:`）只寫在檔頭註解。往返測試只比對設定內容。
 
-- **語法**：檔案最上層寫 `extends: <設定名>`，值為單一字串（單一繼承），不含副檔名。
-- **範圍**：只能繼承同資料夾的設定（`configs/rag/test.yml` 的 `extends: default` 指向 `configs/rag/default.yml`），不支援路徑或跨資料夾。
-- **多層繼承**：允許 A extends B extends C，深度不限；以已走訪清單偵測循環，錯誤訊息列出完整鏈（`a → b → a`）。
-- **找不到被繼承的檔案**：報錯並列出繼承鏈。
-- **合併規則**（子檔疊在父檔上）：
-  - 兩邊都是 dict：遞迴合併。
-  - 其他情況（list、純量、`null`、型別不同）：子檔的值整個取代父檔的值。
-- **清除值**：寫 `key: null`。可選欄位變成「未設定」；必填欄位則驗證失敗。
-  - 因為 dict 是遞迴合併，子檔寫 `key: {}` **不會**清空父檔的 dict；要移除 dict 中的某個 key，需明確寫該 key 為 `null`。
-  - 例：父檔用 `WeightedRanker`，子檔改用 `RRFRanker` 時需寫 `hybrid_ranker_params: {weights: null, k: 60}`，否則合併後同時有 `weights` 與 `k`，會被跨欄位規則擋下。
-- **只驗證最終結果**：各層原始 dict 不個別驗證（子檔本來就不完整），只在合併完成後 `model_validate` 一次。
-- **保留 key**（只在檔案最上層有效）：
-  - `extends`：處理後移除，不繼承。
-  - `run_name_fields`：dotted path 的 list（如 `[init.max_pages]`），和一般欄位一樣繼承；子檔寫了就整個取代。可省略，省略時為 `[]`，run_name 為 `default`（與現行無 `# run name` 註解時相同）；run_name 字串以最後一段欄位名組成（`max_pages-40`）。
-  - 其他層級出現同名 key 視為一般欄位，會被 `extra="forbid"` 擋下。
-- **錯誤訊息**：錯誤值可能來自鏈上任一檔，訊息包含實際載入的檔案與繼承鏈，如 `configs/rag/test.yml (extends: default): retriever.similarity_top_k: ...`。
-- **與 CLI overrides 的關係**（Phase C）：沿用同一個 deep merge 函式，優先順序為 父檔 < 子檔 < CLI overrides，最後統一驗證一次。
-- **附加資訊的存放**：`config_name` 與 `run_name_fields` 不是設定內容，由 loader 設為 pydantic `PrivateAttr`，不參與驗證與 `model_dump`。
-- **存檔**：runs/ 與 data/ 的 `module_config.yml` 存展開後的完整 config（`model_dump`），不含 `extends`；附加資訊只寫在檔頭註解，如：
-  ```yaml
-  # source: configs/rag/test.yml (extends: default)
-  # run_name_fields: [vector_store.vector_store_type]
-  ```
-  往返測試只比對設定內容（`model_dump`）。
+Phase B 期間仍保留站點組合檔（D 才刪除），改用 extends 減少重複：`test_{site}.yml` extends `{site}.yml`。
 
-範例：
+### 其他變更
 
-```yaml
-# configs/website_crawler/default.yml
-run_name_fields: []
-init:
-  max_depth: 2
-  max_pages: null
-  content_threshold: 0.25   # KEEP_IMAGE_CONTENT_THRESHOLD
-  light_mode: true
-  wait_for_images: true
-...
+- **撰寫注意事項（B2）**：PyYAML 採 YAML 1.1，`1e-3` 會解析為字串（要寫 `1.0e-3`）、`on/yes/no` 會變 bool、`2026-09-30` 會變 date；strict 模式會把這些報為型別錯誤。
+- **自訂 dumper（B3）**：多行字串輸出為 `|` block scalar、`allow_unicode=True`、`sort_keys=False`；`run_config.yml` 也用同一個 dumper。
+- 多行 prompt 用 `|` block scalar。注意原 `configs/agent/*.toml` 的 system prompt 寫成 `"\\n"`，TOML 解析後是字面上的反斜線加 n；改用 block scalar 後變成真正的換行，**送給 LLM 的 prompt 內容會改變**（應屬修正）。
+- **轉換（B6）**：一次性腳本以 `tomllib` 讀取、自訂 dumper 輸出；再手動改用 extends、補回遺失的註解、把 `# run name` 註解改為 `run_name_fields`。
+- **輸出路徑**：runs/ 與 data/ 的 `module_config`／`run_config` 改 `.yml`；`RunManager` 路徑欄位改名（`module_config_toml_path` → `module_config_path`）。
+- **`data/` 既有舊 `.toml` 記錄檔**：~~不轉換，`publish_run_metadata` 寫入時刪除舊檔~~ → 實作時改為一次性轉換為 `.yml` 並刪除原檔，不加清理邏輯（理由見 dev.md）。
+- 相依套件：加入 `pyyaml`，移除 `tomlkit`。
 
-# configs/website_crawler/test.yml
-extends: default
-run_name_fields: [init.max_pages]
-init:
-  max_pages: 40
-```
+---
 
-`test.yml` 展開後等於 `default.yml` 的全部內容，只有 `init.max_pages` 改為 40、`run_name_fields` 改為 `[init.max_pages]`。
+## Phase C：移除 CLI 中介層
 
-Phase B 期間仍保留站點組合檔（Phase D 才刪除），改用 extends 減少重複：`test_{site}.yml` extends `{site}.yml`。
+目標用法：`website-copilot run rag-query --run.config test --module.retriever.similarity-top-k 20`。
 
-#### 其他變更
-
-- **撰寫注意事項（B2）**：PyYAML 採 YAML 1.1，`1e-3` 會被解析為字串（要寫 `1.0e-3`）、`on/yes/no` 會變成 bool、`2026-09-30` 會變成 date；strict 模式會把這些情況報為型別錯誤。
-- **自訂 dumper（B3）**：多行字串輸出為 `|` block scalar、`allow_unicode=True`、`sort_keys=False`（保持模型欄位順序）。`run_config.yml` 也用同一個 dumper。
-- 多行 prompt 使用 `|` block scalar。注意：目前 `configs/agent/*.toml` 的 system prompt 寫成 `"\\n"`，TOML 解析後是字面上的反斜線加 n，而非換行。改用 YAML block scalar 後會變成真正的換行，送給 LLM 的 prompt 內容會改變（應屬修正）。
-- **轉換（B6）**：一次性腳本以 `tomllib` 讀取、自訂 dumper 輸出；再手動改用 extends、補回自動轉換遺失的註解（如 `# KEEP_IMAGE_CONTENT_THRESHOLD`、litellm 註解掉的參數說明），並把 `# run name` 註解改為 `run_name_fields`。
-- **輸出路徑**：runs/ 與 data/ 的 `module_config.toml`／`run_config.toml` 改為 `.yml`；`RunManager` 路徑欄位改名（`module_config_toml_path` → `module_config_path`）。
-- 既有 `data/{rag,webpages}/*/` 的舊 `.toml` 記錄檔：~~不轉換，`publish_run_metadata` 寫入時刪除舊檔~~ → 實作時改為一次性轉換為 `.yml`，不加清理邏輯（見 Q4、dev.md）。
-- **刪除（B5）**：`save_generated_exclude_words` 不再輸出 `generated_exclude_words.toml`，只保留 `exclude_words_report.json`。
-- **相依套件**：加入 `pyyaml`，移除 `tomlkit`；測試中讀取 `module_config.toml` 的地方改讀 yml。
-- **文件**：README 與 `docs/code/runs/config.md` 同步更新。
-
-### Phase C：移除 CLI 中介層（todo 6）
-
-目標用法：
-
-```
-website-copilot run rag-query --run.config test --module.retriever.similarity-top-k 20
-```
-
-#### 原型實測（tyro 1.0.13、pydantic 2.12.5）
-
-| 項目 | 結果 |
-|---|---|
-| 巢狀參數名稱 | `--module.retriever.similarity-top-k`，符合預期 |
-| `Literal` | 自動變成選項清單 |
-| list | `--module.vector-store.weights 1.0 0.3` 可直接使用，不再需要 `weights` 特例 |
-| 欄位說明 | 可從 `Field(description=...)` 帶進 `--help` |
-| 輸出 | `model_dump(exclude_none=True)` 得到 `{'retriever': {'similarity_top_k': 20}, 'vector_store': {'weights': [1.0, 0.3]}}` |
-| `dict[str, Any]`（`litellm_kwargs`） | tyro 會產生異常的子命令或報錯，**必須從 CLI 排除** |
-| 設成 null | `--module.x.max-pages None` 被視為「未指定」，CLI 無法把欄位設為 null |
-| 未指定的 section | 會留下空 `{}`，需清除 |
-
-#### 決策
+**原型實測**（tyro 1.0.13、pydantic 2.12.5）：巢狀參數名稱、`Literal`（自動變選項清單）、list、欄位說明（可從 `Field(description=...)` 帶入 `--help`）皆符合預期；`dict[str, Any]`（`litellm_kwargs`）會產生異常子命令或報錯，**必須從 CLI 排除**；`--module.x.max-pages None` 被視為「未指定」，CLI 無法把欄位設為 null；未指定的 section 會留下空 `{}`，需清除。
 
 | # | 問題 | 決策 |
 |---|---|---|
-| C1 | partial model 產生規則 | 巢狀 section → 巢狀 partial model（以預設實例作為預設值，避免 tyro 將 `Model \| None` 變成子命令）；葉欄位 `X \| None = None`；排除 `dict[str, Any]` 欄位（`litellm_kwargs` 只能寫在設定檔）；複製 `Field` 說明；清除空 section；接受 CLI 無法設為 null 的限制（需要時另寫 extends 設定檔） |
+| C1 | partial model 產生規則 | 巢狀 section → 巢狀 partial model（以預設實例作為預設值，避免 tyro 把 `Model \| None` 變成子命令）；葉欄位 `X \| None = None`；排除 `dict[str, Any]` 欄位；複製 `Field` 說明；清除空 section；接受「CLI 無法設為 null」的限制（需要時另寫 extends 設定檔） |
 | C2 | pipeline 接收覆寫值的形式 | 只接受巢狀 dict：`overrides={"query_engine": {"query": q}}` |
 | C3 | run config 的傳遞 | pipeline 函式只接收 `run_config`（必填）＋ `overrides`，移除展開的 run 參數 |
 | C4 | `exp` 實驗 | 8 個實驗全部刪除（引用的設定檔皆已不存在，結果已記錄在 `docs/exp/memo/`） |
-| C5 | `--run.config-name` 改名為 `--run.config`（追加需求） | 在 Phase C 實作；只改 CLI 參數名稱（`tyro.conf.arg(name="config")`，已實測可行），Python 屬性維持 `config_name` |
+| C5 | `--run.config-name` 改名 `--run.config`（追加） | 只改 CLI 參數名稱，Python 屬性維持 `config_name`（與 `BaseModuleConfig.config_name` 一致，且 `run_config.config` 易被誤讀為 config 物件）；放在 Phase C 是因為 C3 已改寫所有 RunConfig 使用端與 CLI，一次改完 |
 
-#### 變更範圍
+### 變更範圍
 
-- **partial model（C1）**
-  - 新增 `config/overrides.py`（或併入 `base_config.py`）：`make_overrides_model(model)` 以 `pydantic.create_model` 遞迴產生 `{Model}Overrides`，並提供 `prune_empty(dict)`。
-  - Phase A 為不易理解的欄位補上 `Field(description=...)`，讓 `--help` 有說明。
-- **CLI**
-  - `cli/run.py`：`WebsiteCrawlerCLI` 等的 `module` 欄位改為自動產生的 `{Config}Overrides`。
-  - 刪除 `pipeline_config.py` 下半部的 `*ModuleConfig` 與 `cli/run.py` 的 overrides 轉換迴圈（含 `weights → hybrid_ranker_params` 特例）與 `run_kwargs` 的 `pop` 處理。
-  - 各分支簡化為一行：`run_rag_query(command.run, prune_empty(command.module.model_dump(exclude_none=True)))`。
-- **config 載入（C2）**：`Config.from_yaml(config_name, overrides=None)`，overrides 以 Phase B 的同一個 deep merge 疊在 extends 展開結果之上（父檔 < 子檔 < overrides），最後驗證一次。
-- **pipeline 簽名（C3）**
-  ```python
-  def run_website_crawler(run_config: WebsiteCrawlerRunConfig, overrides: dict | None = None) -> ...
-  def run_image_summarizer(run_config: ImageSummarizerRunConfig, overrides: dict | None = None, crawl_results=None) -> ...
-  def run_rag_build(run_config: RAGBuildRunConfig, overrides: dict | None = None) -> None
-  def run_rag_query(run_config: RAGQueryRunConfig, overrides: dict | None = None) -> None
-  def run_agent_query(run_config: AgentRunConfig, overrides: dict | None = None) -> None
-  def run_agent_build(run_config: AgentRunConfig | ServeRunConfig, overrides: dict | None = None) -> Agent
-  def run_prepare(run_config: PrepareRunConfig) -> None
-  ```
-  - `config_name`、`save`、`publish`、`run_name_use_config_name` 等一律從 `run_config` 讀取，不再重複傳遞。
-  - `PrepareRunConfig` 新增 `publish: bool = True`，CLI 可用 `--run.no-publish` 只寫 runs/（原本 CLI 的 prepare 一定會 publish）；`run_prepare` 依此決定 `save = not publish`，並以同一個 `config_name` 建立 `WebsiteCrawlerRunConfig`／`ImageSummarizerRunConfig`／`RAGBuildRunConfig` 傳給各階段；`serve` 同理。
-  - run config 不再是選填，因此所有路徑（含 `run_prepare`）的 run config 都會被記錄；publish 到 data/ 的檔案因此多出 `run_config.yml`，`test_pipeline_prepare.py` 中檢查 data/ 檔案清單的斷言在 Phase C 更新。
-  - `retrieval/factory.py` 的 `build_rag(config_name, **config_overrides)` 改為 `overrides` 參數。
-- **刪除 exp（C4）**
-  - 刪除 `cli/exp.py`、`cli/__init__.py` 的 `exp` 子命令，以及 `pipelines/exp.py` 的 8 個實驗函式、`EXPERIMENTS`、`run_experiment`。
-  - `pipelines/exp.py` 仍保留 `run_rag_query`／`run_agent_query`（`run rag-query`／`run agent` 使用）。
-  - README、`docs/code/runs/{cli,config}.md` 移除 `exp` 相關說明。
-- **CLI 參數改名（C5）**
-  - 所有 RunConfig（`BaseRunConfig`、`AgentRunConfig`、`PrepareRunConfig`、`ServeRunConfig`）的 `config_name` 以 `Annotated[str, tyro.conf.arg(name="config")]` 標註，CLI 變為 `--run.config test`。
-  - Python 屬性維持 `config_name`：與 `BaseModuleConfig.config_name` 一致，且 `run_config.config` 在程式中容易被誤讀為 config 物件。
-  - 放在 Phase C 的理由：C3 已經改寫所有 RunConfig 的使用端與 CLI，一次改完；Phase D 新增 `site` 時直接沿用最終的參數名稱，文件也只需更新一次。
-  - README、`docs/code/runs/{cli,config,workflow}.md`、`docs/code/phase*/modules/*.md` 中的 `--run.config-name` 一併更新（`docs/work/`、`docs/progress_report/` 為歷史紀錄，不改）。
-- **tests**：`tests/integration`、`tests/unit/test_pipeline_*.py` 改用新簽名（`run_website_crawler(WebsiteCrawlerRunConfig(config_name="test"))`、`run_prepare(PrepareRunConfig(config_name="test", publish=False))`）；新增 `--run.config` 參數名稱的 CLI 測試。
-- **過渡狀態**：`site_id` 與 `query_engine.query` 會暫時出現在 CLI（`--module.site-id`），Phase D 移除欄位後自動消失。
+- **partial model（C1）**：新增 `config/overrides.py`，`make_overrides_model(model)` 以 `pydantic.create_model` 遞迴產生 `{Model}Overrides`，另提供 `prune_empty(dict)`；Phase A 為不易理解的欄位補 `Field(description=...)`。
+- **CLI**：`cli/run.py` 的 `module` 欄位改為自動產生的 overrides model；刪除 `pipeline_config.py` 下半部的 `*ModuleConfig`、overrides 轉換迴圈（含 `weights` 特例）與 `run_kwargs` 的 `pop`；各分支簡化為一行呼叫。
+- **config 載入（C2）**：`from_yaml(config_name, overrides=None)`，overrides 以同一個 deep merge 疊在 extends 展開結果上，最後驗證一次。
+- **pipeline 簽名（C3）**：`run_website_crawler`／`run_image_summarizer`／`run_rag_build`／`run_rag_query`／`run_agent_query`／`run_agent_build` 皆為 `(run_config, overrides=None, ...)`，`run_prepare(run_config)`；`config_name`、`save`、`publish`、`run_name_use_config_name` 等一律從 `run_config` 讀取。`PrepareRunConfig` 新增 `publish: bool = True`（CLI 用 `--run.no-publish` 只寫 runs/），`run_prepare` 依此決定 `save = not publish`，並以同一個 `config_name` 建立三個階段的 RunConfig；`serve` 同理。run config 不再選填，所有路徑都會記錄，publish 到 data/ 的檔案因此多出 `run_config.yml`。`build_rag` 的 `**config_overrides` 改為 `overrides` 參數。
+- **刪除 exp（C4）**：刪除 `exp` 子命令與 `pipelines/exp.py` 的 8 個實驗函式；`pipelines/exp.py` 保留 `run_rag_query`／`run_agent_query`。
+- **改名（C5）**：所有 RunConfig 的 `config_name` 以 `tyro.conf.arg(name="config")` 標註；README、`docs/code/**` 的 `--run.config-name` 一併更新（`docs/work/`、`docs/progress_report/` 為歷史紀錄，不改）。
+- **過渡狀態**：`site_id` 與 `query_engine.query` 暫時出現在 CLI（`--module.site-id`），Phase D 後消失。
 
-### Phase C2：config class 為預設值基準（Phase C 審核後追加）
+---
 
-#### 背景
+## Phase C2：config class 為預設值基準
 
-Phase C 審核時比較「`default.yml` 為唯一預設值基準」（V2）與「config class 為唯一預設值基準」，決定改採後者。關鍵考量：
-
-- **型別與值寫在一起**：預設值、型別、約束與說明集中在 config class，IDE／pyright／`--help` 直接可見。
-- **不依賴 yml 也能建立 config**：程式與測試可直接 `RetrieverConfig()`、`RAGConfig(site_id=...)`；未來打包成套件時不需要隨附 `configs/`。
-
-代價（已接受）：調整基準值需改程式碼；長 prompt 回到 Python 常數；只看 yml 無法得知完整設定值（以 `module_config.yml` 與 `--help` 補足）；設定檔漏寫欄位時改為使用預設值，不再報錯（拼錯欄位名稱仍由 `extra="forbid"` 擋下）。
-
-#### 決策
+**背景**：Phase C 審核時比較「`default.yml` 為唯一預設值基準」（V2）與「config class 為唯一預設值基準」，決定採後者：型別與值寫在一起（IDE／pyright／`--help` 直接可見）；不依賴 yml 也能建立 config（程式與測試可直接 `RetrieverConfig()`，未來打包成套件不需隨附 `configs/`）。**代價（已接受）**：調整基準值需改程式碼；長 prompt 回到 Python 常數；只看 yml 無法得知完整設定值（以 `module_config.yml` 與 `--help` 補足）；設定檔漏寫欄位時改為使用預設值，不再報錯（拼錯欄位名稱仍由 `extra="forbid"` 擋下）。
 
 | # | 問題 | 決策 |
 |---|---|---|
 | K1 | 預設值來源 | config class 欄位預設值為唯一來源（修訂 V2）；yml 只寫與預設值不同的部分 |
-| K2 | 必填欄位 | 站點欄位不以 nculab 的值作為預設：`site_id`、`crawl.url`、`query_engine.query` 在 Phase D 前維持必填，`crawl` 的 `url_patterns`／`allowed_domains`／`path_prefix` 維持 `None` 預設，nculab 的值留在 `default.yml`（D 移到 `SiteConfig`／run config）；其餘參數欄位皆有預設值，值等於 Phase C 的 `default.yml` |
-| K3 | 設定名稱 `default` | `default.yml` 可省略：`from_yaml("default")` 在檔案不存在時等於 class 預設值；其他名稱仍須有檔案（找不到時照舊報錯）。此例外只適用於直接載入 `default`：`extends: default` 指向不存在的檔案時照舊報錯並列出繼承鏈（D 之後所有設定都不再 extends default）。C2 期間各模組 `default.yml` 只留站點欄位，agent 的 `default.yml` 刪除 |
-| K4 | `run_name_fields` 預設 | 改為 class 層級的 `_DEFAULT_RUN_NAME_FIELDS`（ClassVar）；yml 有寫就整個取代（含寫 `[]` 明確清空），沒寫時使用 class 預設（原本為 `[]`） |
-| K5 | 長 prompt | 移到 `config/prompts.py`（圖片摘要 prompt、agent system prompt），config class 引用常數 |
-| K6 | 模組建構子的預設值 | 一併移除，避免第三套預設值：建構子維持個別參數（不改收 config 物件，ingestion 模組不依賴 config 套件），與 config 對應的參數一律改為必填、由呼叫端明確傳入；語意為「未設定」的參數（`crawl_website` 的 `url_patterns`／`allowed_domains`／`path_prefix`）改為必填但可傳 `None`；`WebsiteCrawler` 的 `cleaner` 改為必填（移除 `or WebpageMarkdownCleaner()`）；不在 config 中的內部參數（如 `max_low_occ_ratio`）保留預設 |
-| K7 | `--help` 顯示 | `{Config}Overrides` 的葉欄位以 `help_behavior_hint` 顯示 class 預設值 `(default: X)`（長字串截斷），必填欄位標示「必填，來自設定檔」；`--module` 的說明註明「`--run.config` 設定檔的值優先於此預設」；以 `metavar` 去除 `{None}\|` 前綴。「未指定 = None」機制不變 |
-| K8 | 預設值本身的驗證 | `ConfigModel` 開啟 `validate_default=True`，建立 config 時一併驗證預設值（含跨欄位規則），避免誤寫的預設值靜默通過；另以單元測試確認各 config 的 class 預設值有效 |
+| K2 | 必填欄位 | 站點欄位不以 nculab 的值當預設：`site_id`、`crawl.url`、`query_engine.query` 在 Phase D 前維持必填，`crawl` 的 `url_patterns`／`allowed_domains`／`path_prefix` 維持 `None` 預設，nculab 的值留在 `default.yml`；其餘參數欄位皆有預設值，值等於 Phase C 的 `default.yml` |
+| K3 | 設定名稱 `default` | `default.yml` 可省略：`from_yaml("default")` 在檔案不存在時等於 class 預設值；其他名稱仍須有檔案。此例外只適用於直接載入 `default`，`extends: default` 指向不存在的檔案照舊報錯 |
+| K4 | `run_name_fields` 預設 | 改為 class 層級的 `_DEFAULT_RUN_NAME_FIELDS`（ClassVar）；yml 有寫就整個取代（含寫 `[]` 明確清空），沒寫時用 class 預設 |
+| K5 | 長 prompt | 移到 `config/prompts.py`，config class 引用常數 |
+| K6 | 模組建構子的預設值 | 一併移除，避免第三套預設值：建構子維持個別參數（不改收 config 物件，ingestion 模組不依賴 config 套件），與 config 對應的參數一律必填；「未設定」語意的參數（`crawl_website` 的 `url_patterns` 等）必填但可傳 `None`；`WebsiteCrawler` 的 `cleaner` 改必填；不在 config 中的內部參數（如 `max_low_occ_ratio`）保留預設 |
+| K7 | `--help` 顯示 | 葉欄位以 `help_behavior_hint` 顯示 class 預設值 `(default: X)`（長字串截斷），必填欄位標示「必填，來自設定檔」；`--module` 說明註明「設定檔的值優先於此預設」；以 `metavar` 去除 `{None}\|` 前綴 |
+| K8 | 預設值本身的驗證 | `ConfigModel` 開啟 `validate_default=True`（含跨欄位規則），另以單元測試確認各 config 的 class 預設值有效 |
 
-#### 變更範圍
+**變更範圍**：四個 `*_config.py` 的欄位加預設值（section 改 `default_factory`；`hybrid_ranker_params` 預設 `weights=[1.0, 0.5]`）；`load_config_dict` 在名稱為 `default` 且檔案不存在時回傳空 dict；各模組 `default.yml` 刪除模組參數、只留站點欄位，`agent/default.yml` 刪除；模組建構子依 K6 改必填；`make_overrides_model` 從欄位預設值產生 help hint 與 metavar；文件同步。
 
-- **config 模型**
-  - 四個 `*_config.py` 的參數欄位加上預設值（等於 Phase C 的 `default.yml`）；`content_threshold` 預設引用 `KEEP_IMAGE_CONTENT_THRESHOLD`。
-  - section 欄位改為 `Field(default_factory=Section)`、list 預設值用 `default_factory`；`hybrid_ranker_params` 預設為 `HybridRankerParams(weights=[1.0, 0.5])`。
-  - 新增 `config/prompts.py`。
-  - 各 config 加上 `_DEFAULT_RUN_NAME_FIELDS`：rag 為 `[vector_store.vector_store_type]`，其餘為 `[]`（D 依 S10 調整）。
-- **loader**：`load_config_dict` 在名稱為 `default` 且檔案不存在時回傳空 dict（`source` 標示為 class 預設值）；`_pop_run_name_fields` 未寫時改回傳 class 預設。
-- **configs/**
-  - 各模組 `default.yml` 刪除模組參數，只留站點欄位（目前為 nculab）；`agent/default.yml` 刪除，`agent/test.yml` 改為不 extends（空設定＝class 預設）。
-  - 其餘站點／測試設定維持 extends 鏈與差異內容；`run_name_fields` 與 class 預設相同者可省略。
-  - `configs/README.md` 改寫預設值來源說明。
-- **模組建構子（K6）**：`WebsiteCrawler.__init__`（含 `cleaner`）／`crawl_website`、`WebpageMarkdownCleaner.__init__`、`ImageSummarizer.__init__`／`summarize_crawl_results_images`、`NodePipelineBuilder.__init__`、`VectorStoreBuilder.build` 中與 config 對應的參數改為必填（「未設定」語意的參數必填但可傳 `None`）；`VectorStoreBuilder` 在 `hybrid_ranker_params=None` 時依 ranker 套用的內建參數屬「未設定」語意，保留。測試改以 config class 預設值傳入（如由 `CleanConfig()` 取值）。
-- **ConfigModel（K8）**：`model_config` 加上 `validate_default=True`。
-- **CLI（K7）**：`make_overrides_model` 從原始欄位的 `default`／`default_factory` 產生 help hint 與 metavar。
-- **測試**
-  - `test_configs.py`：缺欄位測試改為「一般欄位省略時使用預設值、站點欄位缺少時報錯」；新增不經 yml 建立 config、class 預設值本身通過驗證（跨欄位規則）、`default` 無檔案時等於 class 預設、`run_name_fields` 的 class 預設與 `[]` 明確清空。
-  - `test_overrides.py`／`test_cli.py`：help hint 與 metavar。
-  - 模組建構子的測試（`test_markdown_cleaner.py`、`test_dedup_key.py` 等）改傳必填參數。
-- **文件**：`configs/README.md`、`docs/code/runs/config.md`、README 設定說明。
+---
 
-#### 驗證
+## Phase D：站點分層
 
-- config 快照與 Phase C 完全相同（26 份設定 × 全部欄位與 `run_name`）。
-- 「舊 `default.yml` 的模組參數」與「新 class 預設值」逐欄位相同（一次性比對，結果記錄於 dev.md）。
-- 共同關卡（check.sh、免費整合測試、CLI 冒煙）；`--help` 顯示預設值。
+### 現況分析
 
-### Phase D：站點分層（todo 1）
+真正因站點而異的欄位只有：website_crawler 的 `site_id`、`url`、`url_patterns`、`allowed_domains`、`path_prefix`（claudecode 另有 `max_prompt_tokens = 500000`）；image_summarizer 的 `site_id`；rag 的 `site_id`、`query`。其餘與 default 相同。`default.toml` 實際就是 nculab 的設定，`test.toml` 與 default 的差異只有 `max_pages = 40`（環境差異，與站點無關）。
 
-#### 現況分析
-
-比對各模組的站點檔與 `default.toml`，真正因站點而異的欄位只有：
-
-| 模組 | 因站點而異的欄位 | 其餘欄位 |
-|---|---|---|
-| website_crawler | `site_id`、`url`、`url_patterns`、`allowed_domains`、`path_prefix`；claudecode 另有 `max_prompt_tokens = 500000` | 與 default 相同 |
-| image_summarizer | `site_id` | 與 default 相同 |
-| rag | `site_id`、`query` | 與 default 相同 |
-
-此外 `default.toml` 實際就是 nculab 的設定，而 `test.toml` 與 default 的差異只有 `max_pages = 40`（屬於環境差異，與站點無關）。
-
-#### 設計
+### 設計
 
 **站點身分與模組參數分離**：新增獨立的 `SiteConfig`，模組 config 不再包含任何站點資訊。
 
-```yaml
-# configs/sites/ncucsie.yml —— 站點身分
-site_id: ncucsie
-sample_query: 介紹資工系課程
-crawl:
-  url: https://www.csie.ncu.edu.tw/
-  url_patterns: ["*csie.ncu.edu.tw*"]
-  allowed_domains: [www.csie.ncu.edu.tw]
-  path_prefix: /
-```
+- `configs/sites/{nculab,ncucsie,claudecode}.yml`：`site_id`、`sample_query`、`crawl`（`url`、`url_patterns`、`allowed_domains`、`path_prefix`，後三者可省略）。
+- 模組參數預設值在 config class（C2），各模組不再需要 `default.yml`：`--run.config default` 等於 class 預設值。
+- 刪除所有 `{site}.yml`、`test_{site}.yml` 與各模組 `default.yml`；`website_crawler/test.yml` 只剩 `run_name_fields: [init.max_pages]` 與 `init.max_pages: 40`；`image_summarizer/test.yml`、`rag/test.yml` 只有註解；`agent/test.yml` 不變（agent 為多站）。
 
-模組參數的預設值在 config class（Phase C2），站點檔移出後各模組不再需要 `default.yml`：
-
-```python
-class WebsiteCrawlerConfig(BaseModuleConfig):
-    _DEFAULT_RUN_NAME_FIELDS: ClassVar[list[str]] = ["init.max_depth"]  # 沿用舊站點檔的 run name 欄位（S10）
-    init: CrawlerInitConfig = Field(default_factory=CrawlerInitConfig)
-    clean: CleanConfig = Field(default_factory=CleanConfig)  # max_prompt_tokens 預設改為 500000（S2）
-```
-
-```python
-class SiteCrawlConfig(ConfigModel):
-    url: NonEmptyStr
-    url_patterns: list[str] | None = None
-    allowed_domains: list[NonEmptyStr] | None = None
-    path_prefix: str | None = None  # 需以 / 開頭
-
-class SiteConfig(ConfigModel):
-    _CONFIG_FOLDER_PATH: ClassVar[str] = "configs/sites"
-
-    site_id: NonEmptyStr
-    sample_query: str | None = None
-    crawl: SiteCrawlConfig
-```
-
-設定檔結構：
-
-```
-configs/sites/{nculab,ncucsie,claudecode}.yml
-configs/website_crawler/test.yml                 # 只寫 run_name_fields: [init.max_pages] 與 init.max_pages: 40
-configs/image_summarizer/test.yml
-configs/rag/test.yml
-configs/agent/test.yml                           # agent 為多站，不受影響
-# 各模組 default.yml 刪除：`--run.config default` 等於 class 預設值（C2 的 K3）
-```
-
-刪除所有 `{nculab,ncucsie,claudecode}.yml`、`test_{nculab,ncucsie,claudecode}.yml`（Phase B 由 TOML 轉來）與各模組 `default.yml`（C2 後只剩站點欄位）。
-
-#### 決策
+### 決策
 
 | # | 問題 | 決策 |
 |---|---|---|
-| S1 | 站點檔如何接入程式 | 獨立的 `SiteConfig`；pipeline 依 `run_config.site` 自行載入，不另外傳參數（符合 C3「不重複傳遞」） |
+| S1 | 站點檔如何接入程式 | 獨立的 `SiteConfig`；pipeline 依 `run_config.site` 自行載入，不另外傳參數 |
 | S2 | 站點特有的模組參數（claudecode 的 `max_prompt_tokens`） | 直接把 class 預設值提高到 `500000`，站點檔不提供模組覆寫 |
 | S3 | RAG 的 `query` | 從 `RAGConfig` 移到 `RAGQueryRunConfig`；未指定時使用 `site.sample_query` |
 | S4 | 未提供站點 | 必填，不設預設值（避免誤將錯誤站點 publish 到 data/） |
@@ -417,139 +181,67 @@ configs/agent/test.yml                           # agent 為多站，不受影�
 | S7 | image-summarizer 讀到其他站點的爬蟲結果（既有 bug） | `load_latest_results` 加 `site_id` 過濾；找不到該站點結果時報錯，不退回其他站點 |
 | S8 | 站點在 CLI 的形式 | 位置參數：`website-copilot prepare ncucsie --run.config test`（已實測 tyro `Positional` 可行） |
 | S9 | 站點顯示名稱／描述 | 不納入本次重構，列入 todo「功能進度」 |
-| S10 | Phase D 後 prepare 的 run 資料夾名稱 | 舊站點檔的 run name 欄位搬進 class 的 `_DEFAULT_RUN_NAME_FIELDS`（C2 的 K4）：crawler `[init.max_depth]`、image_summarizer `[summarize.model]`（rag 原本即為 `[vector_store.vector_store_type]`），使 `prepare {site}` 的 run 名稱與原本相同 |
+| S10 | prepare 的 run 資料夾名稱 | 舊站點檔的 run name 欄位搬進 class 的 `_DEFAULT_RUN_NAME_FIELDS`：crawler `[init.max_depth]`、image_summarizer `[summarize.model]`（rag 原本即為 `[vector_store.vector_store_type]`），使 `prepare {site}` 的 run 名稱與原本相同 |
 
-#### 補充現況（S5–S7 的依據）
+**S5–S7 的依據**：site_id 不只用在路徑，`IndexBuilder` 以它作為 **Milvus collection 名稱**並寫入 node metadata，已 publish 的向量庫以 site_id 為 collection 名稱；`run_image_summarizer` 未傳入爬蟲結果時 `load_latest_results` **不分站點**，單獨對 ncucsie 執行時若最近一次爬的是 nculab 會拿到 nculab 的資料；`milvus_uri`／`webpages_data_folder_path` 在 4 處被改寫，本質是「站點 × 執行模式」決定的執行期值，而非可調參數。
 
-- site_id 不只用在路徑：`IndexBuilder` 以它作為 **Milvus collection 名稱**（`index.py:166`）並寫入 node metadata（`index.py:153`），因此從 `RAGConfig` 移除後仍需另一個管道傳入；已 publish 的向量庫以 site_id 為 collection 名稱，格式必須符合 Milvus 規則。
-- `run_image_summarizer` 未傳入爬蟲結果時呼叫 `load_latest_results(..., "website_crawler")`，**不分站點**：單獨對 ncucsie 執行時，若最近一次爬的是 nculab，會拿到 nculab 的資料（`load_latest_run_path` 已支援 `site_id`，rag-build 路徑無此問題）。
-- `milvus_uri`／`webpages_data_folder_path` 在 4 處被改寫（`factory.py:119,127`、`prepare.py:288,324`），本質是「站點 × 執行模式」決定的執行期值，而非可調參數。
+### 變更範圍
 
-#### 變更範圍
+- **config 模型**：新增 `config/site_config.py`（`SiteConfig`、`SiteCrawlConfig`，`from_yaml(site_id)`，共用 YAML loader，不是 `BaseModuleConfig`）；三個模組 config 移除 `site_id`，crawler 移除 `crawl` 區塊；`RAGConfig` 移除 `query_engine.query`、`webpages_data_folder_path`、`milvus_uri` 與路徑推導；`CleanConfig.max_prompt_tokens` 預設改 `500000`。
+- **run config／CLI**：`BaseRunConfig`、`PrepareRunConfig` 新增必填位置參數 `site`；`RAGQueryRunConfig` 新增 `query: str | None`；`AgentRunConfig`／`ServeRunConfig` 不加 site。用法如 `prepare ncucsie --run.config test`、`run rag-query ncucsie --run.config test --run.query "介紹資工系課程"`；`--module.site-id`、`--module.query-engine.query` 隨欄位移除消失。
+- **pipelines**：簽名不變，內部以 `SiteConfig.from_yaml(run_config.site)` 載入站點；`run_prepare` 以同一個 `run_config.site` 建立三個階段的 RunConfig 以保證 site 一致；`run_rag_query` 的 query 取 `run_config.query or site.sample_query`，兩者皆無時報錯；`run_image_summarizer` 只讀同站點的最新結果（S7）。
+- **storage**：`load_latest_results` 新增 `site_id` 參數；`create_run_context` 改收 `site_id`；`publish_run_metadata` 與 runs/ 落盤多存一份 `site_config.yml`，讓 data/ 的紀錄可重現。
+- **retrieval（S5）**：`factory` 依執行模式產生 `RAGTarget`：資料來源預設 `data/webpages/{site_id}`，`webpages_data_use_latest_results` 時為 runs/ 中同站點最新的 image_summarizer 結果；向量庫 `save=True` 為該 run 的 `results/milvus.db`，只 publish 時為 `data/rag/{site_id}/.staging-*`，兩者皆否為系統暫存資料夾，serve 載入時為 `data/rag/{site_id}/milvus.db`。`IndexBuilder`、`build_rag`、`load_rag` 改收 `RAGTarget`，原本改寫 config 的 4 處全部移除；`RAGRegistry.get(site_id)` 以 `RAGConfig.from_yaml(config_name)` 加上 serve 用的 target 載入，不需讀站點檔。`module_config.yml` 不再記錄 `milvus_uri`，唯一不固定的「latest results」來源路徑改寫入 log。
+- 文件：README 與 `docs/code/runs/config.md` 更新 CLI 用法與設定檔結構。
 
-- **config 模型**
-  - 新增 `config/site_config.py`（`SiteConfig`、`SiteCrawlConfig`，`from_yaml(site_id)`）。
-  - `SiteConfig` 共用 Phase B 的 YAML loader（支援 extends，但目前無用途）；它不是 `BaseModuleConfig`，沒有 `config_name`／`run_name_fields`。
-  - `WebsiteCrawlerConfig`／`ImageSummarizerConfig` 的 `_DEFAULT_RUN_NAME_FIELDS` 設定為舊站點檔的 run name 欄位（S10）。
-  - `WebsiteCrawlerConfig`／`ImageSummarizerConfig`／`RAGConfig` 移除 `site_id`；`WebsiteCrawlerConfig` 移除 `crawl` 區塊（url 類欄位改由 `site.crawl` 提供）。
-  - `RAGConfig`：移除 `query_engine.query`、`webpages_data_folder_path`、`milvus_uri` 與 `__post_init__` 的路徑推導（改由 `RAGTarget` 提供，見 retrieval）。
-  - `SiteConfig.site_id` 加格式約束與「與檔名一致」檢查（S6）。
-  - `CleanConfig.max_prompt_tokens` 的 class 預設值改為 `500000`。
-- **run config／CLI**
-  - `PrepareRunConfig`、`BaseRunConfig`（website-crawler／image-summarizer／rag-build）、`RAGQueryRunConfig` 新增必填位置參數 `site: Annotated[str, tyro.conf.Positional]`（S8）。
-  - `RAGQueryRunConfig` 新增 `query: str | None = None`。
-  - `AgentRunConfig`／`ServeRunConfig` 不加 site（agent 為多站）。
-  - 用法：`website-copilot prepare ncucsie --run.config test`、`website-copilot run rag-query ncucsie --run.config test --run.query "介紹資工系課程"`。
-  - Phase C 自動產生的 `--module.site-id`、`--module.query-engine.query` 隨模型欄位移除而消失。
-- **pipelines**
-  - `run_website_crawler`／`run_image_summarizer`／`run_rag_build`／`run_rag_query` 簽名不變（仍為 `run_config` + `overrides`），內部以 `SiteConfig.from_yaml(run_config.site)` 載入站點，所有 `config.site_id` 改為 `site.site_id`。
-  - `run_prepare` 以同一個 `run_config.site` 建立三個階段的 RunConfig，由此保證 site 一致（站點檔讀取三次，成本可忽略）。
-  - `run_rag_query` 的 query 取 `run_config.query or site.sample_query`，兩者皆無時報錯。
-  - `run_image_summarizer` 未傳入爬蟲結果時，只讀取同站點的最新結果（S7）。
-- **storage**
-  - `load_latest_results` 新增 `site_id` 參數，只搜尋 `runs/<ts>/<module>/<site_id>/`（S7）。
-  - `create_run_context` 改收 `site_id` 參數，移除 `run_context.py` 對 `config.site_id` 的型別處理。
-  - `publish_run_metadata` 與 runs/ 落盤多存一份 `site_config.yml`，讓 data/ 的紀錄可重現。
-- **retrieval（S5）**
-  - 新增執行期物件：
-    ```python
-    @dataclass(frozen=True)
-    class RAGTarget:
-        site_id: str        # Milvus collection 名稱、node metadata
-        webpages_dir: str   # 建庫資料來源
-        milvus_uri: str     # 向量庫位置
-    ```
-  - `factory` 依執行模式產生 `RAGTarget`：
-    - 資料來源：預設 `data/webpages/{site_id}`；`webpages_data_use_latest_results` 時為 runs/ 中同站點最新的 image_summarizer 結果。
-    - 向量庫：`save=True` 為該 run 的 `results/milvus.db`；只 publish 時為 `data/rag/{site_id}/.staging-*`；兩者皆否時為系統暫存資料夾；serve 載入時為 `data/rag/{site_id}/milvus.db`。
-  - `IndexBuilder(config, target)`、`build_rag`、`load_rag` 改收 `RAGTarget`；原本改寫 config 的 4 處全部移除。
-  - `RAGRegistry.get(site_id)` 以 `RAGConfig.from_yaml(config_name)` 加上 serve 用的 `RAGTarget` 載入；serve 端只需 site_id，不需讀站點檔。
-  - `module_config.yml` 不再記錄 `milvus_uri`：publish 與 runs/ 的位置皆為固定規則；唯一不固定的「latest results」來源路徑改寫入 log。
-- **tests**：`test_pipeline_prepare.py` 等改由 `SiteConfig.from_yaml("nculab")` 取得 site_id；原本從 `module_config` 讀 `milvus_uri` 驗證向量庫位置的斷言（`test_pipeline_prepare.py:109`）改為檢查實際檔案位置；新增 `SiteConfig` 驗證、site 位置參數必填、`RAGTarget` 各執行模式、`load_latest_results` 站點過濾的測試。
-- **文件**：README 與 `docs/code/runs/config.md` 更新 CLI 用法與設定檔結構。
+---
 
 ## 已確認決策
 
 | # | 問題 | 決策 |
 |---|---|---|
 | Q1 | Phase 是否合併 | 不合併；每個 Phase 一個 commit |
-| Q2 | YAML 轉 config 的套件 | PyYAML + pydantic `BaseModel.model_validate` |
+| Q2 | YAML 轉 config 的套件 | PyYAML＋pydantic `model_validate` |
 | Q3 | 未知 key 的處理 | 改為報錯（`extra="forbid"`） |
-| Q4 | `data/` 下已 publish 的舊 `.toml` 記錄檔 | ~~不轉換；`publish_run_metadata` 寫入新 `.yml` 時刪除同資料夾的舊 `.toml`~~ → Phase B 審核時改為：一次性轉換為 `.yml` 並刪除原檔，publish 不做清理（理由見 dev.md） |
+| Q4 | `data/` 下已 publish 的舊 `.toml` 記錄檔 | ~~寫入新 `.yml` 時刪除舊 `.toml`~~ → Phase B 審核時改為一次性轉換為 `.yml` 並刪除原檔，publish 不做清理 |
 | Q5 | `exp.py` 引用不存在的 config | 8 個實驗全部刪除，連同 `exp` 子命令（Phase C） |
-| Q6 | 執行順序 | A → B → C（CLI）→ C2（預設值基準）→ D（站點分層），理由見「執行順序說明」與 Phase C2 |
-
-## 驗證
-
-### 共同關卡（每個 commit 都必須通過）
-
-1. `scripts/check.sh`（ruff、pyright、`tests/unit`、widget 同步）通過，確保 `git bisect run` 可用。
-2. `uv run pytest tests/integration -m "not cost"`（`test_agent_build`、`test_serve`，免費）通過。
-3. CLI 冒煙：`website-copilot {prepare,serve} --help` 與 `website-copilot run <module> --help` 皆能正常輸出（Phase A、B 另需檢查 `exp --help`；Phase C 起 `exp` 子命令移除）。
-4. 驗證結果記錄在該 Phase 的 `dev.md`。
-
-### config 快照比對
-
-- **動工前**：以目前程式載入所有模組 × 所有 config 名稱，輸出正規化 JSON（全部欄位值 + `run_name`）作為 baseline。
-- **每個 Phase 後**：以新程式產生同格式快照（巢狀結構展平後）與 baseline 比對。預期差異事先列出，清單外的差異一律視為 bug。
-- `run_name` 必須一併比對：它決定 runs/ 資料夾名稱，影響人工比對不同 run 的可讀性（`load_latest_results`／`load_latest_run_path` 以時間戳排序後搜尋 `results.json`／`results/`，不依賴 run_name，功能上不受影響）。
-- 比對腳本為一次性工具，放在 scratchpad、不進版控；比對結果（含預期差異的確認）貼進各 Phase 的 `dev.md`。
-
-| Phase | 預期差異 |
-|---|---|
-| A | 無。toml 已寫的欄位本來就優先於程式預設值（`cache_download_images`、`vlm_max_workers`、prompt 等值不變）；toml 缺漏的欄位以現行程式預設值補齊。僅型別正規化（tomlkit 型別 → 原生型別） |
-| B | 無（extends 解析後應與 TOML 完全相同）；唯一例外為 agent prompt 的 `\n`，比對前先換算 |
-| C | 無（config 結構不變，只改 CLI） |
-| C2 | 無（預設值由 `default.yml` 移到 config class，載入結果應完全相同） |
-| D | `site_id` 與 url 類欄位移到 `SiteConfig`；`query` 移到 run config；`milvus_uri`／`webpages_data_folder_path` 移到 `RAGTarget`；nculab／ncucsie 的 `max_prompt_tokens` 由 200000 變為 500000；`default` 設定本身的 run_name 由 `default` 變為 `max_depth-2`（crawler）／`model-gpt-5.6-luna`（image_summarizer），而「站點 + default」的 run_name 與舊 `{site}.toml` 相同（S10） |
-
-### 各 Phase 額外檢查
-
-**Phase A**
-
-- 新增 `tests/unit/test_configs.py`：parametrize 載入所有設定檔；反例測試涵蓋 bool 放進 int 欄位、字串數字、未知 key、跨欄位規則、`validate_assignment`、錯誤訊息包含設定檔路徑。
-- `save_module_config` 的輸出與舊版比對，確認 section 結構相同。
-
-**Phase B**
-
-- 每份舊 `.toml` 的 dict 與新 `.yml` 經 extends 解析後的 dict 完全相同。
-- extends 單元測試：多層繼承、循環偵測、找不到父檔、list 整個取代、`null` 清除、`{}` 不清空 dict、`run_name_fields` 繼承與取代、非頂層保留 key 被拒。
-- run_name：快照中每份設定的 `run_name` 與 baseline 相同（驗證 `run_name_fields` 取代註解後行為不變）。
-- 往返測試：config → `module_config.yml` → 讀回驗證，`model_dump` 與原 config 相等（確保 runs/ 與 data/ 的紀錄可重現；`config_name`／`run_name_fields` 為附加資訊，不在比對範圍）。
-- data/ 舊記錄檔轉換後與原 `.toml` 內容相同，且 module_config 可被現行模型讀回（取代原「publish 後不再有舊檔」的檢查）。
-- `grep -rn toml src tests scripts` 確認無遺漏（僅允許刻意保留者）。
-
-**Phase C**
-
-- override 測試：各層巢狀參數正確寫入最終 config；未指定的欄位不會被 `None` 覆蓋；型別錯誤被 tyro 或 strict 擋下。
-- CLI → pipeline 的 override 傳遞以 mock 驗證（攔截 pipeline 函式，檢查收到的 config），不實際呼叫 API。
-- partial model 產生測試：巢狀結構、`dict[str, Any]` 欄位被排除、欄位說明被帶入、空 section 被清除。
-- pipeline 簽名：以 mock 確認 `run_prepare` 建立並傳遞各階段的 RunConfig。
-- exp 移除：`website-copilot exp` 不再存在；`grep -rn "EXPERIMENTS\|run_experiment\|ExpCLI" src tests README.md docs/code` 無結果。
-
-**Phase D**
-
-- 快照比對：每個站點 × 模組的「`sites/{site}.yml` + 模組 class 預設值」等於舊的 `{site}.toml`（扣除預期差異），run_name 也相同（S10）。
-- 路徑不變：`data/{category}/{site_id}/` 與 runs/ 結構和原本一致。
-- 未提供站點位置參數時 CLI 報錯；site_id 格式不符或與檔名不一致時報錯。
-- `RAGTarget`：各執行模式（save／publish／皆否／serve）產生的路徑正確；config 物件在建庫過程中不再被改寫。
-- image-summarizer 單獨執行時只讀取同站點的爬蟲結果（S7）。
-- `run_prepare` 建立的三個階段 RunConfig 的 `site` 相同（mock 驗證）。
-- serve 端：`RAGRegistry` 仍能載入現有 `data/rag/{nculab,ncucsie,claudecode}` 向量庫（擴充 `test_serve_rag_loading`）。
-- Phase C 過渡期的 `--module.site-id`、`--module.query-engine.query` 已從 CLI 消失。
-
-### 付費整合測試
-
-- **時機**：Phase D 完成後（即全部完成後）執行一次：
-  - `website-copilot prepare nculab --run.config test --run.no-publish`（只寫 runs/，`max_pages=40`）
-  - `uv run pytest tests/integration`（含 cost 測試）
-  - `website-copilot run rag-query nculab --run.config test` 加上巢狀 override，確認寫入 `module_config.yml` 的值正確（涵蓋 Phase C 的實際執行）
-- **執行者**：由 Claude 執行，每次執行前先向使用者確認；結果與花費摘要記錄在 `dev.md`。
-
-### 已確認決策（驗證）
-
-| # | 問題 | 決策 |
-|---|---|---|
+| Q6 | 執行順序 | A → B → C → C2 → D |
 | E1 | 快照比對工具是否進版控 | 一次性腳本放 scratchpad，結果貼進 dev.md |
 | E2 | 付費整合測試時機 | 最後一個 Phase（D）完成後執行一次 |
 | E3 | 付費測試由誰執行 | Claude 執行，每次執行前先確認 |
+
+---
+
+## 驗證
+
+**共同關卡**（每個 commit 都必須通過）同 [code_cleanup plan 的共同關卡](../2026_1001-code_cleanup/plan.md)：`scripts/check.sh`、`tests/integration -m "not cost"`、CLI 冒煙。本重構另有：Phase A、B 需檢查 `exp --help`（Phase C 起 `exp` 子命令移除）；結果記錄在各 Phase 的 `dev.md`。
+
+### config 快照比對
+
+- **動工前**：以當時的程式載入所有模組 × 所有 config 名稱，輸出正規化 JSON（全部欄位值＋`run_name`）作為 baseline。
+- **每個 Phase 後**：以新程式產生同格式快照（巢狀展平）與 baseline 比對。預期差異事先列出，清單外的差異一律視為 bug。
+- `run_name` 必須一併比對：它決定 runs/ 資料夾名稱，影響人工比對不同 run 的可讀性。
+- 比對腳本為一次性工具，放在 scratchpad，結果（含預期差異的確認）貼進各 Phase 的 `dev.md`。
+
+| Phase | 預期差異 |
+|---|---|
+| A | 無。toml 已寫的欄位本來就優先於程式預設值；缺漏欄位以現行程式預設值補齊；僅型別正規化 |
+| B | 無（extends 解析後應與 TOML 完全相同）；唯一例外為 agent prompt 的 `\n`，比對前先換算 |
+| C | 無（config 結構不變，只改 CLI） |
+| C2 | 無（預設值由 `default.yml` 移到 config class，載入結果應完全相同） |
+| D | `site_id` 與 url 類欄位移到 `SiteConfig`；`query` 移到 run config；`milvus_uri`／`webpages_data_folder_path` 移到 `RAGTarget`；nculab／ncucsie 的 `max_prompt_tokens` 由 200000 變為 500000；`default` 設定本身的 run_name 由 `default` 變為 `max_depth-2`（crawler）／`model-gpt-5.6-luna`（image_summarizer），而「站點＋default」的 run_name 與舊 `{site}.toml` 相同（S10） |
+
+### 各 Phase 額外檢查
+
+- **Phase A**：`test_configs.py` parametrize 載入所有設定檔；反例測試涵蓋 bool 放 int 欄位、字串數字、未知 key、跨欄位規則、`validate_assignment`、錯誤訊息含設定檔路徑；`save_module_config` 輸出與舊版比對 section 結構。
+- **Phase B**：每份舊 `.toml` 的 dict 與新 `.yml` 經 extends 解析後完全相同；extends 單元測試（多層繼承、循環、找不到父檔、list 取代、`null` 清除、`{}` 不清空 dict、`run_name_fields` 繼承與取代、非頂層保留 key 被拒）；往返測試（config → `module_config.yml` → 讀回，`model_dump` 相等）；data/ 舊記錄檔轉換後內容相同且可被現行模型讀回；`grep -rn toml src tests scripts` 無遺漏。
+- **Phase C**：override 測試（巢狀參數正確寫入、未指定欄位不被 `None` 覆蓋、型別錯誤被擋下）；CLI → pipeline 的 override 傳遞以 mock 驗證；partial model 測試（巢狀結構、`dict` 欄位被排除、說明被帶入、空 section 被清除）；`run_prepare` 以 mock 確認各階段 RunConfig；`exp` 移除後 `grep -rn "EXPERIMENTS\|run_experiment\|ExpCLI"` 無結果。
+- **Phase D**：快照比對（每個站點 × 模組的「`sites/{site}.yml`＋class 預設值」等於舊 `{site}.toml`，扣除預期差異）；路徑不變；未提供站點時 CLI 報錯、site_id 格式不符或與檔名不一致時報錯；`RAGTarget` 各執行模式路徑正確且 config 不再被改寫；image-summarizer 只讀同站點結果；`run_prepare` 三階段 `site` 相同；`RAGRegistry` 仍能載入現有 `data/rag/*`；過渡期的 `--module.site-id` 已消失。
+
+### 付費整合測試
+
+Phase D 完成後執行一次，由 Claude 執行、每次執行前先向使用者確認，結果與花費記錄在 `dev.md`：
+
+- `website-copilot prepare nculab --run.config test --run.no-publish`（只寫 runs/，`max_pages=40`）。
+- `uv run pytest tests/integration`（含 cost）。
+- `website-copilot run rag-query nculab --run.config test` 加巢狀 override，確認寫入 `module_config.yml` 的值正確（涵蓋 Phase C 的實際執行）。
