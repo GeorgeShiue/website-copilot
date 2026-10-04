@@ -8,3 +8,6 @@ crawl:
   allowed_domains:
   - www.csie.ncu.edu.tw
   path_prefix: /
+documents:
+  url_patterns:
+  - '*Action=downloadfile*'

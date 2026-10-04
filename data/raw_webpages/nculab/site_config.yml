@@ -8,3 +8,5 @@ crawl:
   allowed_domains:
   - sites.google.com
   path_prefix: /site/nculab
+documents:
+  url_patterns: []

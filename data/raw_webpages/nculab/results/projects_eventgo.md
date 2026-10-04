@@ -10,7 +10,7 @@ Finding activities to attend has been the prelude in our leisure time. Meanwhile
 
 ## Demo
 
-[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72tkpqE4NESV8Sawi6iUGYmlnEL34qD4SEGBLm3NE6SaDh9OxlTIxQ5Dnl4Wtg1V3Pf6BmRszYA5lOCVMt8flOE0is4yjIIRiWR7nlWVW5Th2U3mS-QMnlJdreVkmPNCUkMB3f9E3USqqBfRk5OjzCtPB_wuGT9A0fMKqEBt1oWrsBA51PpsCr0_07-1B8zLfZjwj2Of8ris=w1280)
+[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72tUZNZoYsm2YuXC7DYbqFzr5A0d759AyrF0RgmgaZOt1dfuO9I7_Rm_PIgaOj1k005xQ0bIJjE4R3c8k0zoToeOLk944mE8SaQC_yyrXXUEvaUKh5zNVAxpdWkjQpHM6ail0Y0TOqJ5ZxlZeqtk-HQu06rCf2v8FipzifT_VqiZ8xtrK8DBNquR2tJv94WTnb9cr6QZQZGz=w1280)
 ](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW)
 
 ## Publication

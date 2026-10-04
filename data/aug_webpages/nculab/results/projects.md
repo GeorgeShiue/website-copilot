@@ -1,95 +1,96 @@
 ## Projects
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72sP52FA2rxS0Xu_bG17E7rXFa8IzkNKWG32oxyL5tmu_A5LIZLDKKYsdmuqphm4ClEGeWlR4dbxCR_MK7GusBwyUxK3hEg9RZe6ySw7dma-TtolDdTtS1y3m_df-CapvNJEHRz8j9WKYRl2SbqXeXjFfHxCzqTTrC7CpQMUuSQ-97oHN7SnyCFhZAhAr78J2ktogU22cuPQjNGUdHQNnGAjjT2GKlFrp00yqG7Hu5w=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sPjRMjbZ0BaD-FBlormaavKnaQPPOjYI63jYRcU9kvwiKAi9sR5_dczttvLRgkYuIAurtovrE1PhX0qDMZsP7KuWxbd9Jt-j9vsvPNrJYpS-NIOiXyg_yJmZvpCEj7UodTHjyetPzF5_OS2ucQ_-CvFmlX_PSU_kIW-HOndkF7HyiQ9y_DSmuPtnQew2ADixCS5debrNkqOAxKJ7UVDiQnXR5IQRs_FREQW4ka7DE=w1280)
 > # Image-1
 >
-> **圖片摘要：**
-> AI文字位於機器人胸前，機器人正面呈現笑臉與耳部結構。
->
-> **主要元素：**
-> 1. 實體: AI, 機器人
-> 2. OCR文字: AI
-> 3. 主題標籤: 人工智慧, AI, 機器人
->
-> **頁面關聯：**
-> AI機器人圖示，檢索錨點為 AI
+> **圖片摘要：**  
+> AI機器人正面圖示，方形頭部、雙眼、微笑表情與藍色身體。
+> 
+> **主要元素：**  
+> 1. 實體: AI, 機器人, 機器人頭部, 機器人身體  
+> 2. OCR文字: AI  
+> 3. 主題標籤: 人工智慧, 機器人, AI
+> 
+> **頁面關聯：**  
+> AI主題頁面插圖，檢索錨點 AI
 [StoryBot](https://sites.google.com/site/nculab/projects/storychatbot) / [EduACT](https://eduact.csie.ncu.edu.tw/)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72t9NMu78IBiKKiSi1wEtSBRuhxavfu4UBIN-Qee7GKLXjjjJreek9fCqsY8aFjvt0YRGE0RK0PskZTDHlzRhyXAPm7nahzhdWO6pI-2fM5Zhyt47_YffBrtDmOfA1zppYdj3D9rGqlYEAsJ2aKKm7MFr_rbAiB0UeOdZsmR_ki-ri78Wyea8ZiEII2PK4NL3-ebjG4Ou2D4egkrrcfQtgzee6EY1OGU50RDcRN6HJM=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72u2ixT2NnKa6sp49Z7O2_6pxN3M_hpxaGJJ3kOAZHbWrwTzpHNNLYpwOuH2xpMuGiBCs7ghzJ4hI4FhGTM91u2yGAIyecOxrQupWBf-nZG_wWHXamfO5Y_-cjxP7zMbAVfjN3djwBYPWgPYZYSWVaa63yUO0ZZgJuJdGcP3trGHIz7501p0tuSxpYreoyYr9o7Xjh3u1j22zZ-VKOIsZMqGfOVrfmd7Gr86EYOQfEc=w1280)
 > # Image-2
 >
-> **圖片摘要：**
-> 法律文件置於書本前方，文件含盾牌圖示與 LAW 字樣。
->
-> **主要元素：**
-> 1. 實體: 法律文件, 書本, 橙色書籤, 盾牌圖示
-> 2. OCR文字:
-> LAW
-> 3. 主題標籤: 法律,文件,書籍
->
-> **頁面關聯：**
-> LAW 法律主題頁面的文件圖示
+> **圖片摘要：**  
+> LAW文件與盾牌圖示置於書本前方。
+> 
+> **主要元素：**  
+> 1. 實體: 法律文件,書本,盾牌圖示  
+> 2. OCR文字:  
+> LAW  
+> 3. 主題標籤: 法律,法律文件
+> 
+> **頁面關聯：**  
+> 法律主題頁面；檢索錨點：LAW
 [Legal AI / CCG](https://ccg.csie.ncu.edu.tw:8443/login)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72s4VPN7rXAf-LcFgMBpi1tOPqWRqmRDQRTHgIKndBPJzVb0YuvyErLSVrZnnZz25x3pqzHmNFRvWBXPmISv9f6oQdrKwWlVOu1jHv-huotC09A262rXLKaxZkw6vftdsibmcwFyBfvHOdLYuSfEb8krjnLaTJq9SOq5gd7yPwPhStt9-l_5ITfB3WVH2W3BVTdD1x8D-_ct2OdodpyxVT5aIo2VEiWmTNdUqL0px9A=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72tL1SJnHWhszrWwp39cQBOBhlYdQDIZWVLcDnXgUITc3MTz6Y9bUyieVUR2yT-4tEr5VsTL7TLiHPd_4O30Z7wSQmt2mCR8NrPgPaHaBstu7g34aKTspZ4ozRhJV-Kv_kSUw20V13qQy6sfBFp3aczBoUpdty4smicQvnV3aZbON_tRf2K0Eck2G-zCQnPWvZ_IgRUXI4nRTTxBzy282d-i4PZfacHmg_4GPQvy9O0=w1280)
 > # Image-3
 >
-> **圖片摘要：**
-> 藍色對話框中央顯示「UPCOMING EVENTS」，外圍有灰色線框。
->
-> **主要元素：**
-> 1. 實體: 活動公告圖示
-> 2. OCR文字: UPCOMING
-> EVENTS
-> 3. 主題標籤: Upcoming Events, 活動
->
-> **頁面關聯：**
-> Upcoming Events 頁面的活動資訊入口
+> **圖片摘要：**  
+> 藍色對話框置於黑色矩形框前，中央顯示兩行白色英文標題。
+> 
+> **主要元素：**  
+> 1. 實體: 藍色對話框,黑色矩形框  
+> 2. OCR文字: UPCOMING  
+> EVENTS  
+> 3. 主題標籤: 活動資訊,事件公告
+> 
+> **頁面關聯：**  
+> 活動公告頁面；錨點 UPCOMING EVENTS
 [EventGo!](http://140.115.54.49:8080/#/home)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72s4micr5_PCf1IAO3eu51fWBhXO6YiAlhKG8vbID8JYUUwgdrdVDGqg6NwqG6En72kz391l5y5bDK5G-NBA5KkEHUtTxs9a12Aj4_0bGVyaLNjOtBTcbgXh2MF5mwkGjGWMN7LBHnIoK3uC5WciGScyCzeZ-jX9eoXOKpF6c64hST4kRquPmQ48mBdxdeAChQYqZJLoZWVBRoY22tcU0hubOEe_nhl7Be8_M7R6pss=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sRpLE4cfPJwSFbEIZCJmMg5Cccsmr5aL9KuQCVz7G01lN_0FCe4v3PG_xLQ5KBQVwm3fnEJb0S8DJnkRRuQCfkaJoCslVKsDMEl96Ab8iCFmcIqbP65Zk4W0GjHUeoRHaAa7BxfyZ_EqjlCAa33FHgadpYLfNhmF75JUDZUH62bgcDdNGgXLnBRWAoiskaeeDbCngIa0MuEQLf7O2pV4iIuB490p1SeTPjcssBhak=w1280)
 > # Image-4
 >
-> **圖片摘要：**
-> API文字位於黃色圓形齒輪內，齒輪與雲朵及雙向箭頭圖示相連。
->
-> **主要元素：**
-> 1. 實體: 雲朵圖示, 齒輪圖示, 雙向箭頭
-> 2. OCR文字: API
-> 3. 主題標籤: API, 雲端服務
->
-> **頁面關聯：**
-> API圖示，頁面錨點：API
+> **圖片摘要：**  
+> API文字位於齒輪中央，雲朵與雙向箭頭位於上方
+> 
+> **主要元素：**  
+> 1. 實體: API, 齒輪, 雲朵, 雙向箭頭  
+> 2. OCR文字:  
+> API  
+> 3. 主題標籤: API, 雲端運算, 資料交換
+> 
+> **頁面關聯：**  
+> API頁面圖示，檢索錨點為 API
 [Data API Creator](http://140.115.54.44:8001/)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tVYWKpd0Vp2PWhlN_DZmPAKjv0EqohMI2PK1PbZDZGCHQ8CuGOwwf0LM1y4wFlzYNFC1oxfnENXnYg341CUCt9ecYw00YVvLzY7RDFZsLZmTeto_6Rzro5LVZhjf5j16aBs3O0Qt2qzMZongtqMkBtMarIurYiOeCMvIwh5hltAGHUr1g-J2ppVOeYHdmeGKR_ncqgE-Y28r_KryEJUoFOIVmuNyQDORGqnzwYAw8=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vfSNVtLmJKQQCzBr0DFbc3riMuSiZVRBNoPBXDk3nTG5UmUQ_wfz7INBORYLe2idyx3kWNUZcspH2u_JyDBxh4Xqsc8X5Ye_lAxpKASko2v78N6WpeoZLA80FtpPmvv9_f3xFoa4565aDOusyp5i_JE0GWtgwH1ZonDrZsp07Gz8F6ldP8hKobfFneMPj1h2aTzd0ZujBBk5c3yy_AaPIoyUY_RojlZ2lGTC4kHSQ=w1280)
 > # Image-5
 >
-> **圖片摘要：**
-> 文件頁面位於前景，右側為資料夾，頁面含多列線條與黃色方塊
->
-> **主要元素：**
-> 1. 實體: 文件頁面, 資料夾, 黃色方塊, 文字欄線條
-> 2. OCR文字: 無
-> 3. 主題標籤: 文件管理, 資料夾, 表單
->
-> **頁面關聯：**
-> 文件管理頁面圖示；檢索錨點：文件管理
+> **圖片摘要：**  
+> 文件頁面與資料夾圖示並置，文件內含文字區塊與黃色方形區塊。
+> 
+> **主要元素：**  
+> 1. 實體: 文件頁面, 資料夾, 文字區塊, 黃色方形區塊  
+> 2. OCR文字: 無  
+> 3. 主題標籤: 文件, 資料夾, 文件頁面
+> 
+> **頁面關聯：**  
+> 文件與資料夾圖示；錨點：文件頁面、資料夾
 [Mobile Web Creator](http://140.115.54.44:8000/)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72ux_fzp9cV9SASjnN4WZjOv73ZY005oxJadH-YM0A-stFca6vLKn7tx9ze1oJQmaqNBJk3wnG3dHu_Eby_LYu_vae28atKjQ2OyuZGoRz4nBAVo0eLYAUnH9Gpog_DA8cjDbR2yceHtRL_DerNyjsU50IfF6ElnA49SS1tP06-VJ4cEHRKvxBfoRwKB5IiZdKmybj9FzIDsKnUyU3Q2cWpUB7rvW1HELEiSffRH=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72s7gfPfrX1Gt9bWm3ZqgFBIQqWjL7tvxbBV6oYKIVcC9auLEh04pJQLoPb9Ac8941NfoS-O99MM9TJc4WeWWEQUVz0XKH8fcB5J1f7ogPOG3XGWZuli-edpIXxwKfT_u2DjDo4-wlBrtH1uC2S2hamF-KafG789NUAemmeBbU8km4vbQflntRqsoXprPLQnn6nytasLANRKWjaMyiKFWJNee7-ZaM5g-drj7Qrk=w1280)
 > # Image-6
 >
-> **圖片摘要：**
-> 文件圖示置中，周圍連接人物、住宅、定位圖釘與建築物圖示。
->
-> **主要元素：**
-> 1. 實體: 文件、人物圖示、住宅圖示、定位圖釘、建築物圖示
-> 2. OCR文字: 無
-> 3. 主題標籤: 文件資訊、位置資訊
->
-> **頁面關聯：**
-> 文件資訊頁面圖示；無可辨識命名錨點
+> **圖片摘要：**  
+> 中央文件圖示周圍有人物、住宅、定位標記與建築物圖示，外圍為圓框。
+> 
+> **主要元素：**  
+> 1. 實體: 文件,人物圖示,住宅圖示,定位標記,建築物圖示  
+> 2. OCR文字: 無  
+> 3. 主題標籤: 文件資訊,位置資訊
+> 
+> **頁面關聯：**  
+> 文件與位置資訊圖示，無可辨識專有名詞
 [DS4NER](https://sites.google.com/site/nculab/projects/web-ner-tool/ds4ner) 具身智動靈巧手機器人與多機協作系統研發(1/2) (2026/08/01~2027/06/30) 本計畫為國科會115年度「智慧機器人關鍵技術研發與場域應用專案計畫」，由本實驗室主持總計畫及子計畫一「大腦」（場景理解、視覺-語言-動作模型VLA、知識庫、多機任務分派），整合機械、電機、資工等13位共同主持人與五個子計畫（大腦、小腦、模擬、硬體、資料平台），以旅館客房整理為應用場域，開發具備靈巧手操作與多機協作能力之具身智能機器人系統。
 
 This project is part of the NSTC FY2026 Intelligent Robotics Key Technologies and Field Application Program. Our lab leads the overall project and Subproject 1 ("Brain": scene understanding, vision-language-action (VLA) models, knowledge base, and multi-robot task allocation), together with 13 co-PIs across five subprojects (Brain, Cerebellum/motion control, Simulation, Hardware, and Runtime Platform). Targeting hotel room housekeeping as the application field, we aim to develop an embodied intelligent robot system with dexterous hand manipulation and multi-robot collaboration. 基於知識圖譜與蒙地卡羅樹策略搜尋的網頁自動化代理研究 (2025/08/01~2028/07/31) 這個計畫在探討AI在人機介面上的應用與未來發展趨勢，我們將以大型語言模型為核心，結合視覺模型、語音輸入、以及電腦操作等其他工具，實現複雜任務自動化。從命令列的互動(Gorilla CLI), 瀏覽器的代理操作(WebVoyager), 以及桌面上跨應用程式的操作(Claude Computer Use), 近期頂級會議上發表的相關研究可以看到未來的AI PC發展方向。透過此計畫我們希望創造四個Agentic AI系統。(1) WebPilot: 透過自然語言操作瀏覽器, 自動完成中文網站的操作, (2) MRAG powered WebPilot: 透過資訊系統的使用手冊以及RAG的輔助, 自動完成 Web-Based 資訊系統的操作, (3)Interactive Voice RPA Agent: 透過語音互動釐清使用者的需求, 創建工作流程自動化RPA (Robotic Process Automation)，(4) CrossAPP PCPilot: 透過API串接及AutoHotkey 等腳本自動化電腦桌面端的操作, 自動完成跨應用程式的操作。對於上述每個AI代理人系統，我們將採兩階段模型來創建: 初期我們將以現有OpenAI、Anthropic等LLM來快速佈建Agentic AI系統, 第二階段則透過第一階段的測試資料, 訓練地端的模型, 確保資料的收集以及主權的AI. 我們也將訓練地端的模型, 確保資料的收集以及主權的AI. 我們希望透過這個計畫創造AI賦能的人機互動，提供更直覺、更人性化的使用者體驗，降低使用者操作、管理電腦的障礙, 提升台灣使用者在AI powered資訊發展的優勢。

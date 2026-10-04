@@ -48,17 +48,17 @@ The Web Intelligence and Data Mining Laboratory at National Central University i
 
 賀！[學士班葉展維同學 獲選2024 時代基金會 Epoch School實習計畫的參訪代表](https://sites.google.com/site/nculab/news/%E6%81%AD%E5%96%9C%E5%BC%B5%E5%98%89%E6%83%A0%E8%80%81%E5%B8%AB%E6%8C%87%E5%B0%8E-%E8%91%89%E5%B1%95%E7%B6%AD%E5%90%8C%E5%AD%B8)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72v4m7g6l_ubZaoamzHmPgZU8KfTcss6q_vKa_rJ0Io5VGqMsIXB4kuUhyjAWwjBPjXvAlfQLVf07oJh5Cb1KOcD9Y9FfckIq1H1BcetBHIfWxYTOeixLaBX7JUP2UGvO4dw8GG1QYp9HpG-wlABfdTQ589liefDH61_bVuEB-1NrNf7LyBEq54ehdXKijo=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72tbes7UwMw8CqYh_5LBjqZfumDzQetl6zelCjvmeNw1cJDc4CvCeacTZ9aDzM5Z0JNlAZLCPVoXAqOliWGl0bkvekt5ShnXpsraz7J4hyg-skCC9HDZYumR8N_3a8pAHei2VQYtKhyKMrruBpuDUMNe7xrxYzlOcIAkMwnBmPqDFK4BaGl9SUIjPwe2g0I=w1280)
 [EduACT](https://eduact.csie.ncu.edu.tw)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72tc59ac8M-ynvLgx2Z2Rb5_tiWsRAhqqHqiuceWfvEISyoDXXDcfF2BGpT4bWN8Ze0LREgLohF-GwUKAkoCO3NxkYAhPwB1oLSz_feHiN9SewdEOGx_aonk_bokkFwnKAyBgksewtD7LBFfFSnjBl6sr6lm0NF4vK8fFoUyyxXhtBO-Eg8L0Z8Bnh22Mx8=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72vfFX0vN7rIOlIpr0cVf3np9YySRvJnWgBU3OhSHZYdTo9t13xfwBUKMjamztPhUFmpFsaOYQD-_t45JVPP-PDuWxS5UC--nAkNjD7CYyDkbLgdBkxg6gAx5NGRgOFoLccC5Rgdhab9T-IUkomIoqD-Xa8Me4D8Buge3_fbER31zTbTFd1DimBokK4NQeg=w1280)
 ### Legal AI
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72v95y6mKBxtKFEn1adz467EV1IzsqvgHvJS87x-e9TdhfiOfG-leSsfZyA8HlHHPp2nEx19N3m9cJDTflBbeONzNlwfaG2Wo6mp3-D7D-TReZBdDSGZroL4odEaeA1f9xSRIdHzemHeEUtw_hEhmm57rLYU7Il04CA7dlr9NvqWRixFSw0zcrRHDq3TGSQ_2gEfSfgS77v7sBtOTVI=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72teFPtroYXqJAmS5IQpAgyHeoT-WJhomUakUh0DTwa4JUbqneQ7Wn3eR4tLVjykHyLe1VBChdhRHsSsN_B2Dsv9xk53UBlcWqtGHdYmy2Xey8uuF01l_g0Z_Z5bsHqiDtxqRYB8QdruaNdT1Og1XmNIsvncAiCZ7O2lpXA_-bvvB1klzsJjHJGoybrwPO9oQPWdKEw7Nh_iC9yTupo=w1280)
 [EventGo!](https://eventgo.widm.csie.ncu.edu.tw)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72s4micr5_PCf1IAO3eu51fWBhXO6YiAlhKG8vbID8JYUUwgdrdVDGqg6NwqG6En72kz391l5y5bDK5G-NBA5KkEHUtTxs9a12Aj4_0bGVyaLNjOtBTcbgXh2MF5mwkGjGWMN7LBHnIoK3uC5WciGScyCzeZ-jX9eoXOKpF6c64hST4kRquPmQ48mBdxdeAChQYqZJLoZWVBRoY22tcU0hubOEe_nhl7Be8_M7R6pss=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sRpLE4cfPJwSFbEIZCJmMg5Cccsmr5aL9KuQCVz7G01lN_0FCe4v3PG_xLQ5KBQVwm3fnEJb0S8DJnkRRuQCfkaJoCslVKsDMEl96Ab8iCFmcIqbP65Zk4W0GjHUeoRHaAa7BxfyZ_EqjlCAa33FHgadpYLfNhmF75JUDZUH62bgcDdNGgXLnBRWAoiskaeeDbCngIa0MuEQLf7O2pV4iIuB490p1SeTPjcssBhak=w1280)
 [Data API Creator](http://140.115.54.44:8001/)
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72sVrQnnQ8_jHrcxRLGmpm2i147vXNP8_kWjk3HIkeB_rLkMAcREkhMQdO774wSi79Vh8ZD-0T5N0-_zacaKTXQNh3zZW4p-txOR8UG7YrhTZeY-fsfoluRURzcKAMTi1Shw3RtB7hAedo57e9Ewdv2VaytveYPGt4faSpwzcVFqyY3cc4_cS72WdWHU7l9kDuCzb9mvvyqnZwNi-eP5F3Xdp0qBfTnPA6OPBY1JhsA=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72sboRU9fSmlRoRsDYhQNRs8WOOs-JcSeig6vHlKxy5ybZnSeyO8Ut2_4w-SK3KIRv0JC4AJu7pEdP1t3EgO3YQHd3HdOv2yNKBpUobt7va99vvpYgBeWesrtArMhqCffQb_AH2F7BOXLKj30uy0-uZgnA_ckHLJ1px0FIuiP3JUsBgMFibU2f4gcJ5Yp9AVe_sKZeXnXgdNQz3KhD7vd79g2QOKGFLbtfhfxM3DH6U=w1280)
 [Mobile Web Creator](http://140.115.54.44:8000/)

@@ -1,18 +1,18 @@
 # Advisor
 
-![](https://sites.google.com/sitesv-images-rt/AMxu72vbgHrLKWOFLPT3e-DBtk2fXHIbmD_C02Evb2KQ1JgMsE5Sl73uJmXaPUUnVoLcrSrtmhislH0FBwL6D5ab4eqCx-_sL7h5_uriahSgbotKL5TN18CalwlHAmt8Pkcv-mPzLRD5mMs5lMbbCzqi2URKHKC6BP660VAMT-OCq0wNLAAmSn2MHYINcu1IL4pxIiXcA_zm6hZ0BnudoOuKiMm5LC1H7goqDl9wrwvHprA=w1280)
+![](https://sites.google.com/sitesv-images-rt/AMxu72tRRgsSzqHcQnsbmid0BXjJPKehHki9IF-V3jKSVPpWLfAjjSpupSbDuMh75XF_ZCY30DE_40Sj5OOVzdm0PRGYX5x3NrcZaY71OFU9GdngmrZK_6OYPuAxX_4ZEbLfi41Pa6kgYQN2MubFMPKspLfx4VoXnMFmUBO9ztLCfW1x17hWPxjtDv-JxbaSwRcYGMSB7m0sbYNtpKRtGrc8u9_xYCIjY0vDM6utajCPr7U=w1280)
 > # Image-1
 >
-> **圖片摘要：**
-> 女性站在戶外農田景觀前，佩戴眼鏡並背著背包。
->
-> **主要元素：**
-> 1. 實體: 女性, 眼鏡, 背包, 農田景觀
-> 2. OCR文字: 無
-> 3. 主題標籤: 人物照片, 戶外景觀
->
-> **頁面關聯：**
-> 人物肖像照片；無可辨識專有名詞或頁面錨點
+> **圖片摘要：**  
+> 女性人物半身肖像，身穿黑色上衣並背著背包，背景為戶外山坡
+> 
+> **主要元素：**  
+> 1. 實體: 女性人物, 黑色上衣, 背包, 山坡  
+> 2. OCR文字: 無  
+> 3. 主題標籤: 人物肖像, 戶外場景
+> 
+> **頁面關聯：**  
+> 人物肖像頁面，無可辨識身份資訊與命名錨點
 [0000-0002-1101-6337](https://www.google.com/url?q=https%3A%2F%2Forcid.org%2F0000-0002-1101-6337&sa=D&sntz=1&usg=AOvVaw3wPdd5E5dDAlO-souovXb2) chiahui@g.ncu.edu.tw
 
 +886-3-422-7151 #35302 Engineering Building 5, B302 Jhongda Road, Jhongli Dist. Taoyuan, Taiwan [個人首頁 / Personal Website](https://sites.google.com/site/jahuichang/)

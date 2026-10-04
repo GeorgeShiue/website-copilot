@@ -1,13 +1,13 @@
 ───────────────────────── Rag Build (nculab, default) ──────────────────────────
 ───────────────────────── SiteConfig Loaded from yaml ──────────────────────────
-               SiteConfig
+               SiteConfig                
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config       ┃ Value                  ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ site_id      │ nculab                 │
 │ sample_query │ 實驗室的成員有哪些人？ │
 └──────────────┴────────────────────────┘
-                               crawl
+                               crawl                               
 ┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config          ┃ Value                                         ┃
 ┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -16,8 +16,14 @@
 │ allowed_domains │ ['sites.google.com']                          │
 │ path_prefix     │ /site/nculab                                  │
 └─────────────────┴───────────────────────────────────────────────┘
+       documents        
+┏━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Config       ┃ Value ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━┩
+│ url_patterns │ []    │
+└──────────────┴───────┘
 ────────────────────────── RAGConfig Loaded from yaml ──────────────────────────
-             nodes
+             nodes             
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Config              ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
@@ -25,7 +31,7 @@
 │ chunk_overlap       │ 100   │
 │ paragraph_separator │ \n\n  │
 └─────────────────────┴───────┘
-                   vector_store
+                   vector_store                   
 ┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config               ┃ Value                   ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -33,13 +39,13 @@
 │ hybrid_ranker        │ WeightedRanker          │
 │ hybrid_ranker_params │ {'weights': [1.0, 0.5]} │
 └──────────────────────┴─────────────────────────┘
-                   index
+                   index                   
 ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Config         ┃ Value                  ┃
 ┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ embedding_name │ text-embedding-3-small │
 └────────────────┴────────────────────────┘
-          retriever
+          retriever          
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
 ┃ Config           ┃ Value  ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
@@ -48,7 +54,7 @@
 │ hybrid_top_k     │ 10     │
 │ alpha            │ 0.5    │
 └──────────────────┴────────┘
-             query_engine
+             query_engine             
 ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
 ┃ Config             ┃ Value         ┃
 ┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
@@ -59,53 +65,44 @@
 ────────────────────────────────── RAG Target ──────────────────────────────────
 site_id: nculab
 aug_webpages_dir: data/aug_webpages/nculab
-milvus_uri:
-/home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
+milvus_uri: 
+/home/george/website-copilot/data/vector_db/.staging-_dsrdgyj/nculab.db
 ───────────────────────── Building RAG to Vector Store ─────────────────────────
-INFO     Clean vector store Completed in 0.000 seconds
-
-Loading files:   0%|          | 0/47 [00:00<?, ?it/s]
-Loading files: 100%|##########| 47/47 [00:00<00:00, 12881.10it/s]
-INFO     Loading 47 Markdown Documents
-
-Applying transformations:   0%|          | 0/5 [00:00<?, ?it/s]
-Applying transformations:  60%|######    | 3/5 [00:01<00:00,  2.06it/s]
-Applying transformations: 100%|##########| 5/5 [00:01<00:00,  3.39it/s]
-INFO     Pipeline produced 276 nodes
-INFO     Build nodes Completed in 1.482 seconds
-INFO     Building Milvus vector store (sparse embedding: BGE-M3,
-         hybrid_ranker=WeightedRanker)
-INFO     loading existing colbert_linear and sparse_linear---------
-INFO     Loading faiss with AVX512 support.
-INFO     Could not load library with AVX512 support due to:
-         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")
-INFO     Loading faiss with AVX2 support.
-INFO     Could not load library with AVX2 support due to:
-         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")
-INFO     Loading faiss.
-INFO     Successfully loaded faiss.
-INFO     MilvusLite server started for
-         /home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
-         on port 35561
-INFO     Build vector store Completed in 9.957 seconds
-INFO     Building index (dense embedding: text-embedding-3-small, nodes=276)
-
-Generating embeddings:   0%|          | 0/276 [00:00<?, ?it/s]
-Generating embeddings:  93%|#########2| 256/276 [00:03<00:00, 70.07it/s]
-Generating embeddings: 100%|##########| 276/276 [00:04<00:00, 66.92it/s]
-Generating embeddings: 100%|##########| 276/276 [00:04<00:00, 67.77it/s]
-INFO     Build index Completed in 24.032 seconds
+INFO     Clean vector store Completed in 0.000 seconds                          
+Loading files:   0%|          | 0/47 [00:00<?, ?it/s]Loading files: 100%|##########| 47/47 [00:00<00:00, 11497.95it/s]
+INFO     Loading 47 Markdown Documents                                          
+Applying transformations:   0%|          | 0/6 [00:00<?, ?it/s]Applying transformations:  50%|#####     | 3/6 [00:01<00:01,  2.92it/s]Applying transformations: 100%|##########| 6/6 [00:01<00:00,  5.70it/s]
+INFO     Pipeline produced 280 nodes                                            
+INFO     Build nodes Completed in 1.061 seconds                                 
+INFO     Building Milvus vector store (sparse embedding: BGE-M3,                
+         hybrid_ranker=WeightedRanker)                                          
+INFO     loading existing colbert_linear and sparse_linear---------             
+INFO     Loading faiss with AVX512 support.                                     
+INFO     Could not load library with AVX512 support due to:                     
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx512'")        
+INFO     Loading faiss with AVX2 support.                                       
+INFO     Could not load library with AVX2 support due to:                       
+         ModuleNotFoundError("No module named 'faiss.swigfaiss_avx2'")          
+INFO     Loading faiss.                                                         
+INFO     Successfully loaded faiss.                                             
+INFO     MilvusLite server started for                                          
+         /home/george/website-copilot/data/vector_db/.staging-_dsrdgyj/nculab.db
+         on port 44189                                                          
+INFO     Build vector store Completed in 10.350 seconds                         
+INFO     Building index (dense embedding: text-embedding-3-small, nodes=280)    
+Generating embeddings:   0%|          | 0/280 [00:00<?, ?it/s]Generating embeddings:  91%|#########1| 256/280 [00:00<00:00, 353.16it/s]Generating embeddings: 100%|##########| 280/280 [00:01<00:00, 257.80it/s]
+INFO     Build index Completed in 19.992 seconds                                
 ─────────────────────────────── RAG Build Stats ────────────────────────────────
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Metric           ┃ Value ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ Documents loaded │ 47    │
-│ Nodes produced   │ 276   │
-│ Index nodes      │ 276   │
+│ Nodes produced   │ 280   │
+│ Index nodes      │ 280   │
 └──────────────────┴───────┘
-INFO     bg: built 2 segment indexes in 0.00s
-INFO     MilvusLite server stopped for
-         /home/george/website-copilot/data/vector_db/.staging-vkenamt_/nculab.db
-         (port 35561)
+INFO     bg: built 2 segment indexes in 0.00s                                   
+INFO     MilvusLite server stopped for                                          
+         /home/george/website-copilot/data/vector_db/.staging-_dsrdgyj/nculab.db
+         (port 44189)                                                           
 ───────────────────────────── RAG Build Completed ──────────────────────────────
-INFO     Rag Build (nculab, default) Completed in 36.015 seconds
+INFO     Rag Build (nculab, default) Completed in 31.994 seconds                

@@ -253,3 +253,16 @@ exclude words 的 LLM 呼叫（小額，未另行統計）。
 - Docling 以 2 倍解析度裁切圖片，VLM 才看得清截圖中的小字；小圖示（< 100px，如 EMI SOP 的按鈕圖示）依 P1d 的門檻略過。
 - 計畫的「甄試通知 7 張截圖」與實測一致（7 張，全部有描述）；「校徽等重複圖只描述一次」由內容雜湊去重實現（資源 URL 為內容 sha1）。
 - 全部三個 P2 階段（P2a、P2b、P2c）的最終驗收與 `data/` 的正式發布（獨立資料 commit）尚未執行：本次所有實跑皆為 `--run.no-publish`。
+
+## 正式發布與最終驗收
+
+- 以最終程式碼（P0～P2c）執行 `website-copilot prepare ncucsie` 與 `prepare nculab`（publish），重新爬取並覆寫 `data/`；資料以獨立的資料 commit 提交，與程式碼 commit 分開。
+
+| 站點 | 耗時 | 花費 | 結果 |
+|---|---|---|---|
+| ncucsie | 393 秒（爬蟲 95、augmenter 193、建庫 105） | $0.3629 | 217 筆（頁面 146 + 文件 71），`files/` 71 個原檔，`data/vector_db/ncucsie.db` 17 MB |
+| nculab | 93 秒 | $0.0906 | 47 筆頁面（無文件連結），`data/vector_db/nculab.db` 3.2 MB |
+
+- `data/` 單一檔案皆小於 20 MB（`check-added-large-files` 上限 30 MB）。
+- 最終驗收：`pytest tests/integration -m cost` **6 passed**（含對已發布 ncucsie 向量庫的 19 題文件檢索問題集，全部命中；以及各 run function 的整合測試），約 3 分鐘。
+- 注意：重新爬取使頁面集合隨網站內容變動（新增公告、頁面鍵更名），`data/` 的差異包含這些網站本身的變動，不只是本次功能造成的差異。

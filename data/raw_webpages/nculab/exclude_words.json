@@ -1,5 +1,5 @@
 {
-  "seed": 1510076692,
+  "seed": 1033719155,
   "words": [
     {
       "word": "Search this site",
@@ -9,6 +9,18 @@
     },
     {
       "word": "Embedded Files",
+      "votes": 5,
+      "hit_lines": 47,
+      "low_occ_ratio": 0.0
+    },
+    {
+      "word": "Skip to main content",
+      "votes": 5,
+      "hit_lines": 47,
+      "low_occ_ratio": 0.0
+    },
+    {
+      "word": "Skip to navigation",
       "votes": 5,
       "hit_lines": 47,
       "low_occ_ratio": 0.0
@@ -24,62 +36,52 @@
       "votes": 5,
       "hit_lines": 47,
       "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Skip to main content",
-      "votes": 4,
-      "hit_lines": 47,
-      "low_occ_ratio": 0.0
-    },
-    {
-      "word": "Skip to navigation",
-      "votes": 4,
-      "hit_lines": 47,
-      "low_occ_ratio": 0.0
     }
   ],
   "rejected": [],
   "samples": [
     [
-      "members_page-4",
-      "projects_WDEMS_plde",
-      "projects_past-projects_page",
-      "projects_eventgo",
-      "projects_WDEMS"
-    ],
-    [
-      "news_研討會",
-      "publication",
-      "members_page-4",
-      "news_碩論口試_widm-2021-master-thesis-oral-defense",
-      "news_校內奬項_hezhangjiahuilaoshizhidaoxueshengyu103xueniandudiqijiedaxuebuzhuantizhizuojingsaironghuojiazuo"
-    ],
-    [
-      "news_碩論口試_widmlabtutorial2016",
-      "members",
-      "projects_WDEMS_unsupervisedpage-levelwrapperinduction",
-      "projects_storychatbot",
-      "news"
-    ],
-    [
-      "news_碩論口試_widmlabtutorial2016",
-      "news_校外奬項_賀邱威誠同學獲科技部108年度產學合作計畫成果發表暨績效考評會產學成果海報展示優良獎",
-      "projects_past-projects_page-1",
-      "projects_past-projects__draft_post-1",
-      "news_校外奬項_賀-碩士在職專班學生廖勳-榮獲tanet-2021佳作論文奬"
-    ],
-    [
-      "projects_past-projects_wifipass",
-      "news_校內奬項",
-      "members",
       "members_letter-to-potential-students",
-      "projects"
+      "news_碩論口試_widm-2020-master-thesis-oral-defense",
+      "projects_web-ner-tool_ds4ner",
+      "projects_web-ner-tool",
+      "news_校外奬項_page-1"
+    ],
+    [
+      "labintro",
+      "news_校外奬項_page",
+      "news_國科會大專生專題研究計畫",
+      "projects_WDEMS_efficientandscalablewebdataextractionforannotation-freefullschemainduction",
+      "projects_past-projects_page"
+    ],
+    [
+      "news_校外奬項_page-1",
+      "projects_past-projects_page",
+      "news_校內奬項_hezhangjiahuilaoshizhidaoxueshengyu103xueniandudiqijiedaxuebuzhuantizhizuojingsaironghuojiazuo",
+      "news_校外奬項",
+      "projects_WDEMS_plde"
+    ],
+    [
+      "news_校內奬項",
+      "news_碩論口試_widm-2020-master-thesis-oral-defense",
+      "projects_storychatbot",
+      "news_校外奬項_page-2",
+      "projects_WDEMS_efficientandscalablewebdataextractionforannotation-freefullschemainduction"
+    ],
+    [
+      "projects_WDEMS_dafis",
+      "projects_past-projects__draft_post-1",
+      "news_校內奬項",
+      "news",
+      "projects_past-projects_page"
     ]
   ],
   "runs": [
     [
       "Search this site",
       "Embedded Files",
+      "Skip to main content",
+      "Skip to navigation",
       "Google Sites",
       "Report abuse"
     ],
@@ -120,6 +122,8 @@
     [
       "Search this site",
       "Embedded Files",
+      "Skip to main content",
+      "Skip to navigation",
       "Google Sites",
       "Report abuse"
     ],
@@ -158,30 +162,30 @@
   ],
   "usages": [
     {
-      "prompt_tokens": 4527,
-      "completion_tokens": 107,
-      "cost_usd": 0.0012599999999999998
+      "prompt_tokens": 5526,
+      "completion_tokens": 84,
+      "cost_usd": 0.00148215
     },
     {
-      "prompt_tokens": 25257,
-      "completion_tokens": 94,
-      "cost_usd": 0.006426899999999999
+      "prompt_tokens": 6476,
+      "completion_tokens": 92,
+      "cost_usd": 0.0017292499999999999
     },
     {
-      "prompt_tokens": 7310,
-      "completion_tokens": 132,
-      "cost_usd": 0.0019857499999999997
-    },
-    {
-      "prompt_tokens": 2030,
+      "prompt_tokens": 5295,
       "completion_tokens": 81,
-      "cost_usd": 0.0006045499999999999
+      "cost_usd": 0.0014207999999999998
     },
     {
-      "prompt_tokens": 10420,
-      "completion_tokens": 89,
-      "cost_usd": 0.0027116499999999995
+      "prompt_tokens": 4229,
+      "completion_tokens": 138,
+      "cost_usd": 0.0012226999999999997
+    },
+    {
+      "prompt_tokens": 3196,
+      "completion_tokens": 84,
+      "cost_usd": 0.0008996499999999999
     }
   ],
-  "total_cost_usd": 0.012988849999999998
+  "total_cost_usd": 0.00675455
 }

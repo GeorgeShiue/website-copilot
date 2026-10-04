@@ -10,7 +10,47 @@ Finding activities to attend has been the prelude in our leisure time. Meanwhile
 
 ## Demo
 
-[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72tkpqE4NESV8Sawi6iUGYmlnEL34qD4SEGBLm3NE6SaDh9OxlTIxQ5Dnl4Wtg1V3Pf6BmRszYA5lOCVMt8flOE0is4yjIIRiWR7nlWVW5Th2U3mS-QMnlJdreVkmPNCUkMB3f9E3USqqBfRk5OjzCtPB_wuGT9A0fMKqEBt1oWrsBA51PpsCr0_07-1B8zLfZjwj2Of8ris=w1280)
+[Web Demonstration](https://eventgo.widm.csie.ncu.edu.tw/#/) [Download (Android)](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW) [![https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW](https://sites.google.com/sitesv-images-rt/AMxu72tUZNZoYsm2YuXC7DYbqFzr5A0d759AyrF0RgmgaZOt1dfuO9I7_Rm_PIgaOj1k005xQ0bIJjE4R3c8k0zoToeOLk944mE8SaQC_yyrXXUEvaUKh5zNVAxpdWkjQpHM6ail0Y0TOqJ5ZxlZeqtk-HQu06rCf2v8FipzifT_VqiZ8xtrK8DBNquR2tJv94WTnb9cr6QZQZGz=w1280)
+> # Image-1
+>
+> **圖片摘要：**  
+> EventGO! 應用程式頁面展示地圖定位與活動清單介面。
+> 
+> **主要元素：**  
+> 1. 實體: EventGO!, WIDM lab, 活動地圖, 活動清單, GPS定位  
+> 2. OCR文字:  
+> EventGO!  
+> WIDM lab　旅遊與地方資訊  
+> 3+  
+> 這個應用程式與您的所有裝置都相容。  
+> 13  
+> 加入願望清單  
+> 安裝  
+> WIDM  
+> 70  
+> 活動名稱/地名/地址...  
+> 抽獎  
+> 小潘包腳-淡水中正店【官方LINE網址】  
+> 4月30日(2017/04/30)～  
+> 淡水中正店  
+> 距離:11.69公里  
+> 透明美-醫師認證課程  
+> 2017/4/30 09:30 ~ 2017/4/30 13:00  
+> 透明美-[模糊]  
+> 距離:4.92公里  
+> 【不限金額票券抽獎活動】麻吉時光機  
+> —第二波開獎日  
+> 2017/4/30 13:00 ~ 2017/4/30 14:00  
+> MAJI 麻吉行囊  
+> 距離:4.5公里  
+> 您只要開啟GPS定位功能，即可透過活動或地名關鍵字，查詢近期與舉辦的相關活動  
+> 一旦您中意某一項活動，EventGO!能連結手機行事曆，幫助您輕鬆地將活動資訊儲存下來  
+> 同時，EventGO!也結合導航功能，讓您即使在人生地不熟的外地，也能安心抵達活動地點  
+> 只要透過EventGO!，就能將所有活動一手掌握！  
+> 3. 主題標籤: EventGO!, 旅遊與地方資訊, GPS定位, 活動查詢, 手機行事曆
+> 
+> **頁面關聯：**  
+> EventGO! 應用程式商店頁面，WIDM lab 旅遊與地方資訊
 ](https://play.google.com/store/apps/details?id=com.widmlab.eventgo&hl=zh_TW)
 
 ## Publication
