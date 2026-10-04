@@ -26,7 +26,7 @@
 
 - `src/website_copilot/config/base_config.py`：`ConfigModel`、`BaseModuleConfig`、`NonEmptyStr`。
 - `src/website_copilot/config/yaml_helper.py`：讀取 YAML 並展開 `extends`（`load_config_dict`、`deep_merge`）。
-- `src/website_copilot/config/prompts.py`：長字串預設值（圖片摘要 prompt、agent system prompt）。
+- `src/website_copilot/config/prompts.py`：長字串預設值（VLM 圖片摘要 prompt、agent system prompt）。
 - `src/website_copilot/config/overrides.py`：由 config class 自動產生 CLI 覆寫參數（見 cli.md）。
 
 模型結構：
@@ -194,7 +194,7 @@ save_run_config() 會把 run dataclass 的所有欄位寫成 YAML（`None` 為 `
   - `run_website_crawler`、`run_augmenter`、`run_rag_build`
   - `run_agent_build`、`run_agent_query`
 
-- `tests/integration/test_pipeline.py` 會執行 `run_prepare(PrepareRunConfig(config_name="test", publish=False))`（只存到 `runs/`，RAG 以 `runs/` 中本次的圖片摘要結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
+- `tests/integration/test_pipeline.py` 會執行 `run_prepare(PrepareRunConfig(config_name="test", publish=False))`（只存到 `runs/`，RAG 以 `runs/` 中本次的 augmenter 結果建庫，不寫入 `data/`），並以 `run_agent_build` + `run_server_build` 啟動後自動關閉 server。
 
 ## 六、結論
 

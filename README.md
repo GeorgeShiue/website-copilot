@@ -165,19 +165,19 @@ cp .env.example .env        # 填入 API 金鑰
 
 | 階段 | 入口 | 職責 |
 |---|---|---|
-| Prepare | `website-copilot prepare` | 網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 `data/` |
+| Prepare | `website-copilot prepare` | 網站爬蟲 → augmenter（圖片摘要、網站文件轉 Markdown）→ RAG 建置，結果 publish 到 `data/` |
 | Serve | `website-copilot serve` | 啟動 Chat 伺服器，只讀取 `data/vector_db/<site_id>.db`，不做任何建置（不需要 `data/aug_webpages/`） |
 
 兩階段唯一的介面是 `data/` 目錄：站點只有在 prepare 成功 publish 向量庫後，才會出現在 server 的可用知識庫中。
 
-### Prepare：爬取、圖片摘要與 RAG 建置
+### Prepare：爬取、擴充（圖片與文件）與 RAG 建置
 
 ```bash
 uv run website-copilot prepare ncucsie                 # 站點為必填的位置參數
 uv run website-copilot prepare nculab --run.config test --run.no-publish
 ```
 
-站點（位置參數）決定爬取範圍與 `data/` 下的資料夾，`--run.config` 決定各階段使用的模組設定（預設 `default`，即 class 預設值）。這會依序執行網站爬蟲、圖片摘要、RAG 建置，並發布到 `data/`；加上 `--run.no-publish` 則只存到 `runs/`、不寫入 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
+站點（位置參數）決定爬取範圍與 `data/` 下的資料夾，`--run.config` 決定各階段使用的模組設定（預設 `default`，即 class 預設值）。這會依序執行網站爬蟲、augmenter（圖片摘要與網站文件處理）、RAG 建置，並發布到 `data/`；加上 `--run.no-publish` 則只存到 `runs/`、不寫入 `data/`。重新 prepare 後需重啟 server 才會載入新的向量庫。
 
 各階段也可以單獨執行（`website-copilot run <module>`）：
 
@@ -267,7 +267,7 @@ uv run pytest tests/integration -m "not cost and not network and not heavy"   # 
 - `collections/chunks/…` — Milvus Lite 向量儲存（`indexes/` 為載入時產生的可重建索引，已被 `.gitignore` 忽略）
 - `meta/` — 建庫的 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`，與向量庫同一次原子替換
 
-發布到 `data/` 的爬蟲與圖片摘要結果（`data/raw_webpages/<site_id>/`、`data/aug_webpages/<site_id>/`）同樣附有 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`。即使 publish 模式不寫 `runs/`（`prepare` 預設），日誌也會保留。
+發布到 `data/` 的爬蟲與 augmenter 結果（`data/raw_webpages/<site_id>/`、`data/aug_webpages/<site_id>/`）同樣附有 `module_config.yml`／`site_config.yml`／`run_config.yml`／`terminal.log`。即使 publish 模式不寫 `runs/`（`prepare` 預設），日誌也會保留。
 
 `run_rag_build` 絕不直接寫入 `data/vector_db/<site_id>.db`，只透過 publish 原子替換（先放 `<site_id>.db.tmp`、寫入 `meta/`，再 rename 取代舊版），因此執行中的 server 不會讀到建到一半的向量庫，建庫失敗時舊版也完整保留。建庫位置依 `save`／`publish` 而定：
 
@@ -306,7 +306,7 @@ Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot ser
 - `docs/project.md` — 專案總覽、階段規劃與路線圖
 - `docs/code/phase1/phase1.md` — Phase 1 實作概覽與已知問題
 - `docs/code/phase1/modules/data_collect.md` — 爬蟲模組說明
-- `docs/code/phase1/modules/data_preprocess.md` — 圖片摘要模組說明
+- `docs/code/phase1/modules/data_preprocess.md` — augmenter（圖片摘要、文件處理）模組說明
 - `docs/code/phase1/modules/data_retrieve.md` — RAG 檢索模組說明
 - `docs/code/phase2_3_mvp/phase2_3_mvp.md` — Phase 2/3 實作概覽
 - `docs/code/phase2_3_mvp/modules/agent.md` — Agent 模組說明
@@ -324,7 +324,8 @@ Agent 對話落盤於 `runs/<timestamp>/server/<config>/`（`website-copilot ser
 
 - 網站爬取、Markdown 清理與頁面類型分類
 - HTML 日期擷取（JSON-LD → OG → `<time>` → Generic meta → Dublin Core → HTTP Last-Modified）
-- 圖片摘要與快取/重試邏輯
+- 圖片摘要（小圖略過、內容去重）與快取/整輪重試邏輯
+- 網站文件（PDF／docx／doc／odt）轉 Markdown 成為獨立條目（含內嵌圖片描述），原檔隨 `data/aug_webpages/<site_id>/files/` 發布
 - 本地向量檢索（Milvus BGE-M3）
 - 稠密 + 稀疏混合檢索（WeightedRanker / RRFRanker）
 - Metadata 頁面類型過濾

@@ -1,8 +1,13 @@
 """Augmenter：篩選 → 下載 → 解析 → 回寫。
 
-首版只處理頁面圖片：ImageCollector 跨頁收集不重複的圖片，共用下載器整批下載，ImageCaptioner
-整批呼叫 VLM，描述內嵌回各頁的 enhanced_markdown 與 images[].caption。成功率低於門檻時
-（懷疑被封鎖或限流）依指數退避整輪重做可恢復的失敗項目。
+處理兩種資源，在同一輪內依序進行：
+1. 下載：頁面圖片與文件各自整批下載（共用下載器、跨頁共用並行上限）；
+2. 解析文件（DocumentStage）：文件轉 Markdown，並抽出文件內嵌圖片成為新的圖片資源；
+3. 圖片描述：頁面圖片與文件內嵌圖片一起整批呼叫 VLM（ImageCaptioner），共用小圖門檻與內容去重；
+4. 回寫：頁面圖片的描述內嵌回各頁的 enhanced_markdown 與 images[].caption；文件成為 results 的
+   獨立 entry（描述取代其內文的圖片佔位符），原檔見 document_files。
+成功率（圖片與文件合併、以不重複資源計算）低於門檻時（懷疑被封鎖或限流），依指數退避整輪
+重做可恢復的失敗項目。
 """
 
 import logging

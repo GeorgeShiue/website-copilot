@@ -1,4 +1,4 @@
-"""`website-copilot run <module>`：單模組執行（爬蟲／圖片摘要／RAG 建置／RAG 查詢／Agent）。
+"""`website-copilot run <module>`：單模組執行（爬蟲／augmenter／RAG 建置／RAG 查詢／Agent）。
 
 `--run.*` 為執行參數（RunConfig）；`--module.*` 為 module config 的覆寫值，由
 `make_overrides_model()` 從各 module config 自動產生，巢狀結構與設定檔相同，如

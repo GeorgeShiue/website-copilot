@@ -66,7 +66,7 @@ class PrepareRunConfig:
     """Prepare 階段（website-copilot prepare）的執行參數；site 與 config_name 同時決定各階段的設定。
 
     publish=True 時各階段結果 publish 到 data/（不存 runs/）；False（`--run.no-publish`）時
-    只存到 runs/，RAG 以 runs/ 中本次的圖片摘要結果建庫。
+    只存到 runs/，RAG 以 runs/ 中本次的augmenter 結果建庫。
     """
 
     site: Site

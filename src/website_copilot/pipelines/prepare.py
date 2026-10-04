@@ -1,4 +1,4 @@
-"""Prepare 階段 workflow：網站爬蟲 → 圖片摘要 → RAG 建置，結果 publish 到 data/。
+"""Prepare 階段 workflow：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置，結果 publish 到 data/。
 
 只依賴爬蟲／VLM／RAG 建置相關模組，不 import agent 與 server。
 """
@@ -166,7 +166,7 @@ def run_augmenter(
     overrides: dict[str, Any] | None = None,
     crawl_results: dict[str, dict] | None = None,
 ) -> dict[str, dict] | None:
-    """執行網頁圖片摘要工作流程。
+    """執行 augmenter 工作流程：頁面圖片摘要，以及網站連結的文件（轉 Markdown、含內嵌圖片摘要）。
 
     Args:
         run_config: 執行參數（site 對應 configs/sites/{site}.yml；config_name 對應
@@ -175,7 +175,7 @@ def run_augmenter(
         crawl_results: 爬取結果 dict（可選，None 時載入 runs/ 中同站點最新的爬蟲結果）。
 
     Returns:
-        增強後的爬取結果 dict | None。
+        增強後的爬取結果 dict（含文件的獨立 entry）| None。
     """
     # ----- 初始化設定和路徑 -----
     save, publish = run_config.save, run_config.publish
@@ -296,7 +296,7 @@ def run_rag_build(
 
     run_config.site 對應 configs/sites/{site}.yml、config_name 對應 configs/rag/{name}.yml；
     overrides 為 RAGConfig 的巢狀覆寫值。建庫資料來源預設為 data/aug_webpages/{site_id}，
-    run_config.use_latest_results 為 True 時改用 runs/ 中同站點最新的圖片摘要結果。
+    run_config.use_latest_results 為 True 時改用 runs/ 中同站點最新的 augmenter 結果。
 
     一律重建向量庫，不受既有向量庫是否存在影響；建庫絕不直接寫入
     data/vector_db/{site_id}.db，只透過 publish 原子替換（設定紀錄放在其中的 meta/，一起替換）。
@@ -380,7 +380,7 @@ def run_rag_build(
 
 
 def run_prepare(run_config: PrepareRunConfig) -> None:
-    """執行完整 prepare 階段：網站爬蟲 → 圖片摘要 → RAG 建置。
+    """執行完整 prepare 階段：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置。
 
     與 serve 階段以 data/ 目錄為唯一介面：本階段負責寫入，serve 階段只讀取已 publish
     的向量庫。任一階段無產出時提前結束；結束時印出各階段耗時與花費摘要。
@@ -389,7 +389,7 @@ def run_prepare(run_config: PrepareRunConfig) -> None:
         run_config: site 與 config_name 為各階段共用的站點與 config 名稱（對應
             configs/sites/{site}.yml 與 configs/{module}/{name}.yml）；
             publish=True 時各階段結果 publish 到 data/（不存 runs/）；False 時只存到
-            runs/，不寫入 data/，RAG 以 runs/ 中本次的圖片摘要結果建庫（供測試使用）。
+            runs/，不寫入 data/，RAG 以 runs/ 中本次的 augmenter 結果建庫（供測試使用）。
     """
     reset_run_summary()
     site = run_config.site

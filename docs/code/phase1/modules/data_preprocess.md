@@ -1,7 +1,7 @@
-# 圖片處理
+# 資料擴充（圖片與文件）
 
 ## 模組總覽
-此模組以 **VLM** 為網頁中的每張圖片生成結構化說明，並將結果附加到對應頁面的 Markdown 末尾。流程為整批處理：先從所有頁面收集圖片來源（跨頁去重，並過濾 VLM 不支援的格式），再整批下載、整批摘要，成功率過低時整輪重試，最後把說明寫回各頁的 `enhanced_markdown` 與 `images[].caption`，並輸出統計資訊。
+此模組（augmenter）處理兩種資源：以 **VLM** 為網頁中的每張圖片生成結構化說明並寫回頁面的 Markdown；網站連結的文件（PDF／docx／doc／odt）轉成 Markdown，成為獨立的知識庫條目，文件內嵌的圖片同樣交給 VLM 描述。圖片流程為整批處理：先從所有頁面收集圖片來源（跨頁去重，並過濾 VLM 不支援的格式），再整批下載、整批摘要，成功率過低時整輪重試，最後把說明寫回各頁的 `enhanced_markdown` 與 `images[].caption`，並輸出統計資訊。
 
 - **模組實作**
 	- `src/website_copilot/ingestion/augmentation/augmenter.py`（主流程：串起篩選 → 下載 → 解析 → 回寫，負責**快取**、**重試**、**統計**與 **Markdown 增強**）
