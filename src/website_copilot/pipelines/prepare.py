@@ -108,6 +108,7 @@ def run_website_crawler(
                 url_patterns=site.crawl.url_patterns,
                 allowed_domains=site.crawl.allowed_domains,
                 path_prefix=site.crawl.path_prefix,
+                document_url_patterns=site.documents.url_patterns,
             )
 
             # ----- 輸出完成訊息 -----

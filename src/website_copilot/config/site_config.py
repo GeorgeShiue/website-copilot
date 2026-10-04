@@ -45,6 +45,14 @@ class SiteCrawlConfig(ConfigModel):
         return value
 
 
+class SiteDocumentsConfig(ConfigModel):
+    url_patterns: list[NonEmptyStr] = Field(
+        default_factory=list,
+        description="站點專屬的文件 URL 樣式（glob，如無副檔名的下載 API）；"
+        "與通用副檔名一同被爬蟲排除、被文件收集器辨識",
+    )
+
+
 class SiteConfig(LoadedConfigModel):
     """站點身分：site_id 同時作為 data/ 與 runs/ 的資料夾名稱及 Milvus collection 名稱。"""
 
@@ -55,6 +63,7 @@ class SiteConfig(LoadedConfigModel):
         default=None, description="rag-query 未指定 --run.query 時使用的查詢"
     )
     crawl: SiteCrawlConfig
+    documents: SiteDocumentsConfig = Field(default_factory=SiteDocumentsConfig)
 
     @field_validator("site_id")
     @classmethod

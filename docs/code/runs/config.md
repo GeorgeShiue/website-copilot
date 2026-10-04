@@ -42,6 +42,7 @@
 - `site_id`：須與檔名一致，格式 `^[A-Za-z_][A-Za-z0-9_]*$`（同時作為 `data/`、`runs/` 的資料夾名稱與 Milvus collection 名稱）。
 - `sample_query`：`rag-query` 未指定 `--run.query` 時使用。
 - `crawl`：`url`（必填）、`url_patterns`、`allowed_domains`（list，null 為不過濾）、`path_prefix`（需以 `/` 開頭，null 時取起始網址的父路徑）。
+- `documents.url_patterns`：站點專屬的文件 URL 樣式（glob，預設 `[]`）。與通用副檔名常數（`utils/document_rules.py`）一同使 `WebsiteCrawler` 的 FilterChain 排除文件 URL。
 - `from_yaml(site_id)` 共用模組 config 的 YAML loader（支援 extends）；找不到站點時列出可用站點。每次執行另存 `site_config.yml`（runs/ 與 data/）。
 - 單欄位約束以型別與 `Field` 表達（`PositiveInt`、`Literal`、`Field(ge=, le=)` 等）；非空字串使用 `NonEmptyStr`（只檢查不改寫，prompt 的前後換行原樣保留）。
 - 跨欄位規則以 `model_validator` 實作：`nodes.chunk_overlap < nodes.chunk_size`；`hybrid_ranker_params` 有設定時，`WeightedRanker` 必須有 `weights`（長度 2）且不可有 `k`，`RRFRanker` 必須有 `k` 且不可有 `weights`。

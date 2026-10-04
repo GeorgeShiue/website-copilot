@@ -25,6 +25,7 @@ from website_copilot.ingestion.crawling.html_date_extractor import (
 )
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.schemas import GenerationResult
+from website_copilot.utils.document_rules import DOCUMENT_EXTENSION_PATTERN
 from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN, clean_description
 from website_copilot.utils.log_helper import log_session, print_log, record_cost
 
@@ -65,6 +66,7 @@ class WebsiteCrawler:
         self.url_patterns: list[str] | None = None
         self.allowed_domains: list[str] | None = None
         self.path_prefix: str = "/"
+        self.document_url_patterns: list[str] = []
 
         # ===== internal state =====
         self._crawl_stats: dict[str, int] = self._new_crawl_stats()
@@ -78,14 +80,18 @@ class WebsiteCrawler:
         url_patterns: list[str] | None,
         allowed_domains: list[str] | None,
         path_prefix: str | None,
+        document_url_patterns: list[str] | None = None,
     ) -> dict[str, dict] | None:
         """執行完整網站爬取流程並將結果過濾後輸出為 Markdown 檔案。
 
         url_patterns／allowed_domains 為 None 時不過濾；path_prefix 為 None 時取起始 URL 的父路徑。
+        文件 URL（通用副檔名 + document_url_patterns）不進入 BFS：瀏覽器導航會觸發下載而失敗，
+        文件改由 augmenter 處理。
         """
         self.url = url
         self.url_patterns = url_patterns
         self.allowed_domains = allowed_domains
+        self.document_url_patterns = list(document_url_patterns or [])
         self.generation_result = None
         self._crawl_stats = self._new_crawl_stats()
 
@@ -133,14 +139,7 @@ class WebsiteCrawler:
             threshold=self.content_threshold,
         )
 
-        filters: list[URLFilter] = []
-        if self.url_patterns is not None:
-            # URLPatternFilter 的參數型別為 list[str | Pattern]（list 不變性，需轉型）
-            patterns: list[str | re.Pattern] = list(self.url_patterns)
-            filters.append(URLPatternFilter(patterns=patterns))
-        if self.allowed_domains is not None:
-            filters.append(DomainFilter(allowed_domains=self.allowed_domains))
-        filter_chain = FilterChain(filters)
+        filter_chain = self._build_filter_chain()
 
         strategy_kwargs: dict[str, Any] = {"filter_chain": filter_chain}
         if self.max_depth is not None:
@@ -165,6 +164,24 @@ class WebsiteCrawler:
 
         return results
 
+    def _build_filter_chain(self) -> FilterChain:
+        """BFS 的 URL 過濾：先排除文件 URL，再套用站點的 url_patterns／allowed_domains。"""
+        # 排除文件 URL（reverse：符合者不通過）；副檔名規則為不分大小寫的 regex
+        document_patterns: list[str | re.Pattern] = [
+            DOCUMENT_EXTENSION_PATTERN,
+            *self.document_url_patterns,
+        ]
+        filters: list[URLFilter] = [
+            URLPatternFilter(patterns=document_patterns, reverse=True)
+        ]
+        if self.url_patterns is not None:
+            # URLPatternFilter 的參數型別為 list[str | Pattern]（list 不變性，需轉型）
+            patterns: list[str | re.Pattern] = list(self.url_patterns)
+            filters.append(URLPatternFilter(patterns=patterns))
+        if self.allowed_domains is not None:
+            filters.append(DomainFilter(allowed_domains=self.allowed_domains))
+        return FilterChain(filters)
+
     def _filter_crawl_results(
         self,
         crawl_results: list,
@@ -180,6 +197,14 @@ class WebsiteCrawler:
                 self._crawl_stats["error_404"] += 1
                 logger.info(
                     f"Skip {unquote(crawl_result.url)} (error: status code 404)"
+                )
+                continue
+
+            if not crawl_result.success:
+                self._crawl_stats["error_failed"] += 1
+                logger.info(
+                    f"Skip {unquote(crawl_result.url)} "
+                    f"(error: {crawl_result.error_message or 'crawl failed'})"
                 )
                 continue
 
@@ -314,6 +339,7 @@ class WebsiteCrawler:
         return {
             "success_pages": 0,
             "error_404": 0,
+            "error_failed": 0,
             "error_no_markdown": 0,
             "repeat_pages": 0,
         }

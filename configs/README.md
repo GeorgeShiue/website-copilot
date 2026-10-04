@@ -34,6 +34,8 @@ crawl:
   url_patterns: ["*csie.ncu.edu.tw*"]   # null 為不過濾
   allowed_domains: [www.csie.ncu.edu.tw] # null 為不限制
   path_prefix: /                        # null 時取起始網址的父路徑
+documents:                              # 選填
+  url_patterns: ["*Action=downloadfile*"] # 站點專屬的文件 URL 樣式（glob，如無副檔名的下載 API）；預設 []
 ```
 
 `site_id` 同時決定 `data/{category}/{site_id}/`、`runs/<ts>/<module>/{site_id}/` 與向量庫的 collection 名稱。每次執行會把站點設定另存為 `site_config.yml`（runs/ 與 data/ 皆有）。
