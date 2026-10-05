@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph P["Prepare（離線建庫）"]
+        direction LR
+        A[爬蟲<br/>自動清理] --> B[Augmenter<br/>文件・圖片]
+        B --> C[RAG 建庫<br/>切塊・embedding]
+    end
+    D[("data/<br/>aug_webpages<br/>vector_db")]
+    subgraph S["Serve（線上問答，唯讀）"]
+        direction LR
+        E[檢索<br/>依站點載入] --> F[Agent<br/>路由知識庫] --> G[Chat Server<br/>/api/chat]
+    end
+    C -- publish --> D -- 讀取 --> E
+    style B fill:#fde68a,stroke:#d97706,stroke-width:2px

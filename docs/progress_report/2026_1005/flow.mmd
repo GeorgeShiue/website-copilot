@@ -1,0 +1,8 @@
+flowchart LR
+    A[蒐集頁面<br/>文件連結] --> C[共用下載器<br/>httpx]
+    C --> D{依內容<br/>判斷格式}
+    D -->|docx / doc / odt| E[anydoc]
+    D -->|pdf| F[Docling]
+    E --> G[頁面/文件內圖片<br/>VLM caption]
+    F --> G
+    G --> H[獨立條目<br/>RAG 建庫]
