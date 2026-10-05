@@ -43,9 +43,9 @@ website-copilot = "website_copilot.cli:main"
 
 [dependency-groups]
 dev = [
-    "prek>=0.3.5",
-    "pyright>=1.1.408",
-    "pytest>=9.0.2",
+    "prek>=0.5.5",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
     "ruff>=0.15.4",
 ]
 
