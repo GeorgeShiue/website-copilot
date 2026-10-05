@@ -197,7 +197,7 @@ class WebpageMarkdownCleaner:
                 words, raw_words, usage = self._propose_words(samples)
             except ExcludeWordsGenerationError:
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 -- LLM 呼叫可能因多種原因失敗；單次失敗僅記錄並進入下一輪
                 logger.warning(
                     "exclude_words run %d/%d failed: %s", i + 1, self.repeat, e
                 )
@@ -347,7 +347,7 @@ class WebpageMarkdownCleaner:
         prompt = PROMPT.format(pages=pages_text)
         try:
             est_tokens = token_counter(model=self.model, text=prompt)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- token_counter 失敗時刻意降級為字數估計
             est_tokens = len(prompt) // 2  # 保守估計
         logger.debug("prompt ≈ %d tokens（%d 頁）", est_tokens, len(samples))
         if est_tokens > self.max_prompt_tokens:

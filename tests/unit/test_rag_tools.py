@@ -407,9 +407,11 @@ class TestVectorStoreRunTarget:
 def test_load_rag_never_builds_and_reports_missing_store(tmp_path: Path) -> None:
     """load_rag 向量庫不存在時報錯（不退回重建），提示先 prepare。"""
     target = RAGTarget("nculab", str(tmp_path / "web"), str(tmp_path / "milvus.db"))
-    with patch("website_copilot.retrieval.factory.IndexBuilder") as index_builder:
-        with pytest.raises(FileNotFoundError, match="prepare"):
-            load_rag(RAGConfig(), target, build_query_engine=True)
+    with (
+        patch("website_copilot.retrieval.factory.IndexBuilder") as index_builder,
+        pytest.raises(FileNotFoundError, match="prepare"),
+    ):
+        load_rag(RAGConfig(), target, build_query_engine=True)
     index_builder.assert_not_called()
 
 

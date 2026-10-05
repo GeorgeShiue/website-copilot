@@ -625,8 +625,8 @@ class Augmenter:
         table.add_column("Metric", style="green", no_wrap=True)
         table.add_column("Value", style="white")
 
-        for key in stats:
-            value: int | float | str = stats[key]
+        for key, stat in stats.items():
+            value: int | float | str = stat
             if key == "cost_usd" and isinstance(value, (int, float)):
                 value = f"${value:.6f}"
             table.add_row(key, str(value))

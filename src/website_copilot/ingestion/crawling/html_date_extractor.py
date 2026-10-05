@@ -89,7 +89,7 @@ def _normalize_to_iso8601(date_str: str | None) -> str | None:
         return date_str[:10]
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+            return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")  # noqa: DTZ007 -- 只取日期字串，與時區無關
         except ValueError:
             continue
     return None

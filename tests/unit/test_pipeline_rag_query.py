@@ -64,7 +64,7 @@ def _run(run_config: RAGQueryRunConfig) -> None:
 def test_queries_published_vector_store_without_rebuild(mocks) -> None:
     _run(RAGQueryRunConfig(site="nculab", config_name="test"))
 
-    (config, target), kwargs = mocks["load_rag"].call_args
+    (_config, target), kwargs = mocks["load_rag"].call_args
     assert target == published_target("nculab")
     assert kwargs == {"build_query_engine": True}
     mocks["vs_run_target"].assert_not_called()
@@ -87,7 +87,7 @@ def test_vector_store_run_error_propagates(mocks) -> None:
 
 def test_does_not_build_or_publish(mocks) -> None:
     """rag-query 不經 build_rag／publish：模組中不再有建庫入口。"""
-    import website_copilot.pipelines.exp as exp
+    from website_copilot.pipelines import exp
 
     assert not hasattr(exp, "build_rag")
     _run(RAGQueryRunConfig(site="nculab", config_name="test"))

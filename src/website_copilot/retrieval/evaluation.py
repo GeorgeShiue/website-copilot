@@ -1,7 +1,8 @@
 """RAG 評估（Faithfulness / Relevancy）：Prompt 模板與結果序列化。"""
 
 import logging
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from llama_index.core.base.response.schema import Response
 from llama_index.core.evaluation import FaithfulnessEvaluator, RelevancyEvaluator

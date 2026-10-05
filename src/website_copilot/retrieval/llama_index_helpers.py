@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.utils import truncate_text

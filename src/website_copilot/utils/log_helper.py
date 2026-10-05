@@ -206,7 +206,8 @@ def _setup_logging_file(log_file_path: str) -> None:
     _logging_path = log_file_path
 
     # 建立檔案輸出流
-    file_stream = open(log_file_path, "a", encoding="utf-8")
+    # 長期持有並接到 sys.stdout / sys.stderr，由 _disable_logging_file 關閉，不能用 with
+    file_stream = open(log_file_path, "a", encoding="utf-8")  # noqa: SIM115
 
     # 捕捉直接寫入 stdout / stderr 的訊息
     _tee_stream = _TeeStream(_stdout_original, file_stream)

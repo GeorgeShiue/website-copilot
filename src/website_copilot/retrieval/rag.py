@@ -1,5 +1,6 @@
 import gc
 import logging
+from types import TracebackType
 from typing import Any, Self
 
 from llama_index.core.base.response.schema import Response
@@ -48,7 +49,7 @@ class RAG:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: object | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.close()
 

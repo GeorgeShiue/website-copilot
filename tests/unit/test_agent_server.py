@@ -299,9 +299,11 @@ def test_chat_delegates_save_to_run_manager_with_agent_config():
     fake = _FakeAgent()
     run_manager = _FakeRunManager()
 
-    with _make_client(fake, run_manager) as client:
-        with client.stream("POST", "/api/chat", json={"query": "Q"}) as response:
-            _ = "".join(response.iter_text())
+    with (
+        _make_client(fake, run_manager) as client,
+        client.stream("POST", "/api/chat", json={"query": "Q"}) as response,
+    ):
+        _ = "".join(response.iter_text())
 
     assert run_manager.save_call_count == 1
     assert run_manager.saved_agent_config is fake.config
@@ -314,11 +316,13 @@ def test_chat_passes_given_thread_id_to_run_manager():
     """提供 thread_id 時原樣傳給 run_manager（分檔由 RunManager 負責）。"""
     run_manager = _FakeRunManager()
 
-    with _make_client(_FakeAgent(), run_manager) as client:
-        with client.stream(
+    with (
+        _make_client(_FakeAgent(), run_manager) as client,
+        client.stream(
             "POST", "/api/chat", json={"query": "Q", "thread_id": "demo-1"}
-        ) as response:
-            _ = "".join(response.iter_text())
+        ) as response,
+    ):
+        _ = "".join(response.iter_text())
 
     assert run_manager.saved_thread_id == "demo-1"
 
@@ -333,11 +337,13 @@ def test_chat_passes_given_thread_id_to_run_manager():
 def test_chat_sse_streams_tokens_and_done():
     fake = _FakeAgent()
     run_manager = _FakeRunManager()
-    with _make_client(fake, run_manager) as client:
-        with client.stream("POST", "/api/chat", json={"query": "你好"}) as response:
-            assert response.status_code == 200
-            assert response.headers["content-type"].startswith("text/event-stream")
-            body = "".join(response.iter_text())
+    with (
+        _make_client(fake, run_manager) as client,
+        client.stream("POST", "/api/chat", json={"query": "你好"}) as response,
+    ):
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        body = "".join(response.iter_text())
 
     events = _parse_events(body)
     assert [event["type"] for event in events] == ["token", "token", "done"]
@@ -359,20 +365,24 @@ def test_chat_sse_streams_tokens_and_done():
 
 
 def test_chat_thread_id_echo():
-    with _make_client(_FakeAgent()) as client:
-        with client.stream(
+    with (
+        _make_client(_FakeAgent()) as client,
+        client.stream(
             "POST", "/api/chat", json={"query": "你好", "thread_id": "demo"}
-        ) as response:
-            body = "".join(response.iter_text())
+        ) as response,
+    ):
+        body = "".join(response.iter_text())
 
     done = _parse_events(body)[-1]
     assert done["thread_id"] == "demo"
 
 
 def test_chat_error_event_on_stream_failure():
-    with _make_client(_FakeAgent(graph=_FailingGraph())) as client:
-        with client.stream("POST", "/api/chat", json={"query": "你好"}) as response:
-            body = "".join(response.iter_text())
+    with (
+        _make_client(_FakeAgent(graph=_FailingGraph())) as client,
+        client.stream("POST", "/api/chat", json={"query": "你好"}) as response,
+    ):
+        body = "".join(response.iter_text())
 
     events = _parse_events(body)
     assert len(events) == 1
@@ -381,9 +391,11 @@ def test_chat_error_event_on_stream_failure():
 
 
 def test_chat_empty_query_returns_error_event():
-    with _make_client(_FakeAgent()) as client:
-        with client.stream("POST", "/api/chat", json={"query": "   "}) as response:
-            body = "".join(response.iter_text())
+    with (
+        _make_client(_FakeAgent()) as client,
+        client.stream("POST", "/api/chat", json={"query": "   "}) as response,
+    ):
+        body = "".join(response.iter_text())
 
     events = _parse_events(body)
     assert len(events) == 1
@@ -418,12 +430,14 @@ def test_chat_page_url_routed_to_enriched_query():
     """page_url 帶入後，_event_stream 使用 enriched_query 呼叫 agent。"""
     graph = _FakeGraph()
     fake = _FakeAgent(graph=graph)
-    with _make_client(fake) as client:
-        with client.stream(
+    with (
+        _make_client(fake) as client,
+        client.stream(
             "POST",
             "/api/chat",
             json={"query": "成員", "page_url": "nculab.csie.ncu.edu.tw"},
-        ) as response:
-            body = "".join(response.iter_text())
+        ) as response,
+    ):
+        body = "".join(response.iter_text())
     events = _parse_events(body)
     assert events[-1]["type"] == "done"

@@ -14,7 +14,8 @@ agent 層因此不需知道 workflow 層。
 """
 
 import time
-from typing import Any, AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 from langchain.agents import create_agent as langchain_create_agent
 from langgraph.checkpoint.memory import InMemorySaver

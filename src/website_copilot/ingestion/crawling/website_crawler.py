@@ -26,8 +26,8 @@ from website_copilot.ingestion.crawling.html_date_extractor import (
 from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
 from website_copilot.schemas import GenerationResult
 from website_copilot.utils.document_rules import DOCUMENT_EXTENSION_PATTERN
-from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN, clean_description
 from website_copilot.utils.log_helper import log_session, print_log, record_cost
+from website_copilot.utils.text_helper import MARKDOWN_IMAGE_PATTERN, clean_description
 
 logger = logging.getLogger(__name__)
 
@@ -349,8 +349,8 @@ class WebsiteCrawler:
         """包裝 pipeline 步驟，失敗時記錄錯誤並回傳 None。"""
         try:
             return fn()
-        except Exception as e:
-            logger.error("Error during %s: %s", label, e, exc_info=True)
+        except Exception:
+            logger.exception("Error during %s", label)
             return None
 
     @staticmethod
@@ -360,7 +360,7 @@ class WebsiteCrawler:
         table = Table(show_header=True, header_style="bold green")
         table.add_column("Metric", style="green", no_wrap=True)
         table.add_column("Value", style="white")
-        for key in stats:
-            table.add_row(key, str(stats[key]))
+        for key, value in stats.items():
+            table.add_row(key, str(value))
 
         print_log(table)

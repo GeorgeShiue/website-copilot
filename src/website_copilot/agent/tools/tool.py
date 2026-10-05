@@ -1,8 +1,8 @@
 from langchain_core.tools import StructuredTool
 
-from website_copilot.retrieval.registry import RAGRegistry
 from website_copilot.agent.tools.site_discovery import create_site_discovery_tool
 from website_copilot.agent.tools.webpage_retriever import create_webpage_retriever_tool
+from website_copilot.retrieval.registry import RAGRegistry
 
 
 class Tool:

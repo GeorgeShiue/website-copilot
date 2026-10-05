@@ -145,14 +145,13 @@ class RunManager:
                 else:
                     path_value = str(path_obj)
                     status = "[green]created[/green]"
-            elif usage == "complete":
-                if path_key in run_path_complete:
-                    if not path_obj.exists():
-                        path_value = "..."
-                        status = "[red]not saved[/red]"
-                    else:
-                        path_value = str(path_obj)
-                        status = "[green]saved[/green]"
+            elif usage == "complete" and path_key in run_path_complete:
+                if not path_obj.exists():
+                    path_value = "..."
+                    status = "[red]not saved[/red]"
+                else:
+                    path_value = str(path_obj)
+                    status = "[green]saved[/green]"
 
             if path_value and status:
                 table.add_row(path_key, path_value, status)

@@ -46,7 +46,10 @@ def to_data_url(image: Any) -> str | None:
             with Image.open(io.BytesIO(content)) as converted:
                 buffer = io.BytesIO()
                 converted.convert("RGBA").save(buffer, format="PNG")
-        except Exception:
+        except Exception as e:  # noqa: BLE001 -- Pillow 轉檔失敗的例外型別繁多；統一降級為略過此圖
+            logger.warning(
+                "Image conversion to PNG failed (media_type=%s): %s", media_type, e
+            )
             return None
         media_type, content = "image/png", buffer.getvalue()
     return (

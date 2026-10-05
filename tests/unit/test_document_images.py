@@ -139,7 +139,7 @@ def test_pdf_pictures_are_encoded_in_placeholder_order(monkeypatch) -> None:
 def test_pdf_picture_count_mismatch_skips_images(monkeypatch) -> None:
     _converter_with(f"文字\n\n{PLACEHOLDER}\n", [], monkeypatch)
 
-    markdown, images = pdf_parser.pdf_to_markdown(PDF, extract_images=True)
+    _markdown, images = pdf_parser.pdf_to_markdown(PDF, extract_images=True)
 
     assert images == []
     assert parse_document(PDF, "pdf", extract_images=True).markdown == "文字"
@@ -234,7 +234,7 @@ def test_captions_replace_placeholders_in_document_markdown(monkeypatch, vlm) ->
     )
     web = FakeDownloader(contents={url: content})
 
-    augmenter, results = _run(web, {"p": _page(f"[報名]({url})")})
+    _augmenter, results = _run(web, {"p": _page(f"[報名]({url})")})
 
     entry = results[document_key(url)]
     assert entry["enhanced_markdown"] == (

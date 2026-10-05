@@ -15,7 +15,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from rich.table import Table
@@ -27,17 +27,17 @@ from website_copilot.ingestion.augmentation.document_format import (
     disposition_file_name,
     url_file_name,
 )
+from website_copilot.ingestion.augmentation.processors.document_parser import (
+    DocumentParseError,
+    ParsedDocument,
+    parse_document,
+)
 from website_copilot.ingestion.augmentation.processors.image_captioner import (
     caption_block,
 )
 from website_copilot.ingestion.augmentation.processors.images import (
     IMAGE_PLACEHOLDER_PATTERN,
     ParsedImage,
-)
-from website_copilot.ingestion.augmentation.processors.document_parser import (
-    DocumentParseError,
-    ParsedDocument,
-    parse_document,
 )
 from website_copilot.ingestion.augmentation.titles import (
     choose_title,
@@ -175,7 +175,7 @@ class DocumentStage:
             download_status="success",
             file_name=file_name,
             content_type=result.headers.get("content-type", "").split(";")[0].strip(),
-            downloaded_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            downloaded_at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
         if file_format is None or file_format not in self.options.formats:
             entry.skip_reason = f"format {file_format or 'unknown'} not enabled"
@@ -401,7 +401,7 @@ class DocumentStage:
             entry = self._entries.get(asset.url)
             if entry is not None and entry.download_status == "failed":
                 failed[asset.url] = (asset.first_page, entry.failure_reason)
-        for _, (asset, entry) in self._representatives().items():
+        for asset, entry in self._representatives().values():
             outcome = self._parsed.get(entry.content_sha1)
             if isinstance(outcome, DocumentParseError):
                 failed[asset.url] = (asset.first_page, f"parse failed: {outcome}")

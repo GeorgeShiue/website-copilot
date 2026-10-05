@@ -8,8 +8,8 @@
 """
 
 import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +27,6 @@ from website_copilot.ingestion.indexing.index import RAGTarget
 from website_copilot.pipelines.prepare import run_rag_build
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.run_manager import RunManager
-
 
 SITE = "nculab"
 

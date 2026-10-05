@@ -95,9 +95,9 @@ def test_single_run_failure_is_skipped_all_fail_raises():
     with (
         patch(f"{MOD}.completion", side_effect=RuntimeError("x")),
         patch(f"{MOD}.token_counter", return_value=100),
+        pytest.raises(ExcludeWordsGenerationError),
     ):
-        with pytest.raises(ExcludeWordsGenerationError):
-            cleaner.generate_exclude_words(PAGES)
+        cleaner.generate_exclude_words(PAGES)
 
 
 def test_prompt_over_limit_raises():
@@ -121,10 +121,10 @@ def test_propose_words_rejects_stream_response():
     with (
         patch(f"{MOD}.completion", return_value=object()),
         patch(f"{MOD}.token_counter", return_value=100),
+        pytest.raises(ExcludeWordsGenerationError),
     ):
         # 非 ModelResponse 視為單次失敗；唯一一次失敗 → 全部失敗
-        with pytest.raises(ExcludeWordsGenerationError):
-            cleaner.generate_exclude_words(PAGES)
+        cleaner.generate_exclude_words(PAGES)
 
 
 def test_validate_words_threshold_boundary():

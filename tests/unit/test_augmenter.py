@@ -290,7 +290,7 @@ def test_summarize_failure_is_recorded(fakes) -> None:
 
 def test_failed_resource_on_many_pages_is_downloaded_and_counted_once(fakes) -> None:
     """失敗資源跨多頁出現：只下載一次、只計一次失敗（記在第一個引用頁面，其餘為 cache_reuse）。"""
-    web, vlm, _ = fakes
+    web, _vlm, _ = fakes
     bad = "https://ex.com/bad.png"
     web.failures[bad] = 99
     crawl_results = {f"page{i}": _page(bad) for i in range(3)}

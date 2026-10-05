@@ -8,6 +8,8 @@
 import logging
 import os
 from collections import OrderedDict
+from types import TracebackType
+from typing import Self
 
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.retrieval.factory import load_rag, published_target
@@ -42,7 +44,7 @@ class RAGRegistry:
         self.config_name = config_name
         self._max_cached = max_cached
 
-    def __enter__(self) -> "RAGRegistry":
+    def __enter__(self) -> Self:
         """進入 context manager，回傳 self。"""
         return self
 
@@ -50,7 +52,7 @@ class RAGRegistry:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: object | None,
+        exc_tb: TracebackType | None,
     ) -> bool:
         """離開 context manager，釋放資源並傳播例外。"""
         self.close()

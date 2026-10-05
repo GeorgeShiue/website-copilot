@@ -1,7 +1,8 @@
 """建 node 時使用的 Markdown transformation（heading 合併、圖片與日期 metadata）。"""
 
 import re
-from typing import Any, ClassVar, Dict, List, Sequence
+from collections.abc import Sequence
+from typing import Any, ClassVar
 
 from llama_index.core.bridge.pydantic import Field
 from llama_index.core.extractors.interface import BaseExtractor
@@ -13,9 +14,9 @@ IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
 
 class MarkdownHeadingMergeParser(NodeParser):
-    def _merge_heading_only_nodes(self, nodes: Sequence[BaseNode]) -> List[BaseNode]:
-        merged_nodes: List[BaseNode] = []
-        pending_nodes: List[BaseNode] = []
+    def _merge_heading_only_nodes(self, nodes: Sequence[BaseNode]) -> list[BaseNode]:
+        merged_nodes: list[BaseNode] = []
+        pending_nodes: list[BaseNode] = []
 
         for node in nodes:
             if self._is_heading_only(node):
@@ -52,7 +53,7 @@ class MarkdownHeadingMergeParser(NodeParser):
         nodes: Sequence[BaseNode],
         show_progress: bool = False,
         **kwargs: Any,
-    ) -> List[BaseNode]:
+    ) -> list[BaseNode]:
         merged_nodes = self._merge_heading_only_nodes(nodes)
         return merged_nodes
 
@@ -69,7 +70,7 @@ class MarkdownImageExtractor(BaseExtractor):
     def class_name(cls) -> str:
         return "MarkdownImageExtractor"
 
-    async def aextract(self, nodes: Sequence[BaseNode]) -> List[Dict]:
+    async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
         """提取圖片元數據並清理節點內容。"""
         metadata_list = []
 
@@ -158,11 +159,11 @@ class MarkdownDateExtractor(BaseExtractor):
     def class_name(cls) -> str:
         return "MarkdownDateExtractor"
 
-    async def aextract(self, nodes: Sequence[BaseNode]) -> List[Dict]:
+    async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
         """對每個 node 執行日期萃取。"""
         return [self._extract_date(node) for node in nodes]
 
-    def _extract_date(self, node: BaseNode) -> Dict[str, Any]:
+    def _extract_date(self, node: BaseNode) -> dict[str, Any]:
         # --- Strategy 0: HTML metadata published_date 優先 ---
         published_date = node.metadata.get("published_date")
         if published_date:
@@ -216,7 +217,7 @@ class SourcePagesInjector(TransformComponent):
     的 metadata 長度超過 chunk size 而失敗，所以在切塊之後才寫入，並排除於 embedding 與 LLM 文字之外。
     """
 
-    source_pages_by_url: Dict[str, Any] = Field(default_factory=dict)
+    source_pages_by_url: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def class_name(cls) -> str:

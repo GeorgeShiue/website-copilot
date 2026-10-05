@@ -19,8 +19,8 @@ import yaml
 from pydantic import PositiveInt, ValidationError
 
 from website_copilot.config.agent_config import AgentConfig
-from website_copilot.config.base_config import BaseModuleConfig, ConfigModel
 from website_copilot.config.augmenter_config import AugmenterConfig
+from website_copilot.config.base_config import BaseModuleConfig, ConfigModel
 from website_copilot.config.prompts import AGENT_SYSTEM_PROMPT
 from website_copilot.config.rag_config import RAGConfig, RetrieverConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig

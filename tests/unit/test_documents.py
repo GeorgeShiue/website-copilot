@@ -496,7 +496,7 @@ def test_images_and_documents_share_one_retry_round(
     }
 
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    augmenter, results = _augment(web, crawl_results, images_enabled=True)
+    _augmenter, results = _augment(web, crawl_results, images_enabled=True)
 
     # 第一輪：成功 2（圖片 1 + 文件 1）、可恢復失敗 2 → 成功率 50% < 80% → 一起重試
     assert len(sleeps) == 1

@@ -48,7 +48,9 @@ def _get_converter() -> Any:
 
 def _pictures(document: Any) -> list[Any]:
     """文件中的圖片，依閱讀順序（與 Markdown 的佔位符順序相同）。"""
-    from docling_core.types.doc import PictureItem  # pyright: ignore[reportPrivateImportUsage]
+    from docling_core.types.doc import (
+        PictureItem,  # pyright: ignore[reportPrivateImportUsage]
+    )
 
     return [
         item
