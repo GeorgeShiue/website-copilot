@@ -77,14 +77,11 @@ extend-exclude = [
 exclude = ["*.md"]
 
 [tool.pyright]
-# docs/exp/memo/webpage_image_summarizer：針對舊版逐頁 ImageSummarizer 內部實作的實驗腳本（歷史紀錄），
-# P1c 重構後不再對應，不納入型別檢查
 exclude = [
     "**/node_modules",
     "**/__pycache__",
     ".venv",
     "**/.*",
-    "docs/exp/memo/webpage_image_summarizer",
 ]
 typeCheckingMode = "basic"
 deprecateTypingAliases = true
