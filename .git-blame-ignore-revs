@@ -1,0 +1,5 @@
+# 純排版整理的 commit，git blame 會略過（GitHub 自動採用此檔；本地可執行
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs）
+
+# style: sort class methods with undersort
+531d6133493caf76c93b58a88dbf23d6c8e858a6
