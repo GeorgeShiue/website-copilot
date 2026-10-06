@@ -145,6 +145,13 @@ class BaseModuleConfig(LoadedConfigModel):
         run_name = run_name.rstrip("_")
         return self._post_process_run_name(run_name)
 
+    def get_field(self, dotted_path: str) -> Any:
+        """以 dotted path（如 "init.max_depth"）取得巢狀欄位值。"""
+        value: Any = self
+        for part in dotted_path.split("."):
+            value = getattr(value, part)
+        return value
+
     @classmethod
     def from_yaml(
         cls,
@@ -172,12 +179,9 @@ class BaseModuleConfig(LoadedConfigModel):
         config._source = source
         return config
 
-    def get_field(self, dotted_path: str) -> Any:
-        """以 dotted path（如 "init.max_depth"）取得巢狀欄位值。"""
-        value: Any = self
-        for part in dotted_path.split("."):
-            value = getattr(value, part)
-        return value
+    def _post_process_run_name(self, run_name: str) -> str:
+        """子類可覆寫以自訂 run_name 的後處理邏輯。"""
+        return run_name
 
     @classmethod
     def _load(cls, config_name: str) -> tuple[dict[str, Any], str]:
@@ -209,7 +213,3 @@ class BaseModuleConfig(LoadedConfigModel):
                     f"{source}: {RUN_NAME_FIELDS_KEY}: 找不到欄位 {field_path}"
                 )
         return fields
-
-    def _post_process_run_name(self, run_name: str) -> str:
-        """子類可覆寫以自訂 run_name 的後處理邏輯。"""
-        return run_name

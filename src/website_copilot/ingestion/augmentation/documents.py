@@ -153,40 +153,6 @@ class DocumentStage:
         for url in urls:
             self._entries[url] = self._to_entry(url, results[url])
 
-    def _to_entry(self, url: str, result: DownloadResult) -> DocumentEntry:
-        if not result.ok:
-            reason = result.error or "download failed"
-            logger.warning("Document download failed - %s (url=%s)", reason, url)
-            return DocumentEntry(
-                download_status="failed",
-                failure_reason=reason,
-                recoverable=result.recoverable,
-            )
-
-        assert result.content is not None
-        file_format = detect_format(result.content, result.headers, result.final_url)
-        file_name = (
-            disposition_file_name(result.headers)
-            or url_file_name(result.final_url)
-            or url_file_name(url)
-            or ""
-        )
-        entry = DocumentEntry(
-            download_status="success",
-            file_name=file_name,
-            content_type=result.headers.get("content-type", "").split(";")[0].strip(),
-            downloaded_at=datetime.now(UTC).isoformat(timespec="seconds"),
-        )
-        if file_format is None or file_format not in self.options.formats:
-            entry.skip_reason = f"format {file_format or 'unknown'} not enabled"
-            logger.info("Document skipped (%s): %s", entry.skip_reason, url)
-            return entry
-
-        entry.file_format = file_format
-        entry.content = result.content
-        entry.content_sha1 = hashlib.sha1(result.content).hexdigest()
-        return entry
-
     # ===== 解析 =====
 
     def parse(self) -> list[Asset]:
@@ -230,36 +196,6 @@ class DocumentStage:
                 continue
             self._register_images(sha, outcome, new_images)
         return list(new_images.values())
-
-    def _register_images(
-        self, document_sha: str, outcome: ParsedDocument, new_images: dict[str, Asset]
-    ) -> None:
-        """把文件內嵌圖片登記為圖片資源（同一張圖只一個資源，引用處記錄所在文件）。"""
-        label = document_label(document_sha)
-        urls: list[str | None] = []
-        for index, image in enumerate(outcome.images, 1):
-            if image is None:
-                urls.append(None)
-                continue
-            url = "doc-image:" + hashlib.sha1(image.content).hexdigest()
-            urls.append(url)
-            if url not in self.image_contents:
-                self.image_contents[url] = image
-                new_images[url] = Asset(url=url, kind="image")
-            asset = new_images.get(url)
-            if asset is not None:
-                asset.refs.append(AssetRef(page_key=label, text=f"Image-{index}"))
-        self._image_urls[document_sha] = urls
-
-    def _representatives(self) -> dict[str, tuple[Asset, DocumentEntry]]:
-        """已下載且格式啟用的文件，依內容 sha1 分組後的代表（資源順序中的第一個）。"""
-        representatives: dict[str, tuple[Asset, DocumentEntry]] = {}
-        for asset in self.assets:
-            entry = self._entries.get(asset.url)
-            if entry is None or not entry.content_sha1:
-                continue
-            representatives.setdefault(entry.content_sha1, (asset, entry))
-        return representatives
 
     # ===== 本輪結果與重試 =====
 
@@ -345,28 +281,6 @@ class DocumentStage:
                 "crawl_info": {},
             }
 
-    def _insert_captions(
-        self,
-        document_sha: str,
-        markdown: str,
-        caption_for: Callable[[str], str] | None,
-    ) -> str:
-        """第 n 個佔位符取代為第 n 張圖片的描述區塊（`Image-{n}` 為文件內圖片序號）。"""
-        urls = self._image_urls.get(document_sha, [])
-        counter = iter(range(1, len(urls) + 1))
-
-        def replace(_match: re.Match[str]) -> str:
-            index = next(counter, None)
-            if index is None:  # 佔位符比圖片多：無法對位，移除
-                return ""
-            url = urls[index - 1]
-            caption = caption_for(url) if url and caption_for else ""
-            return caption_block(index, caption).rstrip("\n") if caption else ""
-
-        markdown = IMAGE_PLACEHOLDER_PATTERN.sub(replace, markdown)
-        markdown = re.sub(r"^\s*[-*]\s*$", "", markdown, flags=re.MULTILINE)
-        return re.sub(r"\n{3,}", "\n\n", markdown).strip()
-
     # ===== 統計與 log =====
 
     def stats(self) -> DocumentStats:
@@ -433,6 +347,92 @@ class DocumentStage:
                     f"{k}={v}" for k, v in sorted(stats.skipped_by_format.items())
                 ),
             )
+
+    def _to_entry(self, url: str, result: DownloadResult) -> DocumentEntry:
+        if not result.ok:
+            reason = result.error or "download failed"
+            logger.warning("Document download failed - %s (url=%s)", reason, url)
+            return DocumentEntry(
+                download_status="failed",
+                failure_reason=reason,
+                recoverable=result.recoverable,
+            )
+
+        assert result.content is not None
+        file_format = detect_format(result.content, result.headers, result.final_url)
+        file_name = (
+            disposition_file_name(result.headers)
+            or url_file_name(result.final_url)
+            or url_file_name(url)
+            or ""
+        )
+        entry = DocumentEntry(
+            download_status="success",
+            file_name=file_name,
+            content_type=result.headers.get("content-type", "").split(";")[0].strip(),
+            downloaded_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        )
+        if file_format is None or file_format not in self.options.formats:
+            entry.skip_reason = f"format {file_format or 'unknown'} not enabled"
+            logger.info("Document skipped (%s): %s", entry.skip_reason, url)
+            return entry
+
+        entry.file_format = file_format
+        entry.content = result.content
+        entry.content_sha1 = hashlib.sha1(result.content).hexdigest()
+        return entry
+
+    def _register_images(
+        self, document_sha: str, outcome: ParsedDocument, new_images: dict[str, Asset]
+    ) -> None:
+        """把文件內嵌圖片登記為圖片資源（同一張圖只一個資源，引用處記錄所在文件）。"""
+        label = document_label(document_sha)
+        urls: list[str | None] = []
+        for index, image in enumerate(outcome.images, 1):
+            if image is None:
+                urls.append(None)
+                continue
+            url = "doc-image:" + hashlib.sha1(image.content).hexdigest()
+            urls.append(url)
+            if url not in self.image_contents:
+                self.image_contents[url] = image
+                new_images[url] = Asset(url=url, kind="image")
+            asset = new_images.get(url)
+            if asset is not None:
+                asset.refs.append(AssetRef(page_key=label, text=f"Image-{index}"))
+        self._image_urls[document_sha] = urls
+
+    def _representatives(self) -> dict[str, tuple[Asset, DocumentEntry]]:
+        """已下載且格式啟用的文件，依內容 sha1 分組後的代表（資源順序中的第一個）。"""
+        representatives: dict[str, tuple[Asset, DocumentEntry]] = {}
+        for asset in self.assets:
+            entry = self._entries.get(asset.url)
+            if entry is None or not entry.content_sha1:
+                continue
+            representatives.setdefault(entry.content_sha1, (asset, entry))
+        return representatives
+
+    def _insert_captions(
+        self,
+        document_sha: str,
+        markdown: str,
+        caption_for: Callable[[str], str] | None,
+    ) -> str:
+        """第 n 個佔位符取代為第 n 張圖片的描述區塊（`Image-{n}` 為文件內圖片序號）。"""
+        urls = self._image_urls.get(document_sha, [])
+        counter = iter(range(1, len(urls) + 1))
+
+        def replace(_match: re.Match[str]) -> str:
+            index = next(counter, None)
+            if index is None:  # 佔位符比圖片多：無法對位，移除
+                return ""
+            url = urls[index - 1]
+            caption = caption_for(url) if url and caption_for else ""
+            return caption_block(index, caption).rstrip("\n") if caption else ""
+
+        markdown = IMAGE_PLACEHOLDER_PATTERN.sub(replace, markdown)
+        markdown = re.sub(r"^\s*[-*]\s*$", "", markdown, flags=re.MULTILINE)
+        return re.sub(r"\n{3,}", "\n\n", markdown).strip()
 
 
 def document_label(document_sha: str) -> str:

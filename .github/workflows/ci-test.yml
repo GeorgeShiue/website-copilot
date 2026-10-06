@@ -26,6 +26,9 @@ jobs:
       - name: Run lint and type check
         run: ./scripts/lint.sh
 
+      - name: Run unit tests
+        run: ./scripts/test.sh
+
       - name: Check widget.js in sync
         run: ./scripts/check-widget.sh
   unit-test:

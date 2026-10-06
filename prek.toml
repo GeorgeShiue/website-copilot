@@ -18,10 +18,15 @@ hooks = [
     { id = "check-toml" },
 ]
 
-# ruff 以 local hook 經 uv 執行：版本由 uv.lock 決定，與 scripts/lint.sh、CI 一致
+# ruff、undersort 以 local hook 經 uv 執行：版本由 uv.lock 決定，與 scripts/lint.sh、CI 一致
+# undersort 須排在 ruff 之前（先排方法順序，再由 ruff 修正與格式化）；
+# 傳入單一檔案時 [tool.undersort] 的 exclude 不生效，故以 files 限定只處理 src/
 [[repos]]
 repo = "local"
 hooks = [
+    { id = "undersort", name = "undersort", entry = "uv run undersort", language = "system", types = [
+        "python",
+    ], files = '^src/' },
     { id = "ruff-check", name = "ruff check", entry = "uv run ruff check --force-exclude --fix", language = "system", types_or = [
         "python",
         "pyi",

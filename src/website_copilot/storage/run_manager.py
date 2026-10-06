@@ -50,40 +50,6 @@ class RunManager:
         self.site_config_path: str = ""
         self.log_path: str = ""
 
-    @classmethod
-    def for_run(
-        cls,
-        module: str,
-        site_id: str,
-        run_name: str,
-        base_folder: str = "runs",
-    ) -> "RunManager":
-        """Atomic 3-layer init: module → site → run."""
-        rm = cls(module, base_folder)
-        rm.site_id = site_id
-        rm.site_path = os.path.join(rm.module_path, site_id)
-        os.makedirs(rm.site_path, exist_ok=True)
-        rm.run_name = run_name
-        rm.run_path = os.path.join(rm.site_path, run_name)
-        os.makedirs(rm.run_path, exist_ok=True)
-        rm.init_module_run_paths()
-        return rm
-
-    @classmethod
-    def for_run_no_site(
-        cls,
-        module: str,
-        run_name: str,
-        base_folder: str = "runs",
-    ) -> "RunManager":
-        """Atomic 2-layer init: module → run (no site). For Agent."""
-        rm = cls(module, base_folder)
-        rm.run_name = run_name
-        rm.run_path = os.path.join(rm.module_path, run_name)
-        os.makedirs(rm.run_path, exist_ok=True)
-        rm.init_module_run_paths()
-        return rm
-
     def init_module_run_paths(self) -> None:
         if not self.run_name:
             raise ValueError("Run name must be set to initialize module run paths.")
@@ -232,6 +198,40 @@ class RunManager:
             "results": existing_results,
         }
         self.save_results_as_json(results_dict, file_path=history_path)
+
+    @classmethod
+    def for_run(
+        cls,
+        module: str,
+        site_id: str,
+        run_name: str,
+        base_folder: str = "runs",
+    ) -> "RunManager":
+        """Atomic 3-layer init: module → site → run."""
+        rm = cls(module, base_folder)
+        rm.site_id = site_id
+        rm.site_path = os.path.join(rm.module_path, site_id)
+        os.makedirs(rm.site_path, exist_ok=True)
+        rm.run_name = run_name
+        rm.run_path = os.path.join(rm.site_path, run_name)
+        os.makedirs(rm.run_path, exist_ok=True)
+        rm.init_module_run_paths()
+        return rm
+
+    @classmethod
+    def for_run_no_site(
+        cls,
+        module: str,
+        run_name: str,
+        base_folder: str = "runs",
+    ) -> "RunManager":
+        """Atomic 2-layer init: module → run (no site). For Agent."""
+        rm = cls(module, base_folder)
+        rm.run_name = run_name
+        rm.run_path = os.path.join(rm.module_path, run_name)
+        os.makedirs(rm.run_path, exist_ok=True)
+        rm.init_module_run_paths()
+        return rm
 
     @staticmethod
     def find_thread_history_path(
