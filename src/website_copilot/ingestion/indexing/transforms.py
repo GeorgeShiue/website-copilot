@@ -66,10 +66,6 @@ class MarkdownImageExtractor(BaseExtractor):
         description="用於匹配 Markdown 圖片的正則表達式",
     )
 
-    @classmethod
-    def class_name(cls) -> str:
-        return "MarkdownImageExtractor"
-
     async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
         """提取圖片元數據並清理節點內容。"""
         metadata_list = []
@@ -97,6 +93,10 @@ class MarkdownImageExtractor(BaseExtractor):
             metadata_list.append(metadata_dict)
 
         return metadata_list
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "MarkdownImageExtractor"
 
 
 class MarkdownDateExtractor(BaseExtractor):
@@ -155,13 +155,13 @@ class MarkdownDateExtractor(BaseExtractor):
         description="匹配列表項目結尾的日期標記 (— Mon. DD, YYYY)",
     )
 
-    @classmethod
-    def class_name(cls) -> str:
-        return "MarkdownDateExtractor"
-
     async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
         """對每個 node 執行日期萃取。"""
         return [self._extract_date(node) for node in nodes]
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "MarkdownDateExtractor"
 
     def _extract_date(self, node: BaseNode) -> dict[str, Any]:
         # --- Strategy 0: HTML metadata published_date 優先 ---
@@ -219,10 +219,6 @@ class SourcePagesInjector(TransformComponent):
 
     source_pages_by_url: dict[str, Any] = Field(default_factory=dict)
 
-    @classmethod
-    def class_name(cls) -> str:
-        return "SourcePagesInjector"
-
     def __call__(self, nodes: Sequence[BaseNode], **kwargs: Any) -> Sequence[BaseNode]:
         for node in nodes:
             pages = self.source_pages_by_url.get(node.metadata.get("page_url", ""))
@@ -236,3 +232,7 @@ class SourcePagesInjector(TransformComponent):
                 if "source_pages" not in excluded:
                     excluded.append("source_pages")
         return nodes
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "SourcePagesInjector"

@@ -351,21 +351,6 @@ class Augmenter:
             return self._image_cache.get(entry.shared_with, entry)
         return entry
 
-    @staticmethod
-    def _is_recoverable(result: DownloadResult) -> bool:
-        """失敗是否可能因重試或等待而恢復（見 DownloadResult.recoverable）。"""
-        return result.recoverable
-
-    @staticmethod
-    def _is_captionable(entry: ImageEntry) -> bool:
-        """已下載成功、未被過濾、尚未摘要成功，需要送 VLM。"""
-        return (
-            entry.download_status == "success"
-            and not entry.skip_reason
-            and not entry.shared_with
-            and entry.summarize_status != "success"
-        )
-
     def _caption(
         self, pending: list[Asset], captioner: ImageCaptioner
     ) -> dict[str, float]:
@@ -570,6 +555,43 @@ class Augmenter:
             if self._image_cache[asset.url].summarize_status == "failed"
         }
 
+    def _log_page_stats_table(self, title: str, total: PageStats) -> None:
+        """彙整逐頁統計為單一表格。"""
+        log_session(title, style="green")
+
+        def cells(stats: PageStats) -> list[str]:
+            return [
+                f"${value:.6f}" if key == "cost_usd" else str(value)
+                for key, value in asdict(stats).items()
+            ]
+
+        table = Table(show_header=True, header_style="bold green")
+        table.add_column("Page", style="green", no_wrap=True)
+        for f in fields(PageStats):
+            table.add_column(f.name, style="white")
+
+        for page_title, stats in self._page_stats_by_page:
+            table.add_row(self._truncate_page_title(page_title), *cells(stats))
+
+        table.add_section()
+        table.add_row("Total", *cells(total))
+        print_log(table)
+
+    @staticmethod
+    def _is_recoverable(result: DownloadResult) -> bool:
+        """失敗是否可能因重試或等待而恢復（見 DownloadResult.recoverable）。"""
+        return result.recoverable
+
+    @staticmethod
+    def _is_captionable(entry: ImageEntry) -> bool:
+        """已下載成功、未被過濾、尚未摘要成功，需要送 VLM。"""
+        return (
+            entry.download_status == "success"
+            and not entry.skip_reason
+            and not entry.shared_with
+            and entry.summarize_status != "success"
+        )
+
     @staticmethod
     def _log_failed(
         failed_images: dict[str, tuple[str, str]],
@@ -593,28 +615,6 @@ class Augmenter:
         if len(title) <= max_len:
             return title
         return title[:max_len] + "…"
-
-    def _log_page_stats_table(self, title: str, total: PageStats) -> None:
-        """彙整逐頁統計為單一表格。"""
-        log_session(title, style="green")
-
-        def cells(stats: PageStats) -> list[str]:
-            return [
-                f"${value:.6f}" if key == "cost_usd" else str(value)
-                for key, value in asdict(stats).items()
-            ]
-
-        table = Table(show_header=True, header_style="bold green")
-        table.add_column("Page", style="green", no_wrap=True)
-        for f in fields(PageStats):
-            table.add_column(f.name, style="white")
-
-        for page_title, stats in self._page_stats_by_page:
-            table.add_row(self._truncate_page_title(page_title), *cells(stats))
-
-        table.add_section()
-        table.add_row("Total", *cells(total))
-        print_log(table)
 
     @staticmethod
     def _log_stats(stats: dict[str, int | float], title: str = "") -> None:

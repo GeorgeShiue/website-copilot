@@ -65,15 +65,6 @@ class SiteConfig(LoadedConfigModel):
     crawl: SiteCrawlConfig
     documents: SiteDocumentsConfig = Field(default_factory=SiteDocumentsConfig)
 
-    @field_validator("site_id")
-    @classmethod
-    def _check_site_id(cls, value: str) -> str:
-        if not SITE_ID_PATTERN.fullmatch(value):
-            raise ValueError(
-                "site_id 只能包含英數字與底線，且不可以數字開頭（Milvus collection 名稱規則）"
-            )
-        return value
-
     @classmethod
     def available_sites(cls) -> list[str]:
         """`configs/sites/` 下的站點名稱。"""
@@ -100,3 +91,12 @@ class SiteConfig(LoadedConfigModel):
             )
         site._source = loaded.source
         return site
+
+    @field_validator("site_id")
+    @classmethod
+    def _check_site_id(cls, value: str) -> str:
+        if not SITE_ID_PATTERN.fullmatch(value):
+            raise ValueError(
+                "site_id 只能包含英數字與底線，且不可以數字開頭（Milvus collection 名稱規則）"
+            )
+        return value

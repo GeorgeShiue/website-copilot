@@ -94,78 +94,6 @@ class WebpageMarkdownCleaner:
             for key, md in pages.items()
         }
 
-    @staticmethod
-    def promote_empty_heading_line(fit_markdown: str) -> str:
-        """將空標題行提升為下一個可用文字標題，並保留中間內容。"""
-        lines = fit_markdown.splitlines(keepends=True)
-        fixed_lines: list[str] = []
-        i = 0
-
-        while i < len(lines):
-            current_line = lines[i]
-            heading_match = EMPTY_HEADING_LINE_PATTERN.match(
-                current_line.rstrip("\r\n")
-            )
-            if heading_match:
-                j = i + 1
-                while j < len(lines):
-                    candidate = lines[j].strip()
-                    if candidate and not SKIP_AS_HEADING_PATTERN.match(candidate):
-                        fixed_lines.append(f"{heading_match.group(1)} {candidate}\n")
-                        fixed_lines.extend(lines[i + 1 : j])
-                        i = j + 1
-                        break
-                    j += 1
-                else:
-                    fixed_lines.append(current_line)
-                    i += 1
-            else:
-                fixed_lines.append(current_line)
-                i += 1
-
-        return "".join(fixed_lines)
-
-    @staticmethod
-    def clean_markdown(
-        markdown: str,
-        exclude_words: list[str] | None = None,
-    ) -> str:
-        """Markdown 清理：Regex 預處理 + mdformat 格式化 + 結構修復。
-
-        Args:
-            markdown: 原始 Markdown 文字。
-            exclude_words: 要排除的關鍵字列表（行級過濾）。
-        """
-        # --- 資料清洗 ---
-        if exclude_words is not None:
-            markdown = "".join(
-                line
-                for line in markdown.splitlines(keepends=True)
-                if not any(word in line for word in exclude_words)
-            )
-        markdown = EMPTY_ANCHOR_LINK_PATTERN.sub("", markdown)
-        markdown = EMPTY_LIST_NOISE_PATTERN.sub("", markdown)
-
-        # ----- 結構修復 (前) -----
-        markdown = WebpageMarkdownCleaner.promote_empty_heading_line(markdown)
-        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
-
-        # ----- 格式化 -----
-        try:
-            markdown = mdformat.text(
-                markdown,
-                options={"wrap": "no"},
-                extensions={"gfm"},
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning("mdformat failed, using unformatted markdown: %s", e)
-
-        # ----- 結構修復 (後) -----
-        markdown = IMAGE_FOLLOW_TEXT_PATTERN.sub(r"\1\n", markdown)
-        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
-
-        return markdown
-
     # ── 產生 exclude_words（vote1）───────────────────────────────────
 
     def generate_exclude_words(self, pages: dict[str, str]) -> GenerationResult | None:
@@ -257,6 +185,90 @@ class WebpageMarkdownCleaner:
             hits=hits,
         )
 
+    def validate_words(
+        self, pages: dict[str, str], words: list[str]
+    ) -> tuple[list[str], dict[str, dict[str, Any]]]:
+        """全站行覆蓋率驗證：低覆蓋比例超過 max_low_occ_ratio 的詞剔除。
+
+        回傳 (保留的詞（維持輸入順序）, 每詞統計)。
+        """
+        coverage = self.line_coverage(pages)
+        stats = {w: self.word_stats(pages, w, coverage) for w in words}
+        kept = [w for w in words if stats[w]["low_occ_ratio"] <= self.max_low_occ_ratio]
+        return kept, stats
+
+    @staticmethod
+    def promote_empty_heading_line(fit_markdown: str) -> str:
+        """將空標題行提升為下一個可用文字標題，並保留中間內容。"""
+        lines = fit_markdown.splitlines(keepends=True)
+        fixed_lines: list[str] = []
+        i = 0
+
+        while i < len(lines):
+            current_line = lines[i]
+            heading_match = EMPTY_HEADING_LINE_PATTERN.match(
+                current_line.rstrip("\r\n")
+            )
+            if heading_match:
+                j = i + 1
+                while j < len(lines):
+                    candidate = lines[j].strip()
+                    if candidate and not SKIP_AS_HEADING_PATTERN.match(candidate):
+                        fixed_lines.append(f"{heading_match.group(1)} {candidate}\n")
+                        fixed_lines.extend(lines[i + 1 : j])
+                        i = j + 1
+                        break
+                    j += 1
+                else:
+                    fixed_lines.append(current_line)
+                    i += 1
+            else:
+                fixed_lines.append(current_line)
+                i += 1
+
+        return "".join(fixed_lines)
+
+    @staticmethod
+    def clean_markdown(
+        markdown: str,
+        exclude_words: list[str] | None = None,
+    ) -> str:
+        """Markdown 清理：Regex 預處理 + mdformat 格式化 + 結構修復。
+
+        Args:
+            markdown: 原始 Markdown 文字。
+            exclude_words: 要排除的關鍵字列表（行級過濾）。
+        """
+        # --- 資料清洗 ---
+        if exclude_words is not None:
+            markdown = "".join(
+                line
+                for line in markdown.splitlines(keepends=True)
+                if not any(word in line for word in exclude_words)
+            )
+        markdown = EMPTY_ANCHOR_LINK_PATTERN.sub("", markdown)
+        markdown = EMPTY_LIST_NOISE_PATTERN.sub("", markdown)
+
+        # ----- 結構修復 (前) -----
+        markdown = WebpageMarkdownCleaner.promote_empty_heading_line(markdown)
+        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
+
+        # ----- 格式化 -----
+        try:
+            markdown = mdformat.text(
+                markdown,
+                options={"wrap": "no"},
+                extensions={"gfm"},
+            )
+        except (ValueError, KeyError) as e:
+            logger.warning("mdformat failed, using unformatted markdown: %s", e)
+
+        # ----- 結構修復 (後) -----
+        markdown = IMAGE_FOLLOW_TEXT_PATTERN.sub(r"\1\n", markdown)
+        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
+
+        return markdown
+
     @staticmethod
     def sample_pages(
         pages: dict[str, str], ratio: float, rng: random.Random
@@ -315,18 +327,6 @@ class WebpageMarkdownCleaner:
             "hits": len(covs),
             "low_occ_ratio": sum(c < low for c in covs) / len(covs) if covs else 0.0,
         }
-
-    def validate_words(
-        self, pages: dict[str, str], words: list[str]
-    ) -> tuple[list[str], dict[str, dict[str, Any]]]:
-        """全站行覆蓋率驗證：低覆蓋比例超過 max_low_occ_ratio 的詞剔除。
-
-        回傳 (保留的詞（維持輸入順序）, 每詞統計)。
-        """
-        coverage = self.line_coverage(pages)
-        stats = {w: self.word_stats(pages, w, coverage) for w in words}
-        kept = [w for w in words if stats[w]["low_occ_ratio"] <= self.max_low_occ_ratio]
-        return kept, stats
 
     @staticmethod
     def count_word_hits(pages: dict[str, str], words: list[str]) -> dict[str, int]:

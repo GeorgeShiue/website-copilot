@@ -197,6 +197,10 @@ class ChatApp:
         self.run_manager = run_manager
         self.app = app
 
+    def close(self) -> None:
+        """釋放 Agent 資源（run_manager 無需釋放）。"""
+        self.agent.close()
+
     @classmethod
     def create(
         cls,
@@ -207,7 +211,3 @@ class ChatApp:
         """工廠方法：建立 FastAPI app 並綁定 agent 與 run_manager。"""
         fastapi_app = _build_fastapi_app(agent, run_manager, allowed_origins)
         return cls(agent=agent, run_manager=run_manager, app=fastapi_app)
-
-    def close(self) -> None:
-        """釋放 Agent 資源（run_manager 無需釋放）。"""
-        self.agent.close()
