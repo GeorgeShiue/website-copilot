@@ -47,6 +47,7 @@ dev = [
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
+    "undersort>=0.1.6",
 ]
 
 # unclecode-litellm（crawl4ai 的 litellm 應急 fork）與官方 litellm 共用 litellm/ 目錄，
@@ -75,6 +76,12 @@ extend-exclude = [
 [tool.ruff.format]
 # ruff 0.16 會格式化 Markdown；fixtures 的 .md 為逐字比對快照，文件另由 mdformat 管理
 exclude = ["*.md"]
+
+[tool.undersort]
+# 只整理 src/ 內 class 的方法順序（public → protected → private）；不排模組層級定義。
+# exclude 只對「目錄參數」生效，pre-commit hook 傳入單一檔案時無效，故 hook 另以 files 限定 src/。
+# tests/ 的方法順序即 pytest 執行順序，不做重排。
+exclude = ["tests/*"]
 
 [tool.pyright]
 exclude = [
