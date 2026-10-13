@@ -9,6 +9,7 @@ from typing import Any
 from litellm import acompletion, completion_cost
 from PIL import Image
 
+from website_copilot.ingestion.augmentation.status import StepStatus
 from website_copilot.utils.http_downloader import DownloadResult
 from website_copilot.utils.llm_provider import get_api_key, resolve_provider
 from website_copilot.utils.log_helper import TaskCountProgress
@@ -80,7 +81,9 @@ class ImageCaptioner:
         self._litellm_model = f"{provider.litellm_prefix}{model}"
         self._api_key = get_api_key(provider)
 
-    def caption(self, images: dict[str, str]) -> list[tuple[str, str, str, float]]:
+    def caption(
+        self, images: dict[str, str]
+    ) -> list[tuple[str, str, StepStatus, float]]:
         """同步版：url → base64 data URL 的圖片批次摘要，回傳 (url, caption, status, cost)。"""
         if not images:
             return []
@@ -89,11 +92,11 @@ class ImageCaptioner:
     async def _agenerate_image_captions(
         self,
         images: dict[str, str],
-    ) -> list[tuple[str, str, str, float]]:
+    ) -> list[tuple[str, str, StepStatus, float]]:
         """對圖片批次平行摘要，回傳 (url, caption, status, cost)。"""
         # 同一批 task 共用一個 semaphore 才能限制並行數（event loop 隨 asyncio.run 建立，不可跨呼叫保存）
         semaphore = asyncio.Semaphore(self.max_concurrency)
-        tasks: list[asyncio.Task[tuple[str, str, str, float]]] = []
+        tasks: list[asyncio.Task[tuple[str, str, StepStatus, float]]] = []
         for image_url, image_base64_url in images.items():
             task = asyncio.create_task(
                 self._agenerate_image_caption_task(
@@ -102,7 +105,7 @@ class ImageCaptioner:
             )
             tasks.append(task)
 
-        results: list[tuple[str, str, str, float]] = []
+        results: list[tuple[str, str, StepStatus, float]] = []
         with TaskCountProgress() as progress:
             task_id = progress.add_task("Generating captions...", total=len(tasks))
 
@@ -125,7 +128,7 @@ class ImageCaptioner:
         semaphore: asyncio.Semaphore,
         image_url: str,
         image_base64_url: str,
-    ) -> tuple[str, str, str, float]:
+    ) -> tuple[str, str, StepStatus, float]:
         async with semaphore:
             (
                 image_caption,
@@ -137,7 +140,7 @@ class ImageCaptioner:
     async def _agenerate_image_caption(
         self,
         image_base64_url: str,
-    ) -> tuple[str, str, float]:
+    ) -> tuple[str, StepStatus, float]:
         """呼叫 VLM 取得圖片描述。"""
         messages = [
             {
@@ -164,7 +167,7 @@ class ImageCaptioner:
             )
         except Exception as e:
             logger.warning("Image summarization failed: %s", e, exc_info=True)
-            return image_caption, "failed", 0.0
+            return image_caption, StepStatus.FAILED, 0.0
 
         cost_usd = completion_cost(completion_response=response)
         self._log_caption_generation(response=response, cost_usd=cost_usd)
@@ -178,7 +181,7 @@ class ImageCaptioner:
                 if isinstance(msg_content, str):
                     image_caption = msg_content.strip()
 
-        return image_caption, "success", cost_usd
+        return image_caption, StepStatus.SUCCESS, cost_usd
 
     @staticmethod
     def _log_caption_generation(response=None, cost_usd=None) -> None:

@@ -37,6 +37,7 @@ from website_copilot.ingestion.augmentation.processors.image_filter import (
     content_sha1,
     image_long_edge,
 )
+from website_copilot.ingestion.augmentation.status import StepStatus
 from website_copilot.utils.http_downloader import DownloadResult
 from website_copilot.utils.log_helper import (
     TaskCountProgress,
@@ -61,12 +62,12 @@ class Downloader(Protocol):
 
 @dataclass
 class ImageEntry:
-    """單張圖片的下載與摘要結果（status 為 "success"／"failed"，尚未進行時為空字串）。"""
+    """單張圖片的下載與摘要結果（狀態為 StepStatus，尚未進行時為 PENDING）。"""
 
     base64_url: str = ""
-    download_status: str = ""
+    download_status: StepStatus = StepStatus.PENDING
     caption: str = ""
-    summarize_status: str = ""
+    summarize_status: StepStatus = StepStatus.PENDING
     failure_reason: str = ""
     # 失敗是否可恢復（逾時、連線錯誤、5xx、429、403、VLM 失敗）
     recoverable: bool = False
@@ -265,7 +266,7 @@ class Augmenter:
             asset.url
             for asset in pending
             if self._image_cache.get(asset.url, ImageEntry()).download_status
-            != "success"
+            != StepStatus.SUCCESS
         ]
         if not urls:
             return
@@ -290,13 +291,15 @@ class Augmenter:
             if data_url is None:
                 # 下載失敗視同摘要失敗：不送 VLM，caption 為空
                 self._image_cache[url] = ImageEntry(
-                    download_status="failed",
-                    summarize_status="failed",
+                    download_status=StepStatus.FAILED,
+                    summarize_status=StepStatus.FAILED,
                     failure_reason=reason,
                     recoverable=recoverable,
                 )
             else:
-                entry = ImageEntry(base64_url=data_url, download_status="success")
+                entry = ImageEntry(
+                    base64_url=data_url, download_status=StepStatus.SUCCESS
+                )
                 assert result.content is not None
                 self._apply_image_filters(url, result.content, entry)
                 self._image_cache[url] = entry
@@ -318,18 +321,18 @@ class Augmenter:
             data_url = to_data_url(image)
             if data_url is None:  # 格式 VLM 不支援（svg、emf 等）：略過
                 self._image_cache[asset.url] = ImageEntry(
-                    download_status="success",
+                    download_status=StepStatus.SUCCESS,
                     skip_reason=f"unsupported image type {image.media_type}",
                 )
                 continue
-            entry = ImageEntry(base64_url=data_url, download_status="success")
+            entry = ImageEntry(base64_url=data_url, download_status=StepStatus.SUCCESS)
             self._apply_image_filters(asset.url, image.content, entry)
             self._image_cache[asset.url] = entry
 
     def _caption_for(self, url: str) -> str:
         """圖片資源的描述（成功才有；內容相同者取代表圖片的描述）。"""
         entry = self._resolve(url)
-        if entry is not None and entry.summarize_status == "success":
+        if entry is not None and entry.summarize_status == StepStatus.SUCCESS:
             return entry.caption
         return ""
 
@@ -370,7 +373,7 @@ class Augmenter:
             entry = self._image_cache[image_url]
             entry.caption = image_caption
             entry.summarize_status = summarize_status
-            if summarize_status == "success":
+            if summarize_status == StepStatus.SUCCESS:
                 costs[image_url] = cost_usd
             else:
                 entry.failure_reason = "caption generation failed"
@@ -379,8 +382,8 @@ class Augmenter:
         # 呼叫失敗以外未回傳的資源（task 例外）視同摘要失敗
         for url in images:
             entry = self._image_cache[url]
-            if not entry.summarize_status:
-                entry.summarize_status = "failed"
+            if entry.summarize_status == StepStatus.PENDING:
+                entry.summarize_status = StepStatus.FAILED
                 entry.failure_reason = "caption generation failed"
                 entry.recoverable = True
         return costs
@@ -410,8 +413,8 @@ class Augmenter:
             entry = self._image_cache[asset.url]
             processed = asset.url in pending_urls
             reusable = not entry.skip_reason and (
-                entry.download_status == "success"
-                or entry.summarize_status == "success"
+                entry.download_status == StepStatus.SUCCESS
+                or entry.summarize_status == StepStatus.SUCCESS
             )
             for index, ref in enumerate(asset.refs):
                 if ref.page_key not in touched_pages:
@@ -423,10 +426,10 @@ class Augmenter:
                     page_stats.cache_reuse += 1
                 elif entry.skip_reason:
                     page_stats.skipped += 1
-                elif entry.summarize_status == "success":
+                elif entry.summarize_status == StepStatus.SUCCESS:
                     page_stats.success += 1
                     page_stats.cost_usd += costs.get(asset.url, 0.0)
-                elif entry.download_status == "failed":
+                elif entry.download_status == StepStatus.FAILED:
                     page_stats.download_failure += 1
                 else:
                     page_stats.summarize_failure += 1
@@ -449,7 +452,7 @@ class Augmenter:
         failed_assets = [
             asset
             for asset in pending
-            if self._image_cache[asset.url].summarize_status == "failed"
+            if self._image_cache[asset.url].summarize_status == StepStatus.FAILED
             and self._image_cache[asset.url].recoverable
         ]
         failed_documents = (
@@ -458,7 +461,7 @@ class Augmenter:
             else []
         )
         success = sum(
-            self._image_cache[asset.url].summarize_status == "success"
+            self._image_cache[asset.url].summarize_status == StepStatus.SUCCESS
             for asset in pending
         )
         if self._documents is not None:
@@ -473,10 +476,10 @@ class Augmenter:
 
         for asset in failed_assets:
             entry = self._image_cache[asset.url]
-            if entry.download_status == "failed":
+            if entry.download_status == StepStatus.FAILED:
                 del self._image_cache[asset.url]
             else:  # 下載已成功，只重做摘要
-                entry.summarize_status = ""
+                entry.summarize_status = StepStatus.PENDING
                 entry.caption = ""
                 entry.failure_reason = ""
                 entry.recoverable = False
@@ -530,7 +533,7 @@ class Augmenter:
 
             for image in crawl_result.get("images", []):
                 entry = self._resolve(image.get("url", ""))
-                if entry is not None and entry.summarize_status:
+                if entry is not None and entry.summarize_status != StepStatus.PENDING:
                     image["caption"] = entry.caption
 
     def _enhance_markdown(self, markdown: str) -> str:
@@ -554,7 +557,7 @@ class Augmenter:
         return {
             asset.url: (asset.first_page, self._image_cache[asset.url].failure_reason)
             for asset in assets
-            if self._image_cache[asset.url].summarize_status == "failed"
+            if self._image_cache[asset.url].summarize_status == StepStatus.FAILED
         }
 
     def _log_page_stats_table(self, title: str, total: PageStats) -> None:
@@ -588,10 +591,10 @@ class Augmenter:
     def _is_captionable(entry: ImageEntry) -> bool:
         """已下載成功、未被過濾、尚未摘要成功，需要送 VLM。"""
         return (
-            entry.download_status == "success"
+            entry.download_status == StepStatus.SUCCESS
             and not entry.skip_reason
             and not entry.shared_with
-            and entry.summarize_status != "success"
+            and entry.summarize_status != StepStatus.SUCCESS
         )
 
     @staticmethod

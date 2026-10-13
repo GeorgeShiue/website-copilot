@@ -39,6 +39,7 @@ from website_copilot.ingestion.augmentation.processors.images import (
     IMAGE_PLACEHOLDER_PATTERN,
     ParsedImage,
 )
+from website_copilot.ingestion.augmentation.status import StepStatus
 from website_copilot.ingestion.augmentation.titles import (
     choose_title,
     clean_link_text,
@@ -72,7 +73,7 @@ class DocumentFile:
 class DocumentEntry:
     """單一文件 URL 的下載結果。"""
 
-    download_status: str = ""  # "success"／"failed"
+    download_status: StepStatus = StepStatus.PENDING
     content: bytes = b""
     content_sha1: str = ""
     file_format: str = ""
@@ -139,7 +140,7 @@ class DocumentStage:
             asset.url
             for asset in pending
             if self._entries.get(asset.url, DocumentEntry()).download_status
-            != "success"
+            != StepStatus.SUCCESS
         ]
         if not urls:
             return
@@ -215,7 +216,7 @@ class DocumentStage:
             asset
             for asset in pending
             if (entry := self._entries.get(asset.url)) is not None
-            and entry.download_status == "failed"
+            and entry.download_status == StepStatus.FAILED
             and entry.recoverable
         ]
 
@@ -292,7 +293,7 @@ class DocumentStage:
         )
         for asset in self.assets:
             entry = self._entries.get(asset.url)
-            if entry is None or entry.download_status == "failed":
+            if entry is None or entry.download_status == StepStatus.FAILED:
                 stats.download_failure += 1
             elif entry.skip_reason:
                 stats.format_skipped += 1
@@ -313,7 +314,7 @@ class DocumentStage:
         failed: dict[str, tuple[str, str]] = {}
         for asset in self.assets:
             entry = self._entries.get(asset.url)
-            if entry is not None and entry.download_status == "failed":
+            if entry is not None and entry.download_status == StepStatus.FAILED:
                 failed[asset.url] = (asset.first_page, entry.failure_reason)
         for asset, entry in self._representatives().values():
             outcome = self._parsed.get(entry.content_sha1)
@@ -353,7 +354,7 @@ class DocumentStage:
             reason = result.error or "download failed"
             logger.warning("Document download failed - %s (url=%s)", reason, url)
             return DocumentEntry(
-                download_status="failed",
+                download_status=StepStatus.FAILED,
                 failure_reason=reason,
                 recoverable=result.recoverable,
             )
@@ -367,7 +368,7 @@ class DocumentStage:
             or ""
         )
         entry = DocumentEntry(
-            download_status="success",
+            download_status=StepStatus.SUCCESS,
             file_name=file_name,
             content_type=result.headers.get("content-type", "").split(";")[0].strip(),
             downloaded_at=datetime.now(UTC).isoformat(timespec="seconds"),
