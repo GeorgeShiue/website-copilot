@@ -82,7 +82,7 @@ def create_webpage_retriever_tool(
         )
         return _format_retrieval_results(results)
 
-    tool = StructuredTool(
+    return StructuredTool(
         name="webpage_retriever",
         description=(
             "檢索指定知識庫中與查詢相關的內容。"
@@ -96,8 +96,6 @@ def create_webpage_retriever_tool(
         args_schema=RetrieverInputSchema,
         func=_retrieve,
     )
-
-    return tool
 
 
 def _format_retrieval_results(results: list[dict[str, Any]]) -> str:
@@ -121,6 +119,4 @@ def _format_retrieval_results(results: list[dict[str, Any]]) -> str:
         lines.append(f"    URL: {result['url']}")
         content = result["content"]
         lines.append(f"    Content: {content}\n")
-    formatted_results = "\n".join(lines)
-
-    return formatted_results
+    return "\n".join(lines)

@@ -43,6 +43,7 @@ website-copilot = "website_copilot.cli:main"
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.15",
     "prek>=0.5.5",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
@@ -103,4 +104,49 @@ markers = [
     "cost: 會呼叫 LLM / VLM / embedding API 而產生費用的測試，可用 -m \"not cost\" 略過",
     "network: 連真實網站（不產生費用）的測試，可用 -m \"not network\" 略過",
     "heavy: 載入 Docling 等大型模型、執行較慢的測試，可用 -m \"not heavy\" 略過",
+]
+
+# 依賴方向：由上到下單向依賴，避免循環與底層反向依賴 agent／server。
+# 檢查：uv run lint-imports（已納入 scripts/lint.sh）
+[tool.importlinter]
+root_package = "website_copilot"
+
+[[tool.importlinter.contracts]]
+name = "底層模組不可依賴 agent 與 server"
+type = "forbidden"
+# config、utils 是沒有 __init__.py 的 namespace 資料夾，無法直接指定套件，改用萬用字元
+source_modules = [
+    "website_copilot.config.*",
+    "website_copilot.ingestion",
+    "website_copilot.retrieval",
+    "website_copilot.storage",
+    "website_copilot.utils.*",
+]
+forbidden_modules = ["website_copilot.agent", "website_copilot.server"]
+
+[[tool.importlinter.contracts]]
+name = "prepare 階段不依賴 agent 與 server"
+type = "forbidden"
+source_modules = ["website_copilot.pipelines.prepare"]
+forbidden_modules = ["website_copilot.agent", "website_copilot.server"]
+
+[[tool.importlinter.contracts]]
+name = "agent tools 分層：tool 在 site_discovery／webpage_retriever 之上，兩者互相獨立"
+type = "layers"
+layers = [
+    "website_copilot.agent.tools.tool",
+    "website_copilot.agent.tools.site_discovery | website_copilot.agent.tools.webpage_retriever",
+]
+
+[[tool.importlinter.contracts]]
+name = "主要套件分層（上層可依賴下層，反之不可）"
+type = "layers"
+layers = [
+    "website_copilot.cli",
+    "website_copilot.pipelines",
+    "website_copilot.server",
+    "website_copilot.agent",
+    "website_copilot.retrieval",
+    "website_copilot.ingestion",
+    "website_copilot.storage",
 ]

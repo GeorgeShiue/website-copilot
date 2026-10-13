@@ -117,14 +117,14 @@
 3. **迴圈未使用的變數**：`documents.py` 的 `for sha, (_, entry) in self._representatives().items()` 改為 `for sha in self._representatives():`。
 4. **多餘的暫存變數（RET504，4 處）**：改為直接 `return`。位置：`agent/tools/webpage_retriever.py`（2 處）、`ingestion/crawling/markdown_cleaner.py`、`ingestion/indexing/transforms.py`。
 5. **多餘的 `open(..., "r")`（3 處）**：`"r"` 為預設值，省略。位置：`ingestion/indexing/source.py`、`storage/run_manager.py`、`storage/run_persistence.py`。
-6. **沒有作用的 `# noqa`（4 處）改為一般註解**：專案的 ruff 設定沒有 `select`，`BLE001`、`DTZ007`、`SIM115` 都未啟用，`noqa` 不抑制任何東西。保留 `--` 後面的說明文字，只拿掉 `# noqa: XXX --` 前綴。位置：`markdown_cleaner.py`（2 處）、`image_captioner.py`、`html_date_extractor.py`、`log_helper.py`（該行上方已有說明，直接刪除 `noqa` 即可）。完成後同步修正 `docs/code/python.md` 中提到 `# noqa: SIM115` 的那一行。
+6. ~~**沒有作用的 `# noqa` 改為一般註解**~~ **取消**：執行時發現前提不成立。原本以為專案 ruff 用預設規則（`E4/E7/E9/F`），`BLE001`、`DTZ007`、`SIM115` 未啟用；實際上 ruff 0.16 的預設規則包含它們，移除後 `ruff check` 立即報 5 個錯誤。先前是用 `--select` 覆蓋了專案設定才誤判。這 5 處 `noqa` 都有作用，維持原狀，`docs/code/python.md` 也不需修改。
 
 **不處理**：
 - `transforms.py` 的 `show_progress`、`**kwargs` 是 LlamaIndex 要求的簽章，ruff 的 `ARG002` 為誤報。
 - `try/except/pass` 改 `contextlib.suppress`：`log_helper.py` 兩處把「為何可忽略」寫在 `except` 內，改了會失去位置，維持原狀。
 - `vector_store.py` 的 `elif` 跟在 `return` 後面：C2 會重寫該檔，屬於 C2。
 
-**驗證**：`tests/` 沒有引用 1、2 項涉及的三個函式，不需要改測試。完成後 `ruff check src --select RET504,UP015,B007,RUF100,ARG001` 應只剩框架簽章的誤報；其餘照共同驗證關卡。
+**驗證**：`tests/` 沒有引用 1、2 項涉及的三個函式，不需要改測試。完成後 `ruff check src --select RET504,UP015,B007,ARG001` 應只剩框架簽章的誤報；其餘照共同驗證關卡。
 
 ---
 
@@ -219,7 +219,7 @@
 | B4 | 是否做 `on_complete` 保護？ | 可選，排在 B 組最後；其餘項目完成後視情況再做 |
 | D1 | 量測後無受益路徑時是否放棄？ | 放棄 D1，保留 D2～D4 |
 | D3 | 是否新增 `import-linter` 為 dev 依賴？ | 同意 |
-| A4-6 | 沒有作用的 `# noqa` 怎麼處理？ | 改為一般註解（保留說明文字），不啟用對應規則 |
+| A4-6 | 沒有作用的 `# noqa` 怎麼處理？ | ~~改為一般註解~~ 取消：執行時發現這些 `noqa` 有作用（見 A4-6），維持原狀 |
 
 目前沒有尚待決定的項目。
 

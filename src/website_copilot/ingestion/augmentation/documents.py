@@ -296,7 +296,7 @@ class DocumentStage:
                 stats.download_failure += 1
             elif entry.skip_reason:
                 stats.format_skipped += 1
-        for sha, (_, entry) in self._representatives().items():
+        for sha in self._representatives():
             if isinstance(self._parsed.get(sha), ParsedDocument):
                 stats.success += 1
             else:

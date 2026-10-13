@@ -2,7 +2,8 @@
 
 只載入 prepare 階段已 publish 的向量庫（data/vector_db/{site_id}.db），不做任何建置。
 
-此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用。
+此模組為 RAGRegistry 的唯一定義位置，避免 tool.py ↔ site_discovery / webpage_retriever 循環引用
+（依賴方向由 pyproject.toml 的 import-linter 契約檢查）。
 """
 
 import logging
@@ -53,10 +54,9 @@ class RAGRegistry:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> bool:
-        """離開 context manager，釋放資源並傳播例外。"""
+    ) -> None:
+        """離開 context manager，釋放資源（不吞例外）。"""
         self.close()
-        return False
 
     def list_sites(self) -> list[str]:
         """回傳所有可查詢的 site_id 列表（掃描 data/vector_db/ 下已 publish 向量庫的站點）。
@@ -109,18 +109,30 @@ class RAGRegistry:
         return rag
 
     def close(self) -> None:
-        """釋放所有快取中的 RAG 實例資源。"""
-        for site_id, rag in self._cache.items():
-            logger.info("Closing RAG for site_id=%s", site_id)
-            rag.close()
-        self._cache.clear()
+        """釋放所有快取中的 RAG 實例資源。
+
+        盡力而為：單一實例關閉失敗只記錄，其餘仍會關閉，快取一定清空。
+        不重新拋出，避免在 `__exit__` 中蓋住 with 區塊內原本的例外。
+        """
+        try:
+            for site_id, rag in self._cache.items():
+                logger.info("Closing RAG for site_id=%s", site_id)
+                try:
+                    rag.close()
+                except Exception:  # 釋放資源盡力而為；單一失敗不影響其餘實例
+                    logger.exception("Failed to close RAG for site_id=%s", site_id)
+        finally:
+            self._cache.clear()
 
     def _site_exists(self, site_id: str) -> bool:
         """檢查指定 site_id 是否已 publish 向量庫（data/vector_db/{site_id}.db 資料夾）。"""
         return os.path.isdir(vector_store_path(site_id, self.base_folder))
 
     def _evict_if_needed(self) -> None:
-        """若快取超出上限，淘汰最久未使用的 RAG 實例。"""
+        """若快取超出上限，淘汰最久未使用的 RAG 實例。
+
+        盡力而為：淘汰項目關閉失敗只記錄，不讓 get() 失敗（新的 RAG 已載入並放入快取）。
+        """
         while len(self._cache) > self._max_cached:
             evicted_site_id, evicted_rag = self._cache.popitem(last=False)
             logger.info(
@@ -128,4 +140,9 @@ class RAGRegistry:
                 evicted_site_id,
                 len(self._cache),
             )
-            evicted_rag.close()
+            try:
+                evicted_rag.close()
+            except Exception:  # 釋放資源盡力而為；淘汰失敗不應讓 get() 失敗
+                logger.exception(
+                    "Failed to close evicted RAG for site_id=%s", evicted_site_id
+                )

@@ -88,6 +88,7 @@ class RunCLI:
 
 
 def main(cli: RunCLI) -> None:
+    # 延遲載入：執行時才需要，--help 不載入
     from website_copilot.utils.log_helper import setup_logging
 
     setup_logging("debug")

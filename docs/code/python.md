@@ -145,6 +145,8 @@ class PageStats:
 ## 8. 延遲 import 與模組單例
 
 - **CLI 子命令延遲 import**（`cli/__init__.py`）：頂層只 import 參數用的 dataclass，執行邏輯在 `main()` 內才 import，避免例如 `serve` 間接載入爬蟲依賴。
+- **延遲 import 的使用原則**：只用於「重依賴＋非必經路徑」，一般模組維持頂層 import；每處延遲 import 都要用 `# 延遲載入：<原因>` 註明原因。
+- **階段層級的延遲載入**（`pipelines/prepare.py`）：爬蟲、augmenter、RAG 建置三個階段各自在函式內才 import 自己的重依賴（`WebsiteCrawler`、`Augmenter`、`build_rag` 等），單獨執行一個階段時不必載入其他階段（實測單階段啟動省約 1.2～1.65 s；完整 `prepare` 總成本不變）。測試的 patch 目標因此要指向依賴所在模組（如 `website_copilot.ingestion.augmentation.augmenter.Augmenter`），而非 `pipelines.prepare`。
 - **重依賴延遲建立**（`processors/pdf_parser.py`）：`docling` 在 `_get_converter()` 內才 import；`_converter` 為模組層級單例，以 `global` 加 `threading.Lock` 保護，並在 docstring 註明「呼叫端須持有 `_lock`」。
 
 ## 9. 其他慣例

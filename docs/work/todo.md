@@ -20,35 +20,10 @@
 
 ### 修正
 
-#### 模組 import
-
-> 先用 `python -X importtime` 建立量測基準（現況 `cli` 約 0.16 s、`retrieval.registry` 約 1.3 s、`server.app` 約 2.2 s，主要是 `llama_index`／`agent`）
-- [ ] 重依賴（`llama_index`、`agent`）只在實際用到時才 import，例如 `RAGRegistry.get()` 內才載入 `load_rag`，`--help` 與設定驗證不載入
-- [ ] 延遲 import 只用於「重依賴＋非必經路徑」，並統一寫法與註明原因（目前 `src/` 約 23 處）；一般模組維持頂層 import
-- [ ] 以 import-linter 固化依賴方向，取代靠註解避免 `tool.py` ↔ `site_discovery`／`webpage_retriever` 循環
-- [ ] CI 加入 import 耗時回歸檢查（如 `--help` 超過門檻即警告）
-
 #### 裝飾器
 
-- [ ] `VectorStoreBuilder`（`vector_store.py`）全是 `@staticmethod` 的無狀態命名空間類別，改成模組層級函式
 - [ ] `WebpageMarkdownCleaner` 的 8 個公開 `@staticmethod` 是純函式且以寫死的類別名互相呼叫：改成模組函式（需多型則改 `@classmethod`），與「Webpage Markdown Cleaner 獨立成一個模組」一併處理
-- [ ] `@contextmanager` 補回傳型別：`save_logging_file`、`log_run_time` 加 `-> Iterator[None]`，與 `publish_log_file`、`run_workflow_context` 一致
 - [ ] 計時／重試的裝飾器版本：`log_run_time` 目前只有 context manager 形式
-
-
-#### 穩健性與型別一致
-
-- [ ] `RAGRegistry.__exit__` 回傳型別改為 `-> None`（或 `Literal[False]`），與 `RAG.__exit__` 一致
-- [ ] `RAGRegistry.close()`：單一 `rag.close()` 失敗時，其餘仍須關閉且快取要清空（`try/finally` 或收集例外）
-- [ ] `PageStats.__add__`：遇到非 `PageStats` 回傳 `NotImplemented`
-- [ ] `http_downloader`：`on_complete` 回呼丟例外會讓整批下載失敗，評估加保護（目前僅更新進度條，風險低）
-
-#### 冗餘程式碼
-
-- [ ] `log_helper.py`：刪除未被讀取的全域 `_logging_path`
-- [ ] `log_helper.py`：`_setup_logging_file` 內的 `_disable_logging_file()` 呼叫是空操作（此時深度必為 0），移除或改成斷言
-- [ ] `titles.py`：`_most_common` 改用 `Counter(usable).most_common(1)[0][0]`（已用隨機資料驗證結果一致）
-- [ ] `overrides.py`：`_section_type` 與 `_strip_optional` 重複 Optional 解包邏輯，抽出共用 helper
 
 ### 新增
 

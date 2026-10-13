@@ -28,7 +28,7 @@ def load_source(aug_webpages_data_folder_path: str) -> Source:
     results_json_path = os.path.join(aug_webpages_data_folder_path, "results.json")
     if not os.path.exists(results_json_path):
         raise FileNotFoundError(f"Results JSON file not found at {results_json_path}")
-    with open(results_json_path, "r", encoding="utf-8") as f:
+    with open(results_json_path, encoding="utf-8") as f:
         results_json = json.load(f)
     return Source(
         md_folder_path=os.path.join(aug_webpages_data_folder_path, "results"),

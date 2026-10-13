@@ -48,7 +48,7 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def fake_backends() -> Iterator[dict[str, MagicMock]]:
     """patch 掉 Milvus、embedding、index 與 retriever，並記錄建置步驟是否被呼叫。"""
     with (
-        patch(f"{INDEX}.VectorStoreBuilder.build") as build_store,
+        patch(f"{INDEX}.build_vector_store") as build_store,
         patch(f"{INDEX}.IndexBuilder.clean") as clean_store,
         patch(f"{INDEX}.NodePipelineBuilder.build") as build_nodes,
         patch(f"{INDEX}.IndexBuilder._create_embed_model") as embed_model,

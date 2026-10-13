@@ -11,6 +11,7 @@ class ServeCLI:
 
 
 def main(cli: ServeCLI) -> None:
+    # 延遲載入：pipeline 會帶入 agent／RAG 等重依賴，--help 與參數解析不需要它們
     from website_copilot.pipelines.serve import run_serve
     from website_copilot.utils.log_helper import setup_logging
 

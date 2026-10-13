@@ -18,9 +18,7 @@ from rich.table import Table
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.ingestion.indexing.node_pipeline import NodePipelineBuilder
 from website_copilot.ingestion.indexing.source import Source
-from website_copilot.ingestion.indexing.vector_store import (
-    VectorStoreBuilder,
-)
+from website_copilot.ingestion.indexing.vector_store import build_vector_store
 from website_copilot.utils.log_helper import log_run_time, log_session, print_log
 
 logger = logging.getLogger(__name__)
@@ -39,6 +37,7 @@ def _close_vector_store(vector_store: MilvusVectorStore, milvus_uri: str) -> Non
         logger.warning("Milvus client close() failed", exc_info=True)
     if milvus_uri.endswith(".db") and "://" not in milvus_uri:
         try:
+            # 延遲載入：milvus_lite 只有本地 .db 模式才需要
             from milvus_lite.server_manager import server_manager_instance
 
             server_manager_instance.release_server(milvus_uri)
@@ -156,7 +155,7 @@ class IndexBuilder:
             "Building Milvus vector store (sparse embedding: BGE-M3, hybrid_ranker=%s)",
             vector_store_config.hybrid_ranker,
         )
-        return VectorStoreBuilder.build(
+        return build_vector_store(
             collection_name=COLLECTION_NAME,
             embedding_name=self.config.index.embedding_name,
             milvus_uri=self.target.milvus_uri,

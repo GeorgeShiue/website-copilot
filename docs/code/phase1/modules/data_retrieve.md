@@ -101,7 +101,7 @@ RAG（runtime）
 ### 3. 建立索引
 
 #### 3a. 建立向量儲存（必要前驟）
-`IndexBuilder.build_vector_store()`（經 `VectorStoreBuilder`）以 Milvus 為向量儲存後端：
+`IndexBuilder.build_vector_store()`（經 `build_vector_store()`）以 Milvus 為向量儲存後端：
 
 **Milvus（BGE-M3 Hybrid）**
 - 以 `MilvusVectorStore(target.milvus_uri, collection_name, enable_sparse=True, sparse_embedding_function=BGEM3SparseEmbeddingFunction())` 初始化。

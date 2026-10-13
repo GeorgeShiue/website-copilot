@@ -91,7 +91,9 @@ class PageStats:
     def failure(self) -> int:
         return self.download_failure + self.summarize_failure
 
-    def __add__(self, other: "PageStats") -> "PageStats":
+    def __add__(self, other: object) -> "PageStats":
+        if not isinstance(other, PageStats):
+            return NotImplemented
         return PageStats(
             *(a + b for a, b in zip(astuple(self), astuple(other), strict=True))
         )

@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
@@ -22,7 +23,6 @@ from rich.text import Text
 
 # 全域變數用於檔案輸出
 _tee_stream: "_TeeStream | None" = None
-_logging_path: str | None = None
 # 巢狀 save_logging_file 計數器（如 agent 內包 retriever tool）：
 # 只有最外層的 with block 結束時才真正還原 stdout/stderr
 _tee_depth: int = 0
@@ -187,6 +187,7 @@ def _disable_model_progress_bars() -> None:
     # 環境變數只在 huggingface_hub 尚未被 import 時有效；runtime API 涵蓋已 import 的情況
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     try:
+        # 延遲載入：huggingface_hub 為可選依賴且很大，未安裝時略過
         from huggingface_hub.utils.tqdm import disable_progress_bars
     except ImportError:
         return
@@ -195,15 +196,12 @@ def _disable_model_progress_bars() -> None:
 
 def _setup_logging_file(log_file_path: str) -> None:
     """設定終端機輸出和日誌同時保存到檔案."""
-    global _tee_stream, _logging_path, _tee_depth
+    global _tee_stream, _tee_depth
 
     if _tee_depth > 0:
         # 巢狀呼叫（如 agent 內的 tool 建立）：沿用外層 tee，避免關閉外層記錄
         _tee_depth += 1
         return
-
-    _disable_logging_file()
-    _logging_path = log_file_path
 
     # 建立檔案輸出流
     # 長期持有並接到 sys.stdout / sys.stderr，由 _disable_logging_file 關閉，不能用 with
@@ -286,7 +284,7 @@ def setup_logging(level: str = "info", logger: Logger | None = None) -> None:
 
 
 @contextmanager
-def save_logging_file(log_file_path: str):
+def save_logging_file(log_file_path: str) -> Iterator[None]:
     """Context manager for setup/teardown of run-specific file logging.
 
     支援巢狀呼叫（如 agent 內包 retriever tool 建立）：內層 with block
@@ -301,7 +299,7 @@ def save_logging_file(log_file_path: str):
 
 
 @contextmanager
-def log_run_time(title: str = "", record: bool = True):
+def log_run_time(title: str = "", record: bool = True) -> Iterator[None]:
     """Context manager that logs elapsed run time in finally block.
 
     record=True 且有 title 時，同時登記到執行摘要（見 log_run_summary），
