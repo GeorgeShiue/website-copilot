@@ -2,7 +2,7 @@
 
 > 計畫見 [plan.md](./plan.md)。只記錄與 plan 不同的決定、過程中的發現與驗證結果。除特別註明外，每組的驗證皆為共同關卡：`scripts/check.sh`、9 個 CLI `--help` 冒煙測試，以及與基準點的 `--help` 輸出逐字比對；B、C、D 組另跑 `pytest tests/integration -m "not cost"`。括號內為 `check.sh` 通過的測試數。
 
-分支 `chore/python-fixes`（從 `dev` 切出）。
+分支 `chore/python-refine`（從 `dev` 切出，原名 `chore/python-fixes`）。
 
 | 階段 | commit | 說明 |
 |---|---|---|

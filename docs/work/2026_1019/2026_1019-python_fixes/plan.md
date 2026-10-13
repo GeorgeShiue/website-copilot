@@ -1,6 +1,6 @@
 # Python 設計修正：實作規劃
 
-> 對應 [todo.md](../todo.md)「Python 優化 → 修正」。依檢視結果（誤用、冗餘、不一致）整理，已採用的設計見 [docs/code/python.md](../../code/python.md)。
+> 對應 [todo.md](../../todo.md)「Python 優化 → 修正」。依檢視結果（誤用、冗餘、不一致）整理，已採用的設計見 [docs/code/python.md](../../../code/python.md)。
 >
 > 範圍只含「修正」；「新增」（`StrEnum`、`slots=True`、`match` 等）不在本計畫內。
 
@@ -193,7 +193,7 @@
 
 - 原則：延遲 import 只用於「重依賴＋非必經路徑」；一般模組維持頂層 import。
 - 盤點 `src/` 約 23 處函式內 import，每處以註解標明原因（例如 `# 延遲載入：docling 模型很大，沒處理 PDF 時不載入`）。
-- 規則寫進 [docs/code/python.md](../../code/python.md)。
+- 規則寫進 [docs/code/python.md](../../../code/python.md)。
 
 ## D3：以 import-linter 固化依賴方向
 
@@ -241,7 +241,7 @@
 
 # 完成後：dev.md 與回報
 
-驗證結束後，寫 `docs/work/2026_1019/dev.md`（格式參考 `2026_1005/2026_1001-code_cleanup/dev.md`：只記錄與 plan 不同的決定、過程中的發現與驗證結果）：
+驗證結束後，寫 `docs/work/2026_1019/2026_1019-python_fixes/dev.md`（格式參考 `2026_1005/2026_1001-code_cleanup/dev.md`：只記錄與 plan 不同的決定、過程中的發現與驗證結果）：
 
 - 基準點與各組 commit hash。
 - 每組的驗證結果（`check.sh` 通過的測試數）。

@@ -29,15 +29,6 @@
 
 #### 型別與資料模型
 
-- [ ] `StrEnum` 取代狀態字串：`ImageEntry` 的 `download_status`／`summarize_status`（`"success"`／`"failed"`／`""`），避免拼錯不報錯
-- [ ] `dataclass(slots=True)`：`ImageEntry` 等大量實例的快取物件，省記憶體並擋住欄位名拼錯
-- [ ] 建構時保證不變式：`Asset.first_page` 在 `refs` 為空時會 `IndexError`，改在建構時驗證
-- [ ] `frozen=True` 候選：`AssetRef`、`ParsedDocument`（以欄位名粗略比對，改前需確認無人修改）；CLI dataclass 由 tyro 建立，不動
-
-#### 語法與標準庫
-
-- [ ] `match`／`case`：`_fetch_once` 的狀態碼分流、`overrides.py` 的註解型別分流
-- [ ] `functools.cache`／`lru_cache`：`_representatives()` 等重複計算的純函式（`RAGRegistry` 需主動 `close()`，維持手寫 LRU）
-- [ ] `itertools.batched`：VLM／embedding 的批次切分
-- [ ] `asyncio.TaskGroup`：`image_captioner` 目前「單一失敗不拖垮整批」，改用時須保留此語意，優先度低
-
+- [ ] `StrEnum` 取代狀態字串：`ImageEntry` 的 `download_status`／`summarize_status`、`DocumentEntry.download_status`（`"success"`／`"failed"`／`""`），約 27 處裸字串比較，避免拼錯不報錯
+- [ ] `frozen=True`：`AssetRef`、`ParsedDocument`、`ParsedImage`（建立後無人修改，且為多處共用物件）；CLI dataclass 由 tyro 建立，不動
+- [ ] `Asset.first_page` 在 `refs` 為空時改拋附 url 的 `ValueError`（無法在建構時驗證：`Asset` 都是先建立空 `refs` 再 `append`）
