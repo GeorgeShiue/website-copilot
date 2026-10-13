@@ -12,7 +12,7 @@
 | asyncio 並行控制 | `utils/http_downloader.py`、`ingestion/augmentation/processors/image_captioner.py` | `Semaphore`、`gather`、`as_completed`、`asyncio.run` |
 | Context manager | `utils/log_helper.py`、`storage/run_context.py`、`retrieval/registry.py` | `@contextmanager`、`__enter__`／`__exit__`、`ExitStack` |
 | dataclass | `ingestion/augmentation/augmenter.py`、`assets.py` | `astuple`、`zip(strict=True)`、`frozen`、`default_factory` |
-| 結構化型別與現代型別語法 | `ingestion/augmentation/augmenter.py` 等 | `Protocol`、`Self`、`Literal`、`TYPE_CHECKING` |
+| 結構化型別與現代型別語法 | `ingestion/augmentation/augmenter.py` 等 | `Protocol`、`Self`、`Literal`、`StrEnum`、`TYPE_CHECKING` |
 | generator | `ingestion/augmentation/collectors.py`、`processors/office_parser.py`、`server/app.py` | `yield`、`yield from`、async generator |
 | 閉包與 partial | `ingestion/augmentation/documents.py`、`ingestion/indexing/node_pipeline.py` | 閉包、`functools.partial` |
 | 延遲 import 與模組單例 | `ingestion/augmentation/processors/pdf_parser.py`、`cli/__init__.py` | 函式內 import、`global`＋`threading.Lock` |
@@ -122,7 +122,7 @@ class PageStats:
 - **原理**：`@dataclass` 依 `__annotations__` 的宣告順序產生 `__init__`／`__repr__`／`__eq__`；`astuple` 依欄位順序展開，`zip` 配對後以 `*` 解包回建構參數；`strict=True` 在長度不一致時立即報錯。
 - **`field(default_factory=list)`**：預設值只在定義時求值一次，`dataclass` 直接禁止 `xs: list = []`；`Asset.refs` 以 `default_factory` 避免實例共用。
 - **`@property`**：`PageStats.failure` 為衍生值，不佔欄位也不會不同步。
-- **`frozen=True`**：`DownloadResult` 等結果物件建立後不可改，並自動產生 `__hash__`。
+- **`frozen=True`**：`DownloadResult` 等結果物件，以及多處共用的 `AssetRef`、`ParsedDocument`、`ParsedImage`，建立後不可改，並自動產生 `__hash__`（含 list 欄位的物件不可雜湊，專案沒有把它們放進 set 或當 dict 鍵）。
 - **注意**：`astuple` 會遞迴複製巢狀 list／dict／dataclass；目前欄位全是數字沒問題，若新增容器欄位，`__add__` 的語意要重新考慮。
 
 ## 6. 結構化型別與現代型別語法
@@ -130,6 +130,7 @@ class PageStats:
 - **`Protocol`**：`Downloader` 只宣告 `download` 簽章；`HttpDownloader` 與測試 fake 都不必繼承。
 - **`Self`**：`from_yaml`（classmethod）與 `RAGRegistry.__enter__` 回傳 `Self`，子類得到子類型別。
 - **`Literal`**：`Asset.kind: Literal["image", "document"]`。
+- **`StrEnum`**：`StepStatus`（`ingestion/augmentation/status.py`）表示下載與圖片摘要的三態（`PENDING`／`SUCCESS`／`FAILED`）。值與舊的裸字串相同，與 `str` 比較仍成立；`PENDING` 的值是 `""`，仍為 falsy。pyright 擋得住「把裸字串指派給 enum 欄位」，但擋不住「與拼錯的字串比較」，所以比較一律寫 `StepStatus.*`。
 - **`TYPE_CHECKING`**：`cli/run.py`、`utils/config_helper.py` 只在型別檢查時 import，避免循環引用與載入成本。
 - **`Annotated`**：把驗證器或 CLI 參數附在型別上。
 - **關鍵字專用參數**：`Augmenter.__init__(self, *, downloader, ...)`。
