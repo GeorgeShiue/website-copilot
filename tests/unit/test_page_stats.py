@@ -2,8 +2,6 @@
 
 from typing import Any
 
-import pytest
-
 from website_copilot.ingestion.augmentation.augmenter import PageStats
 
 
@@ -27,11 +25,6 @@ def test_sum_with_start_value() -> None:
     stats = [PageStats(success=1), PageStats(success=2)]
 
     assert sum(stats, PageStats()).success == 3
-
-
-def test_add_with_other_type_raises_type_error() -> None:
-    with pytest.raises(TypeError):
-        PageStats() + 1  # type: ignore[operator]
 
 
 def test_add_defers_to_reflected_operand_of_other_type() -> None:

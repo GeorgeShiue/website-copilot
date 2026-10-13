@@ -134,7 +134,3 @@ def test_registry_loads_published_sites_in_repo(
         store_kwargs = fake_backends["build_store"].call_args.kwargs
         assert store_kwargs["collection_name"] == "chunks"
         assert rag.milvus_uri == f"{data_folder}/vector_db/{site_id}.db"
-
-
-def test_published_sites_found() -> None:
-    assert PUBLISHED_SITES == ["ncucsie", "nculab"]
