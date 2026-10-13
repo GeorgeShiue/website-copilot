@@ -26,6 +26,7 @@ def main(args: list[str] | None = None) -> None:
         prog="website-copilot",
         config=(tyro.conf.OmitSubcommandPrefixes,),
     )
+    # 延遲載入：只 import 被選中的子命令模組（見模組 docstring）
     if isinstance(command, PrepareCLI):
         from website_copilot.cli import prepare
 

@@ -110,21 +110,19 @@ class DataManager:
         self,
         site_id: str,
         generation_result: GenerationResult,
-        raw_pages: dict[str, str],
     ) -> str:
         """發布 LLM 產生的 exclude_words 與報告到 data/raw_webpages/{site_id}/（crawler 自己的輸出）。
 
         Args:
             site_id: 站點識別碼。
             generation_result: LLM 產生的 exclude words 結果。
-            raw_pages: 原始頁面內容 dict。
 
         Returns:
             發布後的 raw_webpages 資料夾路徑。
         """
         raw_webpages_path = site_data_path(RAW_WEBPAGES, site_id, self.base_folder)
         os.makedirs(raw_webpages_path, exist_ok=True)
-        save_generated_exclude_words(generation_result, raw_pages, raw_webpages_path)
+        save_generated_exclude_words(generation_result, raw_webpages_path)
         return raw_webpages_path
 
     def vector_store_path(self, site_id: str) -> str:
@@ -134,7 +132,7 @@ class DataManager:
         """
         return vector_store_path(site_id, self.base_folder)
 
-    def create_vector_store_staging(self, site_id: str) -> str:
+    def create_vector_store_staging(self) -> str:
         """在 data/vector_db/ 下建立暫存資料夾（.staging-*），供建庫後原子替換。
 
         與正式向量庫位於同一檔案系統，publish 時可直接以 rename 移入；

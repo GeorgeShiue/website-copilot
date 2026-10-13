@@ -265,9 +265,7 @@ class WebpageMarkdownCleaner:
 
         # ----- 結構修復 (後) -----
         markdown = IMAGE_FOLLOW_TEXT_PATTERN.sub(r"\1\n", markdown)
-        markdown = IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
-
-        return markdown
+        return IMAGE_ABOVE_SPACING_PATTERN.sub(r"\1\n\n", markdown)
 
     @staticmethod
     def sample_pages(

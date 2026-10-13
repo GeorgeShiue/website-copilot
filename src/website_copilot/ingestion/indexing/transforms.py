@@ -54,8 +54,7 @@ class MarkdownHeadingMergeParser(NodeParser):
         show_progress: bool = False,
         **kwargs: Any,
     ) -> list[BaseNode]:
-        merged_nodes = self._merge_heading_only_nodes(nodes)
-        return merged_nodes
+        return self._merge_heading_only_nodes(nodes)
 
 
 class MarkdownImageExtractor(BaseExtractor):

@@ -32,6 +32,7 @@ def _get_converter() -> Any:
     """延遲建立 DocumentConverter（呼叫端須持有 _lock）。OCR 維持 Docling 預設（開啟）。"""
     global _converter
     if _converter is None:
+        # 延遲載入：docling 與其模型很大，沒處理 PDF 時不載入
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import PdfPipelineOptions
         from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -48,6 +49,7 @@ def _get_converter() -> Any:
 
 def _pictures(document: Any) -> list[Any]:
     """文件中的圖片，依閱讀順序（與 Markdown 的佔位符順序相同）。"""
+    # 延遲載入：docling 很大，沒處理 PDF 時不載入
     from docling_core.types.doc import (
         PictureItem,  # pyright: ignore[reportPrivateImportUsage]
     )
@@ -77,6 +79,7 @@ def pdf_to_markdown(
         ValueError: 抽不到任何文字（掃描版或只有圖片）。
         Exception: Docling 的轉換錯誤（呼叫端統一包成 DocumentParseError）。
     """
+    # 延遲載入：docling 很大，沒處理 PDF 時不載入
     from docling.datamodel.base_models import DocumentStream
 
     with _lock:

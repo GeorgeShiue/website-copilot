@@ -35,15 +35,21 @@ class OverridesModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _optional_inner(annotation: Any) -> Any | None:
+    """annotation 為 `X | None`（或 `Optional[X]`）時回傳 X，否則回傳 None。"""
+    if get_origin(annotation) in (Union, types.UnionType):
+        args = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return None
+
+
 def _section_type(annotation: Any) -> type[ConfigModel] | None:
     """annotation 為 `Model` 或 `Model | None` 時回傳 Model，否則回傳 None。"""
     if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
         return annotation
-    if get_origin(annotation) in (Union, types.UnionType):
-        args = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(args) == 1:
-            return _section_type(args[0])
-    return None
+    inner = _optional_inner(annotation)
+    return _section_type(inner) if inner is not None else None
 
 
 def _is_dict(annotation: Any) -> bool:
@@ -54,11 +60,8 @@ def _strip_optional(annotation: Any) -> Any:
     """去除 `X | None` 的 None 與 Annotated 包裝，回傳 X。"""
     if get_origin(annotation) is Annotated:
         return _strip_optional(get_args(annotation)[0])
-    if get_origin(annotation) in (Union, types.UnionType):
-        args = [arg for arg in get_args(annotation) if arg is not type(None)]
-        if len(args) == 1:
-            return _strip_optional(args[0])
-    return annotation
+    inner = _optional_inner(annotation)
+    return _strip_optional(inner) if inner is not None else annotation
 
 
 def _metavar(annotation: Any) -> str | None:

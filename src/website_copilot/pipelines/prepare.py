@@ -1,6 +1,6 @@
 """Prepare 階段 workflow：網站爬蟲 → augmenter（圖片摘要、文件）→ RAG 建置，結果 publish 到 data/。
 
-只依賴爬蟲／VLM／RAG 建置相關模組，不 import agent 與 server。
+只依賴爬蟲／VLM／RAG 建置相關模組，不 import agent 與 server；各階段的重依賴在階段函式內才載入。
 """
 
 import os
@@ -18,11 +18,6 @@ from website_copilot.config.pipeline_config import (
 from website_copilot.config.rag_config import RAGConfig
 from website_copilot.config.site_config import SiteConfig
 from website_copilot.config.website_crawler_config import WebsiteCrawlerConfig
-from website_copilot.ingestion.augmentation.augmenter import Augmenter
-from website_copilot.ingestion.augmentation.documents import DocumentOptions
-from website_copilot.ingestion.crawling.markdown_cleaner import WebpageMarkdownCleaner
-from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
-from website_copilot.retrieval.factory import build_rag, build_target
 from website_copilot.storage.data_manager import DataManager
 from website_copilot.storage.data_paths import (
     AUG_WEBPAGES,
@@ -42,7 +37,6 @@ from website_copilot.storage.run_persistence import (
     save_results_as_md,
 )
 from website_copilot.utils.config_helper import log_config, save_run_configs
-from website_copilot.utils.http_downloader import HttpDownloader
 from website_copilot.utils.log_helper import (
     log_run_summary,
     log_run_time,
@@ -66,6 +60,12 @@ def run_website_crawler(
     Returns:
         爬取結果 dict | None。
     """
+    # 延遲載入：爬蟲相關依賴只有爬蟲階段需要，單獨執行其他階段時不載入
+    from website_copilot.ingestion.crawling.markdown_cleaner import (
+        WebpageMarkdownCleaner,
+    )
+    from website_copilot.ingestion.crawling.website_crawler import WebsiteCrawler
+
     # ----- 初始化設定和路徑 -----
     save, publish = run_config.save, run_config.publish
     site = SiteConfig.from_yaml(run_config.site)
@@ -125,7 +125,6 @@ def run_website_crawler(
                 if website_crawler.generation_result is not None:
                     save_generated_exclude_words(
                         website_crawler.generation_result,
-                        website_crawler.raw_pages,
                         run_manager.run_path,
                     )
                 run_manager.save_results_as_json(crawl_results)
@@ -144,7 +143,6 @@ def run_website_crawler(
                     data_manager.publish_generated_exclude_words(
                         site_id=site.site_id,
                         generation_result=website_crawler.generation_result,
-                        raw_pages=website_crawler.raw_pages,
                     )
 
         # ----- Publish run metadata：log 要在 workflow context 結束後才完整 -----
@@ -177,6 +175,11 @@ def run_augmenter(
     Returns:
         增強後的爬取結果 dict（含文件的獨立 entry）| None。
     """
+    # 延遲載入：VLM／文件解析相關依賴只有 augmenter 階段需要，單獨執行其他階段時不載入
+    from website_copilot.ingestion.augmentation.augmenter import Augmenter
+    from website_copilot.ingestion.augmentation.documents import DocumentOptions
+    from website_copilot.utils.http_downloader import HttpDownloader
+
     # ----- 初始化設定和路徑 -----
     save, publish = run_config.save, run_config.publish
     site = SiteConfig.from_yaml(run_config.site)
@@ -307,6 +310,9 @@ def run_rag_build(
       以 rename 移入正式位置，staging 一律刪除。
     - save=False, publish=False：建在系統暫存資料夾，結束時刪除（不留任何檔案）。
     """
+    # 延遲載入：llama_index／Milvus 相關依賴只有 RAG 建置階段需要，單獨執行其他階段時不載入
+    from website_copilot.retrieval.factory import build_rag, build_target
+
     save, publish = run_config.save, run_config.publish
     site = SiteConfig.from_yaml(run_config.site)
     config = RAGConfig.from_yaml(run_config.config_name, overrides)
@@ -326,7 +332,7 @@ def run_rag_build(
         milvus_uri = os.path.join(run_manager.results_folder_path, "milvus.db")
     else:
         staging_dir = (
-            data_manager.create_vector_store_staging(site.site_id)
+            data_manager.create_vector_store_staging()
             if publish
             else tempfile.mkdtemp(prefix="rag_build_")
         )

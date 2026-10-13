@@ -31,6 +31,9 @@ jobs:
 
       - name: Check widget.js in sync
         run: ./scripts/check-widget.sh
+
+      - name: Check import time (warning only)
+        run: ./scripts/check-import-time.sh
   unit-test:
     needs: quality-check
     runs-on: ubuntu-latest

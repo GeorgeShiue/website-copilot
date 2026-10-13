@@ -14,6 +14,13 @@
 - [ ] 包裝 log_helper.py（含約 6 處 Rich「Metric／Value」統計表格，見 code cleanup plan C3）
 - [ ] 客製化模組 RunManager
 
-## 效能優化
+## Python 優化
 
-- [ ] 優化模組 import 策略
+已採用的設計見 `docs/code/python.md`。
+
+### 修正
+
+#### 裝飾器
+
+- [ ] `WebpageMarkdownCleaner` 的 8 個公開 `@staticmethod` 是純函式且以寫死的類別名互相呼叫：改成模組函式（需多型則改 `@classmethod`），與「Webpage Markdown Cleaner 獨立成一個模組」一併處理
+- [ ] 計時／重試的裝飾器版本：`log_run_time` 目前只有 context manager 形式

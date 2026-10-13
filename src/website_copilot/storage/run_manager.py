@@ -175,7 +175,7 @@ class RunManager:
                 history_path = found
         if os.path.isfile(history_path):
             try:
-                with open(history_path, "r", encoding="utf-8") as f:
+                with open(history_path, encoding="utf-8") as f:
                     existing = json.load(f)
                 # CR S5：合法 JSON 但結構非預期（非 dict／results 非 list）時視為無歷史，
                 # 避免 AttributeError 中斷落盤。

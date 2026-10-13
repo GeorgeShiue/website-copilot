@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 靜態檢查：undersort（class 方法順序）+ ruff check + ruff format + pyright 型別檢查。
+# 靜態檢查：undersort（class 方法順序）+ ruff check + ruff format + import-linter（依賴方向）+ pyright 型別檢查。
 # 預設只檢查不改檔；加 --fix 時改為自動排序方法、修正 ruff 問題並格式化。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,6 +26,9 @@ else
     echo "==> ruff format --check"
     uv run ruff format --check .
 fi
+
+echo "==> import-linter"
+uv run lint-imports
 
 echo "==> pyright"
 uv run pyright

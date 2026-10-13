@@ -161,7 +161,7 @@ def load_latest_results(
             if RESULTS_JSON_NAME in files:
                 results_json_path = os.path.join(root, RESULTS_JSON_NAME)
                 logger.info("Latest results found at: %s", results_json_path)
-                with open(results_json_path, "r", encoding="utf-8") as f:
+                with open(results_json_path, encoding="utf-8") as f:
                     return json.load(f)
 
     raise FileNotFoundError(
@@ -228,9 +228,7 @@ def save_document_files(files: Mapping[str, Any], folder_path: str) -> None:
             f.write(file.content)
 
 
-def save_generated_exclude_words(
-    result: GenerationResult, raw_pages: dict[str, str], run_path: str
-) -> None:
+def save_generated_exclude_words(result: GenerationResult, run_path: str) -> None:
     """落盤 LLM 產生的 exclude_words 報告（exclude_words_report.json）。"""
     report = {
         "seed": result.seed,

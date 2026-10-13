@@ -236,6 +236,18 @@ def test_title_prefers_most_common_non_generic_link_text() -> None:
     assert title == "修業辦法"
 
 
+def test_title_tie_picks_earliest_link_text() -> None:
+    # 出現次數並列（各 2 次）時取最早出現者
+    refs = [
+        AssetRef("p1", "修業辦法", ""),
+        AssetRef("p2", "辦法全文", ""),
+        AssetRef("p3", "辦法全文", ""),
+        AssetRef("p4", "修業辦法", ""),
+    ]
+    title = choose_title(refs, file_name="614882835.pdf", markdown="# H", fallback="x")
+    assert title == "修業辦法"
+
+
 def test_title_priority_chain() -> None:
     generic = AssetRef("p", "按我取得詳細資訊", "")
     # 2. title 屬性

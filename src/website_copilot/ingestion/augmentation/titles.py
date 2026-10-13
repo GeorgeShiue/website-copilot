@@ -70,9 +70,8 @@ def _most_common(candidates: list[str]) -> str | None:
     usable = [c for c in candidates if c and not is_generic(c)]
     if not usable:
         return None
-    counts = Counter(usable)
-    best = max(counts.values())
-    return next(c for c in usable if counts[c] == best)  # 並列時取最早出現者
+    # Counter 保留插入順序，most_common 的並列維持穩定順序，故並列時取最早出現者
+    return Counter(usable).most_common(1)[0][0]
 
 
 def _file_stem(file_name: str | None) -> str | None:

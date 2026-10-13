@@ -12,8 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 PACKAGE_ROOTS = ["website_copilot"]
 
@@ -29,9 +27,18 @@ def _discover_modules() -> list[str]:
     return modules
 
 
-@pytest.mark.parametrize("module_name", _discover_modules())
-def test_module_imports(module_name: str) -> None:
-    importlib.import_module(module_name)
+def test_all_modules_import() -> None:
+    """逐一 import 所有模組，收集全部失敗後一次回報（錯誤訊息會列出是哪個模組）。"""
+    failures: dict[str, str] = {}
+    for module_name in _discover_modules():
+        try:
+            importlib.import_module(module_name)
+        except Exception as e:  # noqa: BLE001 -- 收集所有失敗的模組後一次回報
+            failures[module_name] = f"{type(e).__name__}: {e}"
+
+    assert not failures, "以下模組 import 失敗：\n" + "\n".join(
+        f"  {name}: {error}" for name, error in failures.items()
+    )
 
 
 def test_cli_and_serve_path_do_not_load_crawler() -> None:

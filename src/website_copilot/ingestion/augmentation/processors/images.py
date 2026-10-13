@@ -8,7 +8,7 @@ IMAGE_PLACEHOLDER = "<!-- image -->"
 IMAGE_PLACEHOLDER_PATTERN = re.compile(r"<!--\s*image\s*-->")
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedImage:
     """文件內嵌的圖片（位元組與 MIME type）。"""
 

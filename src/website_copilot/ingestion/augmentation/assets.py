@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-@dataclass
+@dataclass(frozen=True)
 class AssetRef:
     """一次引用：哪一頁、以什麼文字引用（圖片的 alt／連結文字）。"""
 
@@ -23,4 +23,6 @@ class Asset:
 
     @property
     def first_page(self) -> str:
+        if not self.refs:
+            raise ValueError(f"資源尚未有任何引用，無法取得第一個引用頁面：{self.url}")
         return self.refs[0].page_key

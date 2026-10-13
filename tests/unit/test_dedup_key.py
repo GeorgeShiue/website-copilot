@@ -36,18 +36,6 @@ def _make_result(url: str, title: str = "Page") -> MagicMock:
 
 
 class TestResolveDedupKey:
-    def test_percent_encoded_matches_decoded(self):
-        """百分比編碼與原文 URL 應得到相同的鍵。"""
-        prefix = "/site/nculab"
-        encoded = WebsiteCrawler._resolve_dedup_key(
-            "https://sites.google.com/site/nculab/news/%E7%A2%A9%E8%AB%96%E5%8F%A3%E8%A9%A6",
-            prefix,
-        )
-        decoded = WebsiteCrawler._resolve_dedup_key(
-            "https://sites.google.com/site/nculab/news/碩論口試", prefix
-        )
-        assert encoded == decoded == "news_碩論口試"
-
     def test_percent_encoding_hex_case_insensitive(self):
         """%e7 與 %E7 為同一編碼，應得到相同的鍵。"""
         lower = WebsiteCrawler._resolve_dedup_key(

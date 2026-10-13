@@ -24,7 +24,7 @@ class DocumentParseError(Exception):
     """文件無法解析成有內容的 Markdown（永久失敗，重試不會改變結果）。"""
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedDocument:
     markdown: str
     # 依佔位符順序；None 表示該位置的圖片取不到。沒有抽圖（或無法對位）時為空，

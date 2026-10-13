@@ -337,3 +337,18 @@ def test_async_api() -> None:
     results = asyncio.run(_downloader(_ok).adownload(["https://ex.com/a"]))
 
     assert results["https://ex.com/a"].ok
+
+
+def test_on_complete_failure_does_not_fail_the_batch() -> None:
+    urls = ["https://ex.com/a", "https://ex.com/b", "https://ex.com/c"]
+    seen: list[str] = []
+
+    def on_complete(result: DownloadResult) -> None:
+        seen.append(result.url)
+        raise RuntimeError("progress callback failed")
+
+    results = _downloader(_ok).download(urls, on_complete)
+
+    assert list(results) == urls
+    assert all(result.ok for result in results.values())
+    assert sorted(seen) == sorted(urls)

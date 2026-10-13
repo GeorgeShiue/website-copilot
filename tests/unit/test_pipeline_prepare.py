@@ -107,7 +107,7 @@ def env(tmp_path, monkeypatch):
 
     with (
         patch(
-            "website_copilot.pipelines.prepare.build_rag",
+            "website_copilot.retrieval.factory.build_rag",
             side_effect=e.fake_build_rag,
         ),
         patch(
@@ -188,8 +188,12 @@ def test_website_crawler_save_writes_results_and_run_configs(env):
     from website_copilot.pipelines import prepare
 
     with (
-        patch.object(prepare, "WebsiteCrawler") as crawler_cls,
-        patch.object(prepare, "WebpageMarkdownCleaner"),
+        patch(
+            "website_copilot.ingestion.crawling.website_crawler.WebsiteCrawler"
+        ) as crawler_cls,
+        patch(
+            "website_copilot.ingestion.crawling.markdown_cleaner.WebpageMarkdownCleaner"
+        ),
     ):
         crawler = crawler_cls.return_value
         crawler.crawl_website.return_value = {"p": {"fit_markdown": "md"}}
@@ -207,7 +211,9 @@ def test_website_crawler_save_writes_results_and_run_configs(env):
 def test_augmenter_save_writes_results_and_run_configs(env):
     from website_copilot.pipelines import prepare
 
-    with patch.object(prepare, "Augmenter") as summarizer_cls:
+    with patch(
+        "website_copilot.ingestion.augmentation.augmenter.Augmenter"
+    ) as summarizer_cls:
         summarizer = summarizer_cls.return_value
         summarizer.augment.return_value = {"p": {"enhanced_markdown": "enhanced"}}
         summarizer.document_files = {}
@@ -498,7 +504,9 @@ def test_augmenter_loads_latest_results_of_same_site() -> None:
 
     with (
         patch.object(prepare, "load_latest_results", return_value={"p": {}}) as load,
-        patch.object(prepare, "Augmenter") as summarizer_cls,
+        patch(
+            "website_copilot.ingestion.augmentation.augmenter.Augmenter"
+        ) as summarizer_cls,
     ):
         prepare.run_augmenter(
             AugmenterRunConfig(site="ncucsie", config_name="test", save=False)
@@ -532,7 +540,9 @@ def test_augmenter_passes_document_options_and_saves_files(env):
     """文件選項來自 augmenter 設定與站點設定；原檔存到 run 的 files/（與 results/ 並列）。"""
     from website_copilot.pipelines import prepare
 
-    with patch.object(prepare, "Augmenter") as augmenter_cls:
+    with patch(
+        "website_copilot.ingestion.augmentation.augmenter.Augmenter"
+    ) as augmenter_cls:
         augmenter = augmenter_cls.return_value
         augmenter.augment.return_value = {"doc_1": {"enhanced_markdown": "doc"}}
         augmenter.document_files = {"doc_1": _DocFile("doc_1.odt", b"original")}
@@ -553,7 +563,9 @@ def test_augmenter_passes_document_options_and_saves_files(env):
 def test_augmenter_publishes_document_files(env):
     from website_copilot.pipelines import prepare
 
-    with patch.object(prepare, "Augmenter") as augmenter_cls:
+    with patch(
+        "website_copilot.ingestion.augmentation.augmenter.Augmenter"
+    ) as augmenter_cls:
         augmenter = augmenter_cls.return_value
         augmenter.augment.return_value = {"doc_1": {"enhanced_markdown": "doc"}}
         augmenter.document_files = {"doc_1": _DocFile("doc_1.odt", b"original")}

@@ -95,7 +95,8 @@ class HttpDownloader:
     ) -> dict[str, DownloadResult]:
         """下載所有 URL，回傳 url → 結果（依輸入順序；重複的 URL 只請求一次）。
 
-        on_complete 於每個 URL 完成（成功或最終失敗）時呼叫一次，供呼叫端更新進度條。
+        on_complete 於每個 URL 完成（成功或最終失敗）時呼叫一次，供呼叫端更新進度條；
+        回呼丟出的例外只記錄 warning，不影響下載結果。
         """
         unique_urls = list(dict.fromkeys(urls))
         if not unique_urls:
@@ -113,7 +114,12 @@ class HttpDownloader:
             async def fetch(url: str) -> DownloadResult:
                 result = await self._fetch_with_retries(client, semaphore, url)
                 if on_complete is not None:
-                    on_complete(result)
+                    try:
+                        on_complete(result)
+                    except Exception:  # 進度回呼失敗不應讓整批下載失敗
+                        logger.warning(
+                            "on_complete callback failed (url=%s)", url, exc_info=True
+                        )
                 return result
 
             results = await asyncio.gather(*(fetch(url) for url in unique_urls))
